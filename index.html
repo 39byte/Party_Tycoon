@@ -1402,7 +1402,7 @@ const ACT = {
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
-  talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보군 3명 중 1명을 영입합니다. 전과 기록은 후보 등록 시 공개됩니다(공직선거법 제49조).' },
+  talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 전과 기록은 후보 등록 시 공개됩니다(공직선거법 제49조).' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승.' },
   debate: { n: '후보 TV 토론회', c: () => 0, cd: 7, camp: true, d: '대선·지방선거 후보 역량 판정. 성공 시 큰 상승, 실패 시 하락.' },
@@ -1501,13 +1501,31 @@ function talentModal() {
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
       <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>
       ${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
-      <button class="btn pri" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>`,
-    buttons: [{ t: '모두 보류' }],
-    onOpen: m => m.querySelectorAll('[data-i]').forEach(b => b.onclick = () => {
-      const p = cands[+b.dataset.i]; spend(fee(p), '활동'); S.pool.push(p);
-      S.fame = clamp(S.fame + p.fame / 20, 0, 100);
-      closeModal(); const msg = `${p.name}(${p.job}) 영입 완료`; toast(msg, 'ok'); addLog(msg, 'ok'); Snd.sfx('ok'); renderAll();
-    }),
+      <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
+      <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button></div>`,
+    buttons: [{ t: '닫기' }],
+    // 창을 닫지 않고 여러 명 영입 가능. 영입한 후보는 '영입 완료'로 잠김
+    onOpen: m => {
+      const got = new Set(), bs = [...m.querySelectorAll('[data-i]')], all = m.querySelectorAll('[data-all]')[0];
+      const rest = () => cands.map((p, i) => i).filter(i => !got.has(i));
+      const can = is => S.pool.length + is.length <= 30 && S.money >= sum(is.map(i => fee(cands[i])));
+      const sync = () => {
+        bs.forEach(b => { const i = +b.dataset.i; if (got.has(i)) { b.disabled = true; b.textContent = '영입 완료'; } else b.disabled = !can([i]); });
+        const r = rest(); all.disabled = !r.length || !can(r); all.textContent = r.length ? `남은 후보 모두 영입 (${won(sum(r.map(i => fee(cands[i]))))})` : '모두 영입했습니다';
+      };
+      const hire = is => {
+        is = is.filter(i => !got.has(i)); // 이미 영입한 후보는 다시 영입하지 않음
+        if (!is.length || !can(is)) return;
+        for (const i of is) {
+          const p = cands[i]; got.add(i); spend(fee(p), '활동'); S.pool.push(p);
+          S.fame = clamp(S.fame + p.fame / 20, 0, 100); addLog(`${p.name}(${p.job}) 영입 완료`, 'ok');
+        }
+        toast(`${is.map(i => cands[i].name).join(', ')} 영입 완료`, 'ok'); Snd.sfx('ok'); sync(); renderAll();
+      };
+      bs.forEach(b => b.onclick = () => hire([+b.dataset.i]));
+      all.onclick = () => hire(rest());
+      sync();
+    },
   });
 }
 function buyUp(k) {
