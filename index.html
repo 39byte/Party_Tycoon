@@ -1012,6 +1012,8 @@ function endTurn(sure) {
     html: `<p>${[ap ? `행동력 <b>${ap}</b>` : '', aap ? `행정 행동력 <b>${aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p><p class="small muted">이 확인은 설정에서 끌 수 있습니다.</p>`,
     buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
   Snd.sfx('click');
+  // 권한 요청은 사용자 입력 중에만 됨. 이미 허용됐으면 창 없이 넘어감
+  if (saveDir) saveDir.requestPermission({ mode: 'readwrite' }).catch(() => { });
   turnStart = { day: S.day, money: S.money, mem: totalMembers(), sup: poll().P };
   left = TURN; runTurn();
 }
@@ -1022,7 +1024,7 @@ function runTurn() {
   if (modalOpen) return;
   if (left) {
     tick(); left--;
-    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); addAlerts(readyWatched(turnStart.day)); save(); renderAll(); }
+    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); addAlerts(readyWatched(turnStart.day)); save(); saveToDir(); renderAll(); }
     return (turnTimer = setTimeout(runTurn, 90));
   }
   if (turnStart) { const t = turnStart; turnStart = null; brief(t); }
@@ -2315,6 +2317,31 @@ $('#importFile').onchange = ev => {
   rd.readAsText(f); ev.target.value = '';
 };
 window.addEventListener('beforeunload', save);
+// 폴더 자동 저장(크롬·엣지 File System Access API): 고른 폴더의 save/에 매 턴 JSON을 덮어씀
+// 폴더 핸들은 IndexedDB에 둬서 다음에 열면 권한만 다시 받음(턴 종료 누를 때)
+let saveDir = null;
+const kv = (mode, fn) => new Promise((ok, no) => {
+  const r = indexedDB.open('party-tycoon', 1);
+  r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onerror = () => no(r.error);
+  r.onsuccess = () => { const q = fn(r.result.transaction('kv', mode).objectStore('kv')); q.onsuccess = () => ok(q.result); q.onerror = () => no(q.error); };
+});
+if (window.indexedDB) kv('readonly', s => s.get('saveDir')).then(h => saveDir = h || null).catch(() => { });
+async function pickSaveDir() {
+  try {
+    let d = await showDirectoryPicker({ id: 'save', mode: 'readwrite' });
+    if (d.name !== 'save') d = await d.getDirectoryHandle('save', { create: true });
+    saveDir = d; await kv('readwrite', s => s.put(d, 'saveDir')); await saveToDir();
+    toast(`'${d.name}' 폴더에 매 턴 자동 저장합니다.`, 'ok'); settingsModal();
+  } catch (e) { if (e.name !== 'AbortError') toast('그 폴더에는 저장할 수 없습니다.', 'bad'); }
+}
+async function saveToDir() {
+  if (!saveDir || !S) return;
+  try {
+    if (await saveDir.queryPermission({ mode: 'readwrite' }) !== 'granted') return;
+    const w = await (await saveDir.getFileHandle(`정당키우기_${S.party.name.replace(/[\\/:*?"<>|]/g, '_')}.json`, { create: true })).createWritable();
+    await w.write(JSON.stringify(S)); await w.close();
+  } catch (e) { toast('폴더 자동 저장 실패. 설정에서 폴더를 다시 고르세요.', 'bad'); }
+}
 
 // ---------- 모달·토스트 ----------
 function openModal({ title, html, buttons = [], wide, dismiss = true, onOpen }) {
@@ -2855,7 +2882,7 @@ function pGuide() {
       <li>4년간 국회의원선거·지방선거에 한 번도 참여하지 않음</li>
       <li>자금이 마이너스인 채로 120일 경과</li></ul>`)}
     ${sec('업적', `<ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] ? 'done' : ''}">${S.ach[k] ? '✓' : ''}</span><div class="small">${n}${S.ach[k] ? ` <span class="muted">${fdate(S.ach[k])}</span>` : ''}</div></li>`).join('')}</ul>`)}
-    ${sec('조작', `<ul><li>Space: 턴 종료</li><li>오른쪽 위 설정 버튼: 소리, 저장 파일 내보내기·불러오기, 새 게임</li><li>자동 저장은 매 턴이 끝날 때 됩니다.</li></ul>`)}
+    ${sec('조작', `<ul><li>Space: 턴 종료</li><li>오른쪽 위 설정 버튼: 소리, 저장 파일 내보내기·불러오기, 새 게임</li><li>자동 저장은 매 턴이 끝날 때 됩니다. 크롬·엣지는 설정에서 고른 폴더의 save/에도 저장합니다.</li></ul>`)}
   </div>`;
 }
 
@@ -2872,6 +2899,8 @@ function settingsModal() {
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
       <h3 style="margin-top:16px">저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
       <div class="btns"><button class="btn" id="sExp">파일로 내보내기</button><button class="btn" id="sImp">파일 불러오기</button><button class="btn danger" id="sNew">새 게임</button></div>
+      <p class="small muted" style="margin-top:8px">${!window.showDirectoryPicker ? '폴더 자동 저장은 크롬·엣지에서만 됩니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/정당키우기_${esc(S.party.name)}.json (매 턴 덮어씀, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 매 턴 자동 저장합니다.'}</p>
+      ${window.showDirectoryPicker ? `<div class="btns"><button class="btn" id="sDir">${saveDir ? '저장 폴더 바꾸기' : '저장 폴더 고르기'}</button></div>` : ''}
       <h3 style="margin-top:16px">단축키</h3><p class="small muted">Space 턴 종료</p>`,
     buttons: [{ t: '닫기', pri: true }],
     onOpen: m => {
@@ -2882,6 +2911,7 @@ function settingsModal() {
       m.querySelector('#sConfAap').onchange = e => { s.confAap = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sExp').onclick = exportSave;
       m.querySelector('#sImp').onclick = () => $('#importFile').click();
+      if (m.querySelector('#sDir')) m.querySelector('#sDir').onclick = pickSaveDir;
       m.querySelector('#sNew').onclick = () => openModal({ title: '새 게임', html: '<p>현재 진행 상황을 지우고 새로 시작할까요? 필요하면 먼저 파일로 내보내세요.</p>', buttons: [{ t: '취소' }, { t: '새로 시작', pri: true, fn: newGameModal }] });
     },
   });
