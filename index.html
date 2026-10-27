@@ -68,13 +68,14 @@ main{padding:16px;min-width:0}
   .tile .small{font-size:11.5px}
   main{padding:10px}
 }
-/* 모바일: 하단 탭바 4개 + 더보기(나머지 7개는 3열 시트). 15열 격자 = 주 탭 3칸 × 5, 보조 탭 5칸 × 3 */
+/* 모바일: 하단 탭바 4개 + 더보기. 60열 격자: 주 탭 12칸 × 5, 더보기 시트의 보조 탭 7개는 첫 줄 15칸 × 4, 둘째 줄 20칸 × 3 */
 nav .more{display:none}
 @media (max-width:640px){
-  nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(15,minmax(0,1fr));gap:2px;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-bottom:0;border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(15,23,42,.08)}
-  nav button{grid-column:span 3;flex-direction:column;gap:2px;min-height:52px;padding:6px 2px;font-size:11.5px}
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:4px 0;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-bottom:0;border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(15,23,42,.08)}
+  nav button{grid-column:span 12;flex-direction:column;gap:2px;min-height:52px;padding:6px 2px;font-size:11.5px}
   nav button[aria-current="page"],nav .more.cur{box-shadow:inset 0 3px 0 var(--party);font-weight:700}
-  nav .sec{display:none;order:-1;grid-column:span 5;flex-direction:row;min-height:48px;font-size:13px}
+  nav .sec{display:none;order:-1;grid-column:span 15;flex-direction:row;min-height:48px;font-size:13px}
+  nav .sec~.sec~.sec~.sec~.sec{grid-column:span 20}
   nav.open .sec{display:flex}
   nav.open{border-top-left-radius:14px;border-top-right-radius:14px}
   nav .more{display:flex}
@@ -503,7 +504,7 @@ function newState(f) {
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.outs ??= genOuts(o);
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -697,7 +698,8 @@ function resolveElection(c) {
   } else if (c.type === 'gov') {
     const g = simGov(c);
     S.gov = g.win; rgovSync(S);
-    S.ops =Object.fromEntries(R.filter(r => g.win[r.k] === 'P').map(r => [r.k, S.ops[r.k] ?? 50]));
+    S.ops = Object.fromEntries(R.filter(r => g.win[r.k] === 'P').map(r => [r.k, S.ops[r.k] ?? 50]));
+    S.aap = Math.min(S.aap, aapMax());
     S.pool.forEach(p => { if (/시·도지사/.test(p.role)) p.role = ''; });
     if (c.reg) {
       S.lastPart = S.day;
@@ -900,13 +902,15 @@ function tick() {
 // ---------- 턴: 1턴 = 1주. 행동력을 쓰고 '턴 종료'하면 7일이 하루씩 흐름 ----------
 const TURN = 7, AP = 3;
 const apMax = () => AP + (activeCamps().length ? 1 : 0); // 선거운동기간엔 +1
+// 행정 행동력은 따로: 우리 당 광역단체장 1명이면 1, 2명마다 1씩 더(1→1, 2~3→2, 4~5→3 …)
+const aapMax = () => { const n = govCount('P'); return n ? 1 + Math.floor(n / 2) : 0; };
 const turnNo = () => Math.floor(S.day / TURN) + 1;
 let left = 0, turnTimer = null, turnStart = null;
 function endTurn(sure) {
   if (!S || S.over || left || turnStart || modalOpen) return;
   // 행동력이 남았으면 한 번 더 묻기. 첫 버튼(계속)에 포커스가 가서 Space 연타로 넘어가지 않음
-  if (sure !== true && S.ap > 0) return openModal({ title: '턴을 종료할까요?',
-    html: `<p>행동력이 <b>${S.ap}</b> 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p>`,
+  if (sure !== true && (S.ap > 0 || S.aap > 0)) return openModal({ title: '턴을 종료할까요?',
+    html: `<p>${[S.ap ? `행동력 <b>${S.ap}</b>` : '', S.aap ? `행정 행동력 <b>${S.aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p>`,
     buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
   Snd.sfx('click');
   turnStart = { money: S.money, mem: totalMembers(), sup: poll().P };
@@ -919,7 +923,7 @@ function runTurn() {
   if (modalOpen) return;
   if (left) {
     tick(); left--;
-    if (!left) { S.ap = apMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); save(); renderAll(); }
+    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); save(); renderAll(); }
     return (turnTimer = setTimeout(runTurn, 90));
   }
   if (turnStart) { const t = turnStart; turnStart = null; brief(t); }
@@ -1119,7 +1123,7 @@ function govModal(k) {
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
       const pj = b.dataset.pj, n = RK[k].n;
-      S.cd['govern:' + k] = S.day + ACT.govern.cd; S.ap--;
+      S.cd['govern:' + k] = S.day + ACT.govern.cd; S.aap--;
       let msg, ok = true;
       if (pj === 'dev') {
         if (rnd() < 0.65) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
@@ -1335,13 +1339,14 @@ const ACT = {
   debate: { n: '후보 TV 토론회', c: () => 0, cd: 7, camp: true, d: '대선·지방선거 후보 역량 판정. 성공 시 큰 상승, 실패 시 하락.' },
   bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관에게 질문합니다. 의원 역량에 따라 성과가 갈립니다.' },
-  govern: { n: '행정 역점사업', c: () => 0, cd: 14, d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦).' },
+  govern: { n: '행정 역점사업', c: () => 0, cd: 7, d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
 };
 function why(key, k) {
   const a = ACT[key], cdk = key + (k ? ':' + k : '');
   if (S.over) return '게임 종료';
   if (left) return '턴 진행 중';
-  if (S.ap < 1) return '이번 턴 행동력 소진 — 턴을 종료하세요';
+  if (key === 'govern') { if (S.aap < 1) return '이번 턴 행정 행동력 소진'; }
+  else if (S.ap < 1) return '이번 턴 행동력 소진 — 턴을 종료하세요';
   if (a.camp && !activeCamps().length) return '공식 선거운동기간에만 가능 (사전선거운동 금지, 공직선거법 제254조)';
   if (key === 'debate' && !activeCamps().some(c => c.type !== 'nat')) return '대선·지방선거 선거운동기간에만 열림';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
@@ -1526,7 +1531,7 @@ function applyPen(pen) {
   if (pen.money) spend(Math.abs(pen.money), '벌금·추징');
   if (pen.trust) S.trust = clamp(S.trust + pen.trust, 0, 100);
   if (pen.fame) S.fame = clamp(S.fame + pen.fame, 0, 100);
-  if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); }
+  if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.aap = Math.min(S.aap, aapMax()); S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); }
   let lost = 0;
   for (let i = 0; i < (pen.seat || 0); i++) if (loseSeat(false)) lost++;
   return lost;
@@ -2046,7 +2051,7 @@ function renderTop() {
     $('#setBtn').onclick = settingsModal;
   }
   $('#pname').textContent = S.party.name;
-  $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad')}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '')}${st(totalMembers().toLocaleString(), '당원')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석')}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, '')) : ''}`;
+  $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad')}${aapMax() ? st(`${S.aap}/${aapMax()}`, '행정 행동력', S.aap ? '' : 'bad') : ''}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '')}${st(totalMembers().toLocaleString(), '당원')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석')}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, '')) : ''}`;
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
@@ -2307,9 +2312,10 @@ let admReg = 'all';
 function pAdmin() {
   const govs = Object.keys(S.ops), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
-  const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span></h2>
+  const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
+      <p class="small muted">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 지사마다 한 턴에 한 번 역점사업을 펼칠 수 있습니다.</p>
       <div class="acts">${govs.map(k => `<div class="act"><h3>${RK[k].n} ${esc(govName(k))} 지사</h3>${meter(S.ops[k])}
-        <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행동력 1</button></div>`).join('')}</div>
+        <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행정 행동력 1</button></div>`).join('')}</div>
       <p class="small muted">행정 지지도는 그 지역 지지율과 다음 지방선거 재선 가능성에 반영되고, 가만두면 45로 돌아갑니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></li>`; }).join('')}</ul>
@@ -2485,6 +2491,7 @@ function pGuide() {
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 의회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(151표)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 행정 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
+      <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 지사마다 한 턴에 한 번 쓸 수 있습니다.</li>
       <li>행정 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다.</li>
       <li>선거운동기간, 후보 등록 마감, 탄핵심판, 국정감사 같은 큰 일정은 화면 맨 위 배너에 뜹니다. 누르면 관련 탭으로 갑니다.</li></ul>`)}
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
