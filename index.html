@@ -74,14 +74,13 @@ main{padding:16px;min-width:0}
   .tile .small{font-size:11.5px}
   main{padding:10px}
 }
-/* 모바일: 하단 탭바 4개 + 더보기. 60열 격자: 주 탭 12칸 × 5, 더보기 시트의 보조 탭 7개는 첫 줄 15칸 × 4, 둘째 줄 20칸 × 3 */
+/* 모바일: 하단 탭바 4개 + 더보기. 60열 격자: 주 탭 12칸 × 5, 더보기 시트의 보조 탭 8개는 15칸 × 4씩 두 줄 */
 nav .more{display:none}
 @media (max-width:640px){
   nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:4px 0;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-bottom:0;border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(15,23,42,.08)}
   nav button{grid-column:span 12;flex-direction:column;gap:2px;min-height:52px;padding:6px 2px;font-size:11.5px}
   nav button[aria-current="page"],nav .more.cur{box-shadow:inset 0 3px 0 var(--party);font-weight:700}
   nav .sec{display:none;order:-1;grid-column:span 15;flex-direction:row;min-height:48px;font-size:13px}
-  nav .sec~.sec~.sec~.sec~.sec{grid-column:span 20}
   nav.open .sec{display:flex}
   nav.open{border-top-left-radius:14px;border-top-right-radius:14px}
   nav .more{display:flex}
@@ -211,6 +210,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/></symbol>
   <symbol id="i-gov" viewBox="0 0 24 24"><path d="M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></symbol>
   <symbol id="i-city" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l6-4v17M11 21V10h8v11M14 13h2M14 17h2M7.5 10h1M7.5 14h1"/></symbol>
+  <symbol id="i-deal" viewBox="0 0 24 24"><path d="M2 11l4-4 4 2 3-2 3 1 6 4M2 11l7 7 2-1 2 2 2-1 2 1 5-6M9 14l2 2M12 12l2 2"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
   <symbol id="i-snd" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/></symbol>
@@ -2040,7 +2040,7 @@ function toast(msg, type = '') {
 }
 
 // ---------- 렌더링 ----------
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['office', '의회', 'i-gov'], ['admin', '행정', 'i-city'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '소식', 'i-list'], ['guide', '가이드', 'i-book']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['office', '의회', 'i-gov'], ['admin', '행정', 'i-city'], ['neg', '교섭', 'i-deal'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '소식', 'i-list'], ['guide', '가이드', 'i-book']];
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 function renderAll() { if (!S) return; renderTop(); renderNav(); renderPanel(); }
 function renderTop() {
@@ -2064,7 +2064,7 @@ function renderTop() {
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
-const SEC = ['people', 'office', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
+const SEC = ['people', 'office', 'admin', 'neg', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
 function renderNav() {
   const nav = $('#nav'), open = nav.classList.contains('open');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
@@ -2079,7 +2079,7 @@ function renderPanel() {
   if (!S) return;
   const main = $('#main');
   const y = main.scrollTop;
-  main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
+  main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
   bindPanel(main);
 }
@@ -2319,11 +2319,13 @@ function pOffice() {
     <h3>다른 당·정부 법안</h3>${theirs.length ? tbl(theirs) + `<p class="small muted">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
     ${fxs.length ? `<h3 style="margin-top:14px">바뀐 제도</h3><ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : ''}
     <p class="small muted">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 200표 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p></div>`;
-  // 카드 간격은 .stack이 맡음(카드마다 붙은 margin-top 무시). 교섭은 맨 아래
-  return `<div class="stack">${agendaCard()}${work}${trend}${caseCard}${negCard()}</div>`;
+  // 카드 간격은 .stack이 맡음(카드마다 붙은 margin-top 무시)
+  return `<div class="stack">${agendaCard()}${work}${trend}${caseCard}</div>`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';
+// 교섭: 정당 · 원내 의원 · 원외 인사
+const pNeg = () => negCard();
 function pAdmin() {
   const govs = Object.keys(S.ops), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
@@ -2446,7 +2448,7 @@ function nextSteps() {
   const gv = Object.keys(S.ops).filter(k => !why('govern', k));
   if (gv.length) out.push([`${gv.map(k => RK[k].n).join('·')} 행정 역점사업을 펼칠 수 있습니다.`, 'admin']);
   const ac = allyCamp();
-  if (S.phase === 'reg' && ac) out.push([`${ac.name}을 앞두고 다른 정당과 선거 연대를 교섭할 수 있습니다.`, 'office']);
+  if (S.phase === 'reg' && ac) out.push([`${ac.name}을 앞두고 다른 정당과 선거 연대를 교섭할 수 있습니다.`, 'neg']);
   if (activeCamps().length) out.push(['공식 선거운동기간입니다. 거리 유세(조직·지역)와 방송 광고(활동)로 득표력을 올리세요.', 'act']);
   if (S.phase === 'reg' && subsidyFrac() > 0 && !S.up.inst) out.push(['보조금을 받는 정당은 정책연구소를 두어야 합니다. 활동 탭에서 설립하세요.', 'act']);
   if (!out.length && S.phase === 'reg') {
@@ -2496,7 +2498,7 @@ function pGuide() {
       <li>단계마다 대응을 고릅니다. 성실한 조사, 변호인단 선임, "정치 탄압" 프레임, 증거 정리 같은 선택마다 기소·유죄 가능성과 여론이 달라집니다.</li>
       <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
       <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li></ul>`)}
-    ${sec('교섭', `<ul><li>정식 정당이 되면 의회 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
+    ${sec('교섭', `<ul><li>정식 정당이 되면 교섭 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
       <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적), 선거 연대(우리 후보가 나간 곳엔 후보를 내지 않음)를 맺을 수 있습니다.</li>
       <li>원내 의원(각 당·무소속)과는 친분 쌓기, 법안 협조 요청, 입당(이적) 제안을 할 수 있습니다. 지역구 의원이 넘어오면 그 의석이 우리 당 것이 됩니다.</li>
       <li>원외 인사(전직 의원·장관·단체장, 당협위원장, 시민사회·노동계 인사, 정치 유튜버 등)에게는 지지 선언을 요청하거나 영입을 제안할 수 있습니다. 이름값이 클수록 효과도 크지만 설득하기 어렵습니다. 총선에서 물러난 의원 일부는 원외 인사로 남습니다.</li>
