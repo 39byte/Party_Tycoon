@@ -255,6 +255,12 @@ function rebuildSched(o) {
     }
     out = [...out.filter(e => e.type !== 'pres' || e.day < d), ...pres].sort((a, b) => a.day - b.day);
   }
+  // 국회의원선거 앞당김: natFrom 이후의 정기 총선을 natDay부터 4년마다로 바꿈
+  if (o.natDay != null) {
+    const n = 23 + out.filter(e => e.type === 'nat' && e.day < o.natFrom).length;
+    const nat = Array.from({ length: 10 }, (_, i) => { const day = o.natDay + Math.round(i * 4 * 365.25); return { type: 'nat', name: `제${n + i}대 국회의원선거`, day, key: 'nat' + day }; });
+    out = [...out.filter(e => e.type !== 'nat' || e.day < o.natFrom), ...nat].sort((a, b) => a.day - b.day);
+  }
   SCHED = out;
 }
 const SAVE_KEY = 'party-tycoon-save-v1', SET_KEY = 'party-tycoon-settings';
@@ -582,7 +588,10 @@ function migrate(o) {
     try { for (const k in o.ops) if (untouched(o.ops[k])) o.ops[k] = opsBase('P', k); for (const k in o.rgov) if (untouched(o.rgov[k].o)) o.rgov[k].o = opsBase(o.rgov[k].p, k); } finally { S = prev; }
   }
   o.opsv = 1;
+  // 다음 국회의원선거를 지금부터 140일 뒤로(새 게임은 시작 140일 뒤, 진행 중 저장 파일은 불러온 날부터 140일 뒤). 한 번만
+  if (!o.natv) { o.natFrom = o.day; o.natDay = o.day + 140; o.natv = 1; }
   rebuildSched(o);
+  for (const k in o.camps || {}) if (k.startsWith('nat') && !SCHED.some(e => e.key === k)) delete o.camps[k]; // 옛 날짜로 열린 공천은 취소
   for (const r of o.risks || []) if (r.born == null) { r.born = o.day; r.p /= 5; }
   return o;
 }
