@@ -1301,22 +1301,25 @@ function negOutModal(oid) {
 }
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
 let negF = 'all';
+// 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
+const negBtn = (attr, cdk) => { const w = negWhy(cdk); return `<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button>`; };
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
   const mps = liveMPs().filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party));
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['O', '무소속']];
   return `<div class="card"><h2>교섭</h2><p class="small muted">협상가 ${esc(leader().name)} 대표(역량 ${leader().skill}). 결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다.</p>
+    ${left || S.ap < 1 ? `<p class="warn small">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}
     <div class="tblwrap"><table><thead><tr><th>정당</th><th class="r">의석</th><th>노선</th><th style="min-width:130px">관계</th><th></th></tr></thead><tbody>
     ${['A', 'B', 'C'].map(id => `<tr><td><span class="legend"><span><i style="background:${pc(id)}"></i>${esc(pn(id))}</span></span>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</td>
-      <td class="r num">${seatTotal(id)}</td><td>${IDEO[Math.round(RIV[id].ideo)]}</td><td>${relBar(S.rel[id])}</td><td><button class="btn" data-neg="${id}">교섭</button></td></tr>`).join('')}
+      <td class="r num">${seatTotal(id)}</td><td>${IDEO[Math.round(RIV[id].ideo)]}</td><td>${relBar(S.rel[id])}</td><td>${negBtn(`data-neg="${id}"`, 'neg:' + id)}</td></tr>`).join('')}
     </tbody></table></div>
     <h3 style="margin-top:14px">원내 의원</h3>
     <div class="filters" role="group" aria-label="소속 필터">${ff.map(([k, n]) => `<button class="btn${negF === k ? ' pri' : ''}" data-negf="${k}" aria-pressed="${negF === k}">${esc(n)}</button>`).join('')}</div>
     ${mps.length ? `<div class="tblwrap"><table><thead><tr><th>의원</th><th>소속·지역구</th><th style="min-width:130px">개인 친분</th><th></th></tr></thead><tbody>
-    ${mps.map(m => `<tr><td><b>${esc(m.name)}</b></td><td class="small">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td><button class="btn" data-negmp="${m.id}">교섭</button></td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted">해당 소속 의원이 없습니다.</p>'}
+    ${mps.map(m => `<tr><td><b>${esc(m.name)}</b></td><td class="small">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted">해당 소속 의원이 없습니다.</p>'}
     <h3 style="margin-top:14px">원외 인사</h3>
     <div class="tblwrap"><table><thead><tr><th>인물</th><th>이력·기반</th><th style="min-width:130px">개인 친분</th><th></th></tr></thead><tbody>
-    ${S.outs.map(m => `<tr><td><b>${esc(m.name)}</b><div class="small muted">인지도 ${m.fame}</div></td><td class="small">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td><button class="btn" data-negout="${m.id}">교섭</button></td></tr>`).join('')}</tbody></table></div>
+    ${S.outs.map(m => `<tr><td><b>${esc(m.name)}</b><div class="small muted">인지도 ${m.fame}</div></td><td class="small">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id)}</td></tr>`).join('')}</tbody></table></div>
     <p class="small muted">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다.</p></div>`;
 }
 
