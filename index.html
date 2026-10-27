@@ -53,6 +53,7 @@ main{padding:16px;min-width:0}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .span-2{grid-column:span 2} .span-3{grid-column:1/-1}
 /* 좌우 분할: 한 칸이 360px보다 좁아지면 한 줄로 쌓임 */
+.stack{display:flex;flex-direction:column;gap:14px} .stack>.card{margin-top:0!important}
 .split{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));align-items:start}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);min-width:0}
 @media (max-width:900px){
@@ -2310,7 +2311,8 @@ function pOffice() {
     <h3>다른 당·정부 법안</h3>${theirs.length ? tbl(theirs) + `<p class="small muted">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
     ${fxs.length ? `<h3 style="margin-top:14px">바뀐 제도</h3><ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : ''}
     <p class="small muted">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 200표 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p></div>`;
-  return `${negCard()}${agendaCard()}${work}${trend}${caseCard}`;
+  // 카드 간격은 .stack이 맡음(카드마다 붙은 margin-top 무시). 교섭은 맨 아래
+  return `<div class="stack">${agendaCard()}${work}${trend}${caseCard}${negCard()}</div>`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';
