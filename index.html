@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>정당 키우기</title>
 <style>
 :root{
@@ -56,7 +56,7 @@ main{padding:16px;min-width:0}
 @media (max-width:900px){
   .app{grid-template-columns:1fr}
   nav{flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid var(--border);padding:6px}
-  nav button{flex:1 1 23%;justify-content:center;padding:8px 4px;font-size:13px}
+  nav button{flex:1 1 18%;justify-content:center;padding:8px 4px;font-size:13px}
   nav button[aria-current="page"]{box-shadow:inset 0 -3px 0 var(--party)}
   .grid{grid-template-columns:1fr} .span-2{grid-column:auto}
 }
@@ -67,6 +67,22 @@ main{padding:16px;min-width:0}
   .tile .tag{position:static;align-self:flex-start;font-size:10px}
   .tile .small{font-size:11.5px}
   main{padding:10px}
+}
+/* 모바일: 하단 탭바 4개 + 더보기(나머지 6개는 3열 2줄 시트). 15열 격자 = 주 탭 3칸 × 5, 보조 탭 5칸 × 3 */
+nav .more{display:none}
+@media (max-width:640px){
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(15,minmax(0,1fr));gap:2px;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-bottom:0;border-top:1px solid var(--border);box-shadow:0 -4px 16px rgba(15,23,42,.08)}
+  nav button{grid-column:span 3;flex-direction:column;gap:2px;min-height:52px;padding:6px 2px;font-size:11.5px}
+  nav button[aria-current="page"],nav .more.cur{box-shadow:inset 0 3px 0 var(--party);font-weight:700}
+  nav .sec{display:none;order:-1;grid-column:span 5;flex-direction:row;min-height:48px;font-size:13px}
+  nav.open .sec{display:flex}
+  nav.open{border-top-left-radius:14px;border-top-right-radius:14px}
+  nav .more{display:flex}
+  nav button{position:relative}
+  nav .badge{position:absolute;top:4px;left:calc(50% + 6px);margin:0}
+  nav .more[aria-expanded="true"]{background:var(--surface2)}
+  main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
+  .toasts{bottom:calc(76px + env(safe-area-inset-bottom))}
 }
 
 /* buttons */
@@ -137,6 +153,10 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .guide details>:not(summary){font-size:14px;margin:8px 0 0}
 .guide details ul{padding-left:20px}
 .guide details li{margin:3px 0}
+.news{list-style:none;padding:0;margin:6px 0 0}
+.news li{padding:8px 0;border-bottom:1px solid var(--border);font-weight:600;font-size:14.5px}
+.news li span{display:block;font-size:12px;color:var(--muted);font-weight:500}
+.meter{display:flex;align-items:center;gap:8px}.meter .bar{flex:1}
 
 /* modal & toast */
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.55);display:grid;place-items:center;padding:16px;z-index:50}
@@ -173,6 +193,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
   <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
   <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/></symbol>
+  <symbol id="i-gov" viewBox="0 0 24 24"><path d="M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
   <symbol id="i-snd" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/></symbol>
 </svg>
@@ -225,6 +247,32 @@ const GOV_SPEND = [{ n: '최소', f: 0.1, b: 0 }, { n: '보통', f: 0.35, b: 0.0
 const PRES_SPEND = [{ n: '최소', c: 3e9, b: 0 }, { n: '보통', c: 1.5e10, b: 0.05 }, { n: '최대', c: 4e10, b: 0.1 }];
 const govLimit = k => 3e8 + RK[k].voters * 4e8; // 시·도지사 선거비용제한액 근사
 const TYPE_N = { nat: '국회의원선거', pres: '대통령선거', gov: '지방선거' };
+// 주간 뉴스: 핵심 쟁점은 직접 알려주지 않고 헤드라인 빈도로 드러남. {r} 지역, {p} 대통령, {a}{b} 경쟁 정당
+const NEWS = {
+  econ: ['원·달러 환율 1,450원 돌파… 수입물가 비상', '{r} 산업단지 공장 가동률 역대 최저', '청년 체감실업률 20% 육박, "취업 포기" 늘어', '자영업 폐업 신고 역대 최대… 골목상권 한숨', '반도체 수출 석 달째 감소, 무역적자 확대', '기준금리 동결에도 대출 이자 부담 여전'],
+  house: ['서울 아파트 전셋값 52주 연속 상승', '"전세사기 또"… {r} 빌라 세입자 수백 명 발 동동', '청약 경쟁률 수백 대 1, 무주택자 "로또만 바라봐"', '공시가격 인상에 보유세 부담 논란', '{r} 신도시 교통대책 지연에 입주민 반발', '월세 비중 처음으로 전세 추월'],
+  welfare: ['간병비 월 400만 원 시대… "가족이 무너진다"', '{r} 소아과 "오픈런"… 진료 대기 3시간', '노인 빈곤율 OECD 1위 불명예 이어져', '맞벌이 부부 "아이 맡길 곳이 없다"', '응급실 찾아 헤매다 환자 숨져… 의료 공백 논란', '기초연금 인상 공방, 재원 마련은 안갯속'],
+  security: ['북한, 동해상으로 탄도미사일 발사', '서해 북방한계선 인근 무력 시위… 군 경계태세 격상', '한미 연합훈련 규모 두고 여야 공방', '해외 해킹조직, 국가기관 전산망 공격 시도', '{r} 접경지역 주민들 "불안해서 못 살겠다"', '방위비 분담금 협상 난항… 동맹 부담 커지나'],
+  climate: ['{r} 낮 기온 39도… 온열질환자 속출', '기록적 폭우에 {r} 저지대 침수', '탄소국경세 시행 임박, 수출기업 비상', '석탄발전소 폐쇄 일정 두고 지역 갈등', '미세먼지 "매우 나쁨" 일주일째', '산불 사흘째… 축구장 수천 개 면적 잿더미'],
+  youth: ['일도 구직도 "그냥 쉬었음" 청년 40만 명', '사교육비 또 역대 최고… 학부모 등골 휜다', '{r} 대학 신입생 미달 속출, 지방대 위기', '청년 고독사 증가… 사회적 고립 경고등', '교권 침해 잇따라, 교사들 거리로', '출생률 0.7명대, 학교 통폐합 가속'],
+  region: ['{r} 인구소멸 위험지역 확대', '수도권 쏠림 심화… 인구 절반 이상 수도권에', '{r} 지역 병원 응급실 문 닫아, "아프면 서울로"', '공공기관 지방 이전 2차 계획 또 연기', '{r} 시내버스 노선 축소, 고령층 발 묶여', '지역 청년 유출 가속, "일자리가 없다"'],
+  reform: ['국회의원 특권 내려놓기 여론 70% 돌파', '"또 공천 잡음"… 정당 공천 투명성 도마에', '정치 불신 역대 최고, "투표해도 안 바뀐다"', '선거제 개편 논의 또 표류… 양당 기득권 비판', '국회 특수활동비 내역 공개 요구 거세', '정치인 막말 잇따라, 품격 정치 실종'],
+  misc: ['{a}, 차기 지도부 선출 앞두고 계파 신경전', '{b} 원내대표 "민생 법안 처리 협조하라"', '{p} 대통령 해외 순방길 올라', '프로야구 주말 관중 역대 최다', '{r} 지역 축제 성황, 관광객 수십만 명', '여야 원내대표 회동 또 결렬', 'K-콘텐츠 해외 수출 사상 최대', '{p} 대통령 국정 지지율 주간 조사 발표'],
+};
+const OUTLETS = ['한빛일보', '새아침신문', 'KBC 뉴스', '연합통신', '경제매일', '시사인사이트'];
+const BILLS = {
+  econ: ['소상공인 손실보상 특별법', '중소기업 기술탈취 방지법'], house: ['전세사기 피해자 지원 특별법', '청년·신혼부부 공공주택 확대법'],
+  welfare: ['간병비 건강보험 적용법', '지역 필수의료 지원법'], security: ['국가 사이버안보 기본법', '군 장병 처우개선법'],
+  climate: ['탄소중립 산업전환 지원법', '폭염 취약계층 보호법'], youth: ['학자금 무이자 대출법', '교권 보호법'],
+  region: ['지방소멸 대응 특별법', '농어촌 교통 기본권법'], reform: ['국회의원 불체포특권 폐지법', '정치자금 투명성 강화법'],
+};
+const GOV_PROJ = [
+  { k: 'dev', n: '지역 개발사업 착공', d: '성공하면 도정 지지도가 크게 오르지만 실패할 수 있습니다. 개발업자들이 몰려듭니다.' },
+  { k: 'care', n: '복지·돌봄 확대', d: '도정 지지도가 꾸준히 오릅니다.' },
+  { k: 'biz', n: '기업·투자 유치', d: '반반의 확률로 큰 성과를 냅니다.' },
+  { k: 'safe', n: '재난·안전 점검', d: '작지만 확실하게 신뢰를 얻습니다.' },
+];
+const FAKE_CHARGES = ['당 대표 허위사실 공표', '당 회계 부정', '당원 명부 불법 활용', '후원금 유용'];
 
 // ---------- utils ----------
 const $ = s => document.querySelector(s);
@@ -339,6 +387,7 @@ function newState(f) {
     pending: [], queue: [], ach: {}, ap: AP, issue: 'econ', fund: { year: 2026, raised: 0 }, ledger: { cur: {}, last: {} },
     negDays: 0, grace: null, over: null, ended: false,
   };
+  migrate(S);
   S.members[f.home] = LAW.founders;
   S.pool.push({ id: 0, leader: true, name: f.leader, gender: f.gender, age: +f.age, job: '당 대표', fame: 5, skill: 62, integ: 75, rec: [], ban: false, role: '' });
   for (const id of ['P', 'A', 'B', 'C', 'O']) S.seats[id] = { d: {}, pr: 0 };
@@ -350,6 +399,13 @@ function newState(f) {
   for (let i = 0; i < 3; i++) S.pool.push(genPerson());
   addLog(`${S.party.name} 중앙당창당준비위원회 결성 신고 완료 (발기인 ${LAW.founders}명, 정당법 제6조). 6개월 안에 창당을 마쳐야 합니다.`, 'ok');
   S.hist.push(snapPoll());
+  S.news = makeNews();
+}
+// 저장 파일 호환: 나중에 추가된 필드 채우기
+function migrate(o) {
+  o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
+  for (const r of o.risks || []) if (r.born == null) { r.born = o.day; r.p /= 5; }
+  return o;
 }
 // 중앙당 사무처 운영비: 당원 관리·의원 지원 인력이 규모에 따라 늘어남
 const officeCost = () => S.phase === 'prep' ? 5e6 : 1.5e7 + totalMembers() * 800 + seatTotal('P') * 1.5e7;
@@ -375,7 +431,7 @@ function regFactor(k) {
   let f = i === 0 ? 1.05 - 0.4 * Math.abs(r.lean) : Math.max(0.3, 1 + 0.7 * i * r.lean);
   f += Math.min(0.5, (S.members[k] || 0) / (r.voters * 1e6) * 250);
   if (S.chapters[k]) f += 0.05;
-  if (S.gov[k] === 'P') f += 0.15;
+  if (S.gov[k] === 'P') f += 0.15 + ((S.ops[k] ?? 50) - 50) / 200; // 도정 지지도
   return f;
 }
 function pf(id, k) {
@@ -420,7 +476,7 @@ function simGeneral(c) {
   }
   const ns = natShares(), raw = {};
   for (const id of ['A', 'B', 'C', 'O']) raw[id] = ns[id] * (id === 'C' ? 1.3 : id === 'O' ? 0.8 : 1) * Math.exp(gauss() * 0.05);
-  raw.P = reg && reg.pr.length ? ns.P * 1.15 * campBoost(c, '') * Math.exp(gauss() * 0.05) : 0;
+  raw.P = reg && reg.pr.length ? ns.P * 1.15 * campBoost(c, '') * (c.sat ? 1.3 : 1) * Math.exp(gauss() * 0.05) : 0;
   const rs = sum(Object.values(raw)), pv = {};
   for (const id in raw) pv[id] = raw[id] / rs;
   const dist = id => sum(Object.values(seatsD[id]));
@@ -436,7 +492,7 @@ function simGov(c) {
   for (const r of R) {
     const ids = ['A', 'B']; if (rnd() < 0.3) ids.push('C'); if (rnd() < 0.3) ids.push('O');
     const cand = c && c.reg && c.reg.gov[r.k], mods = {};
-    if (cand) { ids.push('P'); mods.P = candFactor(cand) * campBoost(c, r.k) * (1 + cand.spendB); }
+    if (cand) { ids.push('P'); mods.P = candFactor(cand) * campBoost(c, r.k) * (1 + cand.spendB) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? 50) - 50) / 100 : 1); }
     const res = shareRace(r.k, ids, mods);
     win[r.k] = res.win;
     if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
@@ -516,6 +572,8 @@ function resolveElection(c) {
     const before = seatTotal('P');
     applySeats(g); S.lastVotes = { ...g.pv };
     S.pool.forEach(p => { if (/국회의원/.test(p.role)) p.role = ''; });
+    if (S.bills.length) addLog(`국회 임기 만료로 계류 법안 ${S.bills.length}건이 자동 폐기되었습니다.`);
+    S.bills = [];
     if (c.reg) {
       S.everNat = true; S.lastPart = S.day;
       g.pDist.forEach(d => { refund += d.cost * L.refundRate(d.share); if (d.win && d.pid != null) { const p = person(d.pid); if (p) p.role = `국회의원(${RK[d.k].n})`; } });
@@ -528,6 +586,7 @@ function resolveElection(c) {
   } else if (c.type === 'gov') {
     const g = simGov(c);
     S.gov = g.win;
+    S.ops = Object.fromEntries(R.filter(r => g.win[r.k] === 'P').map(r => [r.k, S.ops[r.k] ?? 50]));
     S.pool.forEach(p => { if (/시·도지사/.test(p.role)) p.role = ''; });
     if (c.reg) {
       S.lastPart = S.day;
@@ -627,7 +686,7 @@ function daily() {
   S.trust = clamp(S.trust + (50 - S.trust) * 0.002, 0, 100);
   S.buzz *= 0.97;
   const honey = S.president.party === 'P' ? Math.max(0, 6 - (S.day - S.president.since) / 120) : 0;
-  const target = (S.fame / 100) * (0.25 + 0.75 * S.trust / 100) * 40 + seats / 300 * 8 + S.buzz + honey;
+  const target = (S.fame / 100) * (0.25 + 0.75 * S.trust / 100) * 40 + seats / 300 * 8 + S.buzz + honey + Math.min(3, S.laws.length * 0.3);
   S.support = clamp(S.support + (target - S.support) * 0.03, 0.1, 70);
   for (const id of ['A', 'B', 'C', 'O']) {
     let base = RIV[id].base;
@@ -651,16 +710,21 @@ function monthly(dt) {
   if (nch) spend(nch * 3e6, '시·도당');
   const upm = sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
   if (upm) spend(upm, '시설');
-  if (rnd() < 0.5) { S.issue = pick(ISSUES).k; addLog(`이번 달 핵심 쟁점: ${ISSUES.find(i => i.k === S.issue).n}`); }
+  if (rnd() < 0.5) S.issue = pick(ISSUES).k; // 플레이어에겐 뉴스로만 드러남
   if (dt.getUTCMonth() === 0) S.pool.forEach(p => p.age++);
   S.hist.push(snapPoll()); if (S.hist.length > 150) S.hist.shift();
-  // 법적 위험: 적발 판정 / 공소시효
+  // 숨긴 일: 시간이 지날수록 증거가 흐려지고, 당이 클수록 눈이 많아짐. 평생 적발 확률 대략 20~45%
   const mul = { easy: 0.7, normal: 1, hard: 1.3 }[S.diff];
   S.risks = S.risks.filter(k => {
     if (S.day > k.until) { addLog(`'${k.label}' 공소시효가 지났습니다.`); return false; }
-    if (rnd() < k.p * mul) { S.queue.push({ risk: k }); return false; }
+    if (rnd() < k.p * mul * (0.5 + S.fame / 40) * 0.95 ** ((S.day - k.born) / 30)) { openCase({ t: k.label, guilty: true, pen: k.pen }); return false; }
     return true;
   });
+  // 도정 지지도는 가만두면 45로 수렴
+  for (const k in S.ops) S.ops[k] += (45 - S.ops[k]) * 0.05;
+  // 국회 일정: 10월 국정감사, 12월 예산안
+  if (seatTotal('P') > 0 && dt.getUTCMonth() === 9) S.queue.push({ ev: 'audit' });
+  if (seatTotal('P') > 0 && dt.getUTCMonth() === 11) S.queue.push({ ev: 'budget' });
   // 인재 스캔들
   S.pool.forEach(p => { if (!p.leader && rnd() < (100 - p.integ) / 100 * 0.012) S.queue.push({ ev: 'scandal', pid: p.id }); });
   if (S.phase === 'reg' && S.day - S.lastPart > 3.5 * 365) toast(`선거 미참여 경고: ${fdate(S.lastPart + 4 * 365)}까지 선거에 참여하지 않으면 등록이 취소됩니다.`, 'bad');
@@ -697,11 +761,12 @@ function tick() {
   const dt = L.dayToDate(S.day);
   daily();
   S.pending = S.pending.filter(p => { if (S.day >= p.d) { earn(p.amt, '보전·반환'); addLog(`${p.t} ${won(p.amt)} 입금`, 'ok'); Snd.sfx('cash'); return false; } return true; });
+  S.later = S.later.filter(x => S.day < x.d || (S.queue.push(x.q), false));
   timeline();
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
-  if (!modalOpen && !S.queue.length && rnd() < 1 / 24) randomEvent();
+  if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   if (!modalOpen) processQueue();
   renderTop();
 }
@@ -712,21 +777,178 @@ const apMax = () => AP + (activeCamps().length ? 1 : 0); // 선거운동기간�
 const turnNo = () => Math.floor(S.day / TURN) + 1;
 let left = 0, turnTimer = null, turnStart = null;
 function endTurn() {
-  if (!S || S.over || left || modalOpen) return;
+  if (!S || S.over || left || turnStart || modalOpen) return;
   Snd.sfx('click');
   turnStart = { money: S.money, mem: totalMembers(), sup: poll().P };
   left = TURN; runTurn();
 }
-// 이벤트 모달이 뜨면 멈추고, 닫히면 closeModal이 다시 이어감
+// 이벤트 모달이 뜨면 멈추고, 닫히면 closeModal이 다시 이어감. 7일이 끝나면 주간 브리핑
 function runTurn() {
   clearTimeout(turnTimer);
-  if (S.over) return (left = 0);
-  if (!left || modalOpen) return;
-  tick(); left--;
-  if (left) return (turnTimer = setTimeout(runTurn, 90));
-  S.ap = apMax(); save(); renderAll();
+  if (S.over) return (left = 0, turnStart = null);
+  if (modalOpen) return;
+  if (left) {
+    tick(); left--;
+    if (!left) { S.ap = apMax(); turnStart.notes = billStep(); S.news = makeNews(); save(); renderAll(); }
+    return (turnTimer = setTimeout(runTurn, 90));
+  }
+  if (turnStart) { const t = turnStart; turnStart = null; brief(t); }
+}
+function brief(t) {
   const d = (n, f) => (n >= 0 ? '+' : '') + f(n);
-  toast(`${turnNo()}턴 시작 · 자금 ${d(S.money - turnStart.money, won)} · 당원 ${d(totalMembers() - turnStart.mem, n => n.toLocaleString())} · 지지율 ${d(poll().P - turnStart.sup, n => n.toFixed(1) + '%p')}`);
+  openModal({
+    title: `${turnNo()}턴 · 주간 브리핑`,
+    html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>
+      <div class="legend"><span class="pill">자금 ${d(S.money - t.money, won)}</span><span class="pill">당원 ${d(totalMembers() - t.mem, n => n.toLocaleString())}</span><span class="pill">지지율 ${d(poll().P - t.sup, n => n.toFixed(1) + '%p')}</span></div>
+      <h3 style="margin-top:14px">이번 주 헤드라인</h3>${newsList()}
+      ${t.notes.length ? `<h3 style="margin-top:14px">국회 소식</h3><ul class="log">${t.notes.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`,
+    buttons: [{ t: '확인', pri: true }],
+  });
+}
+
+// ---------- 뉴스 ----------
+const shuffle = a => a.map(x => [rnd(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
+function makeNews() {
+  const fill = h => h.replace(/\{r\}/g, () => pick(R).n).replace(/\{p\}/g, S.president.name).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
+  const hot = shuffle(NEWS[S.issue]).slice(0, rnd() < 0.4 ? 3 : 2);
+  const cold = shuffle(ISSUES.filter(i => i.k !== S.issue)).slice(0, 2).map(i => pick(NEWS[i.k]));
+  return shuffle([...hot, ...cold, pick(NEWS.misc)]).map(h => ({ s: pick(OUTLETS), h: fill(h) }));
+}
+const newsList = () => S.news.length ? `<ul class="news">${S.news.map(n => `<li><span>${esc(n.s)}</span>${esc(n.h)}</li>`).join('')}</ul>` : '<p class="empty">아직 뉴스가 없습니다.</p>';
+
+// ---------- 수사·재판 (검찰 → 법원) ----------
+const later = (days, q) => S.later.push({ d: S.day + Math.round(days), q });
+// guilty: 실제로 한 일인지. mine: 우리가 고소·고발한 사건
+function openCase({ t, guilty, pen, mine, target }) {
+  const c = { id: ++S.seq, t, guilty, pen, mine, target, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
+  S.cases.push(c);
+  if (mine) later(rr(28, 56), { ev: 'case', id: c.id }); else S.queue.push({ ev: 'case', id: c.id });
+  return c;
+}
+function info(title, text, bad) {
+  S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
+  addLog(`[${title}] ${text}`, bad ? 'bad' : 'ok'); Snd.sfx(bad ? 'bad' : 'ok');
+  openModal({ title, html: `<p>${esc(text)}</p>`, buttons: [{ t: '확인', pri: true }] });
+}
+function caseEv(id) {
+  const c = S.cases.find(x => x.id === id); if (!c) return;
+  const close = () => (S.cases = S.cases.filter(x => x !== c));
+  c.ev = clamp(c.ev, 0.02, 1);
+  if (c.mine) {
+    close();
+    const ok = rnd() < c.ev;
+    if (ok) { S.trust += 1; S.fame += 1; if (c.target) S.rw[c.target] -= 4; }
+    else if (c.target) S.trust -= 1.5;
+    return info(ok ? '고소·고발 사건 기소' : '고소·고발 사건 불기소', ok ? `검찰이 '${c.t}' 사건 피고소인을 재판에 넘겼습니다.` : `검찰이 '${c.t}' 사건을 증거 불충분으로 불기소했습니다.${c.target ? ' 무리한 고발이었다는 비판이 나옵니다.' : ''}`, !ok);
+  }
+  if (c.stage === 0) {
+    S.trust -= 2; S.fame += 1; c.stage = 1; later(rr(28, 49), { ev: 'case', id });
+    return showEvent({ title: '검찰 수사 착수', body: () => `검찰이 <b>${esc(c.t)}</b> 의혹으로 ${pick(['당사를 압수수색했습니다', '당직자들을 줄소환했습니다', '당 계좌 추적에 나섰습니다'])}. 몇 주 안에 기소 여부가 결정됩니다.`,
+      ch: [{ t: '성실히 조사받는다', s: '협조하면 형량이 줄어듭니다', run: () => { c.ev += c.guilty ? 0.05 : -0.12; c.coop = true; return '검찰 조사에 성실히 응하겠다고 밝혔습니다.'; } },
+        { t: '대형 로펌 변호인단을 꾸린다', s: '비용 1억', run: () => { spend(1e8, '법률 비용'); c.ev -= 0.15; return '검사 출신 변호사들로 변호인단을 꾸렸습니다.'; } },
+        { t: '"정치 탄압"이라며 맞선다', s: '지지층 결집', run: () => { S.fame += 2; S.trust += S.president.party === 'P' ? -4 : 0.5; return S.president.party === 'P' ? '여당이 탄압을 외치자 여론이 싸늘합니다.' : '지지층은 결집했지만 중도층 시선은 차갑습니다.'; } },
+        { t: '관련 자료를 정리한다', s: '하드디스크 교체, 장부 파쇄', run: () => { if (rnd() < 0.35) { c.ev += 0.25; S.trust -= 6; c.pen = { ...c.pen, money: (c.pen.money || 0) * 1.3 }; return '증거인멸 정황이 포착됐습니다. 수사가 더 거세졌습니다.'; } c.ev -= 0.3; return '흔적이 깨끗이 사라졌습니다.'; } }] });
+  }
+  if (c.stage === 1) {
+    if (rnd() >= c.ev) { close(); if (!c.guilty) S.trust += 2; return info('검찰 처분: 불기소', c.guilty ? `'${c.t}' 사건이 증거 불충분으로 불기소 처분됐습니다.` : `'${c.t}' 의혹에 무혐의 처분이 나왔습니다. 결백이 확인됐습니다.`, false); }
+    S.trust -= 3; c.stage = 2; later(rr(42, 84), { ev: 'case', id });
+    return showEvent({ title: '검찰, 기소 결정', body: () => `검찰이 <b>${esc(c.t)}</b> 혐의로 관계자들을 재판에 넘겼습니다. 1심 선고까지 몇 달이 걸립니다.`,
+      ch: [{ t: '무죄를 다툰다', run: () => '법정에서 끝까지 다투기로 했습니다.' },
+        { t: '혐의를 인정하고 선처를 구한다', s: '유죄는 확정, 형량은 절반', run: () => { c.ev = 1; c.plea = true; S.trust += 1; return '혐의를 인정하고 국민께 사과했습니다.'; } },
+        { t: '변호인단을 보강한다', s: '비용 1억', run: () => { spend(1e8, '법률 비용'); c.ev -= 0.12; return '변호인단을 보강했습니다.'; } }] });
+  }
+  close(); // ponytail: 1심에서 확정. 항소·상고가 필요해지면 stage를 늘릴 것
+  if (rnd() < c.ev) {
+    const m = (c.coop ? 0.7 : 1) * (c.plea ? 0.5 : 1), pen = { ...c.pen, money: (c.pen.money || 0) * m, trust: (c.pen.trust || 0) * m };
+    const lost = applyPen(pen);
+    return info('1심 판결: 유죄', `법원이 '${c.t}' 혐의를 유죄로 판단했습니다. ${c.pen.note}.${lost ? ` 의석 ${lost}석 상실.` : ''} (벌금·추징 ${won(Math.abs(pen.money))}, 신뢰 ${pen.trust.toFixed(1)})`, true);
+  }
+  S.trust += 3; S.fame += 1;
+  return info('1심 판결: 무죄', `법원이 '${c.t}' 혐의에 무죄를 선고했습니다.`, false);
+}
+
+// ---------- 의정: 법안 발의 → 상임위 → 본회의 → 정부 이송(거부권) ----------
+function billAgree(b, id) {
+  if (id === 'O') return clamp(0.45 + b.appeal + b.lobby, 0.03, 0.95);
+  const ide = RIV[id].ideo, fit = ISSUES.find(i => i.k === b.issue).fit[Math.round(ide) + 1];
+  let a = 0.55 - 0.3 * Math.abs(ide - S.party.ideo) + 0.8 * (fit - 1) + b.appeal + b.lobby;
+  if (S.president.party === id) a -= 0.12; // 여당은 다른 당 법안에 소극적
+  return clamp(a, 0.03, 0.95);
+}
+const billYes = b => seatTotal('P') + sum(['A', 'B', 'C', 'O'].map(id => seatTotal(id) * billAgree(b, id)));
+const STAGE_N = ['상임위 심사 중', '본회의 상정 대기'];
+function billStep() {
+  const notes = [];
+  S.bills = S.bills.filter(b => {
+    if (S.day < b.next) return true;
+    const y = billYes(b) + gauss() * 12;
+    if (b.stage === 0) {
+      if (rnd() < clamp((y - 110) / 100, 0.05, 0.9)) { b.stage = 1; b.next = S.day + 14; notes.push(`'${b.t}' 상임위원회 통과`); return true; }
+      if (++b.tries >= 3) { notes.push(`'${b.t}' 상임위에서 끝내 계류, 사실상 폐기`); return false; }
+      b.next = S.day + 28; notes.push(`'${b.t}' 상임위 계류, 다음 달 재논의`); return true;
+    }
+    if (y < 151) { S.trust -= 0.5; notes.push(`'${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); return false; }
+    const pr = S.president.party;
+    if (pr !== 'P' && billAgree(b, pr) < 0.45 && rnd() < 0.7) {
+      if (y < 200) { S.fame += 1; notes.push(`'${b.t}' 본회의 통과했으나 대통령 재의요구(거부권)로 폐기`); return false; }
+      notes.push(`'${b.t}' 대통령 거부권 행사 → 국회 재의결 성립`);
+    }
+    const hot = b.issue === S.issue ? 1.6 : 1;
+    S.laws.push({ t: b.t, d: S.day }); S.trust += 1.5 * hot; S.fame += 1 * hot; S.buzz += 0.8 * hot;
+    notes.push(`'${b.t}' 본회의 통과, 법률 공포 (찬성 ${Math.round(y)}표)`); addLog(`'${b.t}' 국회 통과`, 'ok');
+    return false;
+  });
+  S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
+  checkAch();
+  return notes;
+}
+function billModal() {
+  openModal({
+    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 찬성 151표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
+      <div class="choices">${ISSUES.map(i => BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}<small>${i.n}${S.bills.some(x => x.t === t) ? ' · 계류 중' : ''}</small></button>`).join('')).join('')}</div>`,
+    buttons: [{ t: '취소' }],
+    onOpen: m => m.querySelectorAll('[data-bill]').forEach(b => b.onclick = () => {
+      const [issue, t] = b.dataset.bill.split('|');
+      spend(ACT.bill.c(), '활동'); S.cd.bill = S.day + ACT.bill.cd; S.ap--;
+      closeModal();
+      if (seatTotal('P') < 10 && rnd() < 0.3) return info('법안 발의 무산', `공동발의 서명 10명을 채우지 못해 '${t}' 발의가 무산됐습니다.`, true);
+      S.bills.push({ id: ++S.seq, t, issue, stage: 0, tries: 0, next: S.day + 21, lobby: 0, lobbied: 0, appeal: rr(-0.1, 0.25) });
+      S.fame += 0.5;
+      info('법안 발의', `'${t}'을(를) 대표 발의했습니다. 상임위원회에 회부됩니다.`, false);
+    }),
+  });
+}
+function lobbyBill(id) {
+  const b = S.bills.find(x => x.id === id);
+  if (!b || left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7) return;
+  spend(1e7, '활동'); S.ap--; b.lobbied++; b.lobby += 0.08;
+  const msg = `'${b.t}' 여야 협상: 다른 당 의원들을 설득했습니다. (예상 찬성 ${Math.round(billYes(b))}표)`;
+  toast(msg); addLog(msg); Snd.sfx('ok'); renderAll();
+}
+
+// ---------- 도정: 우리 당 광역단체장 ----------
+function govModal(k) {
+  openModal({
+    title: `${RK[k].n} 도정 역점사업`, html: `<p class="small muted">도정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 지금 지지도 ${Math.round(S.ops[k])}.</p>
+      <div class="choices">${GOV_PROJ.map(p => `<button class="btn" data-pj="${p.k}">${p.n}<small>${p.d}</small></button>`).join('')}</div>`,
+    buttons: [{ t: '취소' }],
+    onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
+      const pj = b.dataset.pj, n = RK[k].n;
+      S.cd['govern:' + k] = S.day + ACT.govern.cd; S.ap--;
+      let msg, ok = true;
+      if (pj === 'dev') {
+        if (rnd() < 0.65) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 도정 지지도가 크게 올랐습니다.`; }
+        else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
+        if (rnd() < 0.35) later(rr(14, 60), { ev: 'devbribe', k });
+      } else if (pj === 'care') { S.ops[k] += 3.5; S.trust += 0.5; msg = `${n} 돌봄센터 확충으로 주민 호응이 좋습니다.`; }
+      else if (pj === 'biz') {
+        if (rnd() < 0.5) { S.ops[k] += 8; S.fame += 1; msg = `${n}에 대기업 공장 유치 성공! 일자리 수천 개가 생깁니다.`; }
+        else { S.ops[k] += 1; ok = false; msg = `${n} 투자 유치 협상이 결렬됐습니다.`; }
+      } else { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
+      S.ops[k] = clamp(S.ops[k], 5, 95);
+      closeModal(); info(`${n} 도정`, msg, !ok);
+    }),
+  });
 }
 
 // ---------- 활동 ----------
@@ -738,16 +960,19 @@ const UPS = [
 ];
 const ACT = {
   recruit: { n: '당원 모집 캠페인', c: () => 1e7, cd: 7, reg: true, d: '해당 지역 당원을 모집합니다. 지역 지지율이 높을수록 효과적.' },
-  volunteer: { n: '지역 봉사활동', c: () => 5e6, cd: 7, reg: true, d: '신뢰 상승 + 소수 당원 확보. 금품·음식 제공은 기부행위 금지(제113조) 대상이니 순수 봉사만.' },
+  volunteer: { n: '지역 봉사활동', c: () => 5e6, cd: 7, reg: true, d: '신뢰 상승 + 소수 당원 확보.' },
   chapter: { n: '시·도당 창당대회', c: () => 2e7, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조). 월 유지비 300만.' },
   rally: { n: '거리 유세', c: () => 2e7, cd: 1, reg: true, camp: true, d: '공식 선거운동기간에만 가능. 해당 지역 득표력 상승.' },
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
-  policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '쟁점을 골라 정책을 발표합니다. 이번 달 쟁점과 맞으면 효과 2배.' },
+  policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
   talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보군 3명 중 1명을 영입합니다. 전과 기록은 후보 등록 시 공개됩니다(공직선거법 제49조).' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승.' },
   debate: { n: '후보 TV 토론회', c: () => 0, cd: 7, camp: true, d: '대선·지방선거 후보 역량 판정. 성공 시 큰 상승, 실패 시 하락.' },
+  bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다.' },
+  question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관에게 질문합니다. 의원 역량에 따라 성과가 갈립니다.' },
+  govern: { n: '도정 역점사업', c: () => 0, cd: 14, d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦).' },
 };
 function why(key, k) {
   const a = ACT[key], cdk = key + (k ? ':' + k : '');
@@ -756,6 +981,8 @@ function why(key, k) {
   if (S.ap < 1) return '이번 턴 행동력 소진 — 턴을 종료하세요';
   if (a.camp && !activeCamps().length) return '공식 선거운동기간에만 가능 (사전선거운동 금지, 공직선거법 제254조)';
   if (key === 'debate' && !activeCamps().some(c => c.type !== 'nat')) return '대선·지방선거 선거운동기간에만 열림';
+  if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
+  if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'chapter') { if (S.chapters[k]) return '이미 등록된 시·도당'; if (S.members[k] < LAW.chapterMembers) return `당원 ${S.members[k].toLocaleString()} / 1,000명 필요 (정당법 제18조)`; }
   if (key === 'talent' && S.pool.length >= 30) return '인재풀이 가득 찼습니다 (최대 30명)';
   if (key === 'fund') { const y = L.dayToDate(S.day).getUTCFullYear(); if (S.fund.year === y && S.fund.raised >= fundCap()) return '연간 모금한도 도달 (정치자금법 제12조)'; }
@@ -767,6 +994,8 @@ function doAct(key, k) {
   if (why(key, k)) return;
   const a = ACT[key];
   if (key === 'policy') return policyModal();
+  if (key === 'bill') return billModal();
+  if (key === 'govern') return govModal(k);
   if (key === 'talent') { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; return talentModal(); }
   spend(a.c(), '활동'); S.ap--;
   S.cd[key + (k ? ':' + k : '')] = S.day + a.cd;
@@ -794,6 +1023,13 @@ function doAct(key, k) {
     msg = `후원의 밤: ${won(got)} 모금 (올해 ${won(S.fund.raised)} / 한도 ${won(fundCap())})`;
   } else if (key === 'tvad') {
     activeCamps().forEach(c => { c.boost.nat = Math.min(0.15, c.boost.nat + 0.04 * (1 - c.boost.nat / 0.15) + 0.002); }); msg = '방송 광고 송출: 전국 득표력 상승.';
+  } else if (key === 'question') {
+    const ruling = S.president.party === 'P', mp = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill)[0] || leader();
+    if (rnd() < mp.skill / 100 * 0.6 + 0.25) {
+      S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100);
+      if (!ruling) S.rw[S.president.party] -= 1.5;
+      msg = ruling ? `${mp.name} 의원이 정부 정책을 날카롭게 점검해 "건강한 여당"이라는 평을 들었습니다.` : `${mp.name} 의원의 송곳 질문에 장관이 진땀을 뺐습니다. 영상이 화제입니다.`;
+    } else { S.trust = clamp(S.trust - 1, 0, 100); ok = false; msg = `${mp.name} 의원이 준비 부족으로 장관에게 역공을 당했습니다.`; }
   } else if (key === 'debate') {
     const c = activeCamps().find(c => c.type !== 'nat');
     const cand = c.type === 'pres' ? c.reg.cand : Object.values(c.reg.gov)[0];
@@ -806,13 +1042,14 @@ function doAct(key, k) {
 function policyModal() {
   const fit = i => i.fit[S.party.ideo + 1];
   openModal({
-    title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 이번 달 핵심 쟁점은 <b>${ISSUES.find(i => i.k === S.issue).n}</b>입니다.</p><div class="choices">${ISSUES.map(i => `<button class="btn" data-issue="${i.k}">${i.n}${i.k === S.issue ? ' <span class="pill">핵심 쟁점</span>' : ''}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div>`,
+    title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 민심이 쏠린 쟁점을 짚으면 반응이 뜨겁습니다. 이번 주 뉴스를 참고하세요.</p>${newsList()}<div class="choices">${ISSUES.map(i => `<button class="btn" data-issue="${i.k}">${i.n}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
       const i = ISSUES.find(x => x.k === b.dataset.issue), mult = fit(i) * (i.k === S.issue ? 2 : 1) * (S.up.inst ? 1.5 : 1);
       spend(ACT.policy.c(), '활동'); S.cd.policy = S.day + ACT.policy.cd; S.ap--;
       S.trust = clamp(S.trust + 1.5 * mult, 0, 100); S.fame = clamp(S.fame + 1 * mult, 0, 100); S.buzz += 0.4 * mult;
-      closeModal(); const msg = `${i.n} 정책 발표 (효과 ×${mult.toFixed(2)})`; toast(msg); addLog(msg); Snd.sfx('ok'); renderAll();
+      const re = i.k === S.issue ? '언론과 여론의 반응이 뜨겁습니다!' : fit(i) >= 1.05 ? '지지층에서 무난한 반응이 나왔습니다.' : '반응이 미지근합니다.';
+      closeModal(); const msg = `${i.n} 정책 발표: ${re}`; toast(msg, i.k === S.issue ? 'ok' : ''); addLog(msg); Snd.sfx('ok'); renderAll();
     }),
   });
 }
@@ -920,11 +1157,13 @@ function registerCands(key) {
 }
 
 // ---------- 이벤트 ----------
-function addRisk(label, law, p, days, pen) { S.risks.push({ label, law, p, until: S.day + days, pen }); }
+// 숨긴 일: 매달 드러날 수 있지만 시간이 지날수록 흐려짐(monthly). k: 관련 시·도(단체장 직 상실용)
+function addRisk(label, p, days, pen) { S.risks.push({ label, p, born: S.day, until: S.day + days, pen }); }
 function applyPen(pen) {
   if (pen.money) spend(Math.abs(pen.money), '벌금·추징');
   if (pen.trust) S.trust = clamp(S.trust + pen.trust, 0, 100);
   if (pen.fame) S.fame = clamp(S.fame + pen.fame, 0, 100);
+  if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); }
   let lost = 0;
   for (let i = 0; i < (pen.seat || 0); i++) if (loseSeat(false)) lost++;
   return lost;
@@ -935,83 +1174,253 @@ function loseSeat(prSucceeds) {
   if (S.seats.P.pr > 0 && !prSucceeds) { S.seats.P.pr--; S.seats.O.pr++; return true; }
   return false;
 }
+// 숨긴 일 하나를 수사로 넘김(국정감사·내부 제보·고발)
+function exposeRisk(k = pick(S.risks)) { if (!k) return null; S.risks = S.risks.filter(x => x !== k); return openCase({ t: k.label, guilty: true, pen: k.pen }); }
 const nearElec = () => Object.values(S.camps).find(c => !inCampaign(c) && S.day < c.day);
+const natCamp = () => Object.values(S.camps).find(c => c.type === 'nat' && S.day < c.day);
+const ruling = () => S.president.party === 'P';
+const presN = () => `${esc(S.president.name)} 대통령`;
+const hitPres = n => { if (!ruling()) S.rw[S.president.party] -= n; };
+const ET = {}; // 이벤트 사이에 넘길 임시값
 const EVENTS = [
+  // --- 검은 제안: 받으면 이득, 들킬 수도 묻힐 수도 있음 ---
   { id: 'corp', w: 3, cond: () => true, title: '법인 명의 후원 제안',
-    body: () => `${pick(CORPS)} 대표가 "당 발전기금" 명목으로 <b>회사 법인 계좌에서 3억 원</b>을 보내겠다고 제안했습니다.`,
-    ch: [{ t: '정중히 거절한다', s: '원칙을 지킨다', run: () => { S.trust += 2; return '거절했습니다. 원칙을 지켰다는 평가가 돌며 신뢰가 올랐습니다.'; } },
-      { t: '받는다', s: '당장 자금 +3억', run: () => { earn(3e8, '기타'); addRisk('법인 불법 정치자금 3억 원 수수', '정치자금법 제31조·제45조', 0.05, 7 * 365, { money: -4.5e8, trust: -15, note: '3억 원 몰수·추징 및 벌금, 회계책임자 기소' }); return '3억 원이 입금되었습니다. 장부에는 남기지 않았습니다…'; } }],
-    law: '법인·단체는 정치자금을 기부할 수 없습니다(정치자금법 제31조). 위반 시 5년 이하 징역 또는 1천만원 이하 벌금(제45조).' },
+    body: () => `${pick(CORPS)} 대표가 "당 발전기금" 명목으로 <b>회사 법인 계좌에서 3억 원</b>을 보내겠다고 합니다. "조용히 처리하면 아무도 모릅니다."`,
+    ch: [{ t: '정중히 거절한다', run: () => { S.trust += 2; return '거절했습니다. 원칙을 지켰다는 이야기가 돌며 신뢰가 조금 올랐습니다.'; } },
+      { t: '받는다', s: '자금 +3억', run: () => { earn(3e8, '기타'); addRisk('법인 자금 3억 원 수수', 0.012, 7 * 365, { money: -4.5e8, trust: -15, note: '3억 원 몰수·추징과 벌금, 회계책임자 실형' }); return '3억 원이 입금되었습니다. 장부에는 남기지 않았습니다.'; } }] },
   { id: 'split', w: 2, cond: () => S.phase === 'reg', title: '쪼개기 후원 제안',
     body: () => `한 건설사가 임직원 50명 명의로 500만 원씩, 총 <b>2억 5천만 원</b>을 나눠 후원하겠다고 합니다. 돈의 실제 주인은 회사입니다.`,
     ch: [{ t: '거절한다', run: () => { S.trust += 1; return '거절했습니다.'; } },
-      { t: '받는다', s: '자금 +2.5억', run: () => { raiseFunds(2.5e8); addRisk('타인 명의 쪼개기 후원', '정치자금법 제2조·제31조', 0.06, 7 * 365, { money: -3e8, trust: -12, note: '타인 명의 기부 및 법인 자금 기부 — 전액 반환·벌금' }); return '후원금이 들어왔습니다.'; } }],
-    law: '누구든지 타인의 명의나 가명으로 정치자금을 기부할 수 없습니다(정치자금법 제2조 제5항).' },
-  { id: 'precamp', w: 5, cond: () => S.phase === 'reg' && !!nearElec(), title: '이른 선거운동 제안',
+      { t: '받는다', s: '자금 +2.5억', run: () => { raiseFunds(2.5e8); addRisk('임직원 명의 쪼개기 후원', 0.014, 7 * 365, { money: -3e8, trust: -12, note: '후원금 전액 반환과 벌금' }); return '후원금이 들어왔습니다.'; } }] },
+  { id: 'precamp', w: 4, cond: () => S.phase === 'reg' && !!nearElec(), title: '이른 선거운동 제안',
     body: () => `지역 조직책들이 공식 선거운동기간 전부터 유세차와 명함 배포를 시작하자고 건의합니다. "남들도 다 합니다."`,
-    ch: [{ t: '법대로 한다', s: '온라인 홍보에 집중', run: () => { S.trust += 1; return '공식 선거운동기간까지 기다리기로 했습니다. 온라인 선거운동은 상시 가능합니다.'; } },
-      { t: '강행한다', s: '전국 득표력 상승', run: () => { const c = nearElec(); c.boost.nat += 0.05; addRisk('사전선거운동', '공직선거법 제254조·제264조', 0.12, c.day - S.day + 180, { money: -3e7, trust: -6, seat: 1, note: '사전선거운동 유죄 — 해당 당선인 벌금 100만원 이상 확정 시 당선무효(제264조)' }); return '유세단이 일찍 움직이기 시작했습니다.'; } }],
-    law: '선거운동은 선거기간개시일부터 선거일 전일까지만 할 수 있습니다(공직선거법 제59조·제254조). 공소시효는 선거일 후 6개월(제268조).' },
-  { id: 'meal', w: 3, cond: () => totalMembers() > 500, title: '경로당 식사 대접',
-    body: () => `${RK[pick(R).k].n} 당원협의회장이 경로당 어르신 100명에게 식사를 대접하며 당을 홍보하자고 합니다.`,
-    ch: [{ t: '거절한다', run: () => '거절했습니다. 대신 순수 봉사활동을 권했습니다.' },
-      { t: '진행한다', s: '당원·인지도 상승', run: () => { const k = pick(R).k; S.members[k] += 300; S.fame += 1; addRisk('유권자 기부행위(식사 제공)', '공직선거법 제113조·제257조', 0.12, 365, { money: -2e7, trust: -6, note: '기부행위 금지 위반 — 음식물을 제공받은 유권자에게도 10~50배 과태료(제261조)' }); return '식사 자리가 성황리에 끝났습니다.'; } }],
-    law: '정당·후보자 등은 선거구민에게 금품·음식물 등 기부행위를 할 수 없습니다(공직선거법 제113조·제114조).' },
+    ch: [{ t: '기간을 기다린다', s: '온라인 홍보에 집중', run: () => { S.trust += 1; return '공식 선거운동기간까지 기다리기로 했습니다.'; } },
+      { t: '강행한다', s: '전국 득표력 상승', run: () => { const c = nearElec(); c.boost.nat += 0.05; addRisk('사전선거운동', 0.03, c.day - S.day + 180, { money: -3e7, trust: -6, seat: 1, note: '사전선거운동 유죄, 해당 당선인 당선무효' }); return '유세단이 일찍 움직이기 시작했습니다.'; } }] },
+  { id: 'meal', w: 3, cond: () => totalMembers() > 500, title: '경로당 식사 대접', pre: () => (ET.k = pick(R).k),
+    body: () => `${RK[ET.k].n} 당원협의회장이 경로당 어르신 100명에게 식사를 대접하며 당을 알리자고 합니다. "명절 인사 정도인데요."`,
+    ch: [{ t: '거절한다', run: () => '거절했습니다. 대신 봉사활동을 권했습니다.' },
+      { t: '진행한다', s: '당원·인지도 상승', run: () => { S.members[ET.k] += 300; S.fame += 1; addRisk('경로당 식사 제공', 0.025, 365, { money: -2e7, trust: -6, note: '기부행위 유죄, 식사한 주민들도 과태료' }); return '식사 자리가 성황리에 끝났습니다.'; } }] },
+  { id: 'pollfake', w: 2, cond: () => Object.keys(S.camps).length > 0 && S.phase === 'reg', title: '여론조사 설계 제안',
+    body: () => '한 조사업체가 표본을 "조정"해 우리 당 지지율이 높게 나오는 여론조사를 발표해주겠다고 합니다.',
+    ch: [{ t: '거절한다', run: () => '거절했습니다.' },
+      { t: '의뢰한다', s: '일시적 지지 상승', run: () => { S.buzz += 3; addRisk('왜곡 여론조사 공표', 0.03, 365, { money: -5e7, trust: -9, note: '왜곡 여론조사 공표 유죄' }); return '조사 결과가 크게 보도되었습니다.'; } }] },
+  { id: 'macro', w: 2, cond: () => S.fame > 8, title: '댓글 여론 관리 제안',
+    body: () => '한 온라인 마케팅 업체가 매크로 프로그램으로 포털 기사 댓글과 공감 수를 "관리"해주겠다고 합니다. 비용은 3천만 원.',
+    ch: [{ t: '거절한다', run: () => { S.trust += 0.5; return '거절했습니다.'; } },
+      { t: '맡긴다', s: '화제성·인지도↑', run: () => { spend(3e7, '활동'); S.buzz += 3; S.fame += 2; addRisk('매크로 댓글 조작', 0.025, 7 * 365, { money: -8e7, trust: -14, note: '업무방해 유죄, 당 관계자 실형' }); return '포털 댓글 분위기가 눈에 띄게 우호적으로 바뀌었습니다.'; } }] },
+  { id: 'envelope', w: 1.5, cond: () => S.phase === 'reg' && totalMembers() > 5000, title: '전당대회 봉투',
+    body: () => `당 지도부 경선을 앞두고 측근이 대의원들에게 "교통비" 봉투를 돌리자고 합니다. "상대 쪽은 벌써 돌렸답니다."`,
+    ch: [{ t: '깨끗하게 치른다', run: () => { S.trust += 1.5; if (rnd() < 0.3) { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 0.98); return '깨끗한 경선을 치렀지만 조직표 일부가 이탈했습니다.'; } return '깨끗한 경선을 치렀습니다.'; } },
+      { t: '봉투를 돌린다', s: '조직 결속', run: () => { spend(5e7, '활동'); for (const k in S.members) S.members[k] = Math.round(S.members[k] * 1.04); addRisk('전당대회 돈봉투 살포', 0.02, 7 * 365, { money: -5e7, trust: -12, seat: 1, note: '관련 의원 유죄, 의원직 상실' }); return '대의원들이 똘똘 뭉쳤습니다.'; } }] },
+  { id: 'leak', w: 1.5, cond: () => totalMembers() > 5000, title: '당원 명부 유출',
+    body: () => '외부 해킹으로 당원 명부 일부가 유출된 정황이 확인되었습니다.',
+    ch: [{ t: '즉시 신고하고 사과', s: '과징금 3천만', run: () => { spend(3e7, '벌금·추징'); S.trust -= 2; return '당국에 신고하고 당원들에게 알렸습니다.'; } },
+      { t: '조용히 덮는다', run: () => { addRisk('개인정보 유출 은폐', 0.02, 3 * 365, { money: -1e8, trust: -10, note: '신고·통지 의무 위반으로 과징금' }); return '외부에 알리지 않았습니다.'; } }] },
+  { id: 'satellite', w: 3, once: true, cond: () => S.phase === 'reg' && !!natCamp() && !natCamp().sat, title: '위성정당 창당 제안',
+    body: () => '비례대표 의석을 더 얻으려면 비례 후보만 내는 "위성정당"을 따로 만들자는 제안이 나왔습니다. 법에 걸리진 않지만 꼼수라는 비판은 각오해야 합니다.',
+    ch: [{ t: '원칙대로 간다', run: () => { S.trust += 2; return '위성정당 없이 선거를 치르기로 했습니다.'; } },
+      { t: '위성정당을 만든다', s: '비례 득표↑ 신뢰↓', run: () => { natCamp().sat = true; S.trust -= 6; return '위성정당을 창당했습니다. "민의 왜곡"이라는 비판이 쏟아집니다.'; } }] },
+
+  // --- 국회·정부·사법과 얽히는 사건 ---
+  { id: 'accuse', w: 2, cond: () => S.phase === 'reg' && S.fame > 8, title: '경쟁 정당의 고발',
+    pre: () => { ET.id = pick(['A', 'B']); ET.real = S.risks.length && rnd() < 0.5 ? pick(S.risks) : null; ET.t = ET.real ? ET.real.label : pick(FAKE_CHARGES); },
+    body: () => `${RIV[ET.id].name}이 <b>'${esc(ET.t)}'</b> 의혹을 제기하며 우리 당을 검찰에 고발했습니다.`,
+    ch: [{ t: '"근거 없는 정치 공세" 반박', run: () => { accuseOpen(); return '정면 반박했습니다. 이제 검찰의 시간입니다.'; } },
+      { t: '무고죄로 맞고소한다', s: '이기면 상대가 타격, 지면 역풍', run: () => { accuseOpen(); openCase({ t: `${RIV[ET.id].name}의 무고`, guilty: !ET.real, mine: true, target: ET.id }); return '무고 혐의로 맞고소했습니다.'; } }] },
+  { id: 'rivalscandal', w: 3, cond: () => true, title: '경쟁 정당 비리 의혹', pre: () => (ET.id = pick(['A', 'B'])),
+    body: () => `${RIV[ET.id].name} 중진 의원의 공천헌금 의혹이 터졌습니다.`,
+    ch: [{ t: '강력 규탄 성명', s: '인지도↑', run: () => { S.rw[ET.id] -= 3; S.fame += 3; S.trust -= 1; return '규탄 성명이 크게 보도되었습니다.'; } },
+      { t: '검찰에 고발한다', s: '수사 결과에 따라 갈림', run: () => { S.rw[ET.id] -= 1; S.fame += 1; openCase({ t: `${RIV[ET.id].name} 공천헌금`, guilty: rnd() < 0.6, mine: true, target: ET.id }); return '검찰에 고발장을 냈습니다. 결과는 몇 주 뒤 나옵니다.'; } },
+      { t: '정치개혁 법안으로 대응', s: '신뢰↑', run: () => { S.rw[ET.id] -= 3; S.trust += 2; S.fame += 1; return '정책 정당 이미지가 강화되었습니다.'; } }] },
   { id: 'fakenews', w: 3, cond: () => S.fame > 5, title: '가짜뉴스 확산',
     body: () => `${esc(leader().name)} 대표가 해외 원정도박을 했다는 조작 영상이 SNS에 퍼지고 있습니다.`,
-    ch: [{ t: '언론중재위원회 정정보도 청구', s: '비용 1천만', run: () => { spend(1e7, '기타'); S.trust += 1; S.fame += 1; return '정정보도가 나가며 사태가 진정되었습니다.'; } },
+    ch: [{ t: '언론중재위원회에 정정보도 청구', s: '비용 1천만', run: () => { spend(1e7, '기타'); S.trust += 1; S.fame += 1; return '정정보도가 나가며 사태가 진정되었습니다.'; } },
+      { t: '유포자를 명예훼손으로 고소', s: '수사 결과는 몇 주 뒤', run: () => { openCase({ t: '조작 영상 유포', guilty: rnd() < 0.7, mine: true }); return '경찰에 고소장을 냈습니다.'; } },
       { t: '무대응', run: () => { S.trust -= 3; return '소문이 꽤 오래 남았습니다. 신뢰 하락.'; } },
-      { t: '상대 진영 의혹으로 맞불', s: '인지도↑ 신뢰↓', run: () => { S.fame += 3; S.trust -= 4; return '진흙탕 싸움으로 이름은 알려졌지만 신뢰를 잃었습니다.'; } }],
-    law: '허위사실 공표는 공직선거법 제250조, 정정보도는 언론중재법에 따른 절차를 밟을 수 있습니다.' },
-  { id: 'rivalscandal', w: 3, cond: () => true, title: '경쟁 정당 비리 의혹', pre: () => (EVENTS.tmp = pick(['A', 'B'])),
-    body: () => `${RIV[EVENTS.tmp].name} 중진 의원의 공천헌금 의혹이 터졌습니다.`,
-    ch: [{ t: '강력 규탄 성명', s: '인지도↑', run: () => { S.rw[EVENTS.tmp] -= 3; S.fame += 3; S.trust -= 1; return '규탄 성명이 크게 보도되었습니다.'; } },
-      { t: '정치개혁 법안으로 대응', s: '신뢰↑', run: () => { S.rw[EVENTS.tmp] -= 3; S.trust += 2; S.fame += 1; return '정책 정당 이미지가 강화되었습니다.'; } }] },
-  { id: 'crisis', w: 2, cond: () => true, title: '경제 위기 경보',
-    body: () => '환율 급등과 수출 부진으로 경기 침체 우려가 커졌습니다. 경제가 최대 쟁점이 됩니다.',
-    pre: () => (S.issue = 'econ'),
+      { t: '상대 진영 의혹으로 맞불', s: '인지도↑ 신뢰↓', run: () => { S.fame += 3; S.trust -= 4; return '진흙탕 싸움으로 이름은 알려졌지만 신뢰를 잃었습니다.'; } }] },
+  { id: 'hearing', w: 2, cond: () => seatTotal('P') > 0 && !ruling(), title: '장관 후보자 인사청문회', pre: () => (ET.flaw = rnd() < 0.5),
+    body: () => `${presN()}이 지명한 장관 후보자의 인사청문회가 열립니다. 우리 당 의원도 청문위원으로 참여합니다.`,
+    ch: [{ t: '도덕성 송곳 검증', s: '한 방이 있으면 대박', run: () => { if (ET.flaw) { S.fame += 3; hitPres(2); return '위장전입·논문 표절을 밝혀냈습니다. 후보자가 자진 사퇴했습니다!'; } S.trust -= 1.5; return '결정적 한 방이 없어 "흠집내기"라는 비판을 받았습니다.'; } },
+      { t: '정책 역량 검증', s: '신뢰↑', run: () => { S.trust += 1.5; return '정책 질의로 품격 있는 청문회라는 평을 들었습니다.'; } }] },
+  { id: 'filibuster', w: 1.5, cond: () => seatTotal('P') > 0, title: '무제한 토론(필리버스터)',
+    body: () => '쟁점 법안의 강행 처리를 막으려는 무제한 토론이 시작됐습니다. 우리 당 의원도 연단에 설 수 있습니다.',
+    ch: [{ t: '밤샘 토론에 참여한다', s: '인지도↑', run: () => { S.fame += 3; S.buzz += 1; return '12시간 연설이 생중계되며 화제가 됐습니다.'; } },
+      { t: '민생 현장을 지킨다', s: '신뢰↑', run: () => { S.trust += 1.5; return '"정쟁보다 민생"이라는 메시지를 냈습니다.'; } }] },
+  { id: 'fasttrack', w: 1.5, cond: () => seatTotal('P') > 0, title: '국회 회의장 점거',
+    body: () => '선거제 개편안의 신속처리안건 지정을 막겠다며 한 정당이 회의장을 점거했습니다. 우리 당에도 "함께 막자"는 요청이 왔습니다.',
+    ch: [{ t: '표결로 말하자고 한다', s: '신뢰↑', run: () => { S.trust += 2; return '물리적 충돌에 반대하는 입장을 냈습니다.'; } },
+      { t: '몸으로라도 막는다', s: '지지층 결집', run: () => { S.fame += 3; for (const k in S.members) S.members[k] = Math.round(S.members[k] * 1.03); addRisk('국회 회의 방해', 0.03, 5 * 365, { money: -3e7, trust: -6, seat: 1, note: '회의 방해 유죄, 일부 의원 의원직 상실' }); return '국회가 아수라장이 됐습니다. 지지층은 열광합니다.'; } }] },
+  { id: 'immunity', w: 1, once: true, cond: () => seatTotal('P') > 0, title: '불체포특권 포기 서약',
+    body: () => '"방탄 국회" 비판 여론이 거셉니다. 소속 의원 전원이 불체포특권 포기 서약을 하자는 의견이 나왔습니다.',
+    ch: [{ t: '전원 서약한다', s: '신뢰↑', run: () => { S.trust += 3; return '전원 서약했습니다. 개혁 정당 이미지가 생겼습니다.'; } },
+      { t: '헌법상 권리라며 거부', run: () => { S.trust -= 2; return '"특권 지키기"라는 비판을 받았습니다.'; } }] },
+  { id: 'candle', w: 1, cond: () => !ruling() && S.day - S.president.since > 365, title: '광장의 촛불',
+    pre: () => hitPres(2), body: () => `${presN()} 측근의 국정 개입 의혹으로 광장에 수십만 명이 모였습니다.`,
+    ch: [{ t: '당 깃발을 들고 합류', s: '인지도↑ 신뢰↓', run: () => { S.fame += 3; S.buzz += 2; S.trust -= 1; hitPres(2); return '당 깃발이 광장에 나부꼈습니다. "숟가락 얹기"라는 시선도 있습니다.'; } },
+      { t: '깃발 없이 시민으로 참여', s: '신뢰↑', run: () => { S.trust += 2; S.fame += 1; hitPres(1); return '당 지도부가 시민들 사이에 조용히 섰습니다.'; } },
+      { t: '거리를 둔다', run: () => { S.trust -= 1; return '광장과 거리를 뒀습니다.'; } }] },
+  { id: 'impeach', w: 2, cond: () => seatTotal('P') > 0 && !ruling() && S.rw[S.president.party] < RIV[S.president.party].base - 4 && !S.seen['imp' + S.president.since], title: '대통령 탄핵소추안 발의',
+    pre: () => (S.seen['imp' + S.president.since] = true),
+    body: () => `${presN()}의 직무상 위법 의혹으로 탄핵소추안이 발의됐습니다. 국회의원 200명 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.`,
+    ch: [{ t: '찬성한다', run: () => impeachVote(true) }, { t: '반대한다', run: () => impeachVote(false) }, { t: '기권한다', run: () => { S.trust -= 1; return impeachVote(null); } }] },
+  { id: 'martial', w: 0.4, once: true, cond: () => !ruling() && S.day > 500, title: '심야의 비상계엄',
+    pre: () => hitPres(8), body: () => `밤 10시, ${presN()}이 긴급 담화로 비상계엄을 선포했습니다. 국회 앞에 군 병력이 들어오고 있습니다. 국회가 재적 과반으로 해제를 요구하면 계엄은 풀립니다.`,
+    ch: [{ t: '담을 넘어서라도 국회로 간다', s: '위험을 무릅쓴다', run: () => { S.trust += 6; S.fame += 5; return seatTotal('P') ? '우리 당 의원들이 담을 넘어 본회의장에 들어가 해제 요구안에 찬성표를 던졌습니다. 계엄은 몇 시간 만에 해제됐습니다.' : '당원들과 국회 앞을 지켰습니다. 계엄은 몇 시간 만에 해제됐습니다.'; } },
+      { t: '상황을 지켜본다', run: () => { S.trust -= 5; return '침묵했다는 비판이 거셉니다. 계엄은 국회 표결로 해제됐습니다.'; } }] },
+
+  // --- 실제 있었던 일들을 닮은 사회 사건 ---
+  { id: 'crisis', w: 2, cond: () => true, title: '경제 위기 경보', pre: () => (S.issue = 'econ'),
+    body: () => '환율 급등과 수출 부진으로 경기 침체 우려가 커졌습니다. 시장이 크게 흔들리고 있습니다.',
     ch: [{ t: '긴급 민생대책 발표', s: '비용 3천만', run: () => { spend(3e7, '활동'); S.trust += 3; S.fame += 2; return '민생대책이 호평받았습니다.'; } },
       { t: '관망', run: () => '상황을 지켜보기로 했습니다.' }] },
-  { id: 'disaster', w: 2, cond: () => true, title: '대형 재난 발생',
-    body: () => `${RK[pick(R).k].n}에 집중호우로 큰 피해가 발생했습니다.`,
-    ch: [{ t: '정쟁 중단, 현장 복구 봉사', s: '비용 2천만', run: () => { spend(2e7, '활동'); S.trust += 4; return '진정성 있는 대응으로 신뢰가 올랐습니다.'; } },
-      { t: '정부 책임론 제기', s: '인지도↑', run: () => { S.fame += 3; S.trust -= S.president.party === 'P' ? 6 : 1; return S.president.party === 'P' ? '여당이 정부를 비판해 혼란만 키웠습니다.' : '책임론이 이슈가 되었습니다.'; } }] },
-  { id: 'celeb', w: 2, cond: () => S.pool.length < 30, title: '유명인 입당 의사', pre: () => { EVENTS.tmpP = genPerson({ fameAdd: 40 }); },
-    body: () => { const p = EVENTS.tmpP; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. 청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.`; },
-    ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(EVENTS.tmpP); S.fame += 2; return `${EVENTS.tmpP.name} 영입!`; } },
+  { id: 'disaster', w: 2, cond: () => true, title: '집중호우 피해', pre: () => (ET.k = pick(R).k),
+    body: () => `${RK[ET.k].n}에 집중호우로 큰 피해가 발생했습니다.${S.gov[ET.k] === 'P' ? ' 우리 당 단체장이 있는 지역입니다.' : ''}`,
+    ch: () => [...(S.gov[ET.k] === 'P' ? [{ t: '도지사가 밤새 현장을 지휘한다', s: '도정 지지도↑', run: () => { S.ops[ET.k] = clamp(S.ops[ET.k] + 6, 5, 95); S.trust += 1; return '도지사의 발 빠른 대응이 호평을 받았습니다.'; } }] : []),
+      { t: '정쟁 중단, 복구 봉사', s: '비용 2천만', run: () => { spend(2e7, '활동'); S.trust += 4; return '진정성 있는 대응으로 신뢰가 올랐습니다.'; } },
+      { t: '정부 책임론 제기', s: '인지도↑', run: () => { S.fame += 3; S.trust -= ruling() ? 6 : 1; return ruling() ? '여당이 정부를 비판해 혼란만 키웠습니다.' : '책임론이 이슈가 되었습니다.'; } }] },
+  { id: 'tragedy', w: 1, cond: () => S.day > 180, title: '대형 참사',
+    body: () => '도심 축제 인파가 좁은 골목에 몰리며 수백 명의 사상자가 났습니다. 온 나라가 슬픔에 잠겼습니다.',
+    ch: [{ t: '정쟁 중단, 애도에 집중', s: '신뢰↑', run: () => { S.trust += 3; return '모든 정치 일정을 멈추고 애도했습니다.'; } },
+      { t: '진상규명 국정조사 요구', s: '인지도↑', run: () => { if (ruling()) { S.trust -= 2; return '여당의 국정조사 요구가 "책임 회피"로 비쳤습니다.'; } S.fame += 3; S.trust += 1; hitPres(3); return '국정조사 요구가 여론의 지지를 받았습니다.'; } }] },
+  { id: 'pandemic', w: 1, once: true, cond: () => S.day > 300, title: '감염병 대유행', pre: () => (S.issue = 'welfare'),
+    body: () => '신종 감염병이 빠르게 번지며 사회적 거리두기가 시작됐습니다. 자영업자들의 비명이 커집니다.',
+    ch: [{ t: '전 국민 재난지원금 주장', s: '인지도↑', run: () => { S.fame += 2; S.trust += S.party.ideo >= 0 ? 2 : -1; return '"보편 지급" 주장이 큰 호응을 얻었습니다.'; } },
+      { t: '피해 계층 선별 지원 주장', s: '신뢰↑', run: () => { S.trust += S.party.ideo <= 0 ? 2 : 0.5; return '"두텁게, 필요한 곳에" 메시지를 냈습니다.'; } },
+      { t: '방역 봉사 캠페인', s: '비용 2천만', run: () => { spend(2e7, '활동'); S.trust += 3; return '당원들이 선별진료소 봉사에 나섰습니다.'; } }] },
+  { id: 'landspec', w: 1.5, cond: () => S.phase === 'reg', title: '공공기관 땅투기 사태', pre: () => (S.issue = 'house'),
+    body: () => '공공기관 직원들이 신도시 발표 전에 예정지 땅을 사들인 사실이 드러났습니다. 정치권도 전수조사 압박을 받습니다.',
+    ch: [{ t: '우리 당 인사부터 전수조사', s: '비용 1천만', run: () => { spend(1e7, '활동'); const p = S.pool.find(x => !x.leader && x.integ < 40); if (p && rnd() < 0.5) { S.pool = S.pool.filter(x => x !== p); if (/국회의원/.test(p.role)) loseSeat(false); S.trust += 1; return `${p.name}의 투기 정황이 나와 출당시켰습니다. 아프지만 정직한 대응이라는 평가입니다.`; } S.trust += 3; return '문제없음이 확인됐습니다. "깨끗한 정당" 이미지가 생겼습니다.'; } },
+      { t: '정부 책임 공세', s: '인지도↑', run: () => { if (ruling()) { S.trust -= 2; return '여당이 남 탓을 한다는 비판을 받았습니다.'; } S.fame += 2; hitPres(2); return '정부 관리 책임을 강하게 따졌습니다.'; } }] },
+  { id: 'admission', w: 1.5, cond: () => !ruling(), title: '고위 공직자 자녀 입시 의혹', pre: () => (S.issue = 'youth'),
+    body: () => `${presN()}이 지명한 고위 공직자 자녀의 입시 특혜 의혹이 불거졌습니다. 청년들의 분노가 커집니다.`,
+    ch: [{ t: '"공정" 의제를 선점한다', s: '신뢰↑', run: () => { S.trust += 2; S.fame += 1; hitPres(2); return '입시 공정성 제도 개선안을 냈습니다.'; } },
+      { t: '청년 간담회를 연다', s: '비용 1천만', run: () => { spend(1e7, '활동'); S.trust += 1; S.members.seoul += 400; return '청년들의 이야기를 들었습니다. 청년 당원이 늘었습니다.'; } }] },
+  { id: 'metoo', w: 1.2, cond: () => S.pool.some(p => !p.leader), title: '정치권 미투 폭로',
+    body: () => '정치권 인사들의 성폭력 폭로가 잇따릅니다. 각 당이 자체 조사 압박을 받고 있습니다.',
+    ch: [{ t: '외부 신고센터 개설', s: '비용 1천만', run: () => { spend(1e7, '활동'); const p = S.pool.find(x => !x.leader && x.integ < 35); if (p && rnd() < 0.6) { S.pool = S.pool.filter(x => x !== p); if (/국회의원/.test(p.role)) loseSeat(false); S.trust += 1; return `신고센터에 ${p.name} 관련 제보가 들어와 즉시 제명했습니다.`; } S.trust += 2; return '신고센터를 열었습니다. 피해자 중심 대응이라는 평가입니다.'; } },
+      { t: '조용히 넘어간다', run: () => { const p = S.pool.find(x => !x.leader && x.integ < 35); if (p) later(rr(30, 150), { ev: 'scandal', pid: p.id }); return '당내 조사는 하지 않았습니다.'; } }] },
+  { id: 'summit', w: 1.2, cond: () => true, title: '남북 정상회담', pre: () => (S.issue = 'security'),
+    body: () => '남북 정상이 판문점에서 만나 손을 맞잡았습니다. 평화 기대와 "보여주기" 비판이 엇갈립니다.',
+    ch: [{ t: '적극 환영', run: () => { S.fame += 1; S.trust += S.party.ideo >= 0 ? 2 : -1.5; return '환영 논평을 냈습니다.'; } },
+      { t: '"실질적 비핵화가 먼저"', run: () => { S.fame += 1.5; S.trust += S.party.ideo <= 0 ? 2 : -1.5; return '신중론을 폈습니다.'; } }] },
+  { id: 'japan', w: 1.2, cond: () => true, title: '이웃 나라의 수출 규제', pre: () => (S.issue = 'econ'),
+    body: () => '이웃 나라가 반도체 핵심 소재 수출을 갑자기 규제했습니다. 시민들 사이에 불매운동이 번집니다.',
+    ch: [{ t: '불매운동 지지 선언', s: '인지도↑', run: () => { S.fame += 3; S.trust += S.party.ideo >= 0 ? 1 : -1; return '불매운동 지지를 선언했습니다.'; } },
+      { t: '소재 국산화 지원법 제안', s: '신뢰↑', run: () => { S.trust += 2; return '"감정보다 실력"이라는 메시지를 냈습니다.'; } }] },
+  { id: 'medstrike', w: 1.2, cond: () => true, title: '의대 증원 갈등', pre: () => (S.issue = 'welfare'),
+    body: () => '정부의 의대 정원 확대에 반발한 전공의들이 병원을 떠났습니다. 응급실이 마비되고 있습니다.',
+    ch: [{ t: '정부 증원안 지지', run: () => { S.fame += 1; S.trust += rnd() < 0.5 ? 1.5 : -1.5; return '증원 지지 입장을 냈습니다. 여론이 엇갈립니다.'; } },
+      { t: '여야·의료계 중재안 제시', s: '비용 1천만', run: () => { spend(1e7, '활동'); S.trust += 2.5; return '중재안이 "현실적"이라는 평가를 받았습니다.'; } },
+      { t: '의료계 편에 선다', run: () => { S.fame += 2; S.trust -= 1; return '의료계 지지 입장이 논란이 됐습니다.'; } }] },
+  { id: 'water', w: 1, cond: () => true, title: '원전 오염수 방류', pre: () => (S.issue = 'climate'),
+    body: () => '이웃 나라가 원전 오염수 해양 방류를 시작했습니다. 수산업계가 직격탄을 맞았습니다.',
+    ch: [{ t: '방류 반대 장외 집회', s: '인지도↑', run: () => { S.fame += 3; S.trust += S.party.ideo >= 0 ? 1 : -1; return '장외 집회를 열었습니다.'; } },
+      { t: '수산업계 지원책 제안', s: '신뢰↑', run: () => { S.trust += 2; return '어민 지원 대책을 냈습니다.'; } }] },
+  { id: 'attack', w: 0.6, once: true, cond: () => S.fame > 10, title: '당 대표 피습',
+    body: () => `${esc(leader().name)} 대표가 지역 일정 중 괴한의 흉기에 습격당했습니다. 다행히 생명에는 지장이 없습니다.`,
+    ch: [{ t: '"증오의 정치를 멈춰 달라"', s: '신뢰↑', run: () => { S.trust += 4; S.fame += 3; return '대표의 호소에 여야 모두 자성의 목소리를 냈습니다.'; } },
+      { t: '배후 의혹을 제기한다', s: '인지도↑ 신뢰↓', run: () => { S.fame += 4; S.trust -= 2; return '음모론이 번지며 정국이 얼어붙었습니다.'; } }] },
+  { id: 'thirdway', w: 2, cond: () => S.party.ideo === 0 && S.phase === 'reg' && !!natCamp(), title: '제3지대 바람',
+    body: () => '거대 양당에 대한 피로감으로 "제3지대" 바람이 불고 있습니다. 중도층이 새 선택지를 찾습니다.',
+    ch: [{ t: '중도 빅텐트를 선언한다', s: '화제성↑', run: () => { S.buzz += 3; S.fame += 2; return '"양당 기득권 타파" 깃발을 들었습니다.'; } },
+      { t: '독자 노선을 지킨다', s: '신뢰↑', run: () => { S.trust += 1.5; return '정책으로 승부하겠다고 밝혔습니다.'; } }] },
+  { id: 'young', w: 1.2, cond: () => S.pool.length < 30, title: '청년 정치인 돌풍', pre: () => { ET.p = genPerson({ age: 33, fameAdd: 25 }); ET.p.skill = Math.max(ET.p.skill, 72); },
+    body: () => `토론 배틀 프로그램에서 우승한 30대 <b>${esc(ET.p.name)}</b>(인지도 ${ET.p.fame}, 역량 ${ET.p.skill})가 화제입니다. 입당 의사를 타진해 왔습니다.`,
+    ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); S.fame += 2; return `${ET.p.name} 영입! 청년층 반응이 뜨겁습니다.`; } },
+      { t: '아직 이르다', run: () => '정중히 사양했습니다.' }] },
+  { id: 'fandom', w: 1.2, cond: () => totalMembers() > 20000, title: '강성 지지층 문자 폭탄',
+    body: () => '당내 소신 발언을 한 의원에게 강성 지지층의 문자 폭탄이 쏟아지고 있습니다.',
+    ch: [{ t: '지지층을 끌어안는다', s: '당원↑ 신뢰↓', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 1.05); S.trust -= 2; return '열성 당원들이 더 늘었습니다. 중도층은 고개를 젓습니다.'; } },
+      { t: '선을 긋는다', s: '신뢰↑ 당원↓', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 0.97); S.trust += 2; return '"다른 목소리도 존중해야 한다"고 밝혔습니다.'; } }] },
+  { id: 'byelect', w: 1, cond: () => S.phase === 'reg' && S.money > 1e8, title: '재선거', pre: () => (ET.k = pick(R).k),
+    body: () => `${RK[ET.k].n} 한 지역구 의원의 당선무효로 재선거가 열립니다.`,
+    ch: [{ t: '후보를 낸다', s: '비용 1억', run: () => { spend(1e8, '선거'); if (rnd() < clamp((regSupport(ET.k) - 5) / 35, 0.03, 0.85)) { const id = ['A', 'B', 'C', 'O'].find(x => (S.seats[x].d[ET.k] || 0) > 0); if (id) S.seats[id].d[ET.k]--; S.seats.P.d[ET.k] = (S.seats.P.d[ET.k] || 0) + 1; S.fame += 3; checkAch(); return `재선거 승리! ${RK[ET.k].n}에서 의석을 얻었습니다.`; } S.fame += 1; return '아쉽게 낙선했습니다.'; } },
+      { t: '내지 않는다', run: () => '이번엔 건너뛰기로 했습니다.' }] },
+
+  // --- 우리 당 단체장이 있을 때 ---
+  { id: 'devscandal', w: 1.5, cond: () => Object.keys(S.ops).length > 0, title: '개발사업 특혜 의혹', pre: () => { ET.k = pick(Object.keys(S.ops)); ET.real = S.risks.find(r => r.pen.gov === ET.k); },
+    body: () => `${RK[ET.k].n} 도시개발 사업에서 민간업자가 수천억 원을 챙겼다는 보도가 나왔습니다. 경쟁 정당이 우리 당 도지사를 고발했습니다.`,
+    ch: [{ t: '특검이라도 받겠다', s: '결백하면 신뢰↑', run: () => { S.trust += ET.real ? 0 : 2; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: '도지사 직 상실' } }); return '"한 점 부끄럼 없다"며 수사를 자청했습니다.'; } },
+      { t: '"정치 공세"라고 반박', run: () => { S.fame += 1; S.ops[ET.k] -= 3; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: '도지사 직 상실' } }); return '의혹을 정면 반박했습니다.'; } }] },
+  { id: 'jamboree', w: 1, cond: () => Object.keys(S.ops).length > 0, title: '국제행사 파행', pre: () => (ET.k = pick(Object.keys(S.ops))),
+    body: () => `${RK[ET.k].n}에서 열린 국제 청소년 행사가 폭염과 준비 부족으로 파행을 빚었습니다. 책임 공방이 시작됐습니다.`,
+    ch: [{ t: '도지사가 공식 사과', s: '도정 지지도 소폭↓', run: () => { S.ops[ET.k] -= 2; S.trust += 1; return '깔끔한 사과로 불길을 잡았습니다.'; } },
+      { t: '중앙정부 책임론', s: '도정 지지도↓', run: () => { S.ops[ET.k] -= 5; S.fame += 2; hitPres(1); return '책임 떠넘기기 공방이 길어졌습니다.'; } }] },
+
+  // --- 당 운영 ---
+  { id: 'celeb', w: 2, cond: () => S.pool.length < 30, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
+    body: () => { const p = ET.p; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. 청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.`; },
+    ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); S.fame += 2; return `${ET.p.name} 영입!`; } },
       { t: '정중히 사양', run: () => '입당을 보류했습니다.' }] },
   { id: 'faction', w: 2, cond: () => totalMembers() > 20000, title: '당내 계파 갈등',
     body: () => '공천 방식을 두고 주류와 비주류가 정면충돌했습니다.',
     ch: [{ t: '통합 워크숍 개최', s: '비용 5천만', run: () => { spend(5e7, '활동'); S.trust += 2; return '갈등이 봉합되었습니다.'; } },
-      { t: '비주류 징계', s: '당원 -8%', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 0.92); S.trust -= 2; return '비주류 일부가 탈당했습니다.'; } }] },
-  { id: 'leak', w: 1.5, cond: () => totalMembers() > 5000, title: '당원 명부 유출',
-    body: () => '외부 해킹으로 당원 명부 일부가 유출된 정황이 확인되었습니다.',
-    ch: [{ t: '즉시 신고하고 사과', s: '과징금 3천만', run: () => { spend(3e7, '벌금·추징'); S.trust -= 2; return '개인정보보호위원회에 신고하고 당원들에게 통지했습니다.'; } },
-      { t: '조용히 덮는다', run: () => { addRisk('개인정보 유출 은폐', '개인정보 보호법 제34조', 0.2, 3 * 365, { money: -1e8, trust: -10, note: '유출 통지·신고 의무 위반으로 과징금·과태료' }); return '외부에 알리지 않았습니다…'; } }],
-    law: '개인정보 유출을 알게 되면 정보주체에게 통지하고 일정 규모 이상은 보호위원회에 신고해야 합니다(개인정보 보호법 제34조).' },
-  { id: 'merge', w: 1.5, cond: () => S.phase === 'reg', title: '합당 제안', pre: () => (EVENTS.tmpN = pick(['미래연합', '시민정치', '희망국민', '정의시민']) + '당'),
-    body: () => `원외 소수정당 ${EVENTS.tmpN}이 합당을 제안했습니다.`,
+      { t: '비주류 징계', s: '당원 -8%', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 0.92); S.trust -= 2; if (S.risks.length && rnd() < 0.5) { exposeRisk(); return '비주류 일부가 탈당하며 당의 숨긴 일을 검찰에 제보했습니다.'; } return '비주류 일부가 탈당했습니다.'; } }] },
+  { id: 'merge', w: 1.5, cond: () => S.phase === 'reg', title: '합당 제안', pre: () => (ET.n = pick(['미래연합', '시민정치', '희망국민', '정의시민']) + '당'),
+    body: () => `원외 소수정당 ${ET.n}이 합당을 제안했습니다.`,
     ch: [{ t: '합당한다', s: '당원·자금 흡수', run: () => { let n = 0; R.forEach(r => { const x = Math.round(rr(50, 300)); S.members[r.k] += x; n += x; }); earn(5e7, '기타'); S.fame += 2; S.trust -= 1; return `합당 완료. 당원 ${n.toLocaleString()}명이 합류했습니다.`; } },
-      { t: '거절한다', run: () => '독자 노선을 유지합니다.' }],
-    law: '정당 합당은 각 정당 대의기관의 합동회의 결의로 할 수 있고, 신설합당은 선관위에 등록해야 합니다(정당법 제19조).' },
-  { id: 'pollfake', w: 2, cond: () => Object.keys(S.camps).length > 0 && S.phase === 'reg', title: '여론조사 왜곡 제안',
-    body: () => '한 업체가 표본을 조정해 우리 당 지지율이 높게 나오는 여론조사를 발표해주겠다고 합니다.',
-    ch: [{ t: '거절한다', run: () => '거절했습니다.' },
-      { t: '의뢰한다', s: '일시적 지지 상승', run: () => { S.buzz += 3; addRisk('허위 여론조사 공표', '공직선거법 제96조·제108조', 0.15, 365, { money: -5e7, trust: -9, note: '허위 여론조사 공표 및 선거여론조사기준 위반' }); return '조사 결과가 보도되었습니다.'; } }],
-    law: '누구든지 특정 정당·후보에 유리하도록 여론조사 결과를 왜곡해 공표할 수 없습니다(공직선거법 제96조).' },
+      { t: '거절한다', run: () => '독자 노선을 유지합니다.' }] },
   { id: 'youth', w: 2, cond: () => true, title: '청소년 입당 문의 증가',
     body: () => '고등학생들 사이에서 정당 가입 문의가 늘고 있습니다.',
-    ch: [{ t: '청소년 당원 프로그램 운영', s: '비용 1천만', run: () => { spend(1e7, '활동'); const k = pick(R).k, n = Math.round(rr(300, 900) * (S.up.youth ? 1.6 : 1)); S.members[k] += n; return `${RK[k].n} 등에서 청소년 당원 ${n}명이 입당했습니다 (만 18세 미만은 법정대리인 동의).`; } },
-      { t: '보류', run: () => '보류했습니다.' }],
-    law: '만 16세 이상 국민은 정당 발기인·당원이 될 수 있습니다(정당법 제22조, 2022년 개정).' },
+    ch: [{ t: '청소년 당원 프로그램 운영', s: '비용 1천만', run: () => { spend(1e7, '활동'); const k = pick(R).k, n = Math.round(rr(300, 900) * (S.up.youth ? 1.6 : 1)); S.members[k] += n; return `${RK[k].n} 등에서 청소년 당원 ${n}명이 입당했습니다.`; } },
+      { t: '보류', run: () => '보류했습니다.' }] },
   { id: 'defect', w: 2, cond: () => seatTotal('P') > 0 && S.support < 8, title: '소속 의원 탈당 움직임',
-    body: () => '지지율 부진에 실망한 소속 의원이 탈당을 고민 중입니다.',
+    body: () => '지지율 부진에 실망한 소속 의원이 탈당을 고민 중입니다.', note: '지역구 의원은 탈당해도 의원직을 유지하지만, 비례대표 의원은 스스로 탈당하면 물러나고 다음 순번이 승계합니다.',
     ch: [{ t: '설득한다', s: '비용 3천만, 성공 60%', run: () => { spend(3e7, '활동'); if (rnd() < 0.6) return '설득에 성공했습니다.'; loseSeat(true); return '설득에 실패해 의원이 탈당했습니다.'; } },
-      { t: '붙잡지 않는다', run: () => { loseSeat(true); S.trust -= 1; return '의원이 탈당했습니다.'; } }],
-    law: '지역구 의원은 탈당해도 의원직을 유지하지만, 비례대표 의원은 스스로 탈당하면 퇴직하고 다음 순번이 승계합니다(공직선거법 제192조 제4항).' },
+      { t: '붙잡지 않는다', run: () => { loseSeat(true); S.trust -= 1; return '의원이 탈당했습니다.'; } }] },
 ];
+const accuseOpen = () => ET.real ? exposeRisk(ET.real) : openCase({ t: ET.t, guilty: false, pen: { money: -3e7, trust: -6, note: '벌금형' } });
+function impeachVote(yes) {
+  const pr = S.president.party, mine = seatTotal('P');
+  const others = sum(['A', 'B', 'C', 'O'].map(id => seatTotal(id) * (id === pr ? 0.08 : 0.85)));
+  const v = Math.round(others + (yes ? mine : 0));
+  ET.vote = yes;
+  if (yes) { S.fame += 2; S.trust += 1; } else if (yes === false) { S.fame += 1; S.trust -= 2; }
+  if (v < 200) return `탄핵소추안이 찬성 ${v}표로 부결됐습니다.`;
+  later(rr(60, 100), { ev: 'court', yes });
+  hitPres(3);
+  return `탄핵소추안이 찬성 ${v}표로 가결됐습니다. 대통령 직무가 정지되고 헌법재판소 심판이 시작됩니다.`;
+}
+// 정해진 날 큐로 들어오는 국회·사법 일정
+const XEV = {
+  case: q => caseEv(q.id),
+  scandal: q => scandalEv(q.pid),
+  devbribe: q => S.gov[q.k] === 'P' && showEvent({ title: '개발업자의 방문',
+    body: () => `${RK[q.k].n} 개발사업 인허가를 앞두고 한 시행사 대표가 도지사를 찾아와 "선거 때 진 빚은 갚겠다"며 <b>2억 원</b>이 든 쇼핑백을 내밀었습니다.`,
+    ch: [{ t: '돌려보낸다', run: () => { S.trust += 1; return '돈을 돌려보냈습니다.'; } },
+      { t: '받는다', s: '자금 +2억', run: () => { earn(2e8, '기타'); addRisk(`${RK[q.k].n} 개발 인허가 금품 수수`, 0.015, 10 * 365, { money: -3e8, trust: -14, gov: q.k, note: '뇌물 수수 유죄, 도지사 직 상실' }); return '쇼핑백은 당 금고로 들어갔습니다.'; } }] }),
+  court: q => {
+    const ok = rnd() < 0.65;
+    if (ok) hitPres(8); else if (!ruling()) S.rw[S.president.party] += 3;
+    if (q.yes != null) S.trust += (ok === q.yes ? 2 : -2);
+    info(ok ? '헌법재판소: 탄핵 인용' : '헌법재판소: 탄핵 기각', ok ? `헌법재판소가 재판관 전원 일치로 ${S.president.name} 대통령 파면을 결정했습니다. 국무총리가 권한을 대행합니다.` : `헌법재판소가 탄핵소추를 기각했습니다. ${S.president.name} 대통령이 직무에 복귀합니다.`, false);
+  },
+  audit: () => {
+    S.risks.filter(() => rnd() < 0.1).forEach(k => exposeRisk(k)); // 상대 당도 우리 의혹을 판다
+    const gov = Object.keys(S.ops);
+    gov.forEach(k => (S.ops[k] = clamp(S.ops[k] + rr(-4, 2), 5, 95))); // 우리 시·도도 피감기관
+    showEvent({ title: '국정감사 시작', body: () => `국회 국정감사가 시작됐습니다. ${ruling() ? '여당으로서 정부를 지켜야 하는 입장입니다.' : `${presN()} 정부의 실정을 따질 기회입니다.`}${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`,
+      ch: ruling() ? [{ t: '정부 정책 방어', run: () => { S.fame += 1; S.trust -= 0.5; return '정부를 감쌌다는 비판과 안정감 있다는 평이 엇갈립니다.'; } },
+        { t: '자성하는 감사', s: '정부와 거리두기', run: () => { S.trust += 2; return '"건강한 여당"이라는 평을 들었습니다.'; } }]
+        : [{ t: '정부 실정 집중 추궁', s: '인지도↑', run: () => { S.fame += 3; hitPres(2); return '정부 실정을 파헤친 질의가 헤드라인을 장식했습니다.'; } },
+          { t: '정책 대안 제시형 감사', s: '신뢰↑', run: () => { S.trust += 2.5; S.fame += 1; return '시민단체 선정 "우수 국감 의원"에 이름을 올렸습니다.'; } },
+          { t: '증인 호통·망신주기', s: '화제성↑ 신뢰↓', run: () => { S.fame += 4; S.buzz += 1; S.trust -= 2; return '호통 영상이 퍼졌지만 "갑질 국감" 비판도 받았습니다.'; } }] });
+  },
+  budget: () => showEvent({ title: '새해 예산안 심사', body: () => `법정 처리시한을 앞두고 예산 협상이 한창입니다. 우리 당 의석은 ${seatTotal('P')}석입니다.`,
+    ch: [{ t: '지역 예산을 챙긴다', s: '지역 당원↑', run: () => { const ks = Object.keys(S.seats.P.d).filter(k => S.seats.P.d[k] > 0), k = ks.length ? pick(ks) : S.party.home; S.members[k] += Math.round(rr(500, 1500)); S.trust += 0.5; return `${RK[k].n} 숙원사업 예산을 따냈습니다.`; } },
+      { t: '복지 예산 증액 요구', s: '신뢰↑', run: () => { S.trust += 2; return '돌봄 예산 증액을 관철했습니다.'; } },
+      { t: '예산안 처리를 거부한다', s: '선명성↑ 신뢰↓', run: () => { S.fame += 2; S.trust -= 2; return '"준예산 사태" 우려 속에 결국 예산안은 처리됐습니다.'; } }] }),
+  inst: () => openModal({ title: '정책연구소 설치 안내', html: `<p>국고보조금 배분 대상 정당이 되었습니다. 보조금을 받는 정당은 정책연구소를 두어야 하고, 경상보조금의 30% 이상을 정책연구소에 배분해야 합니다. 활동 탭에서 정책연구소를 설립하세요.</p>`, buttons: [{ t: '확인', pri: true }] }),
+  grace: () => { Snd.sfx('bad'); openModal({ title: '정당 등록요건 미달', html: `<p>법정 요건(시·도당 5개, 각 당원 1,000명 이상)을 충족하지 못하고 있습니다. <b>${fdate(S.grace)}</b>까지 회복하지 못하면 등록이 취소됩니다.</p>`, buttons: [{ t: '확인', pri: true }] }); },
+  unify: q => {
+    const c = S.camps[q.key]; if (!c || !c.reg) return;
+    showEvent({ title: '후보 단일화 제안', body: () => `${RIV.C.name} ${esc(c.rivals.C.name)} 후보 측이 여론조사 방식의 후보 단일화를 제안했습니다. 현재 우리 후보가 앞서 있습니다.`,
+      ch: [{ t: '단일화한다', s: '상대 지지층 상당수 흡수', run: () => { c.unified = true; S.trust -= 1; return '단일화 합의! 상대 후보가 사퇴했습니다.'; } },
+        { t: '완주한다', run: () => '독자 완주를 선언했습니다.' }] });
+  },
+};
 function randomEvent() {
-  const pool = EVENTS.filter(e => e.cond());
+  const pool = EVENTS.filter(e => !(e.once && S.seen[e.id]) && e.cond());
   const w = sum(pool.map(e => e.w));
   let x = rnd() * w;
   const e = pool.find(e => (x -= e.w) < 0);
@@ -1019,12 +1428,14 @@ function randomEvent() {
 }
 function showEvent(e) {
   if (e.pre) e.pre();
+  if (e.id) S.seen[e.id] = true;
+  const ch = typeof e.ch === 'function' ? e.ch() : e.ch;
   Snd.sfx('event');
   openModal({
     title: e.title, dismiss: false,
-    html: `<p>${e.body()}</p>${e.law ? `<div class="lawnote">${e.law}</div>` : ''}<div class="choices">${e.ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`,
+    html: `<p>${e.body()}</p>${e.note ? `<div class="lawnote">${e.note}</div>` : ''}<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`,
     onOpen: m => m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
-      const msg = e.ch[+b.dataset.c].run();
+      const msg = ch[+b.dataset.c].run();
       S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
       addLog(`[${e.title}] ${msg}`); Snd.sfx('click');
       openModal({ title: e.title, html: `<p>${msg}</p>`, buttons: [{ t: '확인', pri: true }] });
@@ -1032,36 +1443,23 @@ function showEvent(e) {
     }),
   });
 }
+function scandalEv(pid) {
+  const p = person(pid); if (!p) return;
+  const what = pick(['음주운전 적발', '부동산 투기 의혹', '갑질 폭로', '논문 표절 의혹', '막말 녹취 공개', '성비위 폭로']);
+  showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc(p.role || p.job)})의 ${what} 보도가 나왔습니다.`,
+    note: /비례/.test(p.role) ? '비례대표 의원을 제명하면 무소속으로 의원직을 유지해 당은 의석을 잃습니다.' : '',
+    ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
+      { t: '사과하고 당직 정지', s: '신뢰 소폭 하락', run: () => { S.trust -= 2; p.integ = clamp(p.integ + 15, 0, 100); return '공개 사과했습니다.'; } },
+      { t: '감싼다', s: '신뢰 크게 하락', run: () => { S.trust -= 6; return '"정치 공작"이라며 감쌌지만 여론이 싸늘합니다.'; } }] });
+}
 function processQueue() {
   const q = S.queue.shift();
   if (!q) return;
-  if (q.risk) {
-    const k = q.risk, lost = applyPen(k.pen);
-    const msg = `'${k.label}' 혐의가 적발되었습니다. ${k.pen.note}.${lost ? ` 의석 ${lost}석 상실.` : ''}`;
-    addLog(msg, 'bad'); Snd.sfx('bad');
-    openModal({ title: '수사 결과 발표', html: `<p>${esc(msg)}</p><div class="lawnote">적용 법조: ${k.law}</div><p class="small muted">벌금·추징 ${won(Math.abs(k.pen.money || 0))}, 신뢰 ${k.pen.trust}</p>`, buttons: [{ t: '확인', pri: true }] });
-  } else if (q.ev === 'scandal') {
-    const p = person(q.pid); if (!p) return;
-    const what = pick(['음주운전 적발', '부동산 투기 의혹', '갑질 폭로', '논문 표절 의혹', '막말 녹취 공개']);
-    showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc(p.role || p.job)})의 ${what} 보도가 나왔습니다.`,
-      law: /비례/.test(p.role) ? '비례대표 의원을 제명하면 무소속으로 의원직을 유지합니다(당은 의석을 잃음). 스스로 탈당하면 퇴직·승계(공직선거법 제192조).' : '',
-      ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
-        { t: '사과하고 당직 정지', s: '신뢰 소폭 하락', run: () => { S.trust -= 2; p.integ = clamp(p.integ + 15, 0, 100); return '공개 사과했습니다.'; } },
-        { t: '감싼다', s: '신뢰 크게 하락', run: () => { S.trust -= 6; return '"정치 공작"이라며 감쌌지만 여론이 싸늘합니다.'; } }] });
-  } else if (q.ev === 'inst') {
-    openModal({ title: '정책연구소 설치 안내', html: `<p>국고보조금 배분 대상 정당이 되었습니다.</p><div class="lawnote">보조금을 받는 정당은 정책연구소를 설치·운영해야 하고(정당법 제38조), 경상보조금의 30% 이상을 정책연구소에 배분해야 합니다(정치자금법 제28조). 활동 탭에서 정책연구소를 설립하세요.</div>`, buttons: [{ t: '확인', pri: true }] });
-  } else if (q.ev === 'grace') {
-    Snd.sfx('bad');
-    openModal({ title: '정당 등록요건 미달', html: `<p>법정 요건(시·도당 5개, 각 당원 1,000명 이상)을 충족하지 못하고 있습니다. <b>${fdate(S.grace)}</b>까지 회복하지 못하면 등록이 취소됩니다.</p><div class="lawnote">정당법 제44조: 요건 흠결 시 일정 유예기간 후 선관위가 등록을 취소합니다.</div>`, buttons: [{ t: '확인', pri: true }] });
-  } else if (q.ev === 'unify') {
-    const c = S.camps[q.key]; if (!c || !c.reg) return;
-    showEvent({ title: '후보 단일화 제안', body: () => `${RIV.C.name} ${esc(c.rivals.C.name)} 후보 측이 여론조사 방식의 후보 단일화를 제안했습니다. 현재 우리 후보가 앞서 있습니다.`,
-      ch: [{ t: '단일화한다', s: '상대 지지층 상당수 흡수', run: () => { c.unified = true; S.trust -= 1; return '단일화 합의! 상대 후보가 사퇴했습니다.'; } },
-        { t: '완주한다', run: () => '독자 완주를 선언했습니다.' }] });
-  }
+  if (q.risk) return exposeRisk(q.risk); // 옛 저장 파일 호환
+  XEV[q.ev]?.(q);
 }
 function gameOver(title, text) {
-  S.over = { title, text }; left = 0; save(); Snd.sfx('bad');
+  S.over = { title, text }; left = 0; turnStart = null; save(); Snd.sfx('bad');
   addLog(`게임 종료: ${title}`, 'bad');
   openModal({ title, dismiss: false, html: `<p>${esc(text)}</p><p class="muted small">${fdate(S.day)} · 최고 의석 등 기록은 '기록' 탭에서 볼 수 있습니다.</p>`, buttons: [{ t: '새 게임', pri: true, fn: () => newGameModal() }, { t: '기록 보기', fn: () => { tab = 'log'; renderAll(); } }] });
 }
@@ -1074,13 +1472,13 @@ const ACHS = [
   ['seat1', '첫 국회 의석', () => seatTotal('P') > 0], ['caucus', '원내교섭단체(20석)', () => seatTotal('P') >= 20],
   ['gov1', '첫 광역단체장', () => govCount('P') > 0], ['m100k', '당원 10만 명', () => totalMembers() >= 1e5],
   ['first', '원내 제1당', () => ['A', 'B', 'C', 'O'].every(id => seatTotal('P') > seatTotal(id))],
-  ['major', '단독 과반(151석)', () => seatTotal('P') >= 151], ['pres', '대통령 배출', () => S.president.party === 'P'],
+  ['law1', '첫 법률 통과', () => S.laws.length > 0], ['major', '단독 과반(151석)', () => seatTotal('P') >= 151], ['pres', '대통령 배출', () => S.president.party === 'P'],
 ];
 function checkAch() { for (const [k, n, f] of ACHS) if (!S.ach[k] && f()) { S.ach[k] = S.day; addLog(`업적 달성: ${n}`, 'ok'); toast(`업적 달성: ${n}`, 'ok'); } }
 
 // ---------- 저장 ----------
 function save() { if (!S) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { toast('자동 저장 실패: 브라우저 저장소를 쓸 수 없습니다. 설정에서 파일로 내보내세요.', 'bad'); } }
-function loadSave() { try { const t = localStorage.getItem(SAVE_KEY); const o = t && JSON.parse(t); if (!(o && o.v === 1 && o.party)) return null; o.ap ??= AP; return o; } catch (e) { return null; } }
+function loadSave() { try { const t = localStorage.getItem(SAVE_KEY); const o = t && JSON.parse(t); if (!(o && o.v === 1 && o.party)) return null; return migrate(o); } catch (e) { return null; } }
 function exportSave() {
   save();
   const a = document.createElement('a');
@@ -1092,7 +1490,7 @@ $('#importFile').onchange = ev => {
   const f = ev.target.files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try { const o = JSON.parse(rd.result); if (!(o && o.v === 1 && o.party)) throw 0; S = o; S.ap ??= AP; left = 0; save(); closeModal(); renderAll(); toast('저장 파일을 불러왔습니다.', 'ok'); }
+    try { const o = JSON.parse(rd.result); if (!(o && o.v === 1 && o.party)) throw 0; S = migrate(o); left = 0; turnStart = null; save(); closeModal(); renderAll(); toast('저장 파일을 불러왔습니다.', 'ok'); }
     catch (e) { toast('올바른 저장 파일이 아닙니다.', 'bad'); }
   };
   rd.readAsText(f); ev.target.value = '';
@@ -1111,7 +1509,7 @@ function openModal({ title, html, buttons = [], wide, dismiss = true, onOpen }) 
   if (onOpen) onOpen(m);
   (m.querySelector('[autofocus]') || m.querySelector('button,input,select'))?.focus();
 }
-function closeModal() { $('#modalRoot').innerHTML = ''; modalOpen = false; renderAll(); if (left) turnTimer = setTimeout(runTurn, 90); }
+function closeModal() { $('#modalRoot').innerHTML = ''; modalOpen = false; renderAll(); if (left || turnStart) turnTimer = setTimeout(runTurn, 90); }
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && modalOpen && $('#modalRoot').dataset.dismiss) closeModal();
   if (modalOpen || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || !S) return;
@@ -1124,7 +1522,7 @@ function toast(msg, type = '') {
 }
 
 // ---------- 렌더링 ----------
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '기록', 'i-list'], ['guide', '가이드', 'i-book']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['office', '의정·도정', 'i-gov'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '기록', 'i-list'], ['guide', '가이드', 'i-book']];
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 function renderAll() { if (!S) return; renderTop(); renderNav(); renderPanel(); }
 function renderTop() {
@@ -1144,18 +1542,24 @@ function renderTop() {
   }
   $('#pname').textContent = S.party.name;
   $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad')}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '')}${st(totalMembers().toLocaleString(), '당원')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석')}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, '')) : ''}`;
-  const eb = $('#endTurn'); eb.disabled = !!left || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
+  const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
+const SEC = ['people', 'office', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
 function renderNav() {
+  const nav = $('#nav'), open = nav.classList.contains('open');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
-  $('#nav').innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${k === 'elec' && pend && S.phase === 'reg' ? `<span class="badge">${pend}</span>` : ''}</button>`).join('');
-  $('#nav').querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; Snd.sfx('click'); renderNav(); renderPanel(); $('#main').focus({ preventScroll: true }); });
+  const cases = S.cases.filter(c => !c.mine).length;
+  const badge = { elec: S.phase === 'reg' ? pend : 0, office: cases };
+  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badge[k]}</span>` : ''}</button>`).join('')
+    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${cases && !open ? '<span class="badge">!</span>' : ''}</button>`;
+  nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderNav(); renderPanel(); $('#main').focus({ preventScroll: true }); });
+  nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
 }
 function renderPanel() {
   if (!S) return;
   const main = $('#main');
   const y = main.scrollTop;
-  main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
+  main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
   bindPanel(main);
 }
@@ -1164,6 +1568,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-reg]').forEach(b => b.onclick = () => { selReg = b.dataset.reg; Snd.sfx('click'); renderPanel(); });
   m.querySelectorAll('[data-up]').forEach(b => b.onclick = () => buyUp(b.dataset.up));
   m.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { tab = b.dataset.go; renderAll(); });
+  m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => lobbyBill(+b.dataset.lobby));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
@@ -1176,7 +1581,7 @@ function actBtn(key, k) {
 }
 
 function pHome() {
-  const q = poll(), ban = pollBanned(), issue = ISSUES.find(i => i.k === S.issue);
+  const q = poll(), ban = pollBanned();
   let status;
   if (S.phase === 'prep') {
     const ok = chaptersOk(), left = LAW.prepDays - S.day;
@@ -1199,7 +1604,7 @@ function pHome() {
   const ups = SCHED.filter(e => e.day >= S.day).slice(0, 4);
   return `<div class="grid">
     <div class="card span-2">${status}</div>
-    <div class="card"><h2>이번 달 핵심 쟁점</h2><p style="font-size:20px;font-weight:800;margin:0">${issue.n}</p><p class="small muted">활동 탭의 '정책 발표'에서 이 분야를 고르면 효과가 2배입니다. 우리 당 노선(${IDEO[S.party.ideo]})과의 궁합: ×${issue.fit[S.party.ideo + 1]}</p>
+    <div class="card"><h2>이번 주 뉴스</h2>${newsList()}<p class="small muted">민심이 어느 쟁점에 쏠렸는지는 헤드라인으로 짐작하세요. 맞힌 분야로 정책을 발표하면 반응이 뜨겁습니다.</p>
       <h2 style="margin-top:14px">현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
       ${['P', 'B', 'A', 'C', 'O'].filter(id => !ban || id === 'P').map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
       ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
@@ -1354,8 +1759,29 @@ function pFin() {
     <div class="card span-2"><h2>월별 수입·지출</h2>${cats.length ? `<div class="tblwrap"><table><thead><tr><th>항목</th><th class="r">지난달</th><th class="r">이번 달(진행 중)</th></tr></thead><tbody>${cats.map(k => `<tr><td>${k}</td><td class="r num ${(last[k] || 0) < 0 ? 'bad' : ''}">${won(last[k] || 0)}</td><td class="r num ${(cur[k] || 0) < 0 ? 'bad' : ''}">${won(cur[k] || 0)}</td></tr>`).join('')}
       <tr><th>합계</th><th class="r num">${won(sum(Object.values(last)))}</th><th class="r num">${won(sum(Object.values(cur)))}</th></tr></tbody></table></div>` : '<p class="empty">아직 기록이 없습니다.</p>'}</div>
     <div class="card"><h2>입금 예정</h2>${S.pending.length ? `<ul class="log">${S.pending.map(p => `<li><time>${fdate(p.d)}</time><span>${esc(p.t)} <b class="num">${won(p.amt)}</b></span></li>`).join('')}</ul>` : '<p class="empty">없음</p>'}
-      <h2 style="margin-top:12px">법적 위험</h2>${S.risks.length ? `<ul class="log">${S.risks.map(k => `<li class="bad"><span>${esc(k.label)} <span class="small">(공소시효 ${fdate(k.until)})</span></span></li>`).join('')}</ul>` : '<p class="small muted">없음. 깨끗합니다.</p>'}</div>
+      <h2 style="margin-top:12px">숨긴 일</h2>${S.risks.length ? `<ul class="log">${S.risks.map(k => `<li class="warn"><span>${esc(k.label)} <span class="small">(공소시효 ${fdate(k.until)})</span></span></li>`).join('')}</ul><p class="small muted">드러날지 묻힐지는 아무도 모릅니다. 시간이 지날수록 흐려지지만, 당이 커질수록 보는 눈이 많아집니다.</p>` : '<p class="small muted">없음. 깨끗합니다.</p>'}</div>
   </div>`;
+}
+function pOffice() {
+  const seats = seatTotal('P'), govs = Object.keys(S.ops), cases = S.cases;
+  const stage = c => c.mine ? '고소·고발 수사 중' : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
+  const caseCard = `<div class="card" style="margin-top:14px"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>`;
+  if (!seats && !govs.length) return `<div class="card"><h2>의정·도정</h2><p class="empty">국회의원이나 광역단체장을 배출하면 법안 발의, 대정부 질문, 국정감사, 도정 운영을 할 수 있습니다.</p></div>${caseCard}`;
+  const bill = b => { const y = billYes(b); return `<tr><td><b>${esc(b.t)}</b><div class="small muted">${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}</div></td>
+    <td style="min-width:140px"><div class="meter"><div class="bar"><i style="width:${Math.min(100, y / 3)}%;background:${y >= 151 ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)}표</span></div></td>
+    <td><button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 ? 'disabled' : ''}>여야 협상 (1천만·행동력 1)</button></td></tr>`; };
+  return `${seats ? `<div class="card"><h2>의정 활동 <span class="pill">${seats}석</span></h2>
+      <div class="acts">${actBtn('bill')}${actBtn('question')}</div>
+      <h3 style="margin-top:14px">계류 법안</h3>${S.bills.length ? `<div class="tblwrap"><table><thead><tr><th>법안</th><th>예상 찬성 (151표 필요)</th><th></th></tr></thead><tbody>${S.bills.map(bill).join('')}</tbody></table></div>
+      <p class="small muted">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 여야 협상은 법안마다 두 번까지 할 수 있습니다. ${ruling() ? '' : '대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 200표).'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+      ${S.laws.length ? `<h3 style="margin-top:14px">통과시킨 법률 ${S.laws.length}건</h3><ul class="log">${[...S.laws].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${esc(l.t)}</span></li>`).join('')}</ul>` : ''}
+      <p class="small muted">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p></div>` : ''}
+    ${govs.length ? `<div class="card" style="margin-top:14px"><h2>도정 운영 <span class="pill">${govs.length}곳</span></h2>
+      <div class="acts">${govs.map(k => `<div class="act"><h3>${RK[k].n} ${esc((S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || {}).name || '')} 지사</h3>
+        <div class="meter"><span class="small">도정 지지도</span><div class="bar"><i style="width:${S.ops[k]}%"></i></div><b class="small num">${Math.round(S.ops[k])}</b></div>
+        <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행동력 1</button></div>`).join('')}</div>
+      <p class="small muted">도정 지지도는 그 지역 지지율과 다음 지방선거 재선 가능성에 반영되고, 가만두면 45로 돌아갑니다.</p></div>` : ''}
+    ${caseCard}`;
 }
 const LAWS = [
   ['헌법 제8조', '정당 설립은 자유이며 복수정당제는 보장된다. 목적·활동이 민주적 기본질서에 위배되면 헌법재판소 심판으로 해산된다.'],
@@ -1410,6 +1836,11 @@ function nextSteps() {
     const dl = c.day - LAW.regDeadline[c.type] - S.day;
     if (!c.reg && dl >= 0) out.push([`${c.name}: 후보자 등록 마감까지 ${dl}일. 선거 탭에서 공천하세요.`, 'elec', dl < 14]);
   }
+  const cs = S.cases.filter(c => !c.mine).length;
+  if (cs) out.push([`수사·재판 중인 사건이 ${cs}건 있습니다. 단계마다 대응을 고르게 됩니다.`, 'office', true]);
+  if (seatTotal('P') && !S.bills.length) out.push(['국회 의석이 있습니다. 법안을 발의해 통과시키면 지지율에 오래 남습니다.', 'office']);
+  const gv = Object.keys(S.ops).filter(k => !why('govern', k));
+  if (gv.length) out.push([`${gv.map(k => RK[k].n).join('·')} 도정 역점사업을 펼칠 수 있습니다.`, 'office']);
   if (activeCamps().length) out.push(['공식 선거운동기간입니다. 거리 유세(조직·지역)와 방송 광고(활동)로 득표력을 올리세요.', 'act']);
   if (S.phase === 'reg' && subsidyFrac() > 0 && !S.up.inst) out.push(['보조금을 받는 정당은 정책연구소를 두어야 합니다. 활동 탭에서 설립하세요.', 'act']);
   if (!out.length && S.phase === 'reg') {
@@ -1435,7 +1866,8 @@ function pGuide() {
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
       <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다.</li>
-      <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다. 이번 달 핵심 쟁점에 맞춘 정책 발표는 효과가 2배입니다.</li>
+      <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
+      <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 한 달쯤마다 바뀔 수 있습니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
       <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
     ${sec('자금', `<ul><li>수입: 매달 당비·후원금, 후원의 밤(연간 모금한도 있음), 정식 정당이 의석이나 득표를 얻으면 분기별 경상보조금과 선거보조금이 들어옵니다.</li>
       <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
@@ -1446,9 +1878,16 @@ function pGuide() {
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
       <li>등록을 마치면 선거일 전 공식 선거운동기간(대선 ${LAW.campaignDays.pres}일, 총선·지방선거 ${LAW.campaignDays.nat}일)에 거리 유세·방송 광고·TV 토론을 할 수 있습니다.</li>
       <li>지역구 여성 후보를 30% 이상 내면 여성추천보조금을 받습니다.</li></ul>`)}
-    ${sec('사건과 법적 위험', `<ul><li>법인 후원, 쪼개기 후원, 사전선거운동, 식사 제공 같은 제안은 당장 이득이지만 불법입니다.</li>
-      <li>받아들이면 공소시효가 끝날 때까지 매달 적발 판정을 받습니다. 적발되면 벌금·추징, 신뢰 하락, 의석 상실이 따릅니다.</li>
-      <li>영입 인재는 청렴도가 낮을수록 스캔들이 잘 터집니다. 영입할 때 청렴과 전과를 확인하세요.</li></ul>`)}
+    ${sec('사건과 제안', `<ul><li>당장 이득이 되는 달콤한 제안이 들어옵니다. 받을지 말지는 스스로 판단하세요. 받은 일은 재정 탭 '숨긴 일'에 남습니다.</li>
+      <li>숨긴 일은 영영 묻힐 수도, 어느 날 드러날 수도 있습니다. 시간이 지날수록 흐려지지만 당이 클수록 보는 눈이 많아지고, 국정감사·경쟁 정당의 고발·탈당자의 제보로 터지기도 합니다.</li>
+      <li>영입 인재는 청렴도가 낮을수록 스캔들이 잘 터집니다.</li></ul>`)}
+    ${sec('수사와 재판', `<ul><li>의혹이 드러나거나 고발당하면 검찰 수사 → 기소 여부 결정 → 1심 판결 순으로 몇 달에 걸쳐 진행됩니다. 결백해도 고발은 당할 수 있습니다.</li>
+      <li>단계마다 대응을 고릅니다. 성실한 조사, 변호인단 선임, "정치 탄압" 프레임, 증거 정리 같은 선택마다 기소·유죄 가능성과 여론이 달라집니다.</li>
+      <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
+      <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li></ul>`)}
+    ${sec('의정·도정 활동', `<ul><li>국회 의석이 생기면 의정·도정 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(151표)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
+      <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
+      <li>광역단체장을 배출하면 그 지역 도정 역점사업을 펼칩니다. 도정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li></ul>`)}
     ${sec('게임 오버 조건', `<ul><li>창당준비위원회 결성 후 ${LAW.prepDays}일 안에 정당 등록 실패</li>
       <li>등록 뒤 시·도당 요건(5곳, 각 1,000명)이 깨지고 90일 유예 안에 회복 실패</li>
       <li>4년간 국회의원선거·지방선거에 한 번도 참여하지 않음</li>
@@ -1482,7 +1921,7 @@ function settingsModal() {
   });
 }
 function newGameModal() {
-  left = 0;
+  left = 0; turnStart = null;
   openModal({
     title: '정당 창당', dismiss: false, html: `
     <p class="muted small">발기인 200명과 함께 중앙당창당준비위원회를 결성합니다. 6개월 안에 5개 이상 시·도당(각 당원 1,000명)을 만들어 선관위에 등록하세요.</p>
