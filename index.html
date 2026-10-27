@@ -507,6 +507,8 @@ function newState(f) {
   S.news = makeNews();
 }
 // 저장 파일 호환: 나중에 추가된 필드 채우기
+// 50에서 시작해 매달 45 쪽으로 5%씩만 다가간 값 = 사건·사업으로 한 번도 움직이지 않은 지지도
+const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0.05) if (Math.abs(v - x) < 1e-6) return true; return false; };
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
@@ -514,6 +516,11 @@ function migrate(o) {
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
+  if (!o.opsv && o.seats.A) {
+    const prev = S; S = o; // opsBase가 S를 읽으므로 잠시 바꿔 끼움
+    try { for (const k in o.ops) if (untouched(o.ops[k])) o.ops[k] = opsBase('P', k); for (const k in o.rgov) if (untouched(o.rgov[k].o)) o.rgov[k].o = opsBase(o.rgov[k].p, k); } finally { S = prev; }
+  }
+  o.opsv = 1;
   rebuildSched(o);
   for (const r of o.risks || []) if (r.born == null) { r.born = o.day; r.p /= 5; }
   return o;
@@ -537,21 +544,29 @@ function poll() {
 }
 function natShares() { const q = poll(), s = q.P + q.A + q.B + q.C + q.O; return { P: q.P / s, A: q.A / s, B: q.B / s, C: q.C / s, O: q.O / s }; }
 const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1) }; };
-function regFactor(k) {
+// 우리 당 지역 배율(지사 효과 제외): 지역 성향 + 당원 조직 + 시·도당
+function regFactor0(k) {
   const r = RK[k], i = S.party.ideo;
   let f = i === 0 ? 1.05 - 0.4 * Math.abs(r.lean) : Math.max(0.3, 1 + 0.7 * i * r.lean);
   f += Math.min(0.5, (S.members[k] || 0) / (r.voters * 1e6) * 250);
   if (S.chapters[k]) f += 0.05;
-  if (S.gov[k] === 'P') f += 0.15 + ((S.ops[k] ?? 50) - 50) / 200; // 행정 지지도
+  return f;
+}
+// 다른 당 지역 배율(지사 효과 제외)
+const pfBase = (id, k) => { const l = RK[k].lean; return id === 'A' ? Math.max(0.15, 1 - 0.85 * l) : id === 'B' ? Math.max(0.15, 1 + 0.85 * l) : id === 'C' ? 1 + 0.25 * l : 1; };
+// 행정 지지도 기준값 = 그 지역 소속 정당 지지율. 새 단체장은 여기서 시작하고, 가만두면 여기로 돌아감. 무소속은 정당 지지율이 없어 50
+const opsBase = (id, k) => id === 'O' ? 50 : clamp(id === 'P' ? S.support * regFactor0(k) : poll()[id] * pfBase(id, k), 5, 95);
+// 현직 지사 효과: 행정 지지도가 기준값(지역 정당 지지율)보다 높을수록 유리
+function regFactor(k) {
+  let f = regFactor0(k);
+  if (S.gov[k] === 'P') f += 0.15 + ((S.ops[k] ?? opsBase('P', k)) - opsBase('P', k)) / 200;
   return f;
 }
 function pf(id, k) {
-  const r = RK[k], g = S.gov[k] === id ? 1.05 + ((S.rgov[k] ? S.rgov[k].o : 50) - 50) / 200 : 1; // 현직 지사 프리미엄 + 행정 평가
-  if (id === 'A') return Math.max(0.15, 1 - 0.85 * r.lean) * g;
-  if (id === 'B') return Math.max(0.15, 1 + 0.85 * r.lean) * g;
-  if (id === 'C') return (1 + 0.25 * r.lean) * g;
+  if (id === 'P') return regFactor(k);
   if (id === 'O') return 1;
-  return regFactor(k);
+  const g = S.gov[k] === id ? 1.05 + (S.rgov[k] ? S.rgov[k].o - opsBase(id, k) : 0) / 200 : 1;
+  return pfBase(id, k) * g;
 }
 const regSupport = k => S.support * regFactor(k);
 
@@ -604,7 +619,7 @@ function simGov(c) {
   for (const r of R) {
     const ids = ['A', 'B']; if (rnd() < 0.3) ids.push('C'); if (rnd() < 0.3) ids.push('O');
     const cand = c && c.reg && c.reg.gov[r.k], mods = {};
-    if (cand) { ids.push('P'); mods.P = candFactor(cand) * campBoost(c, r.k) * (1 + cand.spendB) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? 50) - 50) / 100 : 1); }
+    if (cand) { ids.push('P'); mods.P = candFactor(cand) * campBoost(c, r.k) * (1 + cand.spendB) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? opsBase('P', r.k)) - opsBase('P', r.k)) / 100 : 1); }
     if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
     const res = shareRace(r.k, ids, mods);
     win[r.k] = res.win;
@@ -704,7 +719,7 @@ function resolveElection(c) {
   } else if (c.type === 'gov') {
     const g = simGov(c);
     S.gov = g.win; rgovSync(S);
-    S.ops = Object.fromEntries(R.filter(r => g.win[r.k] === 'P').map(r => [r.k, S.ops[r.k] ?? 50]));
+    S.ops = Object.fromEntries(R.filter(r => g.win[r.k] === 'P').map(r => [r.k, S.ops[r.k] ?? opsBase('P', r.k)])); // 새 지사는 지역 우리 당 지지율에서 시작
     S.aap = Math.min(S.aap, aapMax());
     S.pool.forEach(p => { if (/시·도지사/.test(p.role)) p.role = ''; });
     if (c.reg) {
@@ -843,10 +858,10 @@ function monthly(dt) {
   });
   // 정당 관계는 시간이 지나면 조금씩 옅어짐(앙금도 호의도)
   for (const id in S.rel) S.rel[id] *= 0.97;
-  // 행정 지지도는 가만두면 45로 수렴
-  for (const k in S.ops) S.ops[k] += (45 - S.ops[k]) * 0.05;
+  // 행정 지지도는 가만두면 그 지역 소속 정당 지지율로 수렴
+  for (const k in S.ops) S.ops[k] += (opsBase('P', k) - S.ops[k]) * 0.05;
   rgovSync(S);
-  for (const k in S.rgov) S.rgov[k].o = clamp(S.rgov[k].o + (45 - S.rgov[k].o) * 0.05, 5, 95);
+  for (const k in S.rgov) S.rgov[k].o = clamp(S.rgov[k].o + (opsBase(S.rgov[k].p, k) - S.rgov[k].o) * 0.05, 5, 95);
   if (Object.keys(S.rgov).length && rnd() < 0.5) S.queue.push({ ev: 'rgov' }); // 다른 당 지사도 행정을 편다
   S.fx = S.fx.filter(f => f.until > S.day);
   // 대통령도 정책을 낸다(우리가 집권하면 우리 몫)
@@ -1182,7 +1197,7 @@ const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
 // 다른 당 광역단체장: { 지역: { p 정당, n 이름, o 행정 지지도 } }. 당이 바뀐 곳만 새 인물
 function rgovSync(o) {
   for (const k in o.rgov) if (o.gov[k] !== o.rgov[k].p) delete o.rgov[k];
-  for (const k in o.gov) if (o.gov[k] !== 'P' && !o.rgov[k]) o.rgov[k] = { p: o.gov[k], n: genName(rnd() < 0.2 ? 'F' : 'M'), o: 50 };
+  for (const k in o.gov) if (o.gov[k] !== 'P' && !o.rgov[k]) o.rgov[k] = { p: o.gov[k], n: genName(rnd() < 0.2 ? 'F' : 'M'), o: o === S ? opsBase(o.gov[k], k) : 50 }; // 불러오는 중이면 migrate가 맞춤
 }
 const liveMPs = () => S.mps.filter(m => (S.seats[m.party].d[m.k] || 0) > 0);
 const allyCamp = () => Object.values(S.camps).find(c => c.type !== 'pres' && !c.ally && S.day <= c.day - LAW.regDeadline[c.type]);
@@ -2339,7 +2354,7 @@ function pAdmin() {
       <p class="small muted">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts">${govs.map(k => `<div class="act"><h3>${RK[k].n} ${esc(govName(k))} 지사</h3>${meter(S.ops[k])}
         <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행정 행동력 1</button></div>`).join('')}</div>
-      <p class="small muted">행정 지지도는 그 지역 지지율과 다음 지방선거 재선 가능성에 반영되고, 가만두면 45로 돌아갑니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
+      <p class="small muted">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></li>`; }).join('')}</ul>
       <p class="small muted">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
