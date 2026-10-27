@@ -53,7 +53,8 @@ main{padding:16px;min-width:0}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .span-2{grid-column:span 2} .span-3{grid-column:1/-1}
 /* 좌우 분할: 한 칸이 360px보다 좁아지면 한 줄로 쌓임 */
-.stack{display:flex;flex-direction:column;gap:14px} .stack>.card{margin-top:0!important}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0} .stack>.card{margin-top:0!important}
+@media (max-width:900px){.home>.stack{display:contents}}
 .split{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));align-items:start;container-type:inline-size}
 /* 좌우로 나뉠 만큼 넓을 때만(360×2+14) 오른쪽 칸이 스크롤을 따라옴. 상단바 높이(--top-h)는 JS가 맞춤. 화면보다 길면 칸 안에서 스크롤 */
 @container (min-width:734px){.split>.follow{position:sticky;top:calc(var(--top-h,58px) + 12px);max-height:calc(100dvh - var(--top-h,58px) - 24px);overflow:auto;overscroll-behavior:contain}}
@@ -2130,18 +2131,23 @@ function pHome() {
       </tbody></table></div>`;
   }
   const ups = SCHED.filter(e => e.day >= S.day).slice(0, 4);
-  return `<div class="grid">
-    <div class="card span-2">${status}</div>
-    <div class="card"><h2>이번 주 뉴스</h2>${newsList()}<p class="small muted">민심이 어느 쟁점에 쏠렸는지는 헤드라인으로 짐작하세요. 맞힌 분야로 정책을 발표하면 반응이 뜨겁습니다.</p>
-      <button class="btn" data-go="log">지난 소식 모아 보기</button>
-      <h2 style="margin-top:14px">현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
-      ${['P', 'B', 'A', 'C', 'O'].filter(id => !ban || id === 'P').map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
-      ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
-    <div class="card span-2"><h2>정당 지지율 추이 (월별)</h2>${pollChart(ban)}</div>
-    <div class="card"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${e.name}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
-      <p class="small muted">임기만료일 전 정해진 날 이후 첫 번째 수요일 (공직선거법 제34조)</p></div>
-    <div class="card span-2"><h2>국회 의석 분포 (300석)</h2>${hemicycle()}</div>
-    <div class="card"><h2>업적</h2><ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] != null ? 'done' : ''}">${S.ach[k] != null ? '✓' : ''}</span><div>${n}${S.ach[k] != null ? `<div class="small muted">${fdate(S.ach[k])}</div>` : ''}</div></li>`).join('')}</ul></div>
+  // 좌우 두 칸에 카드를 각자 높이대로 쌓음(옆 카드 높이에 늘어나 빈 여백이 생기지 않게). 좁은 화면에선 order대로 한 줄
+  return `<div class="grid home">
+    <div class="span-2 stack">
+      <div class="card" style="order:1">${status}</div>
+      <div class="card" style="order:3"><h2>정당 지지율 추이 (월별)</h2>${pollChart(ban)}</div>
+      <div class="card" style="order:5"><h2>국회 의석 분포 (300석)</h2>${hemicycle()}</div>
+    </div>
+    <div class="stack">
+      <div class="card" style="order:2"><h2>이번 주 뉴스</h2>${newsList()}<p class="small muted">민심이 어느 쟁점에 쏠렸는지는 헤드라인으로 짐작하세요. 맞힌 분야로 정책을 발표하면 반응이 뜨겁습니다.</p>
+        <button class="btn" data-go="log">지난 소식 모아 보기</button>
+        <h2 style="margin-top:14px">현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
+        ${['P', 'B', 'A', 'C', 'O'].filter(id => !ban || id === 'P').map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
+        ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
+      <div class="card" style="order:4"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${e.name}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
+        <p class="small muted">임기만료일 전 정해진 날 이후 첫 번째 수요일 (공직선거법 제34조)</p></div>
+      <div class="card" style="order:6"><h2>업적</h2><ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] != null ? 'done' : ''}">${S.ach[k] != null ? '✓' : ''}</span><div>${n}${S.ach[k] != null ? `<div class="small muted">${fdate(S.ach[k])}</div>` : ''}</div></li>`).join('')}</ul></div>
+    </div>
   </div>`;
 }
 function pollChart(ban) {
