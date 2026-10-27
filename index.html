@@ -130,6 +130,13 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .check li{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-bottom:1px solid var(--border)}
 .check .st{flex:none;width:22px;height:22px;border-radius:50%;border:2px solid var(--border);display:grid;place-items:center;font-size:12px;font-weight:800}
 .check .st.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.check .st.bad{background:var(--danger);border-color:var(--danger);color:#fff}
+.check li>.btn{margin-left:auto;min-height:32px;padding:4px 12px;flex:none}
+.guide details{border-bottom:1px solid var(--border);padding:10px 0}
+.guide summary{cursor:pointer;font-weight:700;padding:4px 0}
+.guide details>:not(summary){font-size:14px;margin:8px 0 0}
+.guide details ul{padding-left:20px}
+.guide details li{margin:3px 0}
 
 /* modal & toast */
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.55);display:grid;place-items:center;padding:16px;z-index:50}
@@ -165,6 +172,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   <symbol id="i-law" viewBox="0 0 24 24"><path d="M12 3v18M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0zM8 21h8"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
   <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
   <symbol id="i-snd" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/></symbol>
 </svg>
@@ -1116,7 +1124,7 @@ function toast(msg, type = '') {
 }
 
 // ---------- 렌더링 ----------
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '기록', 'i-list']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '기록', 'i-list'], ['guide', '가이드', 'i-book']];
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 function renderAll() { if (!S) return; renderTop(); renderNav(); renderPanel(); }
 function renderTop() {
@@ -1147,7 +1155,7 @@ function renderPanel() {
   if (!S) return;
   const main = $('#main');
   const y = main.scrollTop;
-  main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, fin: pFin, law: pLaw, log: pLog })[tab]();
+  main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
   bindPanel(main);
 }
@@ -1382,6 +1390,74 @@ function pLog() {
   return `<div class="card"><h2>활동 기록</h2>${S.log.length ? `<ul class="log">${[...S.log].reverse().map(l => `<li class="${l.c}"><time>${fdate(l.d)}</time><span>${esc(l.t)}</span></li>`).join('')}</ul>` : '<p class="empty">기록 없음</p>'}</div>`;
 }
 
+// ---------- 가이드 ----------
+// 현재 상태에서 급한 일부터: [문구, 이동할 탭, 경고 여부]
+function nextSteps() {
+  if (S.over) return [['게임이 끝났습니다. 설정에서 새 게임을 시작하세요.', '', true]];
+  const out = [];
+  if (S.money < 0) out.push([`자금이 바닥났습니다(${S.negDays}일째). 120일 안에 흑자로 돌리지 못하면 해산합니다. 후원의 밤으로 모금하세요.`, 'act', true]);
+  if (S.grace != null) out.push([`정당 등록요건 미달: ${fdate(S.grace)}까지 시·도당 5곳(각 당원 1,000명)을 회복하세요.`, 'org', true]);
+  if (S.phase === 'reg' && S.day - S.lastPart > 3 * 365) out.push([`4년간 선거에 나가지 않으면 등록이 취소됩니다(${fdate(S.lastPart + 4 * 365)}까지). 다음 선거에 후보를 내세요.`, 'elec', true]);
+  if (S.phase === 'prep') {
+    const ok = chaptersOk(), ready = R.filter(r => !S.chapters[r.k] && S.members[r.k] >= LAW.chapterMembers);
+    if (ok >= LAW.minChapters) out.push(['시·도당 요건을 채웠습니다. 본부 탭에서 정당 등록을 신청하세요.', 'home']);
+    else {
+      if (ready.length) out.push([`${ready.map(r => r.n).join('·')}: 당원 1,000명을 넘었습니다. 시·도당 창당대회를 여세요.`, 'org']);
+      out.push([`시·도당 ${LAW.minChapters - ok}곳이 더 필요합니다(등록 기한 ${LAW.prepDays - S.day}일 남음). 조직·지역 탭에서 지역을 골라 당원을 모집하세요.`, 'org', LAW.prepDays - S.day < 45]);
+    }
+  }
+  if (S.phase === 'reg') for (const c of Object.values(S.camps)) {
+    const dl = c.day - LAW.regDeadline[c.type] - S.day;
+    if (!c.reg && dl >= 0) out.push([`${c.name}: 후보자 등록 마감까지 ${dl}일. 선거 탭에서 공천하세요.`, 'elec', dl < 14]);
+  }
+  if (activeCamps().length) out.push(['공식 선거운동기간입니다. 거리 유세(조직·지역)와 방송 광고(활동)로 득표력을 올리세요.', 'act']);
+  if (S.phase === 'reg' && subsidyFrac() > 0 && !S.up.inst) out.push(['보조금을 받는 정당은 정책연구소를 두어야 합니다. 활동 탭에서 설립하세요.', 'act']);
+  if (!out.length && S.phase === 'reg') {
+    const ne = nextElection();
+    out.push([ne ? `다음 선거는 ${ne.name}(D-${ne.day - S.day})입니다. 선거일 120일 전에 공천이 열리니 그때까지 당원·인지도·인재를 키우세요.` : '당원·인지도·인재를 키우세요.', 'act']);
+  }
+  out.push([S.ap ? `이번 턴 행동력이 ${S.ap} 남았습니다. 다 쓰면 '턴 종료'(Space)를 누르세요.` : `행동력을 다 썼습니다. '턴 종료'(Space)를 누르세요.`, '']);
+  return out;
+}
+function pGuide() {
+  const T = Object.fromEntries(TABS.map(([k, n]) => [k, n]));
+  const sec = (t, body, open) => `<details ${open ? 'open' : ''}><summary>${t}</summary>${body}</details>`;
+  return `<div class="card"><h2>지금 할 일</h2><ul class="check">${nextSteps().map(([t, go, bad], i) => `<li><span class="st ${bad ? 'bad' : ''}">${bad ? '!' : i + 1}</span><div class="small">${esc(t)}</div>${go ? `<button class="btn" data-go="${go}">${T[go]}</button>` : ''}</li>`).join('')}</ul></div>
+  <div class="card guide" style="margin-top:14px"><h2>게임 방법</h2>
+    ${sec('목표', `<p>창당준비위원회에서 시작해 정식 정당으로 등록하고, 국회의원선거·지방선거·대통령선거를 거쳐 <b>대통령을 배출</b>하면 집권 엔딩입니다. 엔딩 뒤에도 과반 의석과 재집권에 도전하며 계속할 수 있습니다.</p>`, true)}
+    ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
+      <li>활동(당원 모집·봉사·유세·홍보·정책 발표·인재 영입 등)은 한 번에 행동력 1과 정해진 비용을 씁니다. 대부분 재사용 대기 턴이 있습니다.</li>
+      <li>시설 설립, 정당 등록 신청, 공천처럼 행동력이 들지 않는 일도 있습니다.</li>
+      <li>'턴 종료'를 누르면 7일이 하루씩 흐릅니다. 사건이 생기면 멈추고, 선택을 마치면 이어집니다. 턴이 끝나면 자금·당원·지지율 변화가 요약됩니다.</li></ul>`)}
+    ${sec('1단계: 창당 (6개월)', `<ul><li>창당 본거지에 발기인 ${LAW.founders}명이 있습니다. 결성신고 후 <b>${LAW.prepDays}일</b> 안에 등록 신청을 하지 못하면 준비위가 소멸합니다(게임 오버).</li>
+      <li>조직·지역 탭에서 지역을 골라 당원을 모집하세요. 지역 지지율이 높을수록, 본거지일수록 많이 들어옵니다.</li>
+      <li>당원이 ${LAW.chapterMembers.toLocaleString()}명을 넘은 시·도에서 시·도당 창당대회를 엽니다. <b>${LAW.minChapters}곳</b>이 되면 본부 탭에서 등록을 신청합니다.</li>
+      <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
+    ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
+      <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다.</li>
+      <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다. 이번 달 핵심 쟁점에 맞춘 정책 발표는 효과가 2배입니다.</li>
+      <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
+    ${sec('자금', `<ul><li>수입: 매달 당비·후원금, 후원의 밤(연간 모금한도 있음), 정식 정당이 의석이나 득표를 얻으면 분기별 경상보조금과 선거보조금이 들어옵니다.</li>
+      <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
+      <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
+      <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
+    ${sec('선거와 공천', `<ul><li>선거일 120일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
+      <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 인지도·역량이 높을수록, 전과가 적을수록 유리합니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
+      <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
+      <li>등록을 마치면 선거일 전 공식 선거운동기간(대선 ${LAW.campaignDays.pres}일, 총선·지방선거 ${LAW.campaignDays.nat}일)에 거리 유세·방송 광고·TV 토론을 할 수 있습니다.</li>
+      <li>지역구 여성 후보를 30% 이상 내면 여성추천보조금을 받습니다.</li></ul>`)}
+    ${sec('사건과 법적 위험', `<ul><li>법인 후원, 쪼개기 후원, 사전선거운동, 식사 제공 같은 제안은 당장 이득이지만 불법입니다.</li>
+      <li>받아들이면 공소시효가 끝날 때까지 매달 적발 판정을 받습니다. 적발되면 벌금·추징, 신뢰 하락, 의석 상실이 따릅니다.</li>
+      <li>영입 인재는 청렴도가 낮을수록 스캔들이 잘 터집니다. 영입할 때 청렴과 전과를 확인하세요.</li></ul>`)}
+    ${sec('게임 오버 조건', `<ul><li>창당준비위원회 결성 후 ${LAW.prepDays}일 안에 정당 등록 실패</li>
+      <li>등록 뒤 시·도당 요건(5곳, 각 1,000명)이 깨지고 90일 유예 안에 회복 실패</li>
+      <li>4년간 국회의원선거·지방선거에 한 번도 참여하지 않음</li>
+      <li>자금이 마이너스인 채로 120일 경과</li></ul>`)}
+    ${sec('업적', `<ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] ? 'done' : ''}">${S.ach[k] ? '✓' : ''}</span><div class="small">${n}${S.ach[k] ? ` <span class="muted">${fdate(S.ach[k])}</span>` : ''}</div></li>`).join('')}</ul>`)}
+    ${sec('조작', `<ul><li>Space: 턴 종료</li><li>오른쪽 위 설정 버튼: 소리, 저장 파일 내보내기·불러오기, 새 게임</li><li>자동 저장은 매 턴이 끝날 때 됩니다.</li></ul>`)}
+  </div>`;
+}
+
 // ---------- 설정 ----------
 function settingsModal() {
   Snd.sfx('click');
@@ -1436,8 +1512,8 @@ function newGameModal() {
         const err = !v.name ? '정당 이름을 입력하세요.' : clash ? `기존 등록 정당 '${clash.name}'과(와) 뚜렷이 구별되지 않습니다 (정당법 제41조).` : !v.leader ? '대표 이름을 입력하세요.' : '';
         if (err) { m.querySelector('#ngErr').textContent = err; m.querySelector('#ngErr').className = 'h bad'; Snd.sfx('bad'); return; }
         v.age = clamp(+v.age || 45, 18, 85);
-        newState(v); save(); closeModal(); tab = 'home'; renderAll(); Snd.sfx('ok');
-        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요.`);
+        newState(v); save(); closeModal(); tab = 'guide'; renderAll(); Snd.sfx('ok');
+        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`);
       };
     },
   });
