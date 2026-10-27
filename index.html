@@ -837,8 +837,12 @@ const TURN = 7, AP = 3;
 const apMax = () => AP + (activeCamps().length ? 1 : 0); // 선거운동기간엔 +1
 const turnNo = () => Math.floor(S.day / TURN) + 1;
 let left = 0, turnTimer = null, turnStart = null;
-function endTurn() {
+function endTurn(sure) {
   if (!S || S.over || left || turnStart || modalOpen) return;
+  // 행동력이 남았으면 한 번 더 묻기. 첫 버튼(계속)에 포커스가 가서 Space 연타로 넘어가지 않음
+  if (sure !== true && S.ap > 0) return openModal({ title: '턴을 종료할까요?',
+    html: `<p>행동력이 <b>${S.ap}</b> 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p>`,
+    buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
   Snd.sfx('click');
   turnStart = { money: S.money, mem: totalMembers(), sup: poll().P };
   left = TURN; runTurn();
