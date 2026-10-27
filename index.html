@@ -163,6 +163,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .news li{padding:8px 0;border-bottom:1px solid var(--border);font-weight:600;font-size:14.5px}
 .news li span{display:block;font-size:12px;color:var(--muted);font-weight:500}
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.act .watch{min-height:32px;padding:4px 10px;font-size:13px;font-weight:500;color:var(--muted)}
+.act .watch[aria-pressed="true"]{color:var(--fg);border-color:var(--fg)}
 .btn .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:none} /* 새 소식 알림 */
 /* 상단 배너: 선거·사회적 이슈 같은 큰 일정 */
 .banner{flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px;margin:0 -16px -8px;padding:6px 16px;border-top:1px solid var(--border);background:var(--surface2)}
@@ -212,6 +214,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   <symbol id="i-gov" viewBox="0 0 24 24"><path d="M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></symbol>
   <symbol id="i-city" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l6-4v17M11 21V10h8v11M14 13h2M14 17h2M7.5 10h1M7.5 14h1"/></symbol>
   <symbol id="i-deal" viewBox="0 0 24 24"><path d="M2 11l4-4 4 2 3-2 3 1 6 4M2 11l7 7 2-1 2 2 2-1 2 1 5-6M9 14l2 2M12 12l2 2"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
   <symbol id="i-snd" viewBox="0 0 24 24"><path d="M4 9v6h4l5 4V5L8 9zM16 9a4 4 0 0 1 0 6"/></symbol>
@@ -513,7 +516,7 @@ const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.outs ??= genOuts(o);
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -935,7 +938,7 @@ function endTurn(sure) {
     html: `<p>${[S.ap ? `행동력 <b>${S.ap}</b>` : '', S.aap ? `행정 행동력 <b>${S.aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p>`,
     buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
   Snd.sfx('click');
-  turnStart = { money: S.money, mem: totalMembers(), sup: poll().P };
+  turnStart = { day: S.day, money: S.money, mem: totalMembers(), sup: poll().P };
   left = TURN; runTurn();
 }
 // 이벤트 모달이 뜨면 멈추고, 닫히면 closeModal이 다시 이어감. 7일이 끝나면 주간 브리핑
@@ -945,13 +948,15 @@ function runTurn() {
   if (modalOpen) return;
   if (left) {
     tick(); left--;
-    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); save(); renderAll(); }
+    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); turnStart.ready = readyWatched(turnStart.day); save(); renderAll(); }
     return (turnTimer = setTimeout(runTurn, 90));
   }
   if (turnStart) { const t = turnStart; turnStart = null; brief(t); }
 }
 const briefPills = r => { const d = (n, f) => (n >= 0 ? '+' : '') + f(n); return `<div class="legend"><span class="pill">자금 ${d(r.dm, won)}</span><span class="pill">당원 ${d(r.dmem, n => n.toLocaleString())}</span><span class="pill">지지율 ${d(r.dsup, n => n.toFixed(1) + '%p')}</span></div>`; };
 const noteList = ns => `<ul class="log">${ns.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
+// 재사용 알림: 지정한 활동 중 이번 턴 사이에 재사용 대기가 끝났고 지금 할 수 있는 것
+const readyWatched = d0 => Object.keys(S.watch).filter(k => S.watch[k] && ACT[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && !why(k));
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
   const r = { d: S.day, news: S.news, notes: t.notes, dm: S.money - t.money, dmem: totalMembers() - t.mem, dsup: poll().P - t.sup };
@@ -961,8 +966,9 @@ function brief(t) {
     title: `${turnNo()}턴 · 주간 브리핑`,
     html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>${briefPills(r)}
       <h3 style="margin-top:14px">이번 주 헤드라인</h3>${newsList()}
+      ${t.ready && t.ready.length ? `<h3 style="margin-top:14px">다시 할 수 있는 활동</h3>${noteList(t.ready.map(k => `${ACT[k].n} — 재사용 대기가 끝났습니다`))}` : ''}
       ${t.notes.length || wk.length ? `<h3 style="margin-top:14px">국회·정부 소식</h3>${noteList([...wk, ...t.notes])}` : ''}`,
-    buttons: [{ t: '확인', pri: true }, { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
+    buttons: [{ t: '확인', pri: true }, ...(t.ready && t.ready.length ? [{ t: '활동 탭으로', fn: () => { tab = 'act'; renderAll(); } }] : []), { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
   });
 }
 // 국회·정부·다른 당 동향(소식 탭의 '국회·정부')
@@ -2113,6 +2119,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-act]').forEach(b => b.onclick = () => doAct(b.dataset.act, b.dataset.k));
   m.querySelectorAll('[data-reg]').forEach(b => b.onclick = () => { selReg = b.dataset.reg; Snd.sfx('click'); renderPanel(); });
   m.querySelectorAll('[data-up]').forEach(b => b.onclick = () => buyUp(b.dataset.up));
+  m.querySelectorAll('[data-watch]').forEach(b => b.onclick = () => { const k = b.dataset.watch; S.watch[k] = !S.watch[k]; save(); renderPanel(); });
   m.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { tab = b.dataset.go; renderAll(); });
   m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => lobbyBill(+b.dataset.lobby));
   m.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { feedF = b.dataset.feed; feedN = 12; renderAll(); });
@@ -2130,9 +2137,10 @@ function bindPanel(m) {
   m.querySelectorAll('[data-camp]').forEach(el => el.addEventListener('change', () => { draftChange(el); }));
   m.querySelectorAll('input[type=number][data-camp], input[type=range][data-camp]').forEach(el => el.addEventListener('input', () => draftChange(el, true)));
 }
-function actBtn(key, k) {
-  const a = ACT[key], w = why(key, k), cost = a.c();
-  return `<div class="act"><h3>${a.n}</h3><p>${a.d}</p><div class="meta"><span>${cost ? won(cost) : '무료'}</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span></div><div class="why">${esc(w)}</div><button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행 · 행동력 1</button></div>`;
+// watch: 재사용 알림 토글을 붙임(활동 탭의 전국 활동)
+function actBtn(key, k, watch) {
+  const a = ACT[key], w = why(key, k), cost = a.c(), on = !!S.watch[key];
+  return `<div class="act"><h3>${a.n}</h3><p>${a.d}</p><div class="meta"><span>${cost ? won(cost) : '무료'}</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span></div><div class="why">${esc(w)}</div><button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행 · 행동력 1</button>${watch && a.cd ? `<button class="btn watch" data-watch="${key}" aria-pressed="${on}">${icon('i-bell')}재사용 알림 ${on ? '켜짐' : '꺼짐'}</button>` : ''}</div>`;
 }
 
 function pHome() {
@@ -2216,8 +2224,8 @@ function pOrg() {
     </div></div>`;
 }
 function pAct() {
-  return `<div class="card"><h2>전국 활동</h2><div class="acts">${['online', 'policy', 'media', 'talent', 'fund', 'tvad', 'debate'].map(k => actBtn(k)).join('')}</div>
-    <p class="small muted" style="margin-top:10px">지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
+  return `<div class="card"><h2>전국 활동</h2><div class="acts">${['online', 'policy', 'media', 'talent', 'fund', 'tvad', 'debate'].map(k => actBtn(k, undefined, true)).join('')}</div>
+    <p class="small muted" style="margin-top:10px">재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 다음 턴 주간 브리핑에서 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
 function pPeople() {
@@ -2494,6 +2502,7 @@ function pGuide() {
     ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
       <li>활동(당원 모집·봉사·유세·홍보·정책 발표·인재 영입 등)은 한 번에 행동력 1과 정해진 비용을 씁니다. 대부분 재사용 대기 턴이 있습니다.</li>
       <li>시설 설립, 정당 등록 신청, 공천처럼 행동력이 들지 않는 일도 있습니다.</li>
+      <li>활동 탭의 전국 활동마다 '재사용 알림'을 켤 수 있습니다. 켜 둔 활동은 재사용 대기가 끝나 다시 할 수 있게 되면 다음 턴 주간 브리핑에 표시됩니다.</li>
       <li>'턴 종료'를 누르면 7일이 하루씩 흐릅니다. 사건이 생기면 멈추고, 선택을 마치면 이어집니다. 턴이 끝나면 자금·당원·지지율 변화가 요약됩니다.</li></ul>`)}
     ${sec('1단계: 창당 (6개월)', `<ul><li>창당 본거지에 발기인 ${LAW.founders}명이 있습니다. 결성신고 후 <b>${LAW.prepDays}일</b> 안에 등록 신청을 하지 못하면 준비위가 소멸합니다(게임 오버).</li>
       <li>조직·지역 탭에서 지역을 골라 당원을 모집하세요. 지역 지지율이 높을수록, 본거지일수록 많이 들어옵니다.</li>
