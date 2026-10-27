@@ -674,7 +674,7 @@ function nextElection() { return SCHED.find(e => e.day >= S.day); }
 function timeline() {
   for (const e of SCHED) {
     const dd = e.day - S.day;
-    if (dd > 120 || dd < 0) continue;
+    if (dd > LAW.nomDays || dd < 0) continue;
     if (!S.camps[e.key] && !S.done[e.key]) {
       S.camps[e.key] = newCamp(e);
       addLog(`${e.name}(${fdate(e.day)}) 공천 일정이 시작되었습니다. 후보자 등록 마감: 선거일 ${LAW.regDeadline[e.type]}일 전.`, 'ok');
@@ -2301,7 +2301,7 @@ function pElec() {
   const camps = Object.values(S.camps).sort((a, b) => a.day - b.day);
   const ups = SCHED.filter(e => e.day >= S.day).slice(0, 3);
   let html = '';
-  if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 120일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
+  if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c);
   html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${[...S.results].reverse().map(r => `<li><time>${fdate(r.d)}</time><span>${esc(r.t)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
@@ -2543,7 +2543,7 @@ function nextSteps() {
   if (S.phase === 'reg' && subsidyFrac() > 0 && !S.up.inst) out.push(['보조금을 받는 정당은 정책연구소를 두어야 합니다. 활동 탭에서 설립하세요.', 'act']);
   if (!out.length && S.phase === 'reg') {
     const ne = nextElection();
-    out.push([ne ? `다음 선거는 ${ne.name}(D-${ne.day - S.day})입니다. 선거일 120일 전에 공천이 열리니 그때까지 당원·인지도·인재를 키우세요.` : '당원·인지도·인재를 키우세요.', 'act']);
+    out.push([ne ? `다음 선거는 ${ne.name}(D-${ne.day - S.day})입니다. 선거일 ${LAW.nomDays}일 전에 공천이 열리니 그때까지 당원·인지도·인재를 키우세요.` : '당원·인지도·인재를 키우세요.', 'act']);
   }
   out.push([S.ap ? `이번 턴 행동력이 ${S.ap} 남았습니다. 다 쓰면 '턴 종료'(Space)를 누르세요.` : `행동력을 다 썼습니다. '턴 종료'(Space)를 누르세요.`, '']);
   return out;
@@ -2573,7 +2573,7 @@ function pGuide() {
       <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
-    ${sec('선거와 공천', `<ul><li>선거일 120일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
+    ${sec('선거와 공천', `<ul><li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 인지도·역량이 높을수록, 전과가 적을수록 유리합니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
       <li>등록을 마치면 선거일 전 공식 선거운동기간(대선 ${LAW.campaignDays.pres}일, 총선·지방선거 ${LAW.campaignDays.nat}일)에 거리 유세·방송 광고·TV 토론을 할 수 있습니다.</li>
