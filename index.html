@@ -556,7 +556,7 @@ function newState(f) {
     seats: {}, gov: {}, president: { party: 'B', name: '', since: -200 }, lastVotes: { A: 0.36, B: 0.37, C: 0.12, P: 0 },
     everNat: false, lastPart: null, pool: [], nid: 1, camps: {}, done: {}, results: [], hist: [], log: [], risks: [],
     pending: [], queue: [], ach: {}, ap: AP, issue: 'econ', fund: { year: 2026, raised: 0 }, ledger: { cur: {}, last: {} },
-    negDays: 0, grace: null, over: null, ended: false,
+    negDays: 0, grace: null, over: null, ended: false, natv: 1, // natv: 새 게임은 총선 앞당김을 적용하지 않음
   };
   migrate(S);
   S.members[f.home] = LAW.founders;
@@ -588,7 +588,7 @@ function migrate(o) {
     try { for (const k in o.ops) if (untouched(o.ops[k])) o.ops[k] = opsBase('P', k); for (const k in o.rgov) if (untouched(o.rgov[k].o)) o.rgov[k].o = opsBase(o.rgov[k].p, k); } finally { S = prev; }
   }
   o.opsv = 1;
-  // 다음 국회의원선거를 지금부터 140일 뒤로(새 게임은 시작 140일 뒤, 진행 중 저장 파일은 불러온 날부터 140일 뒤). 한 번만
+  // 진행 중이던 옛 저장 파일만: 다음 국회의원선거를 불러온 날부터 140일 뒤로(한 번만). 새 게임은 natv가 이미 있어 정기 일정 그대로
   if (!o.natv) { o.natFrom = o.day; o.natDay = o.day + 140; o.natv = 1; }
   rebuildSched(o);
   for (const k in o.camps || {}) if (k.startsWith('nat') && !SCHED.some(e => e.key === k)) delete o.camps[k]; // 옛 날짜로 열린 공천은 취소
