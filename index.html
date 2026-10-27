@@ -146,6 +146,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .law{border-left:3px solid var(--party);padding:2px 0 2px 12px;margin:0 0 12px}
 .law b{display:block}
 .pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:99px;background:var(--surface2);color:var(--muted);white-space:nowrap}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .empty{color:var(--muted);font-size:14px;padding:16px 0;text-align:center}
@@ -570,7 +571,7 @@ const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.outs ??= genOuts(o);
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -974,6 +975,8 @@ function tick() {
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
+  const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
+  if (nOff && rnd() < Math.min(0.08, 0.01 + nOff * 0.003)) S.queue.push({ ev: 'selfAct' });
   if (!modalOpen) processQueue();
   renderTop();
 }
@@ -1004,7 +1007,7 @@ function runTurn() {
   if (modalOpen) return;
   if (left) {
     tick(); left--;
-    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); turnStart.ready = readyWatched(turnStart.day); save(); renderAll(); }
+    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); addAlerts(readyWatched(turnStart.day)); save(); renderAll(); }
     return (turnTimer = setTimeout(runTurn, 90));
   }
   if (turnStart) { const t = turnStart; turnStart = null; brief(t); }
@@ -1026,7 +1029,9 @@ const readyWatched = d0 => {
   for (const k in S.watch) if (isNeg(k) && !negLabel(k)) delete S.watch[k]; // 떠난 상대의 알림은 정리
   return Object.keys(S.watch).filter(k => S.watch[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && canNow(k));
 };
-const readyText = k => isNeg(k) ? `${negLabel(k)}과(와) 교섭 — 다시 할 수 있습니다` : `${ACT[k].n} — 재사용 대기가 끝났습니다`;
+// 다시 할 수 있게 된 알림은 탭 이름 옆 숫자로: 활동(act) · 교섭(neg). 그 탭에 들어가면 사라짐
+const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : 'act']; if (!a.includes(k)) a.push(k); } };
+let shownTab = null, fresh = []; // 이번에 들어온 탭에서 방금 확인한 알림(카드에 '다시 가능' 표시)
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
   const r = { d: S.day, news: S.news, notes: t.notes, dm: S.money - t.money, dmem: totalMembers() - t.mem, dsup: poll().P - t.sup };
@@ -1036,9 +1041,8 @@ function brief(t) {
     title: `${turnNo()}턴 · 주간 브리핑`,
     html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>${briefPills(r)}
       <h3 style="margin-top:14px">이번 주 헤드라인</h3>${newsList()}
-      ${t.ready && t.ready.length ? `<h3 style="margin-top:14px">다시 할 수 있는 활동</h3>${noteList(t.ready.map(readyText))}` : ''}
       ${t.notes.length || wk.length ? `<h3 style="margin-top:14px">국회·정부 소식</h3>${noteList([...wk, ...t.notes])}` : ''}`,
-    buttons: [{ t: '확인', pri: true }, ...(t.ready && t.ready.some(k => !isNeg(k)) ? [{ t: '활동 탭으로', fn: () => { tab = 'act'; renderAll(); } }] : []), ...(t.ready && t.ready.some(isNeg) ? [{ t: '교섭 탭으로', fn: () => { tab = 'neg'; renderAll(); } }] : []), { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
+    buttons: [{ t: '확인', pri: true }, { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
   });
 }
 // 국회·정부·다른 당 동향(소식 탭의 '국회·정부')
@@ -1414,7 +1418,7 @@ let negF = 'all', negV = 'all'; // negV: 'all' 전체 목록 · 'fav' 관심 목
 // 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
 // 별: 관심 목록에 담고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
 const negBtn = (attr, cdk, who) => { const w = negWhy(cdk), on = !!S.watch[cdk];
-  return `<div class="negcell"><button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
+  return `<div class="negcell">${fresh.includes(cdk) ? '<span class="pill ok">다시 가능</span>' : ''}<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
 const mpRow = m => `<tr><td><b>${esc(m.name)}</b><div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></td><td style="min-width:100px">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원')}</td></tr>`;
 const outRow = m => `<tr><td><b>${esc(m.name)}</b><div class="small muted">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n} · 인지도 ${m.fame}</div></td><td style="min-width:100px">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role)}</td></tr>`;
 const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
@@ -1426,7 +1430,7 @@ function negCard() {
   const mps = fav ? favMps : live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), outs = fav ? favOuts : S.outs;
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['O', '무소속']];
   const vv = [['all', '전체 목록'], ['fav', `관심 목록 ${nFav}`]];
-  const head = `<div class="card"><h2>교섭</h2><p class="small muted">협상가 ${esc(leader().name)} 대표(역량 ${leader().skill}). 결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당·인물은 '관심 목록'에 모이고, 다시 교섭할 수 있게 되면 주간 브리핑에서 알려 줍니다.</p>
+  const head = `<div class="card"><h2>교섭</h2><p class="small muted">협상가 ${esc(leader().name)} 대표(역량 ${leader().skill}). 결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당·인물은 '관심 목록'에 모이고, 다시 교섭할 수 있게 되면 메뉴의 '교섭' 옆에 숫자로 알려 줍니다.</p>
     ${left || S.ap < 1 ? `<p class="warn small">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}
     <div class="filters" role="group" aria-label="교섭 보기">${vv.map(([k, n]) => `<button class="btn${negV === k ? ' pri' : ''}" data-negv="${k}" aria-pressed="${negV === k}">${n}</button>`).join('')}</div></div>`;
   const parties = fav && !parts.length ? `<div class="card"><h2>정당</h2><p class="empty">별 버튼을 켠 정당이 없습니다.</p></div>` : `<div class="card"><h2>정당</h2><div class="tblwrap"><table><thead><tr><th>정당</th><th class="r">의석</th><th>노선</th><th style="min-width:130px">관계</th><th></th></tr></thead><tbody>
@@ -1697,6 +1701,77 @@ const presT = () => `${S.president.name} 대통령${S.president.acting ? ' 권�
 const presN = () => esc(presT());
 const hitPres = n => { if (!ruling()) S.rw[S.president.party] -= n; };
 const ET = {}; // 이벤트 사이에 넘길 임시값
+// ---------- 여론의 출렁임: 화제가 된 지역 소식 · 소속 정치인의 자율 행동 · '억까' 사건 ----------
+// 우리 당을 걸고넘어질 상대: 관계가 나쁠수록 잘 나섬(약간의 운)
+const attacker = () => ['A', 'B', 'C'].map(id => [id, S.rel[id] + rr(-25, 25)]).sort((a, b) => a[1] - b[1])[0][0];
+// 사소한 지역 소식도 20%는 화제가 됨 → 그 지역 단체장 소속 정당 지지율이 출렁임(sign: +1 호재, −1 악재). 화제가 되면 true
+function viral(k, t, sign) {
+  if (rnd() > 0.2) return false;
+  const id = S.gov[k] === 'P' ? 'P' : S.rgov[k] ? S.rgov[k].p : null;
+  if (!id || id === 'O') return false;
+  const v = sign * rr(0.6, 1.8);
+  if (id === 'P') { S.buzz += v; S.trust += v * 0.3; } else S.rw[id] = Math.max(1, S.rw[id] + v);
+  wire(`'${t}' 화제… ${pn(id)} 지지율 ${v > 0 ? '들썩' : '흔들'}`);
+  return true;
+}
+// 소속 의원·단체장: 이름이 있는 인재가 없으면(비례 등) 무명 의원으로
+function officialPick() {
+  const o = S.pool.filter(p => !p.leader && /국회의원|시·도지사/.test(p.role));
+  if (o.length) return pick(o);
+  if (seatTotal('P')) return { name: genName(rnd() < 0.3 ? 'F' : 'M'), role: '국회의원(비례)', skill: Math.round(rr(40, 70)), integ: Math.round(rr(40, 80)), temp: true };
+  return null;
+}
+const SELF_GOOD = {
+  mp: [{ t: '{p} 의원, 국정감사 송곳 질의 영상 조회 100만 회', b: 3, f: 1 }, { t: '{p} 의원, 보좌진과 수해 복구 자원봉사', b: 2, tr: 1 },
+    { t: '{p} 의원, 상대 당과 민생 법안 공동 발의', b: 1.5, tr: 1.5 }, { t: '{p} 의원 "세비 인상분 전액 기부" 선언', b: 2.5 }, { t: '{p} 의원, 지역 전통시장 상인과 밤샘 간담회', b: 1.5, tr: 0.5 }],
+  gov: [{ t: '{p} 지사, 새벽 수산시장 찾은 사진 화제', b: 1.5, ops: 2 }, { t: '{p} 지사, 산불 현장 밤샘 지휘에 "믿음직"', b: 2.5, ops: 3 },
+    { t: '{p} 지사, 민원인 응대 영상 "공감 행정" 호평', b: 2, ops: 2 }, { t: '{p} 지사, 관사 반납하고 원룸 생활', b: 2, ops: 2 }],
+};
+const SELF_BAD = {
+  mp: ['{p} 의원, 지역 행사에서 "여성 비하" 실언', '{p} 의원 보좌진 갑질 의혹 폭로', '{p} 의원, 상임위 회의 중 코인 거래 포착', '{p} 의원, 재난 와중에 해외 출장 논란',
+    '{p} 의원 SNS에 상대 당 조롱 게시물', '{p} 의원, 본회의장에서 조는 모습 카메라에 잡혀', '{p} 의원, 음식점 "갑질 계산" 목격담 확산'],
+  gov: ['{p} 지사, 폭우 경보 중 골프 회동 논란', '{p} 지사, 측근을 산하기관장에 낙하산 임명', '{p} 지사 관용차로 자녀 등교 의혹', '{p} 지사, 기자회견서 "그럼 이사 가라" 막말',
+    '{p} 지사, 축제 예산으로 해외 연수 논란', '{p} 지사, 재난 문자 늑장 발송 논란'],
+};
+// 소속 정치인의 자율 행동: 역량·청렴이 높을수록 잘함. 실수하면 상대 당이 공격해 지지율이 크게 빠짐
+function selfAct() {
+  const p = officialPick(); if (!p) return;
+  const gov = /시·도지사/.test(p.role), r = gov ? R.find(x => p.role.startsWith(x.n + ' ')) : null, k = r && S.gov[r.k] === 'P' ? r.k : null;
+  const who = k ? `${RK[k].n} ${p.name}` : p.name, kind = k ? 'gov' : 'mp';
+  if (rnd() < clamp(0.35 + (p.skill - 50) / 150 + (p.integ - 50) / 200, 0.15, 0.7)) {
+    const g = pick(SELF_GOOD[kind]), t = g.t.replace('{p}', who);
+    S.buzz += g.b; S.fame += g.f || 0.5; S.trust += g.tr || 0; if (g.ops && k) S.ops[k] = clamp(S.ops[k] + g.ops, 5, 95);
+    wire(t); if (k) rnews(k, t);
+    // 호재는 결정할 게 없으니 창을 띄우지 않고 알림·기록만
+    addLog(`[소속 정치인 소식] ${t}. 우리 당 지지율에 호재입니다.`, 'ok'); toast(`${t} — 지지율 호재`, 'ok'); return;
+  }
+  const t = pick(SELF_BAD[kind]).replace('{p}', who), att = attacker(), hit = rr(2.5, 5.5);
+  S.buzz -= hit; S.trust -= hit * 0.3; S.rw[att] += 0.8; relAdd(att, -3, `${p.name} 논란 공세`); if (k) { S.ops[k] = clamp(S.ops[k] - 3, 5, 95); rnews(k, t); }
+  wire(`${t}… ${pn(att)} "즉각 사퇴하라"`);
+  showEvent({ title: '소속 정치인 논란', body: () => `${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(pn(att))}이(가) 즉각 사퇴를 요구하며 맹공에 나섰고, 우리 당 지지율이 흔들립니다.`,
+    ch: [{ t: '즉각 사과하고 당직 정지', s: '파장 절반으로', run: () => { S.buzz += hit * 0.5; S.trust += 0.5; if (!p.temp) p.integ = clamp(p.integ + 10, 0, 100); return '빠른 사과로 불길이 잦아들었습니다.'; } },
+      { t: '"왜곡·짜깁기"라며 감싼다', s: '통하면 역공, 아니면 더 커짐', run: () => { if (luck(0.35)) { S.buzz += hit * 0.9; S.rw[att] -= 1; return '원본 영상이 공개되며 상대 당 공세가 역풍을 맞았습니다.'; } S.buzz -= hit * 0.6; S.trust -= 1.5; return '감싸기가 "내로남불"로 번지며 파장이 커졌습니다.'; } },
+      { t: '윤리위원회 징계 회부', s: '신뢰↑ · 당원 일부 반발', run: () => { S.buzz += hit * 0.6; S.trust += 1; for (const x in S.members) S.members[x] = Math.round(S.members[x] * 0.99); return '당 윤리위가 징계에 착수했습니다. 일부 당원은 "너무 가혹하다"며 반발합니다.'; } },
+      { t: '상대 당 과거 사례로 맞불', s: '인지도↑ · 관계↓', run: () => { S.fame += 1; S.buzz += hit * 0.2; S.rw[att] -= 0.8; relAdd(att, -6, '맞불 폭로'); return '진흙탕 공방으로 번졌습니다. 양쪽 모두 상처를 입었습니다.'; } }] });
+}
+// '억까' 사건: 근거가 약해도 일단 퍼지면 지지율이 빠짐. 대응에 따라 회복하거나 역풍
+const SMEAR = (id, title, body) => ({ id, w: 2.5, cond: () => S.fame > 3, title,
+  pre: () => { ET.att = attacker(); ET.hit = rr(2, 5); ET.title = title; S.buzz -= ET.hit; S.trust -= ET.hit * 0.2; relAdd(ET.att, -2, title); wire(`${title}… ${pn(ET.att)} 공세`); },
+  body: () => `${body()} ${esc(pn(ET.att))}이(가) 이를 받아 공세에 나섰고, 우리 당 지지율이 출렁입니다.`,
+  ch: [{ t: '팩트체크 자료로 정면 반박', s: '통하면 회복, 아니면 더 번짐', run: () => { if (luck(0.5)) { S.buzz += ET.hit * 0.8; S.rw[ET.att] -= 0.5; return '반박 자료가 퍼지며 오히려 상대 당이 머쓱해졌습니다.'; } S.buzz -= ET.hit * 0.4; return '반박이 논란을 더 키웠습니다. "해명이 더 수상하다"는 반응도 나옵니다.'; } },
+    { t: '허위사실로 고소한다', s: '비용 1천만 · 결과는 몇 주 뒤', run: () => { spend(1e7, '법률 비용'); later(rr(30, 60), { ev: 'smearCourt', hit: ET.hit, t: ET.title }); return '고소장을 냈습니다. 결과는 몇 주 뒤 나옵니다.'; } },
+    { t: '유머로 받아친다', s: '대박 아니면 쪽박', run: () => { if (luck(0.4)) { S.buzz += ET.hit * 1.3; S.fame += 1; return '재치 있는 대응이 밈이 되며 오히려 호감도가 올랐습니다.'; } S.buzz -= ET.hit * 0.5; S.trust -= 1; return '"상황 파악을 못 한다"는 비판이 쏟아졌습니다.'; } },
+    { t: '대응하지 않는다', run: () => '무대응으로 일관했습니다. 논란은 시간이 지나야 잦아들 것 같습니다.' }] });
+const SMEARS = [
+  SMEAR('cutclip', '짜깁기 영상 확산', () => `${esc(leader().name)} 대표 연설의 앞뒤를 잘라 "서민 비하"처럼 보이게 만든 영상이 퍼지고 있습니다.`),
+  SMEAR('oldsns', '10년 전 SNS 발굴', () => '우리 당 대변인이 10년 전 쓴 SNS 글이 발굴됐습니다. 맥락은 빠진 채 캡처만 돌고 있습니다.'),
+  SMEAR('samename', '동명이인 오보', () => '한 언론이 음주운전 사고를 낸 동명이인을 우리 당 소속으로 잘못 보도했습니다. 정정 보도 전에 이미 기사가 퍼졌습니다.'),
+  SMEAR('fanfight', '지지자 일탈 책임론', () => '우리 당 지지자를 자처한 사람이 집회에서 시민과 몸싸움을 벌였습니다. "당이 책임지라"는 공세가 나옵니다.'),
+  SMEAR('photo', '사진 한 장 논란', () => '당 행사 사진 뒤편 현수막 문구가 일부만 잘려 "막말 현수막"으로 퍼졌습니다.'),
+  SMEAR('frame', '"세금 폭탄" 프레임 공세', () => '우리 당 정책을 "세금 폭탄"이라 부르는 카드뉴스가 대량으로 퍼지고 있습니다.'),
+  SMEAR('pollmirage', '"지지율 폭락" 과장 보도', () => '오차범위 안의 등락을 "지지율 폭락"으로 쓴 기사가 포털 메인에 걸렸습니다.'),
+  SMEAR('conspiracy', '유튜버 음모론', () => '구독자 수십만 명의 유튜버가 "당 자금 출처가 수상하다"는 음모론 방송을 내보냈습니다.'),
+];
 const EVENTS = [
   // --- 검은 제안: 받으면 이득, 들킬 수도 묻힐 수도 있음 ---
   { id: 'corp', w: 3, cond: () => true, title: '법인 명의 후원 제안',
@@ -1875,6 +1950,7 @@ const EVENTS = [
     body: () => '고등학생들 사이에서 정당 가입 문의가 늘고 있습니다.',
     ch: [{ t: '청소년 당원 프로그램 운영', s: '비용 1천만', run: () => { spend(1e7, '활동'); const k = pick(R).k, n = Math.round(rr(300, 900) * (S.up.youth ? 1.6 : 1)); S.members[k] += n; return `${RK[k].n} 등에서 청소년 당원 ${n}명이 입당했습니다.`; } },
       { t: '보류', run: () => '보류했습니다.' }] },
+  ...SMEARS,
   { id: 'defect', w: 2, cond: () => seatTotal('P') > 0 && S.support < 8, title: '소속 의원 탈당 움직임',
     body: () => '지지율 부진에 실망한 소속 의원이 탈당을 고민 중입니다.', note: '지역구 의원은 탈당해도 의원직을 유지하지만, 비례대표 의원은 스스로 탈당하면 물러나고 다음 순번이 승계합니다.',
     ch: [{ t: '설득한다', s: '비용 3천만, 성공 60%', run: () => { spend(3e7, '활동'); if (rnd() < 0.6) return '설득에 성공했습니다.'; loseSeat(true); return '설득에 실패해 의원이 탈당했습니다.'; } },
@@ -2020,9 +2096,12 @@ const XEV = {
   // 역점사업 후속 보도: 지지도·당원이 조금 움직이고, 새 현안·악재가 생기기도 함
   admFollow: q => {
     const f = pick(ADM_FOLLOW[q.pj][q.ok ? 'ok' : 'no']), t = fillR(f.t, q.k);
-    if (f.need || f.bad) addIssue(q.k, { pj: f.need, bad: f.bad }, t); else rnews(q.k, t);
+    if (f.need || f.bad) addIssue(q.k, { pj: f.need, bad: f.bad }, t); else rnews(q.k, t, 0, viral(q.k, t, (f.ops || 0) < 0 ? -1 : 1));
     if (S.gov[q.k] === 'P') { if (f.ops) S.ops[q.k] = clamp(S.ops[q.k] + f.ops, 5, 95); if (f.mem) S.members[q.k] += f.mem; }
   },
+  selfAct: () => selfAct(),
+  smearCourt: q => { if (luck(0.6)) { S.buzz += q.hit * 0.7; S.trust += 1; info('법원 판단', `'${q.t}' 유포자에게 허위사실 명예훼손 유죄가 나왔습니다. 정정 보도가 이어지며 지지율이 회복됐습니다.`, false); }
+    else info('법원 판단', `'${q.t}' 고소가 무혐의로 끝났습니다. "괜히 키웠다"는 말이 나옵니다.`, true); },
   inst: () => openModal({ title: '정책연구소 설치 안내', html: `<p>국고보조금 배분 대상 정당이 되었습니다. 보조금을 받는 정당은 정책연구소를 두어야 하고, 경상보조금의 30% 이상을 정책연구소에 배분해야 합니다. 활동 탭에서 정책연구소를 설립하세요.</p>`, buttons: [{ t: '확인', pri: true }] }),
   grace: () => { Snd.sfx('bad'); openModal({ title: '정당 등록요건 미달', html: `<p>법정 요건(시·도당 5개, 각 당원 1,000명 이상)을 충족하지 못하고 있습니다. <b>${fdate(S.grace)}</b>까지 회복하지 못하면 등록이 취소됩니다.</p>`, buttons: [{ t: '확인', pri: true }] }); },
   unify: q => {
@@ -2071,7 +2150,8 @@ function agendaCard() {
 }
 // 지역 소식(행정 탭)
 // c: 현안 소식이면 1
-const rnews = (k, t, c) => { S.rnews.push(c ? { d: S.day, k, t, c } : { d: S.day, k, t }); if (S.rnews.length > 800) S.rnews.shift(); };
+// c: 현안 소식, v: 화제가 되어 지지율을 흔든 소식
+const rnews = (k, t, c, v) => { const x = { d: S.day, k, t }; if (c) x.c = 1; if (v) x.v = 1; S.rnews.push(x); if (S.rnews.length > 800) S.rnews.shift(); };
 // 안 읽은 지역 소식: 최근 2턴 안에 나왔고, 그 지역 소식을 마지막으로 연 뒤에 나온 것
 const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.d > (S.rseen[k] ?? -1));
 // 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
@@ -2087,7 +2167,7 @@ function addIssue(k, it, t) {
   const here = issuesOf(k);
   if (here.length >= 3) S.rcur = S.rcur.filter(x => x !== here[0]); // 지역당 3건까지, 오래된 것부터 밀림
   S.rcur.push({ id: ++S.seq, k, pj: it.pj, bad: it.bad, t, d: S.day, until: S.day + 35 });
-  rnews(k, t, 1);
+  rnews(k, t, 1, viral(k, t, -1));
 }
 // 역점사업 보정: 맞는 현안 +15%p씩, 악재 −20%p씩, 그달 전국 쟁점과 맞물리면 +5%p
 const pjAdj = (k, pj) => sum(issuesOf(k).map(x => x.pj === pj ? 0.15 : x.bad === pj ? -0.2 : 0)) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0);
@@ -2106,7 +2186,7 @@ function regionNews() {
   for (let i = 0; i < 7; i++) {
     const r = pick(R), k = r.k, g = S.rgov[k], x = rnd();
     if (x < 0.45) { const it = pick(RISSUE); addIssue(k, it, fillR(it.t, k)); }
-    else if (x < 0.75) rnews(k, fillR(pick(RMICRO), k));
+    else if (x < 0.75) { const t = fillR(pick(RMICRO), k); rnews(k, t, 0, viral(k, t, 1)); }
     else if (x < 0.88) rnews(k, fillR(pick(RNEWS), k));
     else rnews(k, S.gov[k] === 'P' ? `${r.n} ${govName(k)} 지사(${S.party.name}) 직무 긍정 평가 ${Math.round(S.ops[k])}%` : g ? `${r.n} ${g.n} 지사(${pn(g.p)}) 직무 긍정 평가 ${Math.round(g.o)}%` : fillR(pick(RMICRO), k));
   }
@@ -2257,16 +2337,19 @@ function renderNav() {
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => rUnread(r.k)).length;
-  const badge = { elec: S.phase === 'reg' ? pend : 0, office: cases, admin: unread }, badgeSr = { admin: '새 소식 지역 ' };
+  const badge = { elec: S.phase === 'reg' ? pend : 0, office: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length }, badgeSr = { admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
   nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : ''}</button>`).join('')
-    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread) && !open ? '<span class="badge">!</span>' : ''}</button>`;
+    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length) && !open ? '<span class="badge">!</span>' : ''}</button>`;
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
   nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
 }
 function renderPanel() {
   if (!S) return;
   const main = $('#main');
-  const y = main.scrollTop;
+  const y = main.scrollTop, al = S.alerts[tab];
+  if (tab !== shownTab) fresh = [];
+  if (al && al.length) { fresh = [...fresh, ...al]; S.alerts[tab] = []; }
+  shownTab = tab;
   main.innerHTML = ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
   bindPanel(main);
@@ -2298,7 +2381,7 @@ function bindPanel(m) {
 // watch: 재사용 알림 토글을 붙임(활동 탭의 전국 활동)
 function actBtn(key, k, watch) {
   const a = ACT[key], w = why(key, k), cost = a.c(), on = !!S.watch[key];
-  return `<div class="act"><h3>${a.n}</h3><p>${a.d}</p><div class="meta"><span>${cost ? won(cost) : '무료'}</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span></div><div class="why">${esc(w)}</div><button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행 · 행동력 1</button>${watch && a.cd ? `<button class="btn watch" data-watch="${key}" aria-pressed="${on}">${icon('i-bell')}재사용 알림 ${on ? '켜짐' : '꺼짐'}</button>` : ''}</div>`;
+  return `<div class="act"><h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}</h3><p>${a.d}</p><div class="meta"><span>${cost ? won(cost) : '무료'}</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span></div><div class="why">${esc(w)}</div><button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행 · 행동력 1</button>${watch && a.cd ? `<button class="btn watch" data-watch="${key}" aria-pressed="${on}">${icon('i-bell')}재사용 알림 ${on ? '켜짐' : '꺼짐'}</button>` : ''}</div>`;
 }
 
 function pHome() {
@@ -2383,7 +2466,7 @@ function pOrg() {
 }
 function pAct() {
   return `<div class="card"><h2>전국 활동</h2><div class="acts">${['online', 'policy', 'media', 'talent', 'fund', 'tvad', 'debate'].map(k => actBtn(k, undefined, true)).join('')}</div>
-    <p class="small muted" style="margin-top:10px">재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 다음 턴 주간 브리핑에서 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
+    <p class="small muted" style="margin-top:10px">재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 메뉴의 '활동' 옆에 숫자로 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
 function pPeople() {
@@ -2541,7 +2624,7 @@ function pAdmin() {
   // 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `<div class="split"><div>${mine}${issCard}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
-    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}${x.c ? ' <span class="pill">현안</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
+    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}${x.c ? ' <span class="pill">현안</span>' : ''}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
 function bannerItems() {
@@ -2666,7 +2749,7 @@ function pGuide() {
     ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
       <li>활동(당원 모집·봉사·유세·홍보·정책 발표·인재 영입 등)은 한 번에 행동력 1과 정해진 비용을 씁니다. 대부분 재사용 대기 턴이 있습니다.</li>
       <li>시설 설립, 정당 등록 신청, 공천처럼 행동력이 들지 않는 일도 있습니다.</li>
-      <li>활동 탭의 전국 활동마다 '재사용 알림'을, 교섭 탭의 상대마다 별 버튼(관심 목록·교섭 재개 알림)을 켤 수 있습니다. 다시 할 수 있게 되면 다음 턴 주간 브리핑에 표시됩니다.</li>
+      <li>활동 탭의 전국 활동마다 '재사용 알림'을, 교섭 탭의 상대마다 별 버튼(관심 목록·교섭 재개 알림)을 켤 수 있습니다. 다시 할 수 있게 되면 메뉴의 그 탭 이름 옆에 숫자로 표시되고, 탭에 들어가면 사라집니다.</li>
       <li>행동력이 남은 채 턴을 끝내면 한 번 더 묻습니다. 설정에서 행동력·행정 행동력별로 끌 수 있습니다.</li>
       <li>'턴 종료'를 누르면 7일이 하루씩 흐릅니다. 사건이 생기면 멈추고, 선택을 마치면 이어집니다. 턴이 끝나면 자금·당원·지지율 변화가 요약됩니다.</li></ul>`)}
     ${sec('1단계: 창당 (6개월)', `<ul><li>창당 본거지에 발기인 ${LAW.founders}명이 있습니다. 결성신고 후 <b>${LAW.prepDays}일</b> 안에 등록 신청을 하지 못하면 준비위가 소멸합니다(게임 오버).</li>
@@ -2691,6 +2774,10 @@ function pGuide() {
       <li>숨긴 일은 영영 묻힐 수도, 어느 날 드러날 수도 있습니다. 시간이 지날수록 흐려지지만 당이 클수록 보는 눈이 많아지고, 국정감사·경쟁 정당의 고발·탈당자의 제보로 터지기도 합니다.</li>
       <li>영입 인재는 청렴도가 낮을수록 스캔들이 잘 터집니다.</li>
       <li>워크숍, 봉사, 간담회, 중재안처럼 무난해 보이는 대안도 늘 통하지는 않습니다. 대표 역량이 높을수록 잘 풀리지만, "보여주기"나 공개 충돌로 역풍을 맞을 수도 있습니다.</li></ul>`)}
+    ${sec('여론의 출렁임', `<ul><li>지지율은 꾸준히 오르기만 하지 않습니다. 사소한 일이 크게 번지기도 합니다.</li>
+      <li>지역 소식 중 일부는 '화제'가 되어, 그 지역 단체장 소속 정당(우리 당이나 다른 당)의 지지율을 흔듭니다. 미담은 호재, 현안·사고는 악재입니다.</li>
+      <li>우리 당 소속 국회의원·광역단체장은 지도부와 상의 없이 스스로 발언하고 움직입니다. 역량·청렴도가 높을수록 호평받을 일을 하고, 실수하면 상대 당이 사퇴 공세를 펴 지지율이 크게 빠집니다. 사과·감싸기·징계·맞불 중 대응을 고릅니다.</li>
+      <li>짜깁기 영상, 동명이인 오보, 과장 보도, 음모론처럼 근거가 약한 공세('억까')도 일단 퍼지면 지지율이 빠집니다. 정면 반박·고소·유머로 받아치기는 통하면 만회하지만 실패하면 더 번집니다.</li></ul>`)}
     ${sec('사회적 이슈', `<ul><li>미투 운동, 군 장병 사망사고, 전세사기, 산재 사망 같은 사회적 사건이 터지면 몇 주 동안 정국을 덮습니다. 화면 맨 위 배너와 의회 탭에 표시됩니다.</li>
       <li>각 당이 입장을 내고, 우리도 입장을 고릅니다. 법안형 입장은 의석이 있으면 바로 발의되고, 정부 책임을 묻는 입장은 대통령 쪽 당과의 관계를 해칩니다.</li>
       <li>사건이 잦아들 무렵 여론이 입장별로 갈립니다. 여론과 맞는 입장을 낸 당은 신뢰·지지를 얻고, 엇갈린 당은 역풍을 맞습니다. 끝내 입장을 내지 않으면 "침묵했다"는 비판을 받습니다.</li>
