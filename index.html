@@ -1350,7 +1350,7 @@ function negOutModal(oid) {
   });
 }
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
-let negF = 'all', negV = 'all'; // negV: 'all' 교섭 상대 전체 · 'fav' 관심 목록(별을 켠 정당·의원·원외 인사)
+let negF = 'all', negV = 'all'; // negV: 'all' 전체 목록 · 'fav' 관심 목록(별을 켠 정당·의원·원외 인사)
 // 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
 // 별: 관심 목록에 담고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
 const negBtn = (attr, cdk, who) => { const w = negWhy(cdk), on = !!S.watch[cdk];
@@ -1365,7 +1365,7 @@ function negCard() {
   const parts = ['A', 'B', 'C'].filter(id => !fav || S.watch['neg:' + id]), nFav = favMps.length + favOuts.length + ['A', 'B', 'C'].filter(id => S.watch['neg:' + id]).length;
   const mps = fav ? favMps : live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), outs = fav ? favOuts : S.outs;
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['O', '무소속']];
-  const vv = [['all', '교섭 상대 전체'], ['fav', `관심 목록 ${nFav}`]];
+  const vv = [['all', '전체 목록'], ['fav', `관심 목록 ${nFav}`]];
   const head = `<div class="card"><h2>교섭</h2><p class="small muted">협상가 ${esc(leader().name)} 대표(역량 ${leader().skill}). 결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당·인물은 '관심 목록'에 모이고, 다시 교섭할 수 있게 되면 주간 브리핑에서 알려 줍니다.</p>
     ${left || S.ap < 1 ? `<p class="warn small">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}
     <div class="filters" role="group" aria-label="교섭 보기">${vv.map(([k, n]) => `<button class="btn${negV === k ? ' pri' : ''}" data-negv="${k}" aria-pressed="${negV === k}">${n}</button>`).join('')}</div></div>`;
