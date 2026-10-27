@@ -2066,7 +2066,8 @@ function toast(msg, type = '') {
 // ---------- 렌더링 ----------
 const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['office', '의회', 'i-gov'], ['admin', '행정', 'i-city'], ['neg', '교섭', 'i-deal'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '소식', 'i-list'], ['guide', '가이드', 'i-book']];
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
-function renderAll() { if (!S) return; renderTop(); renderNav(); renderPanel(); }
+// 패널이 읽음 처리(지역 소식)를 하므로 탭 배지는 패널 다음에 그림
+function renderAll() { if (!S) return; renderTop(); renderPanel(); renderNav(); }
 function renderTop() {
   if (!S) return;
   document.documentElement.style.setProperty('--party', S.party.color);
@@ -2093,10 +2094,11 @@ function renderNav() {
   const nav = $('#nav'), open = nav.classList.contains('open');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
   const cases = S.cases.filter(c => !c.mine).length;
-  const badge = { elec: S.phase === 'reg' ? pend : 0, office: cases };
-  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badge[k]}</span>` : ''}</button>`).join('')
-    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${cases && !open ? '<span class="badge">!</span>' : ''}</button>`;
-  nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderNav(); renderPanel(); $('#main').focus({ preventScroll: true }); });
+  const unread = R.filter(r => rUnread(r.k)).length;
+  const badge = { elec: S.phase === 'reg' ? pend : 0, office: cases, admin: unread }, badgeSr = { admin: '새 소식 지역 ' };
+  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : ''}</button>`).join('')
+    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread) && !open ? '<span class="badge">!</span>' : ''}</button>`;
+  nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
   nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
 }
 function renderPanel() {
@@ -2120,7 +2122,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelectorAll('[data-negout]').forEach(b => b.onclick = () => negOutModal(+b.dataset.negout));
   m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; renderPanel(); });
-  m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); });
+  m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-visit]').forEach(b => b.onclick = agendaVisit);
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
