@@ -166,6 +166,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .news li span{display:block;font-size:12px;color:var(--muted);font-weight:500}
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .ib.fav[aria-pressed="true"] .ic{fill:currentColor} /* 켜진 별은 채움 */
+.desbtn{min-height:28px;padding:2px 10px;font-size:12.5px;flex:none;align-self:center}
+.desbtn[aria-pressed="true"]{border-color:var(--fg)}
 .negcell{display:flex;gap:6px;align-items:center;justify-content:flex-end}
 .act .watch{min-height:32px;padding:4px 10px;font-size:13px;font-weight:500;color:var(--muted)}
 .act .watch[aria-pressed="true"]{color:var(--fg);border-color:var(--fg)}
@@ -571,7 +573,7 @@ const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -1226,16 +1228,16 @@ const govCd = (k, pj) => (S.cd[`govern:${k}:${pj}`] || 0) > S.day;
 function govModal(k) {
   openModal({
     title: `${RK[k].n} 행정 역점사업`, html: `<p class="small muted">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 지금 지지도 ${Math.round(S.ops[k])}.</p>
-      <p class="small muted">남은 행정 행동력 ${S.aap}. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지역 현안에 맞는 사업은 성공률과 효과가 오르고, 악재가 있으면 성공률이 떨어집니다. 그달 전국 헤드라인 쟁점과 맞물려도 조금 유리합니다.</p>
-      ${issuesOf(k).length ? `<h3>지금 ${RK[k].n} 현안</h3><ul class="log">${issuesOf(k).map(x => `<li><span>${esc(shortT(x))} <span class="pill">${x.pj ? PJ_N[x.pj] + ' 현안' : PJ_N[x.bad] + ' 악재'}</span></span></li>`).join('')}</ul>` : ''}
-      <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k), need = issuesOf(k).filter(x => x.pj === p.k), bad = issuesOf(k).filter(x => x.bad === p.k);
-        return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${need.length ? ` · <b class="ok">현안 ${need.length}건 대응: 성공률·효과↑</b>` : ''}${bad.length ? ` · <b class="bad">악재 ${bad.length}건: 성공률↓</b>` : ''}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
+      <p class="small muted">남은 행정 행동력 ${S.aap}. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>
+      ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 행정 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
+      <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k);
+        return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
       const pj = b.dataset.pj, n = RK[k].n;
       if (S.aap < 1 || govCd(k, pj)) return;
       S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
-      const a = pjAdj(k, pj), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = issuesOf(k).filter(x => x.pj === pj);
+      const a = pjAdj(k, pj), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
       let msg, ok = true;
       if (pj === 'dev') {
         if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
@@ -1250,7 +1252,7 @@ function govModal(k) {
       } else if (luck(pr(0.7))) { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
       else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
       // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
-      if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.includes(x)); msg += ` 지역 현안(${need.map(shortT).join(', ')})을 풀어 호평이 더 컸습니다.`;
+      if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
         need.forEach(x => rnews(k, `${n} ${govName(k)} 지사, '${shortT(x)}' 해결 나서… 주민 호평`)); }
       S.ops[k] = clamp(S.ops[k], 5, 95); rnews(k, msg);
       later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
@@ -2150,57 +2152,77 @@ function agendaCard() {
 }
 // 지역 소식(행정 탭)
 // c: 현안 소식이면 1
-// c: 현안 소식, v: 화제가 되어 지지율을 흔든 소식
-const rnews = (k, t, c, v) => { const x = { d: S.day, k, t }; if (c) x.c = 1; if (v) x.v = 1; S.rnews.push(x); if (S.rnews.length > 800) S.rnews.shift(); };
+// id: 현안 지정용, r: 연결된 실제 문제(숨김), v: 화제가 되어 지지율을 흔든 소식
+const rnews = (k, t, r, v) => { const x = { id: ++S.seq, d: S.day, k, t }; if (r) x.r = r; if (v) x.v = 1; S.rnews.push(x); if (S.rnews.length > 800) S.rnews.shift(); };
 // 안 읽은 지역 소식: 최근 2턴 안에 나왔고, 그 지역 소식을 마지막으로 연 뒤에 나온 것
 const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.d > (S.rseen[k] ?? -1));
 // 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
+// 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
+const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
+  return `<button class="btn desbtn" data-des="${x.id}" aria-pressed="${on}" ${full ? `disabled title="이 지역은 ${desMax}건까지 지정할 수 있습니다"` : ''}>${on ? '지정됨' : '현안 지정'}</button>`; };
 const govName = k => (S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || {}).name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
 // ---------- 지역 현안: 뉴스 → 역점사업, 역점사업 → 뉴스 ----------
-// S.rcur: [{ id, k, pj | bad, t, d, until, party }] — pj 수요(대응하면 유리, 방치하면 책임론), bad 악재
+// S.rcur: 실제 지역 문제(화면엔 안 보임) [{ id, k, pj | bad, t, d, until }] — pj 수요(방치하면 그 지역 지사 책임론), bad 악재(그 사업 성공률↓)
+// S.rdes: 플레이어가 '현안'으로 지정한 소식 [{ nid, k, t, d, rid, party }] — rid 실제 문제(0이면 헛짚은 것). 진위는 결과로만 짐작
 const fillR = (t, k) => t.replace('{n}', RK[k].n).replace('{d}', pick(DIST[k]));
 const issuesOf = k => S.rcur.filter(x => x.k === k);
+const desOf = k => S.rdes.filter(x => x.k === k);
+const realOf = x => x.rid ? S.rcur.find(i => i.id === x.rid) : null;
 function addIssue(k, it, t) {
   if (S.rcur.some(x => x.t === t)) return rnews(k, t);
   const here = issuesOf(k);
   if (here.length >= 3) S.rcur = S.rcur.filter(x => x !== here[0]); // 지역당 3건까지, 오래된 것부터 밀림
-  S.rcur.push({ id: ++S.seq, k, pj: it.pj, bad: it.bad, t, d: S.day, until: S.day + 35 });
-  rnews(k, t, 1, viral(k, t, -1));
+  const id = ++S.seq;
+  S.rcur.push({ id, k, pj: it.pj, bad: it.bad, t, d: S.day, until: S.day + 35 });
+  rnews(k, t, id, viral(k, t, -1));
 }
-// 역점사업 보정: 맞는 현안 +15%p씩, 악재 −20%p씩, 그달 전국 쟁점과 맞물리면 +5%p
-const pjAdj = (k, pj) => sum(issuesOf(k).map(x => x.pj === pj ? 0.15 : x.bad === pj ? -0.2 : 0)) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0);
+// 역점사업 보정: 지정한 현안이 진짜 문제이고 사업이 맞으면 +15%p씩(못 맞히면 0). 악재는 지정과 상관없이 −20%p씩. 그달 전국 쟁점과 맞물리면 +5%p
+const pjAdj = (k, pj) => sum(desOf(k).map(x => (realOf(x) || {}).pj === pj ? 0.15 : 0)) + sum(issuesOf(k).map(x => x.bad === pj ? -0.2 : 0)) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0);
 const shortT = x => x.t.replace(RK[x.k].n + ' ', '');
-// 매 턴 지역 소식: 현안(수요·악재) · 동네 소식 · 지역 일반 · 단체장 평가. 5주 넘게 방치된 현안은 그 지역 지사 책임론
+// 현안 지정·해제(지역당 3건까지)
+const desMax = 3;
+function toggleDes(nid) {
+  const i = S.rdes.findIndex(x => x.nid === nid);
+  if (i >= 0) S.rdes.splice(i, 1);
+  else { const n = S.rnews.find(x => x.id === nid); if (!n || desOf(n.k).length >= desMax) return; S.rdes.push({ nid, k: n.k, t: n.t, d: n.d, rid: n.r || 0 }); }
+  renderAll();
+}
+// 매 턴 지역 소식: 현안처럼 보이는 소식(65%만 실제 문제) · 동네 소식 · 지역 일반 · 단체장 평가. 5주 넘게 방치된 실제 문제는 그 지역 지사 책임론
 function regionNews() {
   S.rcur = S.rcur.filter(x => {
     const g = S.rgov[x.k], n = RK[x.k].n;
-    // 다른 당 지사도 현안에 대응함(턴마다 30%)
+    // 다른 당 지사도 실제 문제에 대응함(턴마다 30%)
     if (x.pj && g && rnd() < 0.3) { g.o = clamp(g.o + 0.5, 5, 95); rnews(x.k, `${n} ${g.n} 지사, '${shortT(x)}' 대응책 발표`); return false; }
     if (x.until > S.day) return true;
     if (x.pj && S.gov[x.k] === 'P') { S.ops[x.k] = clamp(S.ops[x.k] - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 대응 지지부진… ${govName(x.k)} 지사 책임론`); }
     else if (x.pj && g) { g.o = clamp(g.o - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 장기화… ${g.n} 지사 책임론`); }
     return false;
   });
+  // 지정은 5주가 지나거나, 실제 문제가 풀리거나 사라지면 함께 정리
+  S.rdes = S.rdes.filter(x => S.day - x.d < 35 && (!x.rid || S.rcur.some(i => i.id === x.rid)));
   for (let i = 0; i < 7; i++) {
     const r = pick(R), k = r.k, g = S.rgov[k], x = rnd();
-    if (x < 0.45) { const it = pick(RISSUE); addIssue(k, it, fillR(it.t, k)); }
+    if (x < 0.45) { const it = pick(RISSUE), t = fillR(it.t, k); if (rnd() < 0.65) addIssue(k, it, t); else rnews(k, t, 0, viral(k, t, -1)); }
     else if (x < 0.75) { const t = fillR(pick(RMICRO), k); rnews(k, t, 0, viral(k, t, 1)); }
     else if (x < 0.88) rnews(k, fillR(pick(RNEWS), k));
     else rnews(k, S.gov[k] === 'P' ? `${r.n} ${govName(k)} 지사(${S.party.name}) 직무 긍정 평가 ${Math.round(S.ops[k])}%` : g ? `${r.n} ${g.n} 지사(${pn(g.p)}) 직무 긍정 평가 ${Math.round(g.o)}%` : fillR(pick(RMICRO), k));
   }
 }
-// 우리 시·도당의 현안 현장 대응(일반 행동력): 단체장이 없어도 시·도당이 있으면 가능
-function partyRespond(id) {
-  const x = S.rcur.find(y => y.id === id);
-  if (!x || x.party || !x.pj || !S.chapters[x.k] || left || S.ap < 1 || S.money < 3e6) return;
+// 우리 시·도당의 현장 대응(일반 행동력): 지정한 현안에. 진짜 문제가 아니면 잘 안 먹힘. 실패 문구는 같아서 진위가 드러나지 않음
+function partyRespond(nid) {
+  const x = S.rdes.find(y => y.nid === nid), real = x && realOf(x);
+  if (!x || x.party || !S.chapters[x.k] || left || S.ap < 1 || S.money < 3e6) return;
   const n = RK[x.k].n; x.party = true; S.ap--; spend(3e6, '활동');
-  if (luck(0.6)) {
+  if (luck(real && real.pj ? 0.6 : 0.25)) {
     const m = Math.round(rr(100, 300)); S.members[x.k] += m; S.trust += 0.3; S.fame += 0.3;
     rnews(x.k, `${S.party.name} ${n}시·도당, '${shortT(x)}' 현장 대응… 주민 호응`);
     info('시·도당 현장 대응', `${n}시·도당이 '${shortT(x)}' 현장을 찾아 대안을 냈습니다. 주민 호응이 좋아 당원 ${m}명이 늘었습니다.`, false);
-  } else { S.trust -= 0.3; rnews(x.k, `${S.party.name} ${n}시·도당 현장 방문에 "생색내기" 눈총`); info('시·도당 현장 대응', `${n}시·도당의 현장 방문이 "생색내기"라는 눈총을 받았습니다.`, true); }
+  } else {
+    const t = pick(['"생색내기" 눈총', '주민 반응 시큰둥', '"번지수 잘못 짚었다" 핀잔']);
+    S.trust -= 0.3; rnews(x.k, `${S.party.name} ${n}시·도당 현장 방문에 ${t}`); info('시·도당 현장 대응', `${n}시·도당의 현장 방문에 ${t}이(가) 돌아왔습니다.`, true);
+  }
   renderAll();
 }
 function randomEvent() {
@@ -2372,6 +2394,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-visit]').forEach(b => b.onclick = agendaVisit);
   m.querySelectorAll('[data-presp]').forEach(b => b.onclick = () => partyRespond(+b.dataset.presp));
+  m.querySelectorAll('[data-des]').forEach(b => b.onclick = () => toggleDes(+b.dataset.des));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
@@ -2612,11 +2635,11 @@ function pAdmin() {
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></li>`; }).join('')}</ul>
       <p class="small muted">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
-  const iss = R_ADM.flatMap(r => issuesOf(r.k)).filter(x => admReg === 'all' || x.k === admReg);
-  const issBtns = x => `${x.pj && S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" ${why('govern', x.k) ? 'disabled' : ''}>역점사업</button>` : ''}${x.pj && S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.id}" ${left || S.ap < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}`;
+  const iss = R_ADM.flatMap(r => desOf(r.k)).filter(x => admReg === 'all' || x.k === admReg);
+  const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" ${why('govern', x.k) ? 'disabled' : ''}>역점사업</button>` : ''}${S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.nid}" ${left || S.ap < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
   const issCard = `<div class="card" style="margin-top:14px"><h2>지역 현안 <span class="pill">${iss.length}건</span></h2>
-    <p class="small muted">뉴스로 드러난 지역 문제입니다. 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고, 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다. 우리 시·도당이 있는 곳은 현장 대응(행동력 1·300만)으로 당원을 늘릴 수 있습니다.${admReg === 'all' ? '' : ' 오른쪽에서 고른 지역만 보입니다.'}</p>
-    ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${x.pj ? `${PJ_N[x.pj]} 현안` : `${PJ_N[x.bad]} 사업 악재`} · ${Math.max(1, Math.ceil((x.until - S.day) / TURN))}턴 남음${x.party ? ' · 시·도당 대응함' : ''}${S.gov[x.k] === 'P' ? ' · 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : '<p class="empty">지금 드러난 현안이 없습니다.</p>'}</div>`;
+    <p class="small muted">지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 우리 시·도당이 있는 곳은 현장 대응(행동력 1·300만)으로 당원을 늘릴 수 있지만, 헛짚으면 잘 안 먹힙니다. 지정은 5주가 지나면 정리됩니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다.${admReg === 'all' ? '' : ' 오른쪽에서 고른 지역만 보입니다.'}</p>
+    ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 · ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음${x.party ? ' · 시·도당 대응함' : ''}${S.gov[x.k] === 'P' ? ' · 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="empty">지정한 현안이 없습니다. 오른쪽 지역 소식에서 '현안 지정'을 눌러 담으세요.</p>`}</div>`;
   const k = admReg === 'all' ? null : admReg, g = k && S.rgov[k];
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
@@ -2624,7 +2647,7 @@ function pAdmin() {
   // 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `<div class="split"><div>${mine}${issCard}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
-    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}${x.c ? ' <span class="pill">현안</span>' : ''}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
+    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
 function bannerItems() {
@@ -2727,8 +2750,8 @@ function nextSteps() {
   if (seatTotal('P') && vote) out.push([`본회의 표결을 앞둔 다른 당·정부 법안이 ${vote}건 있습니다. 의회 탭에서 당론을 정하세요.`, 'office']);
   if (seatTotal('P') && !S.bills.some(b => !b.by)) out.push(['국회 의석이 있습니다. 법안을 발의해 통과시키면 지지율에 오래 남습니다.', 'office']);
   const gv = Object.keys(S.ops).filter(k => !why('govern', k));
-  const ni = S.rcur.filter(x => x.pj && S.gov[x.k] === 'P').length;
-  if (gv.length) out.push([ni ? `우리 당 지사 지역에 현안 ${ni}건이 있습니다. 행정 탭에서 맞는 역점사업으로 대응하면 효과가 큽니다.` : `${gv.map(k => RK[k].n).join('·')} 행정 역점사업을 펼칠 수 있습니다.`, 'admin']);
+  const ni = S.rdes.filter(x => S.gov[x.k] === 'P').length;
+  if (gv.length) out.push([ni ? `우리 당 지사 지역에 지정한 현안이 ${ni}건 있습니다. 제대로 짚었다면 맞는 역점사업으로 대응할 때 효과가 큽니다.` : `${gv.map(k => RK[k].n).join('·')} 행정 역점사업을 펼칠 수 있습니다.`, 'admin']);
   const ac = allyCamp();
   if (S.phase === 'reg' && ac) out.push([`${ac.name}을 앞두고 다른 정당과 선거 연대를 교섭할 수 있습니다.`, 'neg']);
   if (activeCamps().length) out.push(['공식 선거운동기간입니다. 거리 유세(조직·지역)와 방송 광고(활동)로 득표력을 올리세요.', 'act']);
@@ -2800,9 +2823,11 @@ function pGuide() {
       <li>광역단체장을 배출하면 행정 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다.</li>
       <li>행정 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
-      <li>뉴스로 드러난 <b>지역 현안</b>(돌봄·안전·일자리·개발 수요, 사업 악재)은 역점사업에 영향을 줍니다. 맞는 사업으로 대응하면 성공률·효과가 오르고 현안이 풀립니다. 악재가 있으면 그 사업의 성공률이 떨어집니다. 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
+      <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 옆 '현안 지정'을 누르면 행정 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
+      <li>제대로 짚은 현안에 맞는 역점사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없고, 시·도당 현장 대응도 잘 안 먹힙니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
+      <li>지정하지 않았더라도 진짜 문제를 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>
-      <li>우리 시·도당이 있는 지역의 현안에는 '시·도당 대응'(행동력 1·300만)으로 현장에 나설 수 있습니다. 호응을 얻으면 그 지역 당원이 늘고, 실패하면 "생색내기" 눈총을 받습니다.</li>
+      <li>우리 시·도당이 있는 지역의 지정 현안에는 '시·도당 대응'(행동력 1·300만)으로 현장에 나설 수 있습니다. 호응을 얻으면 그 지역 당원이 늘고, 실패하면 눈총을 받습니다.</li>
       <li>선거운동기간, 후보 등록 마감, 탄핵심판, 국정감사 같은 큰 일정은 화면 맨 위 배너에 뜹니다. 누르면 관련 탭으로 갑니다.</li></ul>`)}
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
       <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속으로 다른 당 표를 움직일 수 있습니다. 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
