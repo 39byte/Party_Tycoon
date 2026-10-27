@@ -1122,14 +1122,18 @@ function lobbyBill(id) {
 }
 
 // ---------- 행정: 우리 당 광역단체장 ----------
+// 역점사업 재사용 대기: 지역마다 사업별로 따로(한 지역에서 다른 사업은 같은 턴에 여러 번 가능)
+const govCd = (k, pj) => (S.cd[`govern:${k}:${pj}`] || 0) > S.day;
 function govModal(k) {
   openModal({
     title: `${RK[k].n} 행정 역점사업`, html: `<p class="small muted">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 지금 지지도 ${Math.round(S.ops[k])}.</p>
-      <div class="choices">${GOV_PROJ.map(p => `<button class="btn" data-pj="${p.k}">${p.n}<small>${p.d}</small></button>`).join('')}</div>`,
+      <p class="small muted">남은 행정 행동력 ${S.aap}. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다.</p>
+      <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k); return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
       const pj = b.dataset.pj, n = RK[k].n;
-      S.cd['govern:' + k] = S.day + ACT.govern.cd; S.aap--;
+      if (S.aap < 1 || govCd(k, pj)) return;
+      S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
       let msg, ok = true;
       if (pj === 'dev') {
         if (rnd() < 0.65) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
@@ -1348,7 +1352,8 @@ const ACT = {
   debate: { n: '후보 TV 토론회', c: () => 0, cd: 7, camp: true, d: '대선·지방선거 후보 역량 판정. 성공 시 큰 상승, 실패 시 하락.' },
   bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관에게 질문합니다. 의원 역량에 따라 성과가 갈립니다.' },
-  govern: { n: '행정 역점사업', c: () => 0, cd: 7, d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
+  govern: { n: '행정 역점사업', c: () => 0, cd: 7, // 지역×사업별 재사용 대기
+    d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
 };
 function why(key, k) {
   const a = ACT[key], cdk = key + (k ? ':' + k : '');
@@ -1360,6 +1365,7 @@ function why(key, k) {
   if (key === 'debate' && !activeCamps().some(c => c.type !== 'nat')) return '대선·지방선거 선거운동기간에만 열림';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
+  if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
   if (key === 'chapter') { if (S.chapters[k]) return '이미 등록된 시·도당'; if (S.members[k] < LAW.chapterMembers) return `당원 ${S.members[k].toLocaleString()} / 1,000명 필요 (정당법 제18조)`; }
   if (key === 'talent' && S.pool.length >= 30) return '인재풀이 가득 찼습니다 (최대 30명)';
   if (key === 'fund') { const y = L.dayToDate(S.day).getUTCFullYear(); if (S.fund.year === y && S.fund.raised >= fundCap()) return '연간 모금한도 도달 (정치자금법 제12조)'; }
@@ -2330,7 +2336,7 @@ function pAdmin() {
   const govs = Object.keys(S.ops), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
-      <p class="small muted">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 지사마다 한 턴에 한 번 역점사업을 펼칠 수 있습니다.</p>
+      <p class="small muted">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts">${govs.map(k => `<div class="act"><h3>${RK[k].n} ${esc(govName(k))} 지사</h3>${meter(S.ops[k])}
         <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행정 행동력 1</button></div>`).join('')}</div>
       <p class="small muted">행정 지지도는 그 지역 지지율과 다음 지방선거 재선 가능성에 반영되고, 가만두면 45로 돌아갑니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
@@ -2509,7 +2515,7 @@ function pGuide() {
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 의회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(151표)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 행정 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
-      <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 지사마다 한 턴에 한 번 쓸 수 있습니다.</li>
+      <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다.</li>
       <li>행정 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다.</li>
       <li>선거운동기간, 후보 등록 마감, 탄핵심판, 국정감사 같은 큰 일정은 화면 맨 위 배너에 뜹니다. 누르면 관련 탭으로 갑니다.</li></ul>`)}
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
