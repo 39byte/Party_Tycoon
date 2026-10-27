@@ -104,7 +104,8 @@ nav .more{display:none}
 .acts{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
 .act{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
 .act .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
-.act .why{font-size:12.5px;color:var(--warn);min-height:1em}
+.act .why{font-size:12.5px;color:var(--warn);min-height:3.1em} /* 사유 두 줄 자리 확보 */
+.act .meta{margin-top:auto} /* 설명 길이와 상관없이 비용·사유·버튼을 아래로 */
 .act p{margin:0;font-size:13px;color:var(--muted)}
 
 /* progress */
@@ -1958,6 +1959,8 @@ function agendaCard() {
 const rnews = (k, t) => { S.rnews.push({ d: S.day, k, t }); if (S.rnews.length > 400) S.rnews.shift(); };
 // 안 읽은 지역 소식: 최근 2턴 안에 나왔고, 그 지역 소식을 마지막으로 연 뒤에 나온 것
 const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.d > (S.rseen[k] ?? -1));
+// 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
+const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 const govName = k => (S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || {}).name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
 function regionNews() {
@@ -2070,7 +2073,7 @@ function toast(msg, type = '') {
 }
 
 // ---------- 렌더링 ----------
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['office', '의회', 'i-gov'], ['admin', '행정', 'i-city'], ['neg', '교섭', 'i-deal'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '소식', 'i-list'], ['guide', '가이드', 'i-book']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['elec', '선거', 'i-vote'], ['office', '의회', 'i-gov'], ['neg', '교섭', 'i-deal'], ['admin', '행정', 'i-city'], ['fin', '재정', 'i-wallet'], ['law', '법령', 'i-law'], ['log', '소식', 'i-list'], ['guide', '가이드', 'i-book']];
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 // 패널이 읽음 처리(지역 소식)를 하므로 탭 배지는 패널 다음에 그림
 function renderAll() { if (!S) return; renderTop(); renderPanel(); renderNav(); }
@@ -2095,7 +2098,7 @@ function renderTop() {
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
-const SEC = ['people', 'office', 'admin', 'neg', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
+const SEC = ['people', 'office', 'neg', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
 function renderNav() {
   const nav = $('#nav'), open = nav.classList.contains('open');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
@@ -2361,7 +2364,7 @@ let admReg = 'all';
 // 교섭: 정당 · 원내 의원 · 원외 인사
 const pNeg = () => negCard();
 function pAdmin() {
-  const govs = Object.keys(S.ops), ks = Object.keys(S.rgov);
+  const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
       <p class="small muted">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
@@ -2369,7 +2372,7 @@ function pAdmin() {
         <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행정 행동력 1</button></div>`).join('')}</div>
       <p class="small muted">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
-  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></li>`; }).join('')}</ul>
+  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></li>`; }).join('')}</ul>
       <p class="small muted">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
   const k = admReg === 'all' ? null : admReg, g = k && S.rgov[k];
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
@@ -2377,7 +2380,7 @@ function pAdmin() {
   const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · 단체장 ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `<div class="split"><div>${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
-    <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
+    <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
     ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
