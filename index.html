@@ -52,6 +52,8 @@ nav .badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:99
 main{padding:16px;min-width:0}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .span-2{grid-column:span 2} .span-3{grid-column:1/-1}
+/* 좌우 분할: 한 칸이 360px보다 좁아지면 한 줄로 쌓임 */
+.split{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));align-items:start}
 .card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);min-width:0}
 @media (max-width:900px){
   .app{grid-template-columns:1fr}
@@ -2323,9 +2325,10 @@ function pAdmin() {
   const k = admReg === 'all' ? null : admReg, g = k && S.rgov[k];
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
   const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · 단체장 ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
-  return `${mine}${rg}<div class="card" style="margin-top:14px"><h2>지역 소식</h2>
+  // 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
+  return `<div class="split"><div>${mine}${rg}</div><div class="card"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}</button>`).join('')}</div>
-    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div>`;
+    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
 function bannerItems() {
