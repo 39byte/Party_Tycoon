@@ -164,6 +164,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .news li{padding:8px 0;border-bottom:1px solid var(--border);font-weight:600;font-size:14.5px}
 .news li span{display:block;font-size:12px;color:var(--muted);font-weight:500}
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.negcell{display:flex;gap:6px;align-items:center;justify-content:flex-end}
 .act .watch{min-height:32px;padding:4px 10px;font-size:13px;font-weight:500;color:var(--muted)}
 .act .watch[aria-pressed="true"]{color:var(--fg);border-color:var(--fg)}
 .btn .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:none} /* 새 소식 알림 */
@@ -404,7 +405,7 @@ let S = null, tab = 'home', selReg = 'seoul', modalOpen = false;
 
 // ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
-  set: (() => { try { return Object.assign({ bgm: false, sfx: false, vol: 0.5 }, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return { bgm: false, sfx: false, vol: 0.5 }; } })(),
+  set: (() => { const d = { bgm: false, sfx: false, vol: 0.5, confAp: true, confAap: true }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
   ctx: null, out: null, bus: null, timer: null, step: 0, t: 0,
   saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(this.set)); } catch (e) { } },
   ensure() {
@@ -935,8 +936,10 @@ let left = 0, turnTimer = null, turnStart = null;
 function endTurn(sure) {
   if (!S || S.over || left || turnStart || modalOpen) return;
   // 행동력이 남았으면 한 번 더 묻기. 첫 버튼(계속)에 포커스가 가서 Space 연타로 넘어가지 않음
-  if (sure !== true && (S.ap > 0 || S.aap > 0)) return openModal({ title: '턴을 종료할까요?',
-    html: `<p>${[S.ap ? `행동력 <b>${S.ap}</b>` : '', S.aap ? `행정 행동력 <b>${S.aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p>`,
+  // 설정에서 끈 쪽은 남아 있어도 묻지 않음
+  const ap = Snd.set.confAp ? S.ap : 0, aap = Snd.set.confAap ? S.aap : 0;
+  if (sure !== true && (ap > 0 || aap > 0)) return openModal({ title: '턴을 종료할까요?',
+    html: `<p>${[ap ? `행동력 <b>${ap}</b>` : '', aap ? `행정 행동력 <b>${aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p><p class="small muted">이 확인은 설정에서 끌 수 있습니다.</p>`,
     buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
   Snd.sfx('click');
   turnStart = { day: S.day, money: S.money, mem: totalMembers(), sup: poll().P };
@@ -957,7 +960,21 @@ function runTurn() {
 const briefPills = r => { const d = (n, f) => (n >= 0 ? '+' : '') + f(n); return `<div class="legend"><span class="pill">자금 ${d(r.dm, won)}</span><span class="pill">당원 ${d(r.dmem, n => n.toLocaleString())}</span><span class="pill">지지율 ${d(r.dsup, n => n.toFixed(1) + '%p')}</span></div>`; };
 const noteList = ns => `<ul class="log">${ns.map(x => `<li>${esc(x)}</li>`).join('')}</ul>`;
 // 재사용 알림: 지정한 활동 중 이번 턴 사이에 재사용 대기가 끝났고 지금 할 수 있는 것
-const readyWatched = d0 => Object.keys(S.watch).filter(k => S.watch[k] && ACT[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && !why(k));
+// 교섭 알림 키: neg:A(정당) · neg:m12(원내 의원) · neg:o5(원외 인사). 상대가 사라졌으면 null
+function negLabel(k) {
+  const x = k.slice(4);
+  if (x in RIV) return `${RIV[x].name}`;
+  if (x[0] === 'm') { const m = liveMPs().find(y => y.id === +x.slice(1)); return m && `${m.name} 의원`; }
+  if (x[0] === 'o') { const m = S.outs.find(y => y.id === +x.slice(1)); return m && `${m.name} ${m.role}`; }
+  return null;
+}
+const isNeg = k => k.startsWith('neg:');
+const canNow = k => isNeg(k) ? negLabel(k) && !negWhy(k) && S.phase === 'reg' : ACT[k] && !why(k);
+const readyWatched = d0 => {
+  for (const k in S.watch) if (isNeg(k) && !negLabel(k)) delete S.watch[k]; // 떠난 상대의 알림은 정리
+  return Object.keys(S.watch).filter(k => S.watch[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && canNow(k));
+};
+const readyText = k => isNeg(k) ? `${negLabel(k)}과(와) 교섭 — 다시 할 수 있습니다` : `${ACT[k].n} — 재사용 대기가 끝났습니다`;
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
   const r = { d: S.day, news: S.news, notes: t.notes, dm: S.money - t.money, dmem: totalMembers() - t.mem, dsup: poll().P - t.sup };
@@ -967,9 +984,9 @@ function brief(t) {
     title: `${turnNo()}턴 · 주간 브리핑`,
     html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>${briefPills(r)}
       <h3 style="margin-top:14px">이번 주 헤드라인</h3>${newsList()}
-      ${t.ready && t.ready.length ? `<h3 style="margin-top:14px">다시 할 수 있는 활동</h3>${noteList(t.ready.map(k => `${ACT[k].n} — 재사용 대기가 끝났습니다`))}` : ''}
+      ${t.ready && t.ready.length ? `<h3 style="margin-top:14px">다시 할 수 있는 활동</h3>${noteList(t.ready.map(readyText))}` : ''}
       ${t.notes.length || wk.length ? `<h3 style="margin-top:14px">국회·정부 소식</h3>${noteList([...wk, ...t.notes])}` : ''}`,
-    buttons: [{ t: '확인', pri: true }, ...(t.ready && t.ready.length ? [{ t: '활동 탭으로', fn: () => { tab = 'act'; renderAll(); } }] : []), { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
+    buttons: [{ t: '확인', pri: true }, ...(t.ready && t.ready.some(k => !isNeg(k)) ? [{ t: '활동 탭으로', fn: () => { tab = 'act'; renderAll(); } }] : []), ...(t.ready && t.ready.some(isNeg) ? [{ t: '교섭 탭으로', fn: () => { tab = 'neg'; renderAll(); } }] : []), { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
   });
 }
 // 국회·정부·다른 당 동향(소식 탭의 '국회·정부')
@@ -1333,7 +1350,9 @@ function negOutModal(oid) {
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
 let negF = 'all';
 // 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
-const negBtn = (attr, cdk) => { const w = negWhy(cdk); return `<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button>`; };
+// 종: 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
+const negBtn = (attr, cdk, who) => { const w = negWhy(cdk), on = !!S.watch[cdk];
+  return `<div class="negcell"><button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 교섭 재개 알림" title="교섭 재개 알림 ${on ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button></div>`; };
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
   const mps = liveMPs().filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party));
@@ -1342,16 +1361,16 @@ function negCard() {
     ${left || S.ap < 1 ? `<p class="warn small">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}
     <div class="tblwrap"><table><thead><tr><th>정당</th><th class="r">의석</th><th>노선</th><th style="min-width:130px">관계</th><th></th></tr></thead><tbody>
     ${['A', 'B', 'C'].map(id => `<tr><td><span class="legend"><span><i style="background:${pc(id)}"></i>${esc(pn(id))}</span></span>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</td>
-      <td class="r num">${seatTotal(id)}</td><td>${IDEO[Math.round(RIV[id].ideo)]}</td><td>${relBar(S.rel[id])}</td><td>${negBtn(`data-neg="${id}"`, 'neg:' + id)}</td></tr>`).join('')}
+      <td class="r num">${seatTotal(id)}</td><td>${IDEO[Math.round(RIV[id].ideo)]}</td><td>${relBar(S.rel[id])}</td><td>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</td></tr>`).join('')}
     </tbody></table></div>
     <h3 style="margin-top:14px">원내 의원</h3>
     <div class="filters" role="group" aria-label="소속 필터">${ff.map(([k, n]) => `<button class="btn${negF === k ? ' pri' : ''}" data-negf="${k}" aria-pressed="${negF === k}">${esc(n)}</button>`).join('')}</div>
     ${mps.length ? `<div class="tblwrap"><table><thead><tr><th>의원</th><th>소속·지역구</th><th style="min-width:130px">개인 친분</th><th></th></tr></thead><tbody>
-    ${mps.map(m => `<tr><td><b>${esc(m.name)}</b></td><td class="small">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted">해당 소속 의원이 없습니다.</p>'}
+    ${mps.map(m => `<tr><td><b>${esc(m.name)}</b></td><td class="small">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="small muted">해당 소속 의원이 없습니다.</p>'}
     <h3 style="margin-top:14px">원외 인사</h3>
     <div class="tblwrap"><table><thead><tr><th>인물</th><th>이력·기반</th><th style="min-width:130px">개인 친분</th><th></th></tr></thead><tbody>
-    ${S.outs.map(m => `<tr><td><b>${esc(m.name)}</b><div class="small muted">인지도 ${m.fame}</div></td><td class="small">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id)}</td></tr>`).join('')}</tbody></table></div>
-    <p class="small muted">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다.</p></div>`;
+    ${S.outs.map(m => `<tr><td><b>${esc(m.name)}</b><div class="small muted">인지도 ${m.fame}</div></td><td class="small">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</td><td>${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role)}</td></tr>`).join('')}</tbody></table></div>
+    <p class="small muted">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다. 종 버튼을 켜 두면 그 상대와 다시 교섭할 수 있게 될 때 주간 브리핑에서 알려 줍니다.</p></div>`;
 }
 
 // ---------- 활동 ----------
@@ -2505,7 +2524,8 @@ function pGuide() {
     ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
       <li>활동(당원 모집·봉사·유세·홍보·정책 발표·인재 영입 등)은 한 번에 행동력 1과 정해진 비용을 씁니다. 대부분 재사용 대기 턴이 있습니다.</li>
       <li>시설 설립, 정당 등록 신청, 공천처럼 행동력이 들지 않는 일도 있습니다.</li>
-      <li>활동 탭의 전국 활동마다 '재사용 알림'을 켤 수 있습니다. 켜 둔 활동은 재사용 대기가 끝나 다시 할 수 있게 되면 다음 턴 주간 브리핑에 표시됩니다.</li>
+      <li>활동 탭의 전국 활동마다 '재사용 알림'을, 교섭 탭의 상대마다 종 버튼(교섭 재개 알림)을 켤 수 있습니다. 다시 할 수 있게 되면 다음 턴 주간 브리핑에 표시됩니다.</li>
+      <li>행동력이 남은 채 턴을 끝내면 한 번 더 묻습니다. 설정에서 행동력·행정 행동력별로 끌 수 있습니다.</li>
       <li>'턴 종료'를 누르면 7일이 하루씩 흐릅니다. 사건이 생기면 멈추고, 선택을 마치면 이어집니다. 턴이 끝나면 자금·당원·지지율 변화가 요약됩니다.</li></ul>`)}
     ${sec('1단계: 창당 (6개월)', `<ul><li>창당 본거지에 발기인 ${LAW.founders}명이 있습니다. 결성신고 후 <b>${LAW.prepDays}일</b> 안에 등록 신청을 하지 못하면 준비위가 소멸합니다(게임 오버).</li>
       <li>조직·지역 탭에서 지역을 골라 당원을 모집하세요. 지역 지지율이 높을수록, 본거지일수록 많이 들어옵니다.</li>
@@ -2576,6 +2596,8 @@ function settingsModal() {
       <h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
       <label class="f">음량<input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.vol}"></label></div>
+      <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
+      <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
       <h3 style="margin-top:16px">저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
       <div class="btns"><button class="btn" id="sExp">파일로 내보내기</button><button class="btn" id="sImp">파일 불러오기</button><button class="btn danger" id="sNew">새 게임</button></div>
       <h3 style="margin-top:16px">단축키</h3><p class="small muted">Space 턴 종료</p>`,
@@ -2584,6 +2606,8 @@ function settingsModal() {
       m.querySelector('#sBgm').onchange = e => { s.bgm = e.target.checked; Snd.saveSet(); Snd.bgm(s.bgm); };
       m.querySelector('#sSfx').onchange = e => { s.sfx = e.target.checked; Snd.saveSet(); Snd.sfx('click'); };
       m.querySelector('#sVol').oninput = e => Snd.vol(+e.target.value);
+      m.querySelector('#sConfAp').onchange = e => { s.confAp = e.target.checked; Snd.saveSet(); };
+      m.querySelector('#sConfAap').onchange = e => { s.confAap = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sExp').onclick = exportSave;
       m.querySelector('#sImp').onclick = () => $('#importFile').click();
       m.querySelector('#sNew').onclick = () => openModal({ title: '새 게임', html: '<p>현재 진행 상황을 지우고 새로 시작할까요? 필요하면 먼저 파일로 내보내세요.</p>', buttons: [{ t: '취소' }, { t: '새로 시작', pri: true, fn: newGameModal }] });
