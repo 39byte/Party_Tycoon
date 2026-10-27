@@ -997,10 +997,13 @@ const wire = t => { S.wire.push({ d: S.day, t }); if (S.wire.length > 300) S.wir
 // ---------- 뉴스 ----------
 const shuffle = a => a.map(x => [rnd(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
 function makeNews() {
-  const fill = h => h.replace(/\{r\}/g, () => pick(R).n).replace(/\{p\} 대통령/g, presT()).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
+  // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 행정 탭 지역 소식에도 올림
+  const fill = h => { let k = null;
+    const t = h.replace(/\{r\}/g, () => { const r = pick(R); k = r.k; return r.n; }).replace(/\{p\} 대통령/g, presT()).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
+    return { t, k: k || (R.find(r => t.startsWith(r.n + ' ')) || {}).k }; };
   const hot = shuffle(NEWS[S.issue]).slice(0, rnd() < 0.4 ? 3 : 2);
   const cold = shuffle(ISSUES.filter(i => i.k !== S.issue)).slice(0, 2).map(i => pick(NEWS[i.k]));
-  return shuffle([...hot, ...cold, pick(NEWS.misc)]).map(h => ({ s: pick(OUTLETS), h: fill(h) }));
+  return shuffle([...hot, ...cold, pick(NEWS.misc)]).map(h => { const { t, k } = fill(h), s = pick(OUTLETS); if (k) rnews(k, `${t} (${s})`); return { s, h: t }; });
 }
 const newsList = (ns = S.news) => ns.length ? `<ul class="news">${ns.map(n => `<li><span>${esc(n.s)}</span>${esc(n.h)}</li>`).join('')}</ul>` : '<p class="empty">아직 뉴스가 없습니다.</p>';
 
