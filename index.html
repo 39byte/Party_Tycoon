@@ -382,6 +382,56 @@ const RNEWS = ['{n}, 청년 인구 유출 5년째 이어져', '{n} 전통시장 
   '{n} 지역 대학 신입생 미달 사태', '{n} 지역 축제에 주말 인파 몰려', '{n}, 이차전지 기업과 투자협약 체결', '{n} 공공기관 이전 유치전 가열', '{n} 출생아 수 반등', '{n} 상수도관 노후로 단수 사고'];
 // 원외 인사: [직함, 기본 인지도]
 const OUT_ROLES = [['전 국회의원', 30], ['원외 당협위원장', 12], ['전 장관', 35], ['전 광역단체장', 40], ['시민사회 원로', 25], ['원외정당 대표', 15], ['노동계 지도자', 20], ['정치 유튜버', 22]];
+// 시·군·구: 동네 단위 소식에 씀
+const DIST = {
+  seoul: ['강남구', '마포구', '노원구', '관악구', '송파구', '은평구', '구로구'], busan: ['해운대구', '사하구', '부산진구', '영도구', '기장군'],
+  daegu: ['수성구', '달서구', '북구', '동구', '군위군'], incheon: ['연수구', '남동구', '부평구', '강화군', '미추홀구'],
+  gwangju: ['북구', '광산구', '서구', '남구'], daejeon: ['유성구', '서구', '대덕구', '중구'], ulsan: ['남구', '동구', '북구', '울주군'],
+  sejong: ['조치원읍', '나성동', '보람동', '고운동'], gyeonggi: ['수원시', '성남시', '고양시', '평택시', '화성시', '포천시', '안산시', '남양주시'],
+  gangwon: ['춘천시', '원주시', '강릉시', '정선군', '속초시'], chungbuk: ['청주시', '충주시', '제천시', '괴산군', '음성군'],
+  chungnam: ['천안시', '아산시', '당진시', '서산시', '논산시', '보령시'], jeonbuk: ['전주시', '군산시', '익산시', '남원시', '김제시'],
+  jeonnam: ['여수시', '순천시', '목포시', '나주시', '신안군', '해남군'], gyeongbuk: ['포항시', '구미시', '경주시', '안동시', '의성군', '영천시'],
+  gyeongnam: ['창원시', '김해시', '진주시', '거제시', '통영시', '양산시'], jeju: ['제주시', '서귀포시', '애월읍', '성산읍'],
+};
+// 지역 현안: pj 맞는 역점사업(대응하면 성공률·효과↑, 방치하면 지사 책임론), bad 그 사업에 악재(성공률↓). m 동네(미시) 사건
+const RISSUE = [
+  { pj: 'care', m: 1, t: '{n} {d} 소아과 "오픈런"… 진료 대기 3시간' }, { pj: 'care', m: 1, t: '{n} {d} 맘카페 "어린이집 대기만 1년" 글에 공감 수천 개' },
+  { pj: 'care', m: 1, t: '{n} {d} 홀몸 어르신 고독사, 3주 만에 발견' }, { pj: 'care', m: 1, t: '{n} {d} 장애인 활동지원 시간 축소에 가족들 1인 시위' },
+  { pj: 'care', m: 1, t: '{n} {d} 공공 산후조리원 예약 3분 만에 마감' }, { pj: 'care', t: '{n} 지역 응급실 야간 진료 중단 잇따라' },
+  { pj: 'care', t: '{n} 노인 인구 25% 넘어 초고령사회 진입' }, { pj: 'care', t: '{n} 출생아 수 역대 최저… 분만 병원 문 닫아' },
+  { pj: 'safe', m: 1, t: '{n} {d} 전통시장 화재, 점포 12곳 잿더미' }, { pj: 'safe', m: 1, t: '{n} {d} 초등학교 앞 스쿨존 교통사고' },
+  { pj: 'safe', m: 1, t: '{n} {d} 노후 아파트 외벽 균열… 주민 대피' }, { pj: 'safe', m: 1, t: '{n} {d} 도로 한복판 싱크홀, 차량 빠져' },
+  { pj: 'safe', m: 1, t: '{n} {d} 지하차도 침수 차단 시설 없어 "언제든 사고"' }, { pj: 'safe', m: 1, t: '{n} {d} 축대 붕괴 위험 판정 받은 주택가 방치' },
+  { pj: 'safe', t: '{n} 집중호우 예보에 하천변 저지대 비상' }, { pj: 'safe', t: '{n} 산불 위험 경보 "심각" 격상' },
+  { pj: 'biz', m: 1, t: '{n} {d} 공장 폐쇄로 근로자 800명 실직 위기' }, { pj: 'biz', m: 1, t: '{n} {d} 상가 공실률 30%… "문 닫는 게 일상"' },
+  { pj: 'biz', m: 1, t: '{n} {d} 전통시장 상인회 "손님 절반으로 줄어"' }, { pj: 'biz', m: 1, t: '{n} {d} 협력업체 대금 못 받아 연쇄 부도 우려' },
+  { pj: 'biz', t: '{n} 청년 고용률 전국 최하위권' }, { pj: 'biz', t: '{n} 산업단지 가동률 70%대로 추락' }, { pj: 'biz', t: '{n} 대기업 새 공장 입지 경쟁 가열' },
+  { pj: 'dev', m: 1, t: '{n} {d} 출퇴근 버스 배차 1시간에 "교통 오지"' }, { pj: 'dev', m: 1, t: '{n} {d} 낡은 도심 재개발 요구 주민 집회' },
+  { pj: 'dev', m: 1, t: '{n} {d} 다리 하나 없어 30분 돌아가는 주민들' }, { pj: 'dev', t: '{n} 광역철도 연장 요구 서명 10만 명 돌파' },
+  { pj: 'dev', t: '{n} 인구 유출 가속… 신도시 조성 요구 커져' },
+  { bad: 'dev', t: '{n} 신축 아파트 미분양 1만 가구 육박' }, { bad: 'dev', m: 1, t: '{n} {d} 개발 예정지 땅 투기 의혹 제기' },
+  { bad: 'dev', t: '{n} 건설 자재값 급등에 공사 중단 속출' }, { bad: 'biz', t: '{n} 대기업 투자 계획 줄줄이 보류' },
+  { bad: 'care', t: '{n} 복지 예산 집행률 저조, 감사 지적' }, { bad: 'safe', m: 1, t: '{n} {d} 안전 점검 업체 서류 조작 적발' },
+];
+// 동네 소식(현안 없음)
+const RMICRO = ['{n} {d} 주민 마라톤에 3천 명 참가', '{n} {d} 동네 빵집, 전국 맛집 순위 올라', '{n} {d} 폐교가 청년 창업 공간으로', '{n} {d} 골목 벽화마을에 주말 나들이객 북적',
+  '{n} {d} 버스 기사, 쓰러진 승객 살려 화제', '{n} {d} 70대 만학도, 고교 졸업장 받아', '{n} {d} 주민센터 "나눔 냉장고" 운영 1년', '{n} {d} 야시장 개장 첫 주 5만 명 방문',
+  '{n} {d} 반려견 놀이터 놓고 주민 찬반 갈려', '{n} {d} 마을버스 노선 폐지 앞두고 주민 반발', '{n} {d} 고등학생들이 만든 앱, 지역 축제 길잡이로', '{n} {d} 오래된 목욕탕, 동네 문화공간으로',
+  '{n} {d} 공원 맨발길에 어르신들 "좋다"', '{n} {d} 학교 급식 노동자 처우 개선 요구', '{n} {d} 주차난에 이웃 간 다툼 잦아', '{n} {d} 30년 된 동네 서점 문 닫아',
+  '{n} {d} 외국인 주민 위한 한국어 교실 북적', '{n} {d} 하천 산책로 벚꽃 개화, 상춘객 몰려', '{n} {d} 청년 농부들 스마트팜 첫 수확', '{n} {d} 층간소음 갈등 중재 센터 문 열어'];
+// 역점사업 몇 주 뒤 후속 보도: ops 행정 지지도, mem 당원, need/bad 새 현안
+const ADM_FOLLOW = {
+  dev: { ok: [{ t: '{n} {d} 개발 현장 공정률 30% 돌파', ops: 1 }, { t: '{n} {d} 공사장 소음·분진 민원 잇따라', ops: -1, need: 'safe' }, { t: '{n} {d} 개발 기대에 땅값 들썩… 투기 우려', bad: 'dev' }, { t: '{n} {d} 새 도로 개통 앞두고 상권 기대감', ops: 1, mem: 150 }],
+    no: [{ t: '{n} 개발사업 표류에 주민들 "희망고문"', ops: -1 }, { t: '{n} {d} 공사 멈춘 현장, 흉물로 방치', ops: -1, need: 'safe' }] },
+  care: { ok: [{ t: '{n} {d} 돌봄센터 대기 줄어… 맞벌이 부부 "숨통"', ops: 1, mem: 100 }, { t: '{n} {d} 어르신 돌봄 이용자 만족도 92%', ops: 1 }, { t: '{n} 돌봄 예산 늘자 다른 사업 삭감 논란', ops: -1, need: 'biz' }],
+    no: [{ t: '{n} {d} 돌봄센터 인력난에 운영 시간 단축', ops: -1, need: 'care' }, { t: '{n} {d} 돌봄 교사 처우 논란, 집단 사직', ops: -1 }] },
+  biz: { ok: [{ t: '{n} 유치 기업 첫 채용 박람회 북적', ops: 1, mem: 200 }, { t: '{n} {d} 원룸 공실 줄고 식당가 활기', ops: 1 }, { t: '{n} {d} 공장 부지 주민 "환경 피해 대책부터"', ops: -1, need: 'safe' }],
+    no: [{ t: '{n} 투자 무산 여파, 협력업체 줄도산 우려', ops: -1, need: 'biz' }, { t: '{n} {d} 공장 터 비워 둔 채 "유령 단지"', ops: -1 }] },
+  safe: { ok: [{ t: '{n} 점검 덕에 {d} 노후 축대 붕괴 막았다', ops: 2 }, { t: '{n} {d} 스쿨존 사고 0건, 학부모 "안심"', ops: 1 }],
+    no: [{ t: '{n} {d} 점검 마친 다리에서 균열 발견', ops: -1, need: 'safe' }, { t: '{n} 안전 점검 "서류만 확인" 내부 고발', ops: -2 }] },
+};
+const PJ_N = { dev: '개발', care: '돌봄·복지', biz: '경제·일자리', safe: '안전' };
+const PJ_ISSUE = { dev: 'region', care: 'welfare', biz: 'econ', safe: 'climate' }; // 전국 쟁점과 맞물리면 조금 유리
 const FAKE_CHARGES = ['당 대표 허위사실 공표', '당 회계 부정', '당원 명부 불법 활용', '후원금 유용'];
 
 // ---------- utils ----------
@@ -520,7 +570,7 @@ const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.outs ??= genOuts(o);
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -1172,27 +1222,34 @@ const govCd = (k, pj) => (S.cd[`govern:${k}:${pj}`] || 0) > S.day;
 function govModal(k) {
   openModal({
     title: `${RK[k].n} 행정 역점사업`, html: `<p class="small muted">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 지금 지지도 ${Math.round(S.ops[k])}.</p>
-      <p class="small muted">남은 행정 행동력 ${S.aap}. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k); return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
+      <p class="small muted">남은 행정 행동력 ${S.aap}. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지역 현안에 맞는 사업은 성공률과 효과가 오르고, 악재가 있으면 성공률이 떨어집니다. 그달 전국 헤드라인 쟁점과 맞물려도 조금 유리합니다.</p>
+      ${issuesOf(k).length ? `<h3>지금 ${RK[k].n} 현안</h3><ul class="log">${issuesOf(k).map(x => `<li><span>${esc(shortT(x))} <span class="pill">${x.pj ? PJ_N[x.pj] + ' 현안' : PJ_N[x.bad] + ' 악재'}</span></span></li>`).join('')}</ul>` : ''}
+      <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k), need = issuesOf(k).filter(x => x.pj === p.k), bad = issuesOf(k).filter(x => x.bad === p.k);
+        return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${need.length ? ` · <b class="ok">현안 ${need.length}건 대응: 성공률·효과↑</b>` : ''}${bad.length ? ` · <b class="bad">악재 ${bad.length}건: 성공률↓</b>` : ''}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
       const pj = b.dataset.pj, n = RK[k].n;
       if (S.aap < 1 || govCd(k, pj)) return;
       S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
+      const a = pjAdj(k, pj), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = issuesOf(k).filter(x => x.pj === pj);
       let msg, ok = true;
       if (pj === 'dev') {
-        if (rnd() < 0.65) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
+        if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
         else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
         if (rnd() < 0.35) later(rr(14, 60), { ev: 'devbribe', k });
       } else if (pj === 'care') {
-        if (luck(0.75)) { S.ops[k] += 3.5; S.trust += 0.5; msg = `${n} 돌봄센터 확충으로 주민 호응이 좋습니다.`; }
+        if (luck(pr(0.75))) { S.ops[k] += 3.5; S.trust += 0.5; msg = `${n} 돌봄센터 확충으로 주민 호응이 좋습니다.`; }
         else { S.ops[k] -= 2; ok = false; msg = `${n} 돌봄센터 위탁업체 선정을 두고 특혜 논란이 일었습니다.`; }
       } else if (pj === 'biz') {
-        if (rnd() < 0.5) { S.ops[k] += 8; S.fame += 1; msg = `${n}에 대기업 공장 유치 성공! 일자리 수천 개가 생깁니다.`; }
+        if (rnd() < pr(0.5)) { S.ops[k] += 8; S.fame += 1; msg = `${n}에 대기업 공장 유치 성공! 일자리 수천 개가 생깁니다.`; }
         else { S.ops[k] += 1; ok = false; msg = `${n} 투자 유치 협상이 결렬됐습니다.`; }
-      } else if (luck(0.7)) { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
+      } else if (luck(pr(0.7))) { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
       else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
+      // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
+      if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.includes(x)); msg += ` 지역 현안(${need.map(shortT).join(', ')})을 풀어 호평이 더 컸습니다.`;
+        need.forEach(x => rnews(k, `${n} ${govName(k)} 지사, '${shortT(x)}' 해결 나서… 주민 호평`)); }
       S.ops[k] = clamp(S.ops[k], 5, 95); rnews(k, msg);
+      later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
       closeModal(); info(`${n} 행정`, msg, !ok);
     }),
   });
@@ -1960,6 +2017,12 @@ const XEV = {
     S.agenda = null;
     info(`여론 판정: ${a.t}`, `${a.ops.map((o, i) => `"${o.t.replace(/"/g, '')}" 공감 ${v(i)}%`).join(', ')}. ${['A', 'B', 'C'].map(id => `${pn(id)}은 ${g.pops[g.pos[id]] >= 0.5 ? '점수를 땄습니다' : '역풍을 맞았습니다'}`).join(', ')}. ${g.mine >= 0 ? `우리 당 입장은 ${d >= 0 ? '여론과 맞아떨어졌습니다' : '여론과 엇갈렸습니다'}` : '우리 당은 끝내 입장을 내지 않아 "침묵했다"는 비판을 받았습니다'} (신뢰 ${d >= 0 ? '+' : ''}${d.toFixed(1)}).`, d < 0);
   },
+  // 역점사업 후속 보도: 지지도·당원이 조금 움직이고, 새 현안·악재가 생기기도 함
+  admFollow: q => {
+    const f = pick(ADM_FOLLOW[q.pj][q.ok ? 'ok' : 'no']), t = fillR(f.t, q.k);
+    if (f.need || f.bad) addIssue(q.k, { pj: f.need, bad: f.bad }, t); else rnews(q.k, t);
+    if (S.gov[q.k] === 'P') { if (f.ops) S.ops[q.k] = clamp(S.ops[q.k] + f.ops, 5, 95); if (f.mem) S.members[q.k] += f.mem; }
+  },
   inst: () => openModal({ title: '정책연구소 설치 안내', html: `<p>국고보조금 배분 대상 정당이 되었습니다. 보조금을 받는 정당은 정책연구소를 두어야 하고, 경상보조금의 30% 이상을 정책연구소에 배분해야 합니다. 활동 탭에서 정책연구소를 설립하세요.</p>`, buttons: [{ t: '확인', pri: true }] }),
   grace: () => { Snd.sfx('bad'); openModal({ title: '정당 등록요건 미달', html: `<p>법정 요건(시·도당 5개, 각 당원 1,000명 이상)을 충족하지 못하고 있습니다. <b>${fdate(S.grace)}</b>까지 회복하지 못하면 등록이 취소됩니다.</p>`, buttons: [{ t: '확인', pri: true }] }); },
   unify: q => {
@@ -2007,19 +2070,58 @@ function agendaCard() {
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담 (5백만·행동력 1)</button>${w ? `<span class="small warn">${w}</span>` : ''}</div></div>`;
 }
 // 지역 소식(행정 탭)
-const rnews = (k, t) => { S.rnews.push({ d: S.day, k, t }); if (S.rnews.length > 400) S.rnews.shift(); };
+// c: 현안 소식이면 1
+const rnews = (k, t, c) => { S.rnews.push(c ? { d: S.day, k, t, c } : { d: S.day, k, t }); if (S.rnews.length > 800) S.rnews.shift(); };
 // 안 읽은 지역 소식: 최근 2턴 안에 나왔고, 그 지역 소식을 마지막으로 연 뒤에 나온 것
 const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.d > (S.rseen[k] ?? -1));
 // 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 const govName = k => (S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || {}).name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
+// ---------- 지역 현안: 뉴스 → 역점사업, 역점사업 → 뉴스 ----------
+// S.rcur: [{ id, k, pj | bad, t, d, until, party }] — pj 수요(대응하면 유리, 방치하면 책임론), bad 악재
+const fillR = (t, k) => t.replace('{n}', RK[k].n).replace('{d}', pick(DIST[k]));
+const issuesOf = k => S.rcur.filter(x => x.k === k);
+function addIssue(k, it, t) {
+  if (S.rcur.some(x => x.t === t)) return rnews(k, t);
+  const here = issuesOf(k);
+  if (here.length >= 3) S.rcur = S.rcur.filter(x => x !== here[0]); // 지역당 3건까지, 오래된 것부터 밀림
+  S.rcur.push({ id: ++S.seq, k, pj: it.pj, bad: it.bad, t, d: S.day, until: S.day + 35 });
+  rnews(k, t, 1);
+}
+// 역점사업 보정: 맞는 현안 +15%p씩, 악재 −20%p씩, 그달 전국 쟁점과 맞물리면 +5%p
+const pjAdj = (k, pj) => sum(issuesOf(k).map(x => x.pj === pj ? 0.15 : x.bad === pj ? -0.2 : 0)) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0);
+const shortT = x => x.t.replace(RK[x.k].n + ' ', '');
+// 매 턴 지역 소식: 현안(수요·악재) · 동네 소식 · 지역 일반 · 단체장 평가. 5주 넘게 방치된 현안은 그 지역 지사 책임론
 function regionNews() {
-  for (let i = 0; i < 3; i++) {
-    const r = pick(R), k = r.k, g = S.rgov[k], ev = rnd() < 0.3;
-    rnews(k, ev && S.gov[k] === 'P' ? `${r.n} ${govName(k)} 지사(${S.party.name}) 직무 긍정 평가 ${Math.round(S.ops[k] ?? 50)}%`
-      : ev && g ? `${r.n} ${g.n} 지사(${pn(g.p)}) 직무 긍정 평가 ${Math.round(g.o)}%` : pick(RNEWS).replace('{n}', r.n));
+  S.rcur = S.rcur.filter(x => {
+    const g = S.rgov[x.k], n = RK[x.k].n;
+    // 다른 당 지사도 현안에 대응함(턴마다 30%)
+    if (x.pj && g && rnd() < 0.3) { g.o = clamp(g.o + 0.5, 5, 95); rnews(x.k, `${n} ${g.n} 지사, '${shortT(x)}' 대응책 발표`); return false; }
+    if (x.until > S.day) return true;
+    if (x.pj && S.gov[x.k] === 'P') { S.ops[x.k] = clamp(S.ops[x.k] - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 대응 지지부진… ${govName(x.k)} 지사 책임론`); }
+    else if (x.pj && g) { g.o = clamp(g.o - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 장기화… ${g.n} 지사 책임론`); }
+    return false;
+  });
+  for (let i = 0; i < 7; i++) {
+    const r = pick(R), k = r.k, g = S.rgov[k], x = rnd();
+    if (x < 0.45) { const it = pick(RISSUE); addIssue(k, it, fillR(it.t, k)); }
+    else if (x < 0.75) rnews(k, fillR(pick(RMICRO), k));
+    else if (x < 0.88) rnews(k, fillR(pick(RNEWS), k));
+    else rnews(k, S.gov[k] === 'P' ? `${r.n} ${govName(k)} 지사(${S.party.name}) 직무 긍정 평가 ${Math.round(S.ops[k])}%` : g ? `${r.n} ${g.n} 지사(${pn(g.p)}) 직무 긍정 평가 ${Math.round(g.o)}%` : fillR(pick(RMICRO), k));
   }
+}
+// 우리 시·도당의 현안 현장 대응(일반 행동력): 단체장이 없어도 시·도당이 있으면 가능
+function partyRespond(id) {
+  const x = S.rcur.find(y => y.id === id);
+  if (!x || x.party || !x.pj || !S.chapters[x.k] || left || S.ap < 1 || S.money < 3e6) return;
+  const n = RK[x.k].n; x.party = true; S.ap--; spend(3e6, '활동');
+  if (luck(0.6)) {
+    const m = Math.round(rr(100, 300)); S.members[x.k] += m; S.trust += 0.3; S.fame += 0.3;
+    rnews(x.k, `${S.party.name} ${n}시·도당, '${shortT(x)}' 현장 대응… 주민 호응`);
+    info('시·도당 현장 대응', `${n}시·도당이 '${shortT(x)}' 현장을 찾아 대안을 냈습니다. 주민 호응이 좋아 당원 ${m}명이 늘었습니다.`, false);
+  } else { S.trust -= 0.3; rnews(x.k, `${S.party.name} ${n}시·도당 현장 방문에 "생색내기" 눈총`); info('시·도당 현장 대응', `${n}시·도당의 현장 방문이 "생색내기"라는 눈총을 받았습니다.`, true); }
+  renderAll();
 }
 function randomEvent() {
   const pool = EVENTS.filter(e => !(e.once && S.seen[e.id]) && e.cond());
@@ -2186,6 +2288,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-negv]').forEach(b => b.onclick = () => { negV = b.dataset.negv; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-visit]').forEach(b => b.onclick = agendaVisit);
+  m.querySelectorAll('[data-presp]').forEach(b => b.onclick = () => partyRespond(+b.dataset.presp));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
@@ -2426,14 +2529,19 @@ function pAdmin() {
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></li>`; }).join('')}</ul>
       <p class="small muted">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
+  const iss = R_ADM.flatMap(r => issuesOf(r.k)).filter(x => admReg === 'all' || x.k === admReg);
+  const issBtns = x => `${x.pj && S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" ${why('govern', x.k) ? 'disabled' : ''}>역점사업</button>` : ''}${x.pj && S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.id}" ${left || S.ap < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}`;
+  const issCard = `<div class="card" style="margin-top:14px"><h2>지역 현안 <span class="pill">${iss.length}건</span></h2>
+    <p class="small muted">뉴스로 드러난 지역 문제입니다. 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고, 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다. 우리 시·도당이 있는 곳은 현장 대응(행동력 1·300만)으로 당원을 늘릴 수 있습니다.${admReg === 'all' ? '' : ' 오른쪽에서 고른 지역만 보입니다.'}</p>
+    ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${x.pj ? `${PJ_N[x.pj]} 현안` : `${PJ_N[x.bad]} 사업 악재`} · ${Math.max(1, Math.ceil((x.until - S.day) / TURN))}턴 남음${x.party ? ' · 시·도당 대응함' : ''}${S.gov[x.k] === 'P' ? ' · 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : '<p class="empty">지금 드러난 현안이 없습니다.</p>'}</div>`;
   const k = admReg === 'all' ? null : admReg, g = k && S.rgov[k];
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
   const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · 단체장 ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
-  return `<div class="split"><div>${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
+  return `<div class="split"><div>${mine}${issCard}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
-    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
+    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span>${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}${x.c ? ' <span class="pill">현안</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
 function bannerItems() {
@@ -2536,7 +2644,8 @@ function nextSteps() {
   if (seatTotal('P') && vote) out.push([`본회의 표결을 앞둔 다른 당·정부 법안이 ${vote}건 있습니다. 의회 탭에서 당론을 정하세요.`, 'office']);
   if (seatTotal('P') && !S.bills.some(b => !b.by)) out.push(['국회 의석이 있습니다. 법안을 발의해 통과시키면 지지율에 오래 남습니다.', 'office']);
   const gv = Object.keys(S.ops).filter(k => !why('govern', k));
-  if (gv.length) out.push([`${gv.map(k => RK[k].n).join('·')} 행정 역점사업을 펼칠 수 있습니다.`, 'admin']);
+  const ni = S.rcur.filter(x => x.pj && S.gov[x.k] === 'P').length;
+  if (gv.length) out.push([ni ? `우리 당 지사 지역에 현안 ${ni}건이 있습니다. 행정 탭에서 맞는 역점사업으로 대응하면 효과가 큽니다.` : `${gv.map(k => RK[k].n).join('·')} 행정 역점사업을 펼칠 수 있습니다.`, 'admin']);
   const ac = allyCamp();
   if (S.phase === 'reg' && ac) out.push([`${ac.name}을 앞두고 다른 정당과 선거 연대를 교섭할 수 있습니다.`, 'neg']);
   if (activeCamps().length) out.push(['공식 선거운동기간입니다. 거리 유세(조직·지역)와 방송 광고(활동)로 득표력을 올리세요.', 'act']);
@@ -2603,7 +2712,10 @@ function pGuide() {
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 행정 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다.</li>
-      <li>행정 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다.</li>
+      <li>행정 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
+      <li>뉴스로 드러난 <b>지역 현안</b>(돌봄·안전·일자리·개발 수요, 사업 악재)은 역점사업에 영향을 줍니다. 맞는 사업으로 대응하면 성공률·효과가 오르고 현안이 풀립니다. 악재가 있으면 그 사업의 성공률이 떨어집니다. 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
+      <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>
+      <li>우리 시·도당이 있는 지역의 현안에는 '시·도당 대응'(행동력 1·300만)으로 현장에 나설 수 있습니다. 호응을 얻으면 그 지역 당원이 늘고, 실패하면 "생색내기" 눈총을 받습니다.</li>
       <li>선거운동기간, 후보 등록 마감, 탄핵심판, 국정감사 같은 큰 일정은 화면 맨 위 배너에 뜹니다. 누르면 관련 탭으로 갑니다.</li></ul>`)}
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
       <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속으로 다른 당 표를 움직일 수 있습니다. 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
