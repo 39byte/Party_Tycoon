@@ -164,6 +164,8 @@ nav .more{display:none}
 .act .bell .ic{width:16px;height:16px}
 .act .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
 .act .why{font-size:12.5px;color:var(--warn)}
+/* 기본 카드: 같은 줄 카드끼리 제목·설명·실행 버튼·비용·사유 줄을 맞춤(subgrid) → 설명 길이가 달라도 실행 버튼 높이가 같음 */
+.acts:not(.wide):not(.ups)>.act{display:grid;grid-row:span 5;grid-template-rows:subgrid;row-gap:6px;align-content:start}
 .act p{margin:0;font-size:13px;color:var(--muted)}
 
 /* progress */
@@ -290,6 +292,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .nowrap{white-space:nowrap;flex:none}
 .kv{table-layout:fixed} .kv th{width:96px} /* 지역 정보: 지역을 바꿔도 칸 폭 고정 */
 .regkv .kv th{width:82px} .regkv .kv{width:100%}
+.regkv{border-bottom:1px solid var(--border)} .regkv tr:last-child>*{border-bottom:0} /* 아래 구분선은 두 칸을 가로질러 한 줄 */
 /* 후보자 등록 현황: 지역구 | 비례대표 2단, 좁은 화면에선 위아래로 */
 .regsplit{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:8px;margin-top:10px}
 .regsplit>div{padding:10px 12px;min-width:0} .regsplit>div+div{border-left:1px solid var(--border)}
