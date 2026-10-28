@@ -926,7 +926,12 @@ function simGeneral(c) {
   const dist = id => sum(Object.values(seatsD[id]));
   const pr = L.allocatePR(Object.keys(pv).map(id => ({ id, votes: pv[id] * LAW.voters * 0.67, district: id === 'O' ? 0 : dist(id) })));
   let lostPR = 0;
-  if (reg && pr.P > reg.pr.length) { lostPR = pr.P - reg.pr.length; pr.P = reg.pr.length; }
+  if (reg && pr.P > reg.pr.length) {
+    lostPR = pr.P - reg.pr.length; pr.P = reg.pr.length;
+    // 명부가 모자라 못 채운 비례 의석은 공석으로 두지 않고, 비례 의석을 받은 다른 정당에 득표 비율대로 넘김(국회 300석 유지)
+    const ids = Object.keys(pr).filter(id => id !== 'P' && pr[id] > 0);
+    if (ids.length) L.hare(lostPR, ids.map(id => pv[id])).forEach((n, i) => pr[ids[i]] += n);
+  }
   return { seatsD, pr, pv, pDist, lostPR };
 }
 function applySeats(g) { for (const id in g.seatsD) S.seats[id] = { d: g.seatsD[id], pr: g.pr[id] || 0 }; }
@@ -1097,7 +1102,7 @@ function natResultHTML(g, c) {
   if (c.reg) {
     const won_ = g.pDist.filter(d => d.win).length;
     const best = [...g.pDist].sort((a, b) => b.share - a.share).slice(0, 8);
-    mine = `<h3 style="margin-top:14px">${esc(S.party.name)} 성적</h3><p>지역구 ${g.pDist.length}곳 출마 → <b>${won_}곳 당선</b> · 비례대표 ${S.seats.P.pr}석${g.lostPR ? ` <span class="bad">(명부 부족으로 ${g.lostPR}석 공석 — 비례 후보를 더 등록했어야 합니다)</span>` : ''}</p>
+    mine = `<h3 style="margin-top:14px">${esc(S.party.name)} 성적</h3><p>지역구 ${g.pDist.length}곳 출마 → <b>${won_}곳 당선</b> · 비례대표 ${S.seats.P.pr}석${g.lostPR ? ` <span class="bad">(명부 부족으로 ${g.lostPR}석이 다른 정당에 넘어감 — 비례 후보를 더 등록했어야 합니다)</span>` : ''}</p>
     ${best.length ? `<div class="tblwrap"><table><thead><tr><th>지역</th><th>후보</th><th class="r">득표율</th><th>결과</th></tr></thead><tbody>${best.map(d => `<tr><td>${RK[d.k].n}</td><td>${esc(d.name)}</td><td class="r num">${pct(d.share)}</td><td>${d.win ? '<b class="ok">당선</b>' : `낙선 (${esc(pn(d.winner))} 당선)`}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
   }
   return `${hemicycle()}<div class="tblwrap" style="margin-top:10px"><table><thead><tr><th>정당</th><th class="r">지역구</th><th class="r">비례</th><th class="r">합계</th><th class="r">비례 득표율</th></tr></thead><tbody>${rows}</tbody></table></div>
