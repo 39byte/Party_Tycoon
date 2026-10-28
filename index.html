@@ -227,6 +227,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--hud-line);border-radius:16px;max-width:560px;width:100%;max-height:calc(100dvh - 32px);overflow:auto;padding:0 20px 20px;box-shadow:0 0 0 1px rgba(242,179,61,.35),0 24px 60px rgba(0,0,0,.45);animation:pop .2s cubic-bezier(.2,.9,.3,1.2)}
 .modal.wide{max-width:860px}
 .modal>h2{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;font-size:18px;margin:0 -20px 14px;padding:14px 20px;background:var(--hud);color:var(--on-hud);border-bottom:2px solid var(--gold2)}
+.modal>h2 .info{color:var(--on-hud-muted);border-color:var(--on-hud-muted)}
+.modal>h2 .info:hover,.modal>h2 .info:focus-visible{color:var(--gold);border-color:var(--gold)}
 .modal>h2::before{content:"";width:10px;height:10px;flex:none;transform:rotate(45deg);background:var(--gold)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}}
 @keyframes fade{from{opacity:0}}
@@ -1409,8 +1411,9 @@ function lobbyBill(id) {
 const govCd = (k, pj) => (S.cd[`govern:${k}:${pj}`] || 0) > S.day;
 function govModal(k) {
   openModal({
-    title: `${RK[k].n} 행정 역점사업`, html: `<p class="small muted">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 지금 지지도 ${Math.round(S.ops[k])}.</p>
-      <p class="small muted">남은 행정 행동력 ${S.aap}. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>
+    title: `${AREA(k)} 행정 사업`,
+    tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
+    html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> · 남은 행정 행동력 <b class="num">${S.aap}</b></p>
       ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 행정 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
       <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k);
         return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
@@ -2368,6 +2371,8 @@ const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: 
   gyeonggi: '경기도지사', gangwon: '강원특별자치도지사', chungbuk: '충청북도지사', chungnam: '충청남도지사', jeonbuk: '전북특별자치도지사', jeonnam: '전남광주통합특별시장', gyeongbuk: '경상북도지사', gyeongnam: '경상남도지사', jeju: '제주특별자치도지사' };
 // 인재의 직책 표시: 내부 값 'OO 시·도지사'는 실제 직명으로
 const roleLabel = role => { const r = /시·도지사$/.test(role) && R.find(x => role === `${x.n} 시·도지사`); return r ? GOVT[r.k] : role; };
+// 행정구역 이름(직명에서 '장'·'지사'를 뗌): 서울특별시, 경기도, 전남광주통합특별시
+const AREA = k => GOVT[k].replace(/(장|지사)$/, '');
 const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a }) || null; };
 const govName = k => govPerson(k)?.name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
@@ -2537,10 +2542,10 @@ async function saveToDir() {
 }
 
 // ---------- 모달·토스트 ----------
-function openModal({ title, html, buttons = [], wide, dismiss = true, onOpen }) {
+function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpen }) {
   modalOpen = true;
   const root = $('#modalRoot');
-  root.innerHTML = `<div class="scrim"><div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${esc(title)}</h2><div>${html}</div>${buttons.length ? `<div class="btns" style="margin-top:16px;justify-content:flex-end">${buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''}" data-b="${i}">${esc(b.t)}</button>`).join('')}</div>` : ''}</div></div>`;
+  root.innerHTML = `<div class="scrim"><div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${esc(title)}${tip ? infoTip(tip) : ''}</h2><div>${html}</div>${buttons.length ? `<div class="btns" style="margin-top:16px;justify-content:flex-end">${buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''}" data-b="${i}">${esc(b.t)}</button>`).join('')}</div>` : ''}</div></div>`;
   const m = root.querySelector('.modal');
   root.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const bt = buttons[+b.dataset.b]; Snd.sfx('click'); closeModal(); if (bt.fn) bt.fn(); });
   if (dismiss) root.querySelector('.scrim').onclick = ev => { if (ev.target === ev.currentTarget) closeModal(); };
