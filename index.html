@@ -746,7 +746,6 @@ function genPerson(o = {}) {
     skill: Math.round(clamp(gauss() * 12 + job.s, 10, 99)), integ, rec: rec.map(r => r.t), ban: rec.some(r => r.ban), role: '',
   };
 }
-const genericCand = g => { const p = genPerson({ gender: g }); S.nid--; p.id = null; p.fame = Math.round(clamp(p.fame * 0.5, 2, 30)); return p; };
 const candFactor = c => clamp(1 + (c.fame - 15) / 200 + (c.skill - 50) / 250 - (c.rec ? c.rec.length : 0) * 0.05, 0.6, 1.6);
 const person = id => S.pool.find(p => p.id === +id);
 const leader = () => S.pool.find(p => p.leader);
@@ -943,8 +942,8 @@ function simPres(c) {
 // ---------- 선거 일정 ----------
 function newCamp(e) {
   const c = { key: e.key, type: e.type, day: e.day, name: e.name, reg: null, boost: { nat: 0, reg: {} }, unified: false };
-  if (e.type === 'nat') c.draft = { reg: Object.fromEntries(R.map(r => [r.k, { n: 0, strat: '', spend: 1 }])), prN: 0, prIds: [], women: 30 };
-  if (e.type === 'gov') c.draft = { reg: Object.fromEntries(R.map(r => [r.k, { run: false, cand: '', spend: 1 }])), women: 30 };
+  if (e.type === 'nat') c.draft = { reg: Object.fromEntries(R.map(r => [r.k, { n: 0, strat: '', spend: 1 }])), prN: 0, prIds: [] };
+  if (e.type === 'gov') c.draft = { reg: Object.fromEntries(R.map(r => [r.k, { run: false, cand: '', spend: 1 }])) };
   if (e.type === 'pres') {
     c.draft = { cand: '', spend: 1 };
     c.rivals = {};
@@ -1864,12 +1863,12 @@ function buildReg(c) {
   const use = (p, where) => { if (used.has(p.id)) err.push(`${p.name}: ${used.get(p.id)}와(과) ${where} 중복 입후보 불가`); used.set(p.id, where); };
   const out = { cost: 0, deposits: 0 };
   const recCount = { n: 0 };
-  // '인재풀 자동 배치': 직접 고른 인재를 뺀 나머지 중 출마 가능한 사람을 섞어 차례로 냄(같은 선거에선 늘 같은 순서). 모자라면 공모 후보
+  // '인재풀 자동 배치': 직접 고른 인재를 뺀 나머지 중 출마 가능한 사람을 섞어 차례로 냄(같은 선거에선 늘 같은 순서). 후보는 인재풀에서만 나오고, 모자라면 등록 불가
   const kind = c.type === 'gov' ? 'gov' : 'nat', picked = new Set(c.type === 'gov' ? R.filter(r => d.reg[r.k].run).map(r => d.reg[r.k].cand) : [...R.filter(r => +d.reg[r.k].n > 0).map(r => d.reg[r.k].strat), ...d.prIds.slice(0, +d.prN || 0)]);
   const h32 = t => [...t].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0, 2166136261);
   const auto = c.type === 'pres' ? [] : S.pool.filter(p => !p.leader && !picked.has(String(p.id)) && !picked.has(p.id) && !(kind === 'gov' ? /국회의원|대통령/ : /시·도지사|대통령/).test(p.role) && eligible(p, kind)).sort((a, b) => h32(c.key + a.id) - h32(c.key + b.id));
-  out.auto = [];
-  const autoNext = (r, g) => { const p = auto.shift(); if (p) out.auto.push(`${r.n} ${p.name}`); return p || genericCand(g); };
+  out.auto = []; let short = 0;
+  const take = (where, ok = () => true) => { const i = auto.findIndex(ok); if (i < 0) return null; const p = auto.splice(i, 1)[0]; use(p, where); out.auto.push(`${where} ${p.name}`); return p; };
   const mk = (p, kind, spendC, spendB) => {
     const dep = L.deposit(kind, p.age);
     out.cost += dep + spendC; out.deposits += dep; recCount.n += p.rec ? p.rec.length : 0;
@@ -1880,8 +1879,7 @@ function buildReg(c) {
     for (const r of R) {
       const x = d.reg[r.k], n = clamp(+x.n || 0, 0, r.seats), list = [];
       if (x.strat && n > 0) { const p = person(x.strat); if (!eligible(p, 'nat')) err.push(`${p ? p.name : '?'}: 피선거권 요건 미충족`); else { use(p, `${r.n} 지역구`); list.push(p); } }
-      else if (n > 0) { const p = autoNext(r, rnd() < d.women / 100 ? 'F' : 'M'); if (p.id != null) use(p, `${r.n} 지역구`); list.push(p); }
-      while (list.length < n) list.push(genericCand(rnd() < d.women / 100 ? 'F' : 'M'));
+      for (let i = list.length; i < n; i++) { const p = take(`${r.n} 지역구`); if (p) list.push(p); else short++; }
       out.dist[r.k] = list.map(p => mk(p, 'nat', NAT_SPEND[x.spend].c, NAT_SPEND[x.spend].b));
       women += list.filter(p => p.gender === 'F').length; total += list.length;
     }
@@ -1891,7 +1889,12 @@ function buildReg(c) {
     const picks = d.prIds.map(person).filter(Boolean).slice(0, prN);
     picks.forEach(p => { if (!eligible(p, 'nat')) err.push(`${p.name}: 피선거권 요건 미충족`); else use(p, '비례대표'); });
     const F = picks.filter(p => p.gender === 'F'), M = picks.filter(p => p.gender === 'M'), list = [];
-    for (let i = 1; i <= prN; i++) list.push(i % 2 ? (F.shift() || genericCand('F')) : (M.shift() || F.shift() || genericCand('M')));
+    const isF = p => p.gender === 'F';
+    for (let i = 1; i <= prN; i++) {
+      const p = i % 2 ? (F.shift() || take('비례대표', isF)) : (M.shift() || F.shift() || take('비례대표', p => !isF(p)) || take('비례대표'));
+      if (!p) { short += prN - i + 1; break; } // 홀수 순번에 여성이 없으면 그 뒤 순번도 못 채움
+      list.push(p);
+    }
     if (M.length) err.push(`비례대표 명부에 남성 인재가 너무 많습니다 (짝수 순번에만 배치 가능)`);
     const before = out.cost;
     out.pr = list.map(p => mk(p, 'pr', 0, 0));
@@ -1902,8 +1905,8 @@ function buildReg(c) {
     out.gov = {}; let women = 0, total = 0;
     for (const r of R) {
       const x = d.reg[r.k]; if (!x.run) continue;
-      let p = x.cand ? person(x.cand) : autoNext(r, rnd() < d.women / 100 ? 'F' : 'M');
-      if (!x.cand && p.id != null) use(p, `${r.n} 시·도지사`);
+      const p = x.cand ? person(x.cand) : take(`${r.n} 시·도지사`);
+      if (!p) { short++; continue; }
       if (x.cand) { if (!eligible(p, 'gov')) { err.push(`${p ? p.name : '?'}: 피선거권 요건 미충족`); continue; } use(p, `${r.n} 시·도지사`); }
       const lim = govLimit(r.k);
       out.gov[r.k] = mk(p, 'gov', lim * GOV_SPEND[x.spend].f, GOV_SPEND[x.spend].b);
@@ -1920,6 +1923,7 @@ function buildReg(c) {
     out.count = 1;
   }
   out.recs = recCount.n;
+  if (short) err.push(`출마시킬 인재가 ${short}명 모자랍니다. 출마 수를 줄이거나 인재를 영입하세요.${c.type === 'nat' ? ' (비례 홀수 순번은 여성)' : ''}`);
   if (out.cost > S.money) err.push(`비용 ${won(out.cost)}이(가) 보유 자금 ${won(S.money)}보다 많습니다.`);
   if (S.day > c.day - LAW.regDeadline[c.type]) err.push('후보자 등록 기간이 지났습니다.');
   return { out, err };
@@ -2975,10 +2979,9 @@ function nomForm(c) {
       <td><select ${a} data-k="${r.k}" data-f="strat" aria-label="${r.n} 전략공천">${personOpts(x.strat, 'nat')}</select></td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }).join('')}
       </tbody></table></div>
-      <p class="tip">'인재풀 자동 배치'는 인재를 직접 고르지 않은 지역에 인재풀에서 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 공모 후보를 내고, 공모 후보의 성별은 여성 비율 설정을 따릅니다.</p>
+      <p class="tip">후보는 인재풀에서만 나옵니다. '인재풀 자동 배치'는 직접 고르지 않은 자리에 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 등록할 수 없습니다. 지역구 여성 후보가 30% 이상이면 여성추천보조금(정치자금법 제26조).</p>
       <div class="row" style="margin-top:12px">
         <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원</span></label>
-        <label class="f">지역구 공모 후보 여성 비율 <b class="num" id="wv-${c.key}">${d.women}%</b><input type="range" min="0" max="100" step="5" value="${d.women}" ${a} data-f="women"><span class="h">30% 이상이면 여성추천보조금(정치자금법 제26조)</span></label>
       </div>
       <fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">비례대표 명부 상위 배치 인재 (선택 순서대로)</legend>
       <div class="row">${S.pool.filter(p => eligible(p, 'nat')).map(p => `<label class="small"><input type="checkbox" ${a} data-f="prPick" value="${p.id}" ${d.prIds.includes(p.id) ? 'checked' : ''}> ${esc(p.name)}(${p.gender === 'F' ? '여' : '남'})</label>`).join('') || '<span class="muted small">인재 없음</span>'}</div>
@@ -2990,8 +2993,7 @@ function nomForm(c) {
       <td><select ${a} data-k="${r.k}" data-f="cand" aria-label="${r.n} 후보">${personOpts(x.cand, 'gov')}</select></td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }).join('')}
       </tbody></table></div>
-      <label class="f" style="margin-top:10px">공모 후보 여성 비율 <b class="num" id="wv-${c.key}">${d.women}%</b><input type="range" min="0" max="100" step="5" value="${d.women}" ${a} data-f="women"></label>
-      <p class="tip">'인재풀 자동 배치'는 인재를 직접 고르지 않은 지역에 인재풀에서 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 공모 후보를 내고, 공모 후보의 성별은 여성 비율 설정을 따릅니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
+      <p class="tip">후보는 인재풀에서만 나옵니다. '인재풀 자동 배치'는 인재를 직접 고르지 않은 지역에 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 등록할 수 없습니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
   }
   return `<div class="row"><label class="f">대통령 후보 (당내 경선)<select ${a} data-f="cand">${'<option value="">선택</option>' + S.pool.filter(p => eligible(p, 'pres')).map(p => `<option value="${p.id}" ${+d.cand === p.id && d.cand !== '' ? 'selected' : ''}>${esc(p.name)} (${p.age}세, 인지도 ${p.fame}, 역량 ${p.skill})</option>`).join('')}</select><span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
     <label class="f">선거비용<select ${a} data-f="spend">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select><span class="h">선거비용제한액(약 588억) 이내</span></label></div>
@@ -3014,7 +3016,6 @@ function draftChange(el, light) {
   else if (f === 'run') d.reg[k].run = el.checked;
   else if (k) d.reg[k][f] = f === 'n' || f === 'spend' ? +el.value : el.value;
   else d[f] = f === 'cand' ? el.value : +el.value;
-  if (f === 'women') { const w = $(`#wv-${c.key}`); if (w) w.textContent = el.value + '%'; }
   const s = $(`#sum-${c.key}`); if (s) s.innerHTML = nomSummary(c);
 }
 function pFin() {
