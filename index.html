@@ -2819,15 +2819,14 @@ function pHome() {
       <li><span class="st">3</span><div><b>중앙선관위에 정당 등록 신청</b><div class="small ${left < 45 ? 'bad' : 'muted'}">기한까지 ${left}일 (결성신고 후 6개월, 정당법 제8조)</div><button class="btn pri" id="regParty" style="margin-top:6px" ${ok < 5 ? 'disabled' : ''}>등록 신청</button></div></li></ul>`;
   } else {
     const L_ = leader();
-    status = `<h2>${esc(S.party.name)} <span class="pill">${IDEO[S.party.ideo]}</span></h2>
+    status = `<h2>${esc(S.party.name)} <span class="pill">${IDEO[S.party.ideo]}</span> <span class="pill${ruling() ? ' ok' : ''}">${ruling() ? '여당' : '야당'}</span></h2>
       ${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}
-      <div class="leader">${face(L_, S.party.color, 72)}<div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 · 역량 ${L_.skill} · 청렴 ${L_.integ}</div></div>
-        <div class="who" style="margin-left:auto">${face((S.president.pid != null && person(S.president.pid)) || { name: S.president.name, age: 62 }, pc(S.president.party), 48)}<div><div class="small muted">${S.president.acting ? '권한대행' : '대통령'}</div><b>${esc(S.president.name)}</b><div class="small muted">${esc(pn(S.president.party))}</div></div></div></div>
+      <div class="leader">${face(L_, S.party.color, 72)}<div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 · 역량 ${L_.skill} · 청렴 ${L_.integ}</div></div></div>
       <div class="tblwrap"><table><tbody>
       <tr><th>당 대표</th><td>${esc(L_.name)} (${L_.age}세)</td><th>등록일</th><td>${fdate(S.regDay)}</td></tr>
       <tr><th>인지도</th><td class="num">${S.fame.toFixed(1)}</td><th>신뢰도</th><td class="num">${S.trust.toFixed(1)}</td></tr>
       <tr><th>시·도당</th><td>${chaptersOk()}곳 ${S.grace != null ? `<b class="bad">요건 미달 — ${fdate(S.grace)}까지 회복</b>` : ''}</td><th>국회 의석</th><td>${seatTotal('P')}석</td></tr>
-      <tr><th>광역단체장</th><td>${govCount('P')}곳</td><th>대통령</th><td>${esc(S.president.name)} (${esc(pn(S.president.party))})</td></tr>
+      <tr><th>광역단체장</th><td colspan="3">${govCount('P')}곳</td></tr>
       ${S.day - S.lastPart > 3 * 365 ? `<tr><th>등록취소 경고</th><td colspan="3" class="bad">최근 4년간 선거 미참여: ${fdate(S.lastPart + 4 * 365)}까지 국회의원선거나 지방선거에 후보를 내야 합니다 (정당법 제44조)</td></tr>` : ''}
       </tbody></table></div>`;
   }
