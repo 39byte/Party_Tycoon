@@ -347,6 +347,12 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .pty-h{display:flex;align-items:flex-start;gap:8px;font-size:16px}
 .pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;padding-top:6px}
 .pty .negcell{margin-left:auto;flex:none}
+/* 청와대: 대통령 초상 + 정보 */
+.presbox{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.presbox .face{border-radius:22px}
+.presinfo{flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px}
+.presname{font-size:26px;font-weight:900;letter-spacing:-.02em;line-height:1.2}
+.presinfo .kv{max-width:520px}
 /* 법령집: 종이 지면·명조체·조문 번호 칸 */
 :root{--paper:#FBF7EE;--ink:#2B2620;--ink2:#6B6155;--rule:#DCD2BF;--spine:#B9A98A}
 @media (prefers-color-scheme:dark){:root{--paper:#1E1C18;--ink:#E9E3D6;--ink2:#ADA392;--rule:#3B362D;--spine:#5A5040}}
@@ -415,6 +421,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 20a2 2 0 0 0 4 0"/></symbol>
   <symbol id="i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></symbol>
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
+  <symbol id="i-bh" viewBox="0 0 24 24"><path d="M2 10q10-5 20 0l-2-3q-8-4-16 0zM5 10v9M19 10v9M9 13h6v6H9zM3 19h18"/></symbol>
   <symbol id="i-turn" viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3v3a5 5 0 0 0 10 0V3M7 21v-3a5 5 0 0 1 10 0v3"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
   <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
@@ -2617,7 +2624,7 @@ function toast(msg, type = '') {
 
 // ---------- 렌더링 ----------
 // 메뉴 순서: 당 운영 | 의회·지방정부·교섭·선거 | 읽을거리. NAV_SEP 뒤에 구분선(wide는 위 간격 넓게)
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '의회', 'i-gov'], ['admin', '지방정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '의회', 'i-gov'], ['pres', '청와대', 'i-bh'], ['admin', '지방정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
 const NAV_SEP = { fin: '', elec: ' wide' };
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 // 패널이 읽음 처리(지역 소식)를 하므로 탭 배지는 패널 다음에 그림
@@ -2643,7 +2650,7 @@ function renderTop() {
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
-const SEC = ['people', 'office', 'neg', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
+const SEC = ['people', 'office', 'pres', 'neg', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
 function renderNav() {
   const nav = $('#nav'), open = nav.classList.contains('open');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
@@ -2662,7 +2669,7 @@ function renderPanel() {
   if (tab !== shownTab) fresh = [];
   if (al && al.length) { fresh = [...fresh, ...al]; S.alerts[tab] = []; }
   shownTab = tab;
-  main.innerHTML = sceneHead() + ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
+  main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
   tipify(main);
   markLead();
@@ -2674,7 +2681,7 @@ const SCENE_SUB = {
   org: () => `시·도당 ${chaptersOk()}곳 · 당원 ${totalMembers().toLocaleString()}명`, act: () => `행동력 ${S.ap}/${apMax()} · 활동으로 인지도와 신뢰를 쌓으세요`,
   people: () => `인재풀 ${S.pool.length}/30명`, elec: () => { const ne = nextElection(); return ne ? `${ne.name} D-${ne.day - S.day}` : '선거 일정'; },
   office: () => `국회 의석 ${seatTotal('P')}석 / 300`, neg: () => '정당·의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
-  fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
+  pres: () => presT(), fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
 };
 function sceneHead() {
   const n = TABS.find(t => t[0] === tab)[1];
@@ -3046,6 +3053,19 @@ function pOffice() {
     : `<div class="card"><h2>의회 활동</h2><p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p></div>`;
   // 법안 → (의회 활동 | 수사·재판) → 사회적 이슈. 카드 간격은 .stack이 맡음
   return `<div class="stack">${bills}<div class="split">${work}${caseCard}</div>${agendaCard()}</div>`;
+}
+// 청와대: 지금은 대통령 정보만
+function pPres() {
+  const P = S.president, me = P.pid != null && person(P.pid), ne = SCHED.find(e => e.type === 'pres' && e.day >= S.day), days = S.day - P.since;
+  return `<div class="card"><h2>대통령</h2><div class="presbox">${face(me || { name: P.name, age: 62 }, pc(P.party), 112)}
+    <div class="presinfo"><div class="small muted">${P.acting ? '대통령 권한대행' : '대한민국 대통령'}</div><div class="presname">${esc(P.name)}</div>
+      <div class="btns" style="gap:6px"><span class="pill" style="border-color:${pc(P.party)};color:${pc(P.party)}">${esc(pn(P.party))}</span>${ruling() ? '<span class="pill ok">우리 당 집권</span>' : ''}${P.acting ? '<span class="pill warn">조기 대선 국면</span>' : ''}</div>
+      <div class="tblwrap"><table class="kv"><tbody>
+        ${P.acting ? '' : `<tr><th>취임일</th><td>${fdate(P.since)}</td></tr><tr><th>재임</th><td class="num">${days.toLocaleString()}일</td></tr>`}
+        <tr><th>다음 대선</th><td>${ne ? `${esc(ne.name)} · ${fdate(ne.day)} <b class="num">D-${ne.day - S.day}</b>` : '-'}</td></tr>
+        <tr><th>여당 의석</th><td class="num">${seatTotal(P.party)}석 / 300</td></tr>
+        ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
+      </tbody></table></div></div></div></div>`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';

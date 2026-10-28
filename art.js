@@ -125,6 +125,10 @@
     log: (c, o, r) => `<path d="M890 176L900 60h8L918 176z" class="bld"/><rect x="884" y="50" width="40" height="20" rx="4" class="bld2"/><rect x="901" y="22" width="6" height="30" class="pole"/><circle cx="904" cy="22" r="4" style="fill:${c}"/>
       ${tower(640, 70, 200, GY - 70, r)}<rect x="660" y="80" width="160" height="22" style="fill:${c}"/><text x="740" y="96" class="stxt">속보 · 정치</text><path d="M980 120a24 24 0 0 1 40 -20z" class="bld2"/>${tower(960, 120, 100, GY - 120, r)}${tree(1110)}`,
     // 가이드: 언덕 위 기와 지붕(목표: 집권)
+    // 청와대: 잔디 언덕 위 푸른 기와 본관 + 깃대
+    pres: (c, o, r) => `<path d="M540 176Q800 96 1120 176z" class="mtn2"/><rect x="700" y="96" width="220" height="56" class="wall"/>${win(712, 104, 196, 40, 9, 1, r)}
+      <path d="M676 102q134 -22 268 0l-18 -26q-116 -18 -232 0z" class="giwa"/><path d="M760 76q50 -10 100 0l-10 -14q-40 -8 -80 0z" class="giwa"/><rect x="796" y="122" width="28" height="30" class="door"/>
+      <rect x="696" y="152" width="228" height="8" class="bld2"/>${flag(960, 70, c, 60)}${tree(640)}${tree(980)}${tree(1040, 1.1)}${tree(600, .9)}`,
     guide: (c, o, r) => `<path d="M520 176Q760 60 1060 176z" class="mtn2"/><path d="M640 176Q760 120 900 140" class="road"/>
       <rect x="760" y="96" width="140" height="34" class="wall"/><path d="M736 100q94 -16 188 0l-14 -20q-80 -14 -160 0z" class="giwa"/><rect x="820" y="108" width="20" height="22" class="door"/>${flag(905, 52, c, 44)}${tree(720)}${tree(960, .9)}${tree(1000)}`,
   };
