@@ -1149,7 +1149,9 @@ function daily() {
   S.buzz *= 0.97;
   const honey = S.president.party === 'P' ? Math.max(0, 6 - (S.day - S.president.since) / 120) : 0;
   const target = (S.fame / 100) * (0.25 + 0.75 * S.trust / 100) * 40 + seats / 300 * 8 + S.buzz + honey + Math.min(3, S.laws.length * 0.3);
-  S.support = clamp(S.support + (target - S.support) * 0.03, 0.1, 70);
+  // 밸런스: 목표치로 따라가는 속도를 오를 땐 SUP_UP배, 내릴 땐 SUP_DOWN배. 화제성(buzz)은 매일 식으므로 일시적 호재는 덜 오르고 악재는 더 깊게 반영됨
+  const SUP_UP = 0.6, SUP_DOWN = 1.5;
+  S.support = clamp(S.support + (target - S.support) * 0.03 * (target > S.support ? SUP_UP : SUP_DOWN), 0.1, 70);
   for (const id of ['A', 'B', 'C', 'O']) {
     let base = RIV[id].base;
     if (S.president.party === id) base -= Math.min(7, (S.day - S.president.since) / 365 * 1.6); // 집권 피로
@@ -1896,7 +1898,7 @@ function buildReg(c) {
   const out = { cost: 0, deposits: 0 };
   const recCount = { n: 0 };
   // '인재풀 자동 배치': 직접 고른 인재를 뺀 나머지 중 출마 가능한 사람을 섞어 차례로 냄(같은 선거에선 늘 같은 순서). 후보는 인재풀에서만 나오고, 모자라면 등록 불가
-  const kind = c.type === 'gov' ? 'gov' : 'nat', picked = new Set(c.type === 'gov' ? R.filter(r => d.reg[r.k].run).map(r => d.reg[r.k].cand) : [...R.filter(r => +d.reg[r.k].n > 0).map(r => d.reg[r.k].strat), ...d.prIds.slice(0, +d.prN || 0)]);
+  const kind = c.type === 'gov' ? 'gov' : 'nat', picked = new Set(c.type === 'pres' ? [] : c.type === 'gov' ? R.filter(r => d.reg[r.k].run).map(r => d.reg[r.k].cand) : [...R.filter(r => +d.reg[r.k].n > 0).map(r => d.reg[r.k].strat), ...d.prIds.slice(0, +d.prN || 0)]);
   const h32 = t => [...t].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0, 2166136261);
   const auto = c.type === 'pres' ? [] : S.pool.filter(p => !p.leader && !picked.has(String(p.id)) && !picked.has(p.id) && !(kind === 'gov' ? /국회의원|대통령/ : /시·도지사|대통령/).test(p.role) && eligible(p, kind)).sort((a, b) => h32(c.key + a.id) - h32(c.key + b.id));
   out.auto = []; let short = 0;
