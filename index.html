@@ -977,7 +977,7 @@ function simGov(c) {
     if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
     const res = shareRace(r.k, ids, mods);
     win[r.k] = res.win;
-    if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
+    if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, sk: cand.skill, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
   }
   return { win, mine };
 }
@@ -1080,7 +1080,7 @@ function resolveElection(c) {
       S.lastPart = S.day;
       g.mine.forEach(d => { refund += d.cost * L.refundRate(d.share); if (d.win && d.pid != null) { const p = person(d.pid); if (p) p.role = `${RK[d.k].n} 시·도지사`; } });
     }
-    S.pgov = Object.fromEntries((c.reg ? g.mine : []).filter(d => d.win && d.pid == null).map(d => [d.k, { n: d.name, g: d.g, a: d.age }])); pgovSync(S);
+    S.pgov = Object.fromEntries((c.reg ? g.mine : []).filter(d => d.win && d.pid == null).map(d => [d.k, { n: d.name, g: d.g, a: d.age, s: d.sk }])); pgovSync(S);
     html = govResultHTML(g);
     R.forEach(r => rnews(r.k, `${r.n} 시·도지사 선거: ${S.gov[r.k] === 'P' ? `${govName(r.k) || '우리 당 후보'}(${S.party.name})` : `${S.rgov[r.k].n}(${pn(S.rgov[r.k].p)})`} 당선`));
     lines.push(`${c.name} 결과: ${S.party.name} 광역단체장 ${govCount('P')}곳`);
@@ -1580,13 +1580,18 @@ function govRun(k, pj) {
 }
 // 행정 사업 자동화(S.autoGov): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
 // ② 지정한 현안에 맞는 사업 ③ 남으면 행정 지지도 낮은 곳부터 무난한 사업. 악재 소식이 보이는 사업은 피함
-// 진짜 문제인지는 플레이어처럼 소식 문구로만 짐작(RISSUE 문구와 맞춰 봄)
+// 현안처럼 보이는 소식(RISSUE 문구와 맞춰 봄)이 진짜 문제인지는 그 지역 단체장 역량만큼 가려냄
 const issueHint = x => RISSUE.find(it => new RegExp('^' + it.t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{n\\}', RK[x.k].n).replace('\\{d\\}', '.+') + '$').test(x.t));
 function autoGov() {
   const govs = Object.keys(S.ops), out = [], recent = k => S.rnews.filter(y => y.k === k && S.day - y.d < 35);
-  for (const k of govs) for (const x of recent(k).reverse()) {
-    if (desOf(k).length >= desMax) break;
-    if (!S.rdes.some(d => d.nid === x.id) && issueHint(x)?.pj) S.rdes.push({ nid: x.id, k, t: x.t, d: x.d, rid: x.r || 0 });
+  for (const k of govs) {
+    const c = 0.4 + (govPerson(k)?.skill ?? 50) / 200; // 판단이 맞을 확률: 역량 40 → 60%, 80 → 80%. 맞으면 진짜 문제는 짚고 헛짚을 소식은 거름
+    for (const x of recent(k).reverse()) {
+      if (desOf(k).length >= desMax) break;
+      if (x.aj || S.rdes.some(d => d.nid === x.id) || !issueHint(x)?.pj) continue;
+      x.aj = 1; // 한 소식은 한 번만 판단
+      if ((rnd() < c) === !!x.r) S.rdes.push({ nid: x.id, k, t: x.t, d: x.d, rid: x.r || 0 });
+    }
   }
   const bads = {}; for (const k of govs) bads[k] = recent(k).map(y => issueHint(y)?.bad).filter(Boolean);
   for (const x of [...S.rdes]) {
@@ -1634,12 +1639,12 @@ function rgovSync(o) {
   for (const k in o.rgov) if (o.gov[k] !== o.rgov[k].p) delete o.rgov[k];
   for (const k in o.gov) if (o.gov[k] !== 'P' && !o.rgov[k]) o.rgov[k] = { p: o.gov[k], n: genName(rnd() < 0.2 ? 'F' : 'M'), o: o === S ? opsBase(o.gov[k], k) : 50 }; // 불러오는 중이면 migrate가 맞춤
 }
-// 우리 당 지사 중 인재풀에 없는 사람(공모 후보로 당선): { 지역: { n 이름, g 성별, a 나이 } }. 인재풀 지사가 생기거나 지사직을 잃으면 지움
+// 우리 당 지사 중 인재풀에 없는 사람(공모 후보로 당선): { 지역: { n 이름, g 성별, a 나이, s 역량 } }. 인재풀 지사가 생기거나 지사직을 잃으면 지움
 const poolGov = (o, k) => o.pool.find(p => p.role === `${RK[k].n} 시·도지사`);
 function pgovSync(o) {
   o.pgov ??= {};
   for (const k in o.pgov) if (o.gov[k] !== 'P' || poolGov(o, k)) delete o.pgov[k];
-  for (const k in o.gov) if (o.gov[k] === 'P' && !o.pgov[k] && !poolGov(o, k)) { const g = rnd() < 0.2 ? 'F' : 'M'; o.pgov[k] = { n: genName(g), g, a: Math.round(rr(45, 68)) }; }
+  for (const k in o.gov) if (o.gov[k] === 'P' && !o.pgov[k] && !poolGov(o, k)) { const g = rnd() < 0.2 ? 'F' : 'M'; o.pgov[k] = { n: genName(g), g, a: Math.round(rr(45, 68)), s: Math.round(rr(40, 80)) }; }
 }
 const liveMPs = () => S.mps.filter(m => (S.seats[m.party].d[m.k] || 0) > 0);
 const allyCamp = () => Object.values(S.camps).find(c => c.type !== 'pres' && !c.ally && S.day <= c.day - LAW.regDeadline[c.type]);
@@ -2539,7 +2544,7 @@ const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: 
 const roleLabel = role => { const r = /시·도지사$/.test(role) && R.find(x => role === `${x.n} 시·도지사`); return r ? GOVT[r.k] : role; };
 // 행정구역 이름(직명에서 '장'·'지사'를 뗌): 서울특별시, 경기도, 전남광주통합특별시
 const AREA = k => GOVT[k].replace(/(장|지사)$/, '');
-const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a }) || null; };
+const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a, skill: x.s ?? 50 }) || null; };
 const govName = k => govPerson(k)?.name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
 // ---------- 지역 현안: 뉴스 → 역점사업, 역점사업 → 뉴스 ----------
@@ -3197,9 +3202,9 @@ function pAdmin() {
   const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span>
-      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">진짜 지역 문제인지는 자동화도 알 수 없습니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
+      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]}">${GOVT[k]}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
+      <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
       <p class="tip">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
@@ -3411,7 +3416,7 @@ function pGuide() {
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다.</li>
-      <li>'행정 운영' 제목 오른쪽의 <b>자동화</b>를 켜면, 턴을 끝낼 때 남은 행정 행동력으로 현안 지정과 맞는 역점사업을 알아서 진행합니다. 진짜 지역 문제인지는 자동화도 소식 문구로만 짐작합니다.</li>
+      <li>'행정 운영' 제목 오른쪽의 <b>자동화</b>를 켜면, 턴을 끝낼 때 남은 행정 행동력으로 현안 지정과 맞는 역점사업을 알아서 진행합니다. 진짜 지역 문제를 가려내는 정확도는 그 지역 단체장 역량에 달려 있습니다.</li>
       <li>지방 정부 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
       <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 옆 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>제대로 짚은 현안에 맞는 역점사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없고, 시·도당 현장 대응도 잘 안 먹힙니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
