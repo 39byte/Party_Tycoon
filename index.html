@@ -2572,9 +2572,10 @@ $('#importFile').onchange = ev => {
   rd.readAsText(f); ev.target.value = '';
 };
 window.addEventListener('beforeunload', save);
-// 폴더 자동 저장(크롬·엣지 File System Access API): 고른 폴더의 save/에 매 턴 JSON을 덮어씀
+// 폴더 자동 저장(크롬·엣지 File System Access API): 고른 폴더의 save/에 매 턴 새 JSON을 만들고 최근 SAVE_MAX개만 남김
 // 폴더 핸들은 IndexedDB에 둬서 다음에 열면 권한만 다시 받음(턴 종료 누를 때)
 let saveDir = null;
+const SAVE_MAX = 20;
 const kv = (mode, fn) => new Promise((ok, no) => {
   const r = indexedDB.open('party-tycoon', 1);
   r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onerror = () => no(r.error);
@@ -2593,8 +2594,15 @@ async function saveToDir() {
   if (!saveDir || !S) return;
   try {
     if (await saveDir.queryPermission({ mode: 'readwrite' }) !== 'granted') return;
-    const w = await (await saveDir.getFileHandle(`정당키우기_${S.party.name.replace(/[\\/:*?"<>|]/g, '_')}.json`, { create: true })).createWritable();
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const name = `정당키우기_${S.party.name}_${fdate(S.day).slice(0, 10)}_${stamp}.json`.replace(/[\\/:*?"<>|]/g, '_');
+    const w = await (await saveDir.getFileHandle(name, { create: true })).createWritable();
     await w.write(JSON.stringify(S)); await w.close();
+    // 세이브 파일은 최대 SAVE_MAX개, 넘치면 가장 오래된 것부터 삭제
+    const files = [];
+    for await (const [n, h] of saveDir.entries()) if (h.kind === 'file' && n.startsWith('정당키우기_') && n.endsWith('.json')) files.push({ n, t: (await h.getFile()).lastModified });
+    files.sort((a, b) => a.t - b.t);
+    for (const f of files.slice(0, Math.max(0, files.length - SAVE_MAX))) await saveDir.removeEntry(f.n);
   } catch (e) { toast('폴더 자동 저장 실패. 설정에서 폴더를 다시 고르세요.', 'bad'); }
 }
 
@@ -3325,7 +3333,7 @@ function settingsModal() {
       <div class="row"><label class="small"><input type="checkbox" id="sCost" ${s.skipCost ? '' : 'checked'}> 비용·행동력 확인 창 보기</label></div>
       <h3 style="margin-top:16px">저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
       <div class="btns"><button class="btn" id="sExp">파일로 내보내기</button><button class="btn" id="sImp">파일 불러오기</button><button class="btn danger" id="sNew">새 게임</button></div>
-      <p class="small muted" style="margin-top:8px">${!window.showDirectoryPicker ? '폴더 자동 저장은 크롬·엣지에서만 됩니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/정당키우기_${esc(S.party.name)}.json (매 턴 덮어씀, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 매 턴 자동 저장합니다.'}</p>
+      <p class="small muted" style="margin-top:8px">${!window.showDirectoryPicker ? '폴더 자동 저장은 크롬·엣지에서만 됩니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/정당키우기_${esc(S.party.name)}_날짜_시각.json (매 턴 새 파일, 최근 ${SAVE_MAX}개만 남김, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 매 턴 자동 저장합니다.'}</p>
       ${window.showDirectoryPicker ? `<div class="btns"><button class="btn" id="sDir">${saveDir ? '저장 폴더 바꾸기' : '저장 폴더 고르기'}</button></div>` : ''}
       <h3 style="margin-top:16px">단축키</h3><p class="small muted">Space 턴 종료</p>`,
     buttons: [{ t: '닫기', pri: true }],
