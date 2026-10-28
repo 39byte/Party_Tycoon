@@ -258,11 +258,22 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .split2{display:grid;grid-template-columns:1fr 1fr;margin-top:12px} .split2>div{min-width:0;padding:0 14px} .split2>div:first-child{padding-left:0} .split2>div+div{border-left:1px solid var(--border);padding-right:0}
 .split2 h3{font-size:14px;margin:0 0 8px} .split2 .choices{margin-top:0}
 @media (max-width:640px){.split2{grid-template-columns:1fr;gap:14px}.split2>div{padding:0}.split2>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
-.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:min(380px,calc(100vw - 32px))}
-/* 알림: HUD색 판 + 왼쪽 상태 띠 */
-.toast{background:var(--hud2);color:var(--on-hud);padding:10px 14px;border:1px solid var(--hud-line);border-left:4px solid var(--gold);border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(2,6,23,.35);animation:tin .2s ease-out}
-.toast.bad{border-left-color:#F87171} .toast.ok{border-left-color:#4ADE80}
-@keyframes tin{from{opacity:0;transform:translateY(8px)}}
+.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(360px,calc(100vw - 32px))}
+/* 알림: HUD색 판 + 상태 아이콘(종류 제목) + 닫기 + 남은 시간 막대. 마우스를 올리면 멈춤 */
+.toast{--tc:var(--gold);position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:start;background:var(--hud2);color:var(--on-hud);padding:12px 8px 14px 12px;border:1px solid var(--hud-line);border-radius:12px;font-size:14px;line-height:1.45;box-shadow:0 10px 28px rgba(2,6,23,.4);overflow:hidden;animation:tin .22s cubic-bezier(.2,.9,.3,1)}
+.toast.bad{--tc:#F87171} .toast.ok{--tc:#4ADE80}
+.toast .tico{display:grid;place-items:center;width:28px;height:28px;border-radius:8px;color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,transparent)}
+.toast .tico .ic{width:16px;height:16px}
+.toast b{display:block;font-size:12px;font-weight:700;color:var(--tc);letter-spacing:.02em;margin-bottom:1px}
+.toast p{margin:0;overflow-wrap:anywhere}
+.toast .tx{width:28px;height:28px;margin:-4px 0 0;border:0;border-radius:8px;background:none;color:var(--on-hud-muted);font-size:18px;line-height:1;cursor:pointer}
+.toast .tx:hover,.toast .tx:focus-visible{color:var(--on-hud);background:rgba(255,255,255,.08)}
+.toast .tbar{position:absolute;left:0;bottom:0;height:3px;width:100%;background:var(--tc);transform-origin:left;animation:tbar var(--d) linear forwards}
+.toast:hover .tbar,.toast:focus-within .tbar{animation-play-state:paused}
+.toast.out{animation:tout .16s ease-in forwards}
+@keyframes tin{from{opacity:0;transform:translateX(24px)}}
+@keyframes tout{to{opacity:0;transform:translateX(24px)}}
+@keyframes tbar{to{transform:scaleX(0)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
 .swatches label{cursor:pointer}
@@ -2803,8 +2814,14 @@ document.addEventListener('keydown', e => {
   if (e.key === ' ' && !/BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); endTurn(); }
 });
 function toast(msg, type = '') {
-  const el = document.createElement('div'); el.className = 'toast ' + type; el.textContent = msg;
-  $('#toasts').appendChild(el); setTimeout(() => el.remove(), 4000);
+  const [ico, head] = { ok: ['i-star', '완료'], bad: ['i-bolt', '경고'] }[type] || ['i-bell', '알림'];
+  const el = document.createElement('div'); el.className = 'toast ' + type; el.setAttribute('role', type === 'bad' ? 'alert' : 'status');
+  el.style.setProperty('--d', clamp(msg.length * 70, 4000, 9000) + 'ms'); // 긴 알림은 오래 띄움
+  el.innerHTML = `<span class="tico">${icon(ico)}</span><div><b>${head}</b><p>${esc(msg)}</p></div><button class="tx" aria-label="알림 닫기">×</button><i class="tbar"></i>`;
+  const close = () => { if (el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 160); };
+  el.querySelector('.tx').onclick = close; el.querySelector('.tbar').onanimationend = close;
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) setTimeout(() => el.remove(), 6000); // 애니메이션이 꺼지면 막대 종료 신호가 없음
+  $('#toasts').appendChild(el);
   while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
 }
 
