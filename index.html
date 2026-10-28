@@ -678,17 +678,18 @@ let S = null, tab = 'home', selReg = 'seoul', modalOpen = false;
 
 // ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
-  set: (() => { const d = { bgm: false, sfx: false, vol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
-  ctx: null, out: null, bus: null, timer: null, step: 0, t: 0,
+  set: (() => { const d = { bgm: false, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
+  ctx: null, sfxG: null, bus: null, timer: null, step: 0, t: 0,
   saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(this.set)); } catch (e) { } },
   ensure() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return true; }
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return false;
     try { this.ctx = new AC(); } catch (e) { return false; }
-    this.out = this.ctx.createGain(); this.out.gain.value = this.set.vol; this.out.connect(this.ctx.destination);
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600; lp.connect(this.out);
-    this.bus = this.ctx.createGain(); this.bus.gain.value = 0.55; this.bus.connect(lp);
+    this.sfxG = this.ctx.createGain(); this.sfxG.connect(this.ctx.destination);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600; lp.connect(this.ctx.destination);
+    this.bus = this.ctx.createGain(); this.bus.connect(lp);
+    this.applyVol();
     return true;
   },
   note(dest, f, t, dur, type = 'sine', g = 0.1, atk = 0.01) {
@@ -699,7 +700,7 @@ const Snd = {
   },
   sfx(name) {
     if (!this.set.sfx || !this.ensure()) return;
-    const t = this.ctx.currentTime + 0.01, o = this.out;
+    const t = this.ctx.currentTime + 0.01, o = this.sfxG;
     const seq = {
       click: [[880, 0, 0.06, 'sine', 0.08]],
       ok: [[660, 0, 0.12, 'triangle', 0.12], [990, 0.08, 0.18, 'triangle', 0.12]],
@@ -727,7 +728,9 @@ const Snd = {
       }
     }, 200);
   },
-  vol(v) { this.set.vol = v; if (this.out) this.out.gain.value = v; this.saveSet(); },
+  // 음량 슬라이더 1 = 예전 최대의 3배
+  applyVol() { if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 3 * this.set.bgmVol; },
+  vol(k, v) { this.set[k] = v; this.applyVol(); this.saveSet(); },
 };
 document.addEventListener('pointerdown', () => { if (Snd.set.bgm && !Snd.timer) Snd.bgm(true); }, { once: true });
 document.addEventListener('visibilitychange', () => {
@@ -756,6 +759,8 @@ const person = id => S.pool.find(p => p.id === +id);
 const leader = () => S.pool.find(p => p.leader);
 // 무난해 보이는 대안도 늘 통하진 않음. 대표 역량이 높을수록 잘 풀림
 const luck = p => rnd() < clamp(p + (leader().skill - 55) / 200, 0.1, 0.92);
+// 당 대표가 직접 나선 활동: 대표 개인 인지도도 오름(높을수록 덜 오름)
+const leadFame = g => { const L_ = leader(); L_.fame = clamp(L_.fame + g * (1 - L_.fame / 100), 0, 100); };
 
 // ---------- state ----------
 function newState(f) {
@@ -1619,6 +1624,7 @@ function negotiate(cdk, cost, odds, win, lose) {
   spend(cost, '교섭'); S.ap--; S.cd[cdk] = S.day + 14;
   const ok = rnd() < odds.p, L_ = leader();
   if (ok && L_.skill < 95 && rnd() < 0.15) L_.skill++; // 협상 경험
+  leadFame(ok ? 1 : 0.3);
   closeModal(); info(ok ? '교섭 성공' : '교섭 결렬', ok ? win() : lose(), !ok);
 }
 const ctxHTML = id => { const l = S.relLog.filter(x => x.id === id).slice(-5).reverse(); return l.length ? `<ul class="log">${l.map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <b class="${x.v >= 0 ? 'ok' : 'bad'} num">${x.v > 0 ? '+' : ''}${x.v}</b></span></li>`).join('')}</ul>` : '<p class="small muted">아직 주고받은 일이 없습니다.</p>'; };
@@ -1812,8 +1818,8 @@ function doAct(key, k) {
     msg = `온라인 홍보: 인지도 +${g.toFixed(1)}`;
   } else if (key === 'media') {
     const L_ = leader();
-    if (rnd() < L_.skill / 100 * 0.6 + 0.3) { S.fame += 3 * (1 - S.fame / 100); S.trust = clamp(S.trust + 1, 0, 100); msg = '인터뷰 호평! 인지도·신뢰 상승.'; }
-    else { S.trust = clamp(S.trust - 2.5, 0, 100); S.fame += 1; msg = '인터뷰 중 말실수가 화제가 되었습니다. 신뢰 하락.'; ok = false; }
+    if (rnd() < L_.skill / 100 * 0.6 + 0.3) { S.fame += 3 * (1 - S.fame / 100); S.trust = clamp(S.trust + 1, 0, 100); leadFame(3); msg = '인터뷰 호평! 인지도·신뢰 상승.'; }
+    else { S.trust = clamp(S.trust - 2.5, 0, 100); S.fame += 1; leadFame(1); msg = '인터뷰 중 말실수가 화제가 되었습니다. 신뢰 하락.'; ok = false; }
   } else if (key === 'fund') {
     const got = raiseFunds((3e7 + totalMembers() * 2000 + S.fame * S.fame * 3e5) * rr(0.7, 1.3));
     msg = `후원의 밤: ${won(got)} 모금 (올해 ${won(S.fund.raised)} / 한도 ${won(fundCap())})`;
@@ -1822,7 +1828,7 @@ function doAct(key, k) {
   } else if (key === 'question') {
     const ruling = S.president.party === 'P', mp = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill)[0] || leader();
     if (rnd() < mp.skill / 100 * 0.6 + 0.25) {
-      S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100);
+      S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100); if (mp.leader) leadFame(2);
       if (!ruling) S.rw[S.president.party] -= 1.5;
       msg = ruling ? `${mp.name} 의원이 정부 정책을 날카롭게 점검해 "건강한 여당"이라는 평을 들었습니다.` : `${mp.name} 의원의 송곳 질문에 장관이 진땀을 뺐습니다. 영상이 화제입니다.`;
     } else { S.trust = clamp(S.trust - 1, 0, 100); ok = false; msg = `${mp.name} 의원이 준비 부족으로 장관에게 역공을 당했습니다.`; }
@@ -1831,6 +1837,7 @@ function doAct(key, k) {
     const cand = c.type === 'pres' ? c.reg.cand : Object.values(c.reg.gov)[0];
     if (rnd() < cand.skill / 100 * 0.7 + 0.15) { c.boost.nat += 0.06; msg = `TV 토론: ${cand.name} 후보 선전!`; }
     else { c.boost.nat -= 0.03; msg = `TV 토론: ${cand.name} 후보가 고전했습니다.`; ok = false; }
+    if (cand.id === 0) leadFame(ok ? 3 : 1); // 대표가 후보로 나선 토론
   }
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? '' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
@@ -1843,7 +1850,7 @@ function policyModal() {
     onOpen: m => m.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
       const i = ISSUES.find(x => x.k === b.dataset.issue), mult = fit(i) * (i.k === S.issue ? 2 : 1) * (S.up.inst ? 1.5 : 1);
       spend(ACT.policy.c(), '활동'); S.cd.policy = S.day + ACT.policy.cd; S.ap--;
-      S.trust = clamp(S.trust + 1.5 * mult, 0, 100); S.fame = clamp(S.fame + 1 * mult, 0, 100); S.buzz += 0.4 * mult;
+      S.trust = clamp(S.trust + 1.5 * mult, 0, 100); S.fame = clamp(S.fame + 1 * mult, 0, 100); S.buzz += 0.4 * mult; leadFame(1 * mult);
       const re = i.k === S.issue ? '언론과 여론의 반응이 뜨겁습니다!' : fit(i) >= 1.05 ? '지지층에서 무난한 반응이 나왔습니다.' : '반응이 미지근합니다.';
       closeModal(); const msg = `${i.n} 정책 발표: ${re}`; toast(msg, i.k === S.issue ? 'ok' : ''); addLog(msg); Snd.sfx('ok'); renderAll();
     }),
@@ -2445,8 +2452,8 @@ function agendaVisit() {
   const g = S.agenda; if (!g || g.visit || left || S.ap < 1 || S.money < 5e6) return;
   const a = AGENDA.find(x => x.k === g.k);
   g.visit = true; S.ap--; spend(5e6, '활동');
-  if (luck(0.6)) { S.trust += 2; S.fame += 1.5; info('현장 방문', `${leader().name} 대표가 '${a.t}' 현장을 찾아 피해자·유가족을 만났습니다. 진정성 있는 행보라는 평입니다.`, false); }
-  else { S.trust -= 1.5; S.fame += 0.5; info('현장 방문', `${leader().name} 대표의 '${a.t}' 현장 방문이 "사진 찍으러 왔다"는 비판을 받았습니다. 일부 유가족은 면담을 거부했습니다.`, true); }
+  if (luck(0.6)) { S.trust += 2; S.fame += 1.5; leadFame(1.5); info('현장 방문', `${leader().name} 대표가 '${a.t}' 현장을 찾아 피해자·유가족을 만났습니다. 진정성 있는 행보라는 평입니다.`, false); }
+  else { S.trust -= 1.5; S.fame += 0.5; leadFame(0.5); info('현장 방문', `${leader().name} 대표의 '${a.t}' 현장 방문이 "사진 찍으러 왔다"는 비판을 받았습니다. 일부 유가족은 면담을 거부했습니다.`, true); }
   renderAll();
 }
 function agendaCard() {
@@ -3381,7 +3388,7 @@ function settingsModal() {
     title: '설정·저장', html: `
       <h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
-      <label class="f">음량<input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.vol}"></label></div>
+      <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>
       <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
       <h3 style="margin-top:16px">실행 확인</h3><p class="small muted">활동·인재 영입·표 단속 등을 누르면 비용과 행동력을 한 번 더 보여 줍니다.</p>
@@ -3395,7 +3402,9 @@ function settingsModal() {
     onOpen: m => {
       m.querySelector('#sBgm').onchange = e => { s.bgm = e.target.checked; Snd.saveSet(); Snd.bgm(s.bgm); };
       m.querySelector('#sSfx').onchange = e => { s.sfx = e.target.checked; Snd.saveSet(); Snd.sfx('click'); };
-      m.querySelector('#sVol').oninput = e => Snd.vol(+e.target.value);
+      m.querySelector('#sBgmVol').oninput = e => Snd.vol('bgmVol', +e.target.value);
+      m.querySelector('#sSfxVol').oninput = e => Snd.vol('sfxVol', +e.target.value);
+      m.querySelector('#sSfxVol').onchange = () => Snd.sfx('click');
       m.querySelector('#sConfAp').onchange = e => { s.confAp = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sConfAap').onchange = e => { s.confAap = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sCost').onchange = e => { s.skipCost = !e.target.checked; Snd.saveSet(); };
