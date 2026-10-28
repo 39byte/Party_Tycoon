@@ -262,7 +262,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* (i) 설명 버튼과 툴팁 */
 .tip{font-size:13px;color:var(--muted)}
-/* 지방정부 탭 단체장 카드: 직명·이름이 한 줄씩 들어가게 초상·버튼을 줄임 */
+/* 지방 정부 탭 단체장 카드: 직명·이름이 한 줄씩 들어가게 초상·버튼을 줄임 */
 .gov .who{gap:7px} .gov .face{width:36px;height:36px;border-radius:10px}
 .gt{flex:1;min-width:0;line-height:1.3}.gt .small{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt h3{overflow-wrap:anywhere}
 .gov .nowrap{min-height:36px;padding:6px 9px;font-size:14px}
@@ -279,6 +279,15 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .bills .btns .btn{min-height:34px;padding:4px 12px}
 .billh{display:flex;align-items:flex-start;gap:10px}.billh>div{flex:1;min-width:0}.billh>.btn{flex:none;min-height:34px;padding:4px 12px}
 .btns .push{margin-left:auto}
+/* 카드 제목 오른쪽 끝: 스위치 · (i) */
+.h2r{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
+.sw{display:inline-flex;align-items:center;gap:8px;min-height:32px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.sw input{appearance:none;position:relative;width:38px;height:22px;margin:0;border-radius:99px;background:var(--border);cursor:pointer;transition:background .15s}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
+.sw input:checked{background:var(--primary)}
+.sw input:checked::after{transform:translateX(16px)}
+.sw input:focus-visible{outline:2px solid var(--primary2);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){.sw input,.sw input::after{transition:none}}
 @container (min-width:734px){.billsplit>section+section{border-left:1px solid var(--border);padding-left:14px}}
 .tipw{display:inline-flex;vertical-align:middle;margin-left:6px}
 .info{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;margin-left:2px;border:1.5px solid var(--muted);border-radius:50%;background:none;color:var(--muted);font:italic 700 13px/1 Georgia,"Times New Roman",serif;cursor:help}
@@ -597,7 +606,7 @@ const AGENDA = [
       { t: '임명 철회 요구', side: 1, pop: 0.6, against: true },
       { t: '"자녀 문제로 공직 검증은 과도"', side: -1, pop: 0.22, gov: true }] },
 ];
-// 지역 소식(지방정부 탭). {n} 지역 이름
+// 지역 소식(지방 정부 탭). {n} 지역 이름
 const RNEWS = ['{n}, 청년 인구 유출 5년째 이어져', '{n} 전통시장 매출 회복세', '{n} 광역철도 예비타당성조사 통과', '{n} 산업단지 가동률 70%대로 떨어져', '{n} 응급실 의사 부족으로 야간 진료 축소',
   '{n} 지방의회, 내년 예산안 두고 여야 공방', '{n} 관광객 역대 최대 기록', '{n} 농가, 이상기후로 작황 부진', '{n} 소멸 위기 시·군 늘어', '{n} 신축 아파트 미분양 증가', '{n} 시내버스 노선 개편에 주민 반발',
   '{n} 지역 대학 신입생 미달 사태', '{n} 지역 축제에 주말 인파 몰려', '{n}, 이차전지 기업과 투자협약 체결', '{n} 공공기관 이전 유치전 가열', '{n} 출생아 수 반등', '{n} 상수도관 노후로 단수 사고'];
@@ -679,7 +688,7 @@ let S = null, tab = 'home', selReg = 'seoul', modalOpen = false;
 // ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
   set: (() => { const d = { bgm: false, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
-  ctx: null, sfxG: null, bus: null, timer: null, step: 0, t: 0,
+  ctx: null, sfxG: null, bus: null, timer: null, step: 0, t: 0, ci: 0, ct: 0,
   saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(this.set)); } catch (e) { } },
   ensure() {
     if (this.ctx) { if (this.ctx.state === 'suspended') this.ctx.resume(); return true; }
@@ -687,7 +696,8 @@ const Snd = {
     if (!AC) return false;
     try { this.ctx = new AC(); } catch (e) { return false; }
     this.sfxG = this.ctx.createGain(); this.sfxG.connect(this.ctx.destination);
-    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600; lp.connect(this.ctx.destination);
+    const lp = this.ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1600;
+    const comp = this.ctx.createDynamicsCompressor(); lp.connect(comp); comp.connect(this.ctx.destination); // 음량을 키워도 찢어지지 않게
     this.bus = this.ctx.createGain(); this.bus.connect(lp);
     this.applyVol();
     return true;
@@ -711,25 +721,37 @@ const Snd = {
     }[name] || [];
     seq.forEach(([f, d, dur, ty, g]) => this.note(o, f, t + d, dur, ty, g));
   },
-  // C - Am - F - G 잔잔한 루프
-  PROG: [[261.63, 329.63, 392], [220, 261.63, 329.63], [174.61, 220, 261.63], [196, 246.94, 293.66]],
+  // 애국가(안익태, 행정안전부 악보 사장조) 잔잔한 MR: [MIDI(0=쉼), 박]
+  MEL: (() => {
+    const v = [[74, 1.5], [72, .5], [71, 1], [69, 1], [67, 1], [66, .5], [64, .5], [62, 1], [59, 1], [62, 1], [67, 1], [69, .5], [69, .5], [71, 1], [67, 3], [0, 1]];
+    return [[62, 1], [67, 1.5], [66, .5], [64, 1], [67, 1], [62, 1], [59, 1], [62, 1], [67, 1], [69, .5], [71, .5], [72, 1.5], [71, .5], [69, 3], [0, 1], ...v,
+      [66, 1.5], [67, .5], [69, 1], [66, 1], [71, 1.5], [72, .5], [74, 1], [71, 1], [69, 1], [67, 1], [66, 1], [67, 1], [69, 3], [0, 1], ...v];
+  })(),
+  // 2박마다 화음
+  CH: 'G G G G G C D D G D E G G D G G D D G G A D D D G D E G G D G G'.split(' '),
+  CHN: { G: [43, 55, 59, 62], C: [48, 55, 60, 64], D: [50, 57, 62, 66], E: [52, 55, 59, 64], A: [45, 57, 60, 64] },
   bgm(on) {
     clearInterval(this.timer); this.timer = null;
     if (!on || !this.ensure()) return;
-    this.t = this.ctx.currentTime + 0.1;
+    const q = 60 / 72, hz = m => 440 * 2 ** ((m - 69) / 12);
+    this.t = this.ct = this.ctx.currentTime + 0.1; this.step = this.ci = 0;
     this.timer = setInterval(() => {
-      const e = 60 / 80 / 2; // 8분음표
-      while (this.t < this.ctx.currentTime + 0.6) {
-        const s = this.step++, ch = this.PROG[Math.floor(s / 8) % 4], b = s % 8;
-        if (b === 0) { ch.forEach(f => this.note(this.bus, f, this.t, e * 8.5, 'triangle', 0.03, 0.4)); this.note(this.bus, ch[0] / 2, this.t, e * 3.5, 'sine', 0.07, 0.02); }
-        if (b === 4) this.note(this.bus, ch[2] / 2, this.t, e * 3.5, 'sine', 0.05, 0.02);
-        if ([0, 2, 3, 5, 6].includes(b)) this.note(this.bus, ch[[0, 1, 2, 1, 2, 0, 1, 2][b]] * 2, this.t, e * 1.6, 'sine', 0.025);
-        this.t += e;
+      const end = this.ctx.currentTime + 0.6;
+      while (this.ct < end) {
+        const [r, ...ch] = this.CHN[this.CH[this.ci++ % this.CH.length]];
+        ch.forEach(m => this.note(this.bus, hz(m), this.ct, q * 2.2, 'triangle', 0.025, 0.4));
+        this.note(this.bus, hz(r), this.ct, q * 1.8, 'sine', 0.07, 0.05);
+        this.ct += q * 2;
+      }
+      while (this.t < end) {
+        const [m, d] = this.MEL[this.step++ % this.MEL.length];
+        if (m) this.note(this.bus, hz(m), this.t, d * q * 0.95, 'triangle', 0.06, 0.04);
+        this.t += d * q;
       }
     }, 200);
   },
-  // 음량 슬라이더 1 = 예전 최대의 3배
-  applyVol() { if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 3 * this.set.bgmVol; },
+  // 음량 슬라이더 1 = 예전 최대의 효과음 3배, 배경음악 15배
+  applyVol() { if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 15 * this.set.bgmVol; },
   vol(k, v) { this.set[k] = v; this.applyVol(); this.saveSet(); },
 };
 document.addEventListener('pointerdown', () => { if (Snd.set.bgm && !Snd.timer) Snd.bgm(true); }, { once: true });
@@ -1276,7 +1298,7 @@ function endTurn(sure) {
   if (!S || S.over || left || turnStart || modalOpen) return;
   // 행동력이 남았으면 한 번 더 묻기. 첫 버튼(계속)에 포커스가 가서 Space 연타로 넘어가지 않음
   // 설정에서 끈 쪽은 남아 있어도 묻지 않음
-  const ap = Snd.set.confAp ? S.ap : 0, aap = Snd.set.confAap ? S.aap : 0;
+  const ap = Snd.set.confAp ? S.ap : 0, aap = Snd.set.confAap && !S.autoGov ? S.aap : 0; // 자동화가 켜져 있으면 남은 행정 행동력은 자동화 몫
   if (sure !== true && (ap > 0 || aap > 0)) return openModal({ title: '턴을 종료할까요?',
     html: `<p>${[ap ? `행동력 <b>${ap}</b>` : '', aap ? `행정 행동력 <b>${aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p><p class="small muted">이 확인은 설정에서 끌 수 있습니다.</p>`,
     buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
@@ -1284,6 +1306,7 @@ function endTurn(sure) {
   // 권한 요청은 사용자 입력 중에만 됨. 이미 허용됐으면 창 없이 넘어감
   if (saveDir) saveDir.requestPermission({ mode: 'readwrite' }).catch(() => { });
   turnStart = { day: S.day, money: S.money, mem: totalMembers(), sup: poll().P };
+  if (S.autoGov) autoGov();
   left = TURN; runTurn();
 }
 // 이벤트 모달이 뜨면 멈추고, 닫히면 closeModal이 다시 이어감. 7일이 끝나면 주간 브리핑
@@ -1342,7 +1365,7 @@ const wire = t => { S.wire.push({ d: S.day, t }); if (S.wire.length > 300) S.wir
 // ---------- 뉴스 ----------
 const shuffle = a => a.map(x => [rnd(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
 function makeNews() {
-  // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 지방정부 탭 지역 소식에도 올림
+  // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 지방 정부 탭 지역 소식에도 올림
   const fill = h => { let k = null;
     const t = h.replace(/\{r\}/g, () => { const r = pick(R); k = r.k; return r.n; }).replace(/\{p\} 대통령/g, presT()).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
     return { t, k: k || (R.find(r => t.startsWith(r.n + ' ')) || {}).k }; };
@@ -1519,36 +1542,65 @@ function govModal(k) {
     title: `${AREA(k)} 행정 사업`,
     tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> · 남은 행정 행동력 <b class="num">${S.aap}</b></p>
-      ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
+      ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방 정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
       <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k);
         return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
-      const pj = b.dataset.pj, n = RK[k].n;
+      const pj = b.dataset.pj;
       if (S.aap < 1 || govCd(k, pj)) return;
-      S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
-      const a = pjAdj(k, pj), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
-      let msg, ok = true;
-      if (pj === 'dev') {
-        if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
-        else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
-        if (rnd() < 0.35) later(rr(14, 60), { ev: 'devbribe', k });
-      } else if (pj === 'care') {
-        if (luck(pr(0.75))) { S.ops[k] += 3.5; S.trust += 0.5; msg = `${n} 돌봄센터 확충으로 주민 호응이 좋습니다.`; }
-        else { S.ops[k] -= 2; ok = false; msg = `${n} 돌봄센터 위탁업체 선정을 두고 특혜 논란이 일었습니다.`; }
-      } else if (pj === 'biz') {
-        if (rnd() < pr(0.5)) { S.ops[k] += 8; S.fame += 1; msg = `${n}에 대기업 공장 유치 성공! 일자리 수천 개가 생깁니다.`; }
-        else { S.ops[k] += 1; ok = false; msg = `${n} 투자 유치 협상이 결렬됐습니다.`; }
-      } else if (luck(pr(0.7))) { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
-      else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
-      // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
-      if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
-        need.forEach(x => rnews(k, `${GOVT[k]} ${govName(k)}, '${shortT(x)}' 해결 나서… 주민 호평`)); }
-      S.ops[k] = clamp(S.ops[k], 5, 95); rnews(k, msg);
-      later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
-      closeModal(); info(`${n} 행정`, msg, !ok);
+      const r = govRun(k, pj); closeModal(); info(`${RK[k].n} 행정`, r.msg, !r.ok);
     }),
   });
+}
+// 역점사업 한 건 실행(행정 행동력 1). 창에서 고르든 자동화든 여기로
+function govRun(k, pj) {
+  const n = RK[k].n;
+  S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
+  const a = pjAdj(k, pj), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
+  let msg, ok = true;
+  if (pj === 'dev') {
+    if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
+    else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
+    if (rnd() < 0.35) later(rr(14, 60), { ev: 'devbribe', k });
+  } else if (pj === 'care') {
+    if (luck(pr(0.75))) { S.ops[k] += 3.5; S.trust += 0.5; msg = `${n} 돌봄센터 확충으로 주민 호응이 좋습니다.`; }
+    else { S.ops[k] -= 2; ok = false; msg = `${n} 돌봄센터 위탁업체 선정을 두고 특혜 논란이 일었습니다.`; }
+  } else if (pj === 'biz') {
+    if (rnd() < pr(0.5)) { S.ops[k] += 8; S.fame += 1; msg = `${n}에 대기업 공장 유치 성공! 일자리 수천 개가 생깁니다.`; }
+    else { S.ops[k] += 1; ok = false; msg = `${n} 투자 유치 협상이 결렬됐습니다.`; }
+  } else if (luck(pr(0.7))) { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
+  else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
+  // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
+  if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
+    need.forEach(x => rnews(k, `${GOVT[k]} ${govName(k)}, '${shortT(x)}' 해결 나서… 주민 호평`)); }
+  S.ops[k] = clamp(S.ops[k], 5, 95); rnews(k, msg);
+  later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
+  return { k, msg, ok };
+}
+// 행정 사업 자동화(S.autoGov): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
+// ② 지정한 현안에 맞는 사업 ③ 남으면 행정 지지도 낮은 곳부터 무난한 사업. 악재 소식이 보이는 사업은 피함
+// 진짜 문제인지는 플레이어처럼 소식 문구로만 짐작(RISSUE 문구와 맞춰 봄)
+const issueHint = x => RISSUE.find(it => new RegExp('^' + it.t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{n\\}', RK[x.k].n).replace('\\{d\\}', '.+') + '$').test(x.t));
+function autoGov() {
+  const govs = Object.keys(S.ops), out = [], recent = k => S.rnews.filter(y => y.k === k && S.day - y.d < 35);
+  for (const k of govs) for (const x of recent(k).reverse()) {
+    if (desOf(k).length >= desMax) break;
+    if (!S.rdes.some(d => d.nid === x.id) && issueHint(x)?.pj) S.rdes.push({ nid: x.id, k, t: x.t, d: x.d, rid: x.r || 0 });
+  }
+  const bads = {}; for (const k of govs) bads[k] = recent(k).map(y => issueHint(y)?.bad).filter(Boolean);
+  for (const x of [...S.rdes]) {
+    const pj = issueHint(x)?.pj;
+    if (S.aap >= 1 && S.gov[x.k] === 'P' && pj && !govCd(x.k, pj) && !bads[x.k].includes(pj)) out.push(govRun(x.k, pj));
+  }
+  while (S.aap >= 1) { // 성공률 높은 사업부터
+    const c = govs.map(k => [k, ['care', 'safe', 'biz', 'dev'].find(pj => !govCd(k, pj) && !bads[k].includes(pj))]).filter(c => c[1]).sort((a, b) => S.ops[a[0]] - S.ops[b[0]])[0];
+    if (!c) break;
+    out.push(govRun(...c));
+  }
+  S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
+  out.forEach(r => addLog(`[${RK[r.k].n} 행정·자동] ${r.msg}`, r.ok ? 'ok' : 'bad'));
+  if (out.length) toast(`행정 사업 자동 진행 ${out.length}건: 성공 ${out.filter(r => r.ok).length}건`, out.every(r => r.ok) ? 'ok' : '');
 }
 
 // ---------- 교섭: 결과 = 대표 역량 + 상대 진영(노선 차이) + 그동안의 관계 ----------
@@ -1778,7 +1830,7 @@ function why(key, k) {
   const a = ACT[key], cdk = key + (k ? ':' + k : '');
   if (S.over) return '게임 종료';
   if (left) return '턴 진행 중';
-  if (key === 'govern') { if (S.aap < 1) return '행정 행동력 소진'; }
+  if (key === 'govern') { if (S.autoGov) return '자동화 중: 턴을 끝낼 때 진행'; if (S.aap < 1) return '행정 행동력 소진'; }
   else if (S.ap < 1) return '행동력 소진';
   if (a.camp && !activeCamps().length) return '공식 선거운동기간에만 가능 (사전선거운동 금지, 공직선거법 제254조)';
   if (key === 'debate' && !activeCamps().some(c => c.type !== 'nat')) return '대선·지방선거 선거운동기간에만 열림';
@@ -2466,7 +2518,7 @@ function agendaCard() {
     <p class="small muted">여론 판정: ${fdate(g.end)} 무렵</p><p class="tip">${fdate(g.end)} 무렵 사건이 잦아들면 여론이 입장별로 갈립니다. 여론과 맞는 입장을 낸 당은 신뢰를 얻고, 엇갈린 당은 역풍을 맞습니다.</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담 (5백만·행동력 1)</button>${w ? `<span class="small warn">${w}</span>` : ''}</div></div>`;
 }
-// 지역 소식(지방정부 탭)
+// 지역 소식(지방 정부 탭)
 // c: 현안 소식이면 1
 // id: 현안 지정용, r: 연결된 실제 문제(숨김), v: 화제가 되어 지지율을 흔든 소식
 const rnews = (k, t, r, v) => { const x = { id: ++S.seq, d: S.day, k, t }; if (r) x.r = r; if (v) x.v = 1; S.rnews.push(x); if (S.rnews.length > 800) S.rnews.shift(); };
@@ -2475,7 +2527,7 @@ const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.
 // NEW 표시: 마지막으로 끝난 턴(턴 진행 중이면 그 직전 턴)에 나왔고 아직 안 읽은 것. 지금 연 지역은 열기 전 읽음 시점 기준
 let rOpen = null;
 const rNew = x => x.d > (turnStart ? turnStart.day : S.day) - TURN && x.d > (rOpen?.k === x.k ? rOpen.seen : S.rseen[x.k] ?? -1);
-// 지방정부 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
+// 지방 정부 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
 const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
@@ -2689,7 +2741,7 @@ function toast(msg, type = '') {
 
 // ---------- 렌더링 ----------
 // 메뉴 순서: 당 운영 | 의회·지방정부·교섭·선거 | 읽을거리. NAV_SEP 뒤에 구분선(wide는 위 간격 넓게)
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '의회', 'i-gov'], ['pres', '청와대', 'i-bh'], ['admin', '지방정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '의회', 'i-gov'], ['pres', '청와대', 'i-bh'], ['admin', '지방 정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
 const NAV_SEP = { fin: '', elec: ' wide' };
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 // 패널이 읽음 처리(지역 소식)를 하므로 탭 배지는 패널 다음에 그림
@@ -2853,6 +2905,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-visit]').forEach(b => b.onclick = agendaVisit);
   m.querySelectorAll('[data-presp]').forEach(b => b.onclick = () => partyRespond(+b.dataset.presp));
+  m.querySelectorAll('[data-autogov]').forEach(b => b.onchange = () => { S.autoGov = b.checked; Snd.sfx('click'); save(); renderAll(); });
   m.querySelectorAll('[data-des]').forEach(b => b.onclick = () => toggleDes(+b.dataset.des));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
@@ -3143,7 +3196,8 @@ const pNeg = () => negCard();
 function pAdmin() {
   const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
-  const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
+  const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span>
+      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">진짜 지역 문제인지는 자동화도 알 수 없습니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]}">${GOVT[k]}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
@@ -3355,10 +3409,11 @@ function pGuide() {
       <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 의회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(151표)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
-      <li>광역단체장을 배출하면 지방정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
+      <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다.</li>
-      <li>지방정부 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
-      <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 옆 '현안 지정'을 누르면 지방정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
+      <li>'행정 운영' 제목 오른쪽의 <b>자동화</b>를 켜면, 턴을 끝낼 때 남은 행정 행동력으로 현안 지정과 맞는 역점사업을 알아서 진행합니다. 진짜 지역 문제인지는 자동화도 소식 문구로만 짐작합니다.</li>
+      <li>지방 정부 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
+      <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 옆 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>제대로 짚은 현안에 맞는 역점사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없고, 시·도당 현장 대응도 잘 안 먹힙니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
       <li>지정하지 않았더라도 진짜 문제를 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>
