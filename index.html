@@ -775,18 +775,32 @@ document.addEventListener('visibilitychange', () => {
 
 // ---------- people ----------
 function genName(g) { return pick(SUR) + pick(g === 'F' ? GF : GM); }
+// 전과: 청렴이 낮을수록 생기기 쉬움. noBan: 선거에 나갔던 사람이라 피선거권을 잃는 전과는 없음
+const genRec = (integ, noBan) => {
+  const pool = noBan ? RECORDS.filter(r => !r.ban) : RECORDS, rec = [];
+  if (integ < 45 && rnd() < 0.6) rec.push(pick(pool));
+  if (integ < 25 && rnd() < 0.5) rec.push(pick(pool));
+  return { rec: rec.map(r => r.t), ban: rec.some(r => r.ban) };
+};
+// 영입 전엔 청렴·전과를 모름. 단 현직 의원(mp)과 선거에 나갔거나(후보 등록 때 전과 공개, 공직선거법 제49조) 공직에 있었던 인물은 공개
+const PUBLIC_RX = /국회의원|장관|광역단체장|고위공무원|지방의원|장성/, EXPOL_RX = /전 국회의원|전 광역단체장|전직 지방의원/;
+const recOpen = (p, mp) => mp || PUBLIC_RX.test(p.role || p.job || '');
+// 전직 선출직의 공개 전과는 마지막 선거 때 기준이라, 아주 드물게 그 뒤 생긴 전과가 영입하고 나서 드러남
+function lateRec(p, src) {
+  if (!EXPOL_RX.test(src) || rnd() >= 0.03) return;
+  const r = pick(RECORDS); p.rec.push(r.t); if (r.ban) p.ban = true;
+  const t = `${p.name}: 마지막 선거 이후 생긴 전과가 드러났습니다 — ${r.t}${r.ban ? ' (피선거권 없음)' : ''}`;
+  addLog(t, 'bad'); toast(t, 'bad');
+}
 function genPerson(o = {}) {
   const gender = o.gender || (rnd() < (S && S.up.youth ? 0.5 : 0.36) ? 'F' : 'M');
   const job = pick(JOBS);
   let age = o.age || Math.round(rr(30, 68) - (S && S.up.youth && rnd() < 0.4 ? 10 : 0));
-  const integ = Math.round(clamp(gauss() * 18 + 64, 5, 100));
-  const rec = [];
-  if (integ < 45 && rnd() < 0.6) rec.push(pick(RECORDS));
-  if (integ < 25 && rnd() < 0.5) rec.push(pick(RECORDS));
+  const integ = Math.round(clamp(gauss() * 18 + 64, 5, 100)), { rec, ban } = genRec(integ);
   return {
     id: S.nid++, name: genName(gender), gender, age: clamp(age, 18, 80), job: job.n,
     fame: Math.round(clamp(gauss() * 10 + job.f + (o.fameAdd || 0), 1, 95)),
-    skill: Math.round(clamp(gauss() * 12 + job.s, 10, 99)), integ, rec: rec.map(r => r.t), ban: rec.some(r => r.ban), role: '',
+    skill: Math.round(clamp(gauss() * 12 + job.s, 10, 99)), integ, rec, ban, role: '',
   };
 }
 const candFactor = c => clamp(1 + (c.fame - 15) / 200 + (c.skill - 50) / 250 - (c.rec ? c.rec.length : 0) * 0.05, 0.6, 1.6);
@@ -870,7 +884,7 @@ function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
   o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
-  for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); } // 옛 저장: 인지도·청렴이 없던 인물
+  for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -1656,15 +1670,15 @@ function genMPs(o, keep = []) {
   for (const id in MP_N) {
     const has = out.filter(m => m.party === id);
     const ks = shuffle(R.filter(r => (o.seats[id].d[r.k] || 0) > has.filter(m => m.k === r.k).length).map(r => r.k)).slice(0, Math.max(0, MP_N[id] - has.length));
-    for (const k of ks) out.push({ id: ++o.seq, name: genName(rnd() < 0.25 ? 'F' : 'M'), party: id, k, fame: Math.round(rr(20, 45)), skill: Math.round(rr(40, 85)), integ: Math.round(rr(40, 80)), loyalty: Math.round(rr(30, 90)), rel: 0 });
+    for (const k of ks) { const integ = Math.round(rr(40, 80)); out.push({ id: ++o.seq, name: genName(rnd() < 0.25 ? 'F' : 'M'), party: id, k, fame: Math.round(rr(20, 45)), skill: Math.round(rr(40, 85)), integ, ...genRec(integ, true), loyalty: Math.round(rr(30, 90)), rel: 0 }); }
   }
   return out;
 }
 // 원외 인사: 당적이 있으면 그 당 노선, 없으면 제각각
 function genOut(o) {
-  const [role, f] = pick(OUT_ROLES), party = /시민|노동|유튜버|원외정당/.test(role) ? null : pick(['A', 'A', 'B', 'B', 'C']);
-  return { id: ++o.seq, name: genName(rnd() < 0.3 ? 'F' : 'M'), role, party, ideo: party ? RIV[party].ideo : pick([-1, -0.5, 0, 0.5, 1]), k: pick(R).k,
-    fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ: Math.round(rr(40, 85)), loyalty: Math.round(rr(20, 80)), rel: 0 };
+  const [role, f] = pick(OUT_ROLES), party = /시민|노동|유튜버|원외정당/.test(role) ? null : pick(['A', 'A', 'B', 'B', 'C']), integ = Math.round(clamp(gauss() * 18 + 62, 10, 95));
+  return { ...genRec(integ, PUBLIC_RX.test(role)), id: ++o.seq, name: genName(rnd() < 0.3 ? 'F' : 'M'), role, party, ideo: party ? RIV[party].ideo : pick([-1, -0.5, 0, 0.5, 1]), k: pick(R).k,
+    fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ, loyalty: Math.round(rr(20, 80)), rel: 0 };
 }
 const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
 // 다른 당 광역단체장: { 지역: { p 정당, n 이름, o 행정 지지도 } }. 당이 바뀐 곳만 새 인물
@@ -1746,9 +1760,11 @@ function negModal(id) {
 // 교섭 인물 정보: m12 원내 의원 · o5 원외 인사
 function personInfo(key) {
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
-  const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B';
+  const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B', open = recOpen(m, mp);
   const aff = mp ? `${m.party === 'O' ? '무소속' : pn(m.party)} 의원 · ${RK[m.k].n} 지역구` : `${m.party ? RIV[m.party].name : '무당적'} · ${m.role} · ${RK[m.k].n} 기반`;
-  openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div><div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m)}`,
+  openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div><div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
+      ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원' : '선거에 나갔거나 공직에 있었던 인물'}이라 전과 기록이 공개돼 있습니다(공직선거법 제49조).</p>`
+        : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}`,
     buttons: [{ t: '닫기', pri: true }] });
 }
 function negMpModal(mid) {
@@ -1765,7 +1781,7 @@ function negMpModal(mid) {
       win: () => {
         S.seats[m.party].d[m.k]--; S.seats.P.d[m.k] = (S.seats.P.d[m.k] || 0) + 1;
         S.mps = S.mps.filter(x => x !== m); relAdd(m.party, -15, `${m.name} 의원 빼가기`); S.fame += 2;
-        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [], ban: false, role: `국회의원(${RK[m.k].n})` });
+        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})` });
         checkAch(); return `${who}이(가) 우리 당에 입당했습니다! 의석이 1석 늘었습니다.`;
       },
       lose: () => { m.rel -= 8; if (rnd() < 0.5) { relAdd(m.party, -6, `${m.name} 의원 영입 시도`); return `${who}이(가) 거절했고, 영입 시도가 언론에 새어 나갔습니다.`; } return `${who}이(가) 정중히 거절했습니다.`; } },
@@ -1795,7 +1811,8 @@ function negOutModal(oid) {
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
         S.outs = S.outs.filter(x => x !== m); S.outs.push(genOut(S)); if (m.party) relAdd(m.party, -8, `${m.name} ${m.role} 영입`); // 영입한 만큼 새 인사로 채움 S.fame += 1;
-        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [], ban: false, role: '' });
+        const np = { id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: '' };
+        S.pool.push(np); lateRec(np, m.role);
         return `${who}이(가) 우리 당에 합류했습니다! 인재 탭에서 볼 수 있습니다.`;
       },
       lose: () => { m.rel -= 6; return `${who}이(가) 영입 제안을 거절했습니다.`; } },
@@ -1864,7 +1881,7 @@ const ACT = {
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
-  talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 전과 기록은 후보 등록 시 공개됩니다(공직선거법 제49조).' },
+  talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 청렴도·전과는 영입한 뒤 알 수 있습니다(선거에 나갔거나 공직에 있었던 사람은 공개, 공직선거법 제49조).' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승.' },
   debate: { n: '후보 TV 토론회', c: () => 0, cd: 7, camp: true, d: '대선·지방선거 후보 역량 판정. 성공 시 큰 상승, 실패 시 하락.' },
@@ -1960,10 +1977,9 @@ function talentModal() {
   const fee = p => 5e6 + p.fame * p.fame * 2e4;
   openModal({
     title: '인재 영입', wide: true,
-    html: `<p class="muted small">영입비는 인지도에 비례합니다. 전과는 후보자 등록 시 선관위를 통해 공개됩니다.</p><div class="acts">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
-      <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
-      <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>
-      ${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
+    html: `<p class="muted small">영입비는 인지도에 비례합니다. 청렴도와 전과는 영입한 뒤에 알 수 있습니다. 단 선거에 나갔거나 공직에 있었던 사람은 전과 기록이 공개돼 있습니다(공직선거법 제49조).</p><div class="acts">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
+      <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b>${recOpen(p) ? ` · 청렴 <b>${p.integ}</b>` : ''}</div>
+      ${recOpen(p) ? `<div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}` : '<div class="small muted">청렴도·전과: 영입 후 확인</div>'}
       <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
       <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button></div>`,
     buttons: [{ t: '닫기' }],
@@ -1980,7 +1996,7 @@ function talentModal() {
         is = is.filter(i => !got.has(i)); // 이미 영입한 후보는 다시 영입하지 않음
         if (!is.length || !can(is)) return;
         for (const i of is) {
-          const p = cands[i]; got.add(i); spend(fee(p), '활동'); S.pool.push(p);
+          const p = cands[i]; got.add(i); spend(fee(p), '활동'); S.pool.push(p); lateRec(p, p.job);
           S.fame = clamp(S.fame + p.fame / 20, 0, 100); addLog(`${p.name}(${p.job}) 영입 완료`, 'ok');
         }
         toast(`${is.map(i => cands[i].name).join(', ')} 영입 완료`, 'ok'); Snd.sfx('ok'); sync(); renderAll();
@@ -2351,8 +2367,8 @@ const EVENTS = [
 
   // --- 당 운영 ---
   { id: 'celeb', w: 2, cond: () => S.pool.length < 30, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
-    body: () => { const p = ET.p; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. 청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.`; },
-    ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); S.fame += 2; return `${ET.p.name} 영입!`; } },
+    body: () => { const p = ET.p; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. ${recOpen(p) ? `청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.` : '청렴도와 전과는 영입한 뒤에 알 수 있습니다.'}`; },
+    ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); lateRec(ET.p, ET.p.job); S.fame += 2; return `${ET.p.name} 영입!`; } },
       { t: '정중히 사양', run: () => '입당을 보류했습니다.' }] },
   { id: 'faction', w: 2, cond: () => totalMembers() > 20000, title: '당내 계파 갈등',
     body: () => '공천 방식을 두고 주류와 비주류가 정면충돌했습니다.',
@@ -3068,7 +3084,7 @@ function pAct() {
     <p class="tip">종 버튼으로 재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 메뉴의 '활동' 옆에 숫자로 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts ups">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
-const statBars = p => `<div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar"><i style="width:${clamp(v, 0, 100)}%;background:${col}"></i></div><b class="num">${Math.round(v)}</b>`).join('')}</div>`;
+const statBars = (p, hide) => `<div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', hide ? null : p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar">${v == null ? '' : `<i style="width:${clamp(v, 0, 100)}%;background:${col}"></i>`}</div><b class="num">${v == null ? '?' : Math.round(v)}</b>`).join('')}</div>`; // hide: 청렴을 '?'로
 function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
   // 직책 있는 사람 먼저: 당 대표 → 대통령 → 지역구 의원 → 비례 의원 → 시·도지사 → 나머지(원래 순서 유지)
