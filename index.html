@@ -181,8 +181,6 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .log li{padding:6px 0;border-bottom:1px solid var(--border);font-size:14px;display:flex;gap:10px}
 .log li time{color:var(--muted);font-size:12.5px;white-space:nowrap;padding-top:1px}
 .log li.bad{color:var(--danger)} .log li.ok{color:var(--ok)}
-.law{border-left:3px solid var(--party);padding:2px 0 2px 12px;margin:0 0 12px}
-.law b{display:block}
 .pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
 .pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
@@ -334,6 +332,31 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .pty-h{display:flex;align-items:flex-start;gap:8px;font-size:16px}
 .pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;padding-top:6px}
 .pty .negcell{margin-left:auto;flex:none}
+/* 법령집: 종이 지면·명조체·조문 번호 칸 */
+:root{--paper:#FBF7EE;--ink:#2B2620;--ink2:#6B6155;--rule:#DCD2BF;--spine:#B9A98A}
+@media (prefers-color-scheme:dark){:root{--paper:#1E1C18;--ink:#E9E3D6;--ink2:#ADA392;--rule:#3B362D;--spine:#5A5040}}
+.lawbook{display:grid;grid-template-columns:190px minmax(0,1fr);gap:20px;align-items:start}
+.lawtoc{position:sticky;top:calc(var(--top-h,58px) + 12px);padding:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
+.lawtoc b{display:block;margin-bottom:8px;font-size:13px;color:var(--muted);letter-spacing:.08em}
+.lawtoc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.lawtoc a{display:flex;justify-content:space-between;align-items:center;min-height:36px;padding:6px 10px;border-radius:8px;color:var(--fg);text-decoration:none;font-weight:600}
+.lawtoc a:hover{background:var(--surface2)}
+.lawtoc a span{font-size:12px;color:var(--muted);font-weight:500}
+.lawpage{max-width:780px;padding:40px 52px 32px;background:var(--paper);color:var(--ink);border:1px solid var(--rule);border-radius:4px 14px 14px 4px;box-shadow:inset 8px 0 0 var(--spine),0 10px 30px -18px rgba(0,0,0,.45);
+  font:16.5px/1.85 "Noto Serif KR","Nanum Myeongjo","나눔명조","Batang","바탕","AppleMyungjo",serif;word-break:keep-all}
+.lawhead{text-align:center;padding-bottom:22px;border-bottom:3px double var(--rule)}
+.lawkicker{font-size:12.5px;letter-spacing:.3em;color:var(--ink2)}
+.lawhead h2{font-size:26px;font-weight:700;margin:6px 0 10px;letter-spacing:.02em}
+.lawhead p{margin:0 auto;max-width:34em;font-size:14px;color:var(--ink2)}
+.lawch{scroll-margin-top:calc(var(--top-h,58px) + 16px);padding-top:26px}
+.lawch h3{display:flex;flex-direction:column;align-items:center;gap:2px;margin-bottom:12px;font-size:21px;font-weight:700}
+.lawch h3 span{font-size:12.5px;font-weight:400;letter-spacing:.25em;color:var(--ink2)}
+.art{display:grid;grid-template-columns:8.5em minmax(0,1fr);gap:18px;padding:12px 0;border-bottom:1px dotted var(--rule)}
+.artno{font-weight:700}
+.art p{margin:0}
+.lawfoot{margin-top:26px;text-align:center;font-size:13px;letter-spacing:.4em;color:var(--ink2)}
+@media (max-width:900px){.lawbook{grid-template-columns:1fr}.lawtoc{position:static}.lawtoc ol{flex-direction:row;flex-wrap:wrap}.lawtoc a{gap:8px}}
+@media (max-width:600px){.lawpage{padding:26px 18px 22px 24px;font-size:15.5px}.art{grid-template-columns:1fr;gap:2px}}
 .mapbox{position:relative}
 .mapctl{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:6px}
 .mapctl .ib{min-width:40px;height:40px;font-size:18px;font-weight:800;box-shadow:var(--shadow)}
@@ -1620,9 +1643,9 @@ function negOutModal(oid) {
   });
 }
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
-let negF = 'all', negV = 'all'; // negV: 'all' 전체 목록 · 'fav' 관심 목록(별을 켠 정당·의원·원외 인사)
+let negF = 'all';
 // 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
-// 별: 관심 목록에 담고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
+// 별: 목록 맨 앞으로 올리고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
 const freshPill = cdk => fresh.includes(cdk) ? ' <span class="pill ok">다시 가능</span>' : '';
 const negBtn = (attr, cdk, who, pillOut) => { const w = negWhy(cdk), on = !!S.watch[cdk];
   return `<div class="negcell">${pillOut ? '' : freshPill(cdk).trim()}<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
@@ -1631,28 +1654,27 @@ const outRow = m => `<tr><td><div class="who">${face(m, m.party ? pc(m.party) : 
 const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap ppl"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
-  const fav = negV === 'fav', live = liveMPs();
-  const favMps = live.filter(m => S.watch['neg:m' + m.id]), favOuts = S.outs.filter(m => S.watch['neg:o' + m.id]);
-  const parts = ['A', 'B', 'C'].filter(id => !fav || S.watch['neg:' + id]), nFav = favMps.length + favOuts.length + ['A', 'B', 'C'].filter(id => S.watch['neg:' + id]).length;
-  const mps = fav ? favMps : live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), outs = fav ? favOuts : S.outs;
+  // 별(관심)을 켠 정당은 맨 왼쪽, 인물은 맨 위로. 같은 묶음 안에선 원래 순서
+  const live = liveMPs(), star = k => S.watch[k] ? 0 : 1, byStar = (a, key) => [...a].sort((x, y) => star(key(x)) - star(key(y)));
+  const parts = byStar(['A', 'B', 'C'], id => 'neg:' + id);
+  const mps = byStar(live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), m => 'neg:m' + m.id), outs = byStar(S.outs, m => 'neg:o' + m.id);
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['O', '무소속']];
-  const vv = [['all', '전체 목록'], ['fav', `관심 목록 ${nFav}`]];
-  // 맨 위: 보기 버튼 · (i) 설명 · 교섭 불가 사유 한 줄(별도 카드 없이 그림 띠 바로 아래)
-  const head = `<div class="negbar"><div class="filters" role="group" aria-label="교섭 보기">${vv.map(([k, n]) => `<button class="btn${negV === k ? ' pri' : ''}" data-negv="${k}" aria-pressed="${negV === k}">${n}</button>`).join('')}</div>
-    ${infoTip(`<p class="tip">협상가: ${esc(leader().name)} 대표(역량 ${leader().skill})</p><p class="tip">결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당·인물은 '관심 목록'에 모이고, 다시 교섭할 수 있게 되면 메뉴의 '교섭' 옆에 숫자로 알려 줍니다.</p>`)}
+  // 맨 위: (i) 설명 · 교섭 불가 사유 한 줄(별도 카드 없이 그림 띠 바로 아래)
+  const head = `<div class="negbar"><span class="small muted">교섭 안내</span>
+    ${infoTip(`<p class="tip">협상가: ${esc(leader().name)} 대표(역량 ${leader().skill})</p><p class="tip">결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당은 맨 왼쪽, 인물은 맨 위로 올라오고, 다시 교섭할 수 있게 되면 메뉴의 '교섭' 옆에 숫자로 알려 줍니다.</p>`)}
     ${left || S.ap < 1 ? `<span class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</span>` : ''}</div>`;
   // 정당: 정당마다 카드 한 장, 한 줄에 나란히(좁으면 줄바꿈)
-  const parties = fav && !parts.length ? `<div class="card"><h2>정당</h2><p class="empty">별 버튼을 켠 정당이 없습니다.</p></div>` : `<div class="card"><h2>정당</h2><div class="ptys">
+  const parties = `<div class="card"><h2>정당</h2><div class="ptys">
     ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>
       <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]}</div>${relBar(S.rel[id])}</div>`).join('')}
     </div></div>`;
   // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임
   return `<div class="stack">${head}${parties}<div class="split">
     <div class="card"><h2>원내 의원 <span class="pill">${mps.length}명</span></h2>
-      ${fav ? '' : `<div class="filters" role="group" aria-label="소속 필터">${ff.map(([k, n]) => `<button class="btn${negF === k ? ' pri' : ''}" data-negf="${k}" aria-pressed="${negF === k}">${esc(n)}</button>`).join('')}</div>`}
-      ${personTbl(mps.map(mpRow), fav ? '별 버튼을 켠 원내 의원이 없습니다.' : '해당 소속 의원이 없습니다.')}</div>
+      <div class="filters" role="group" aria-label="소속 필터">${ff.map(([k, n]) => `<button class="btn${negF === k ? ' pri' : ''}" data-negf="${k}" aria-pressed="${negF === k}">${esc(n)}</button>`).join('')}</div>
+      ${personTbl(mps.map(mpRow), '해당 소속 의원이 없습니다.')}</div>
     <div class="card"><h2>원외 인사 <span class="pill">${outs.length}명</span></h2>
-      ${personTbl(outs.map(outRow), fav ? '별 버튼을 켠 원외 인사가 없습니다.' : '지금은 교섭할 원외 인사가 없습니다.')}
+      ${personTbl(outs.map(outRow), '지금은 교섭할 원외 인사가 없습니다.')}
       <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다.</p></div>
   </div></div>`;
 }
@@ -2739,7 +2761,6 @@ function bindPanel(m) {
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelectorAll('[data-negout]').forEach(b => b.onclick = () => negOutModal(+b.dataset.negout));
   m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; renderPanel(); });
-  m.querySelectorAll('[data-negv]').forEach(b => b.onclick = () => { negV = b.dataset.negv; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-visit]').forEach(b => b.onclick = agendaVisit);
   m.querySelectorAll('[data-presp]').forEach(b => b.onclick = () => partyRespond(+b.dataset.presp));
@@ -3079,11 +3100,28 @@ const LAWS = [
   ['공직선거법 제113조·제254조', '후보자·정당의 기부행위 금지, 선거운동기간 전 선거운동(사전선거운동) 금지.'],
   ['공직선거법 제189조', '비례대표 46석은 준연동형으로 배분: 득표율 3% 이상 또는 지역구 5석 이상 정당이 대상. 연동배분의석 = ((300 − 무소속 등 당선인 수) × 득표비율 − 지역구 당선인 수) ÷ 2.'],
   ['공직선거법 제264조·제268조', '당선인이 선거범죄로 징역 또는 100만원 이상 벌금형을 받으면 당선무효. 선거범죄 공소시효는 선거일 후 6개월.'],
+  ['정당법 제33조', '정당이 소속 국회의원을 제명하려면 당헌이 정하는 절차를 거치는 것 외에 소속 국회의원 전원의 2분의 1 이상이 찬성해야 한다.'],
+  ['공직선거법 제192조 제4항', '비례대표국회의원·비례대표시·도의원이 소속 정당의 합당·해산 또는 제명 외의 사유로 당적을 이탈·변경하거나 둘 이상의 당적을 가지면 퇴직된다. 제명은 퇴직 사유가 아니며, 지역구 의원과 단체장은 당적이 바뀌어도 직을 유지한다.'],
   ['국회법 제33조', '20명 이상의 소속 의원을 가진 정당은 교섭단체가 된다.'],
 ];
+// 법령집: 법률별 편(헌법·정당법…)으로 묶고 조문 번호 순. 왼쪽 목차, 오른쪽 책 지면
 function pLaw() {
-  return `<div class="card"><h2>게임에 반영된 법령</h2><p class="tip">2026년 기준 현행법을 게임용으로 요약했습니다. 일부 수치(선거권자 수, 보조금 계상단가, 선거비용제한액, 지역 성향)는 근사치이며 실제 조문과 다를 수 있습니다.</p>
-    ${LAWS.map(([t, d]) => `<div class="law"><b>${t}</b><span class="small">${d}</span></div>`).join('')}</div>`;
+  const chs = [];
+  for (const [t, d] of LAWS) {
+    const name = t.slice(0, t.indexOf(' 제')), no = t.slice(name.length + 1);
+    let ch = chs.find(c => c.name === name); if (!ch) chs.push(ch = { name, arts: [] });
+    ch.arts.push({ no, d, n: parseInt(no.slice(1)) });
+  }
+  chs.forEach(c => c.arts.sort((a, b) => a.n - b.n));
+  return `<div class="lawbook">
+    <div class="lawtoc" role="navigation" aria-label="법령 목차"><b>목차</b><ol>${chs.map((c, i) => `<li><a href="#lawch-${i}">${c.name}<span class="num">${c.arts.length}</span></a></li>`).join('')}</ol></div>
+    <article class="lawpage">
+      <header class="lawhead"><div class="lawkicker">정당 키우기 · 법령집</div><h2>게임에 반영된 법령</h2>
+        <p>2026년 기준 현행법을 게임용으로 요약했습니다. 일부 수치(선거권자 수, 보조금 계상단가, 선거비용제한액, 지역 성향)는 근사치이며 실제 조문과 다를 수 있습니다.</p></header>
+      ${chs.map((c, i) => `<section class="lawch" id="lawch-${i}"><h3><span>제${i + 1}편</span>${c.name}</h3>
+        ${c.arts.map(a => `<div class="art"><div class="artno">${a.no}</div><p>${a.d}</p></div>`).join('')}</section>`).join('')}
+      <footer class="lawfoot">끝</footer>
+    </article></div>`;
 }
 // 소식: 턴별로 브리핑·헤드라인·국회/정부 동향·우리 당 기록을 모아 봄
 let feedF = 'all', feedN = 12;
@@ -3159,7 +3197,7 @@ function pGuide() {
     ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
       <li>활동(당원 모집·봉사·유세·홍보·정책 발표·인재 영입 등)은 한 번에 행동력 1과 정해진 비용을 씁니다. 대부분 재사용 대기 턴이 있습니다.</li>
       <li>시설 설립, 정당 등록 신청, 공천처럼 행동력이 들지 않는 일도 있습니다.</li>
-      <li>활동 탭의 전국 활동마다 '재사용 알림'을, 교섭 탭의 상대마다 별 버튼(관심 목록·교섭 재개 알림)을 켤 수 있습니다. 다시 할 수 있게 되면 메뉴의 그 탭 이름 옆에 숫자로 표시되고, 탭에 들어가면 사라집니다.</li>
+      <li>활동 탭의 전국 활동마다 '재사용 알림'을, 교섭 탭의 상대마다 별 버튼(목록 맨 앞으로·교섭 재개 알림)을 켤 수 있습니다. 다시 할 수 있게 되면 메뉴의 그 탭 이름 옆에 숫자로 표시되고, 탭에 들어가면 사라집니다.</li>
       <li>행동력이 남은 채 턴을 끝내면 한 번 더 묻습니다. 설정에서 행동력·행정 행동력별로 끌 수 있습니다.</li>
       <li>'턴 종료'를 누르면 7일이 하루씩 흐릅니다. 사건이 생기면 멈추고, 선택을 마치면 이어집니다. 턴이 끝나면 자금·당원·지지율 변화가 요약됩니다.</li></ul>`)}
     ${sec('1단계: 창당 (6개월)', `<ul><li>창당 본거지에 발기인 ${LAW.founders}명이 있습니다. 결성신고 후 <b>${LAW.prepDays}일</b> 안에 등록 신청을 하지 못하면 준비위가 소멸합니다(게임 오버).</li>
@@ -3200,7 +3238,7 @@ function pGuide() {
     ${sec('교섭', `<ul><li>정식 정당이 되면 교섭 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
       <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적), 선거 연대(우리 후보가 나간 곳엔 후보를 내지 않음)를 맺을 수 있습니다.</li>
       <li>원내 의원(각 당·무소속)과는 친분 쌓기, 법안 협조 요청, 입당(이적) 제안을 할 수 있습니다. 지역구 의원이 넘어오면 그 의석이 우리 당 것이 됩니다.</li>
-      <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당·의원·원외 인사는 '관심 목록'으로 분류되어, 교섭 탭 위쪽의 '관심 목록' 보기에서 따로 모아 볼 수 있습니다.</li>
+      <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당은 정당 목록 맨 왼쪽, 의원·원외 인사는 각 목록 맨 위로 올라옵니다.</li>
       <li>원외 인사(전직 의원·장관·단체장, 당협위원장, 시민사회·노동계 인사, 정치 유튜버 등)에게는 지지 선언을 요청하거나 영입을 제안할 수 있습니다. 이름값이 클수록 효과도 크지만 설득하기 어렵습니다. 총선에서 물러난 의원 일부는 원외 인사로 남습니다.</li>
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
     ${sec('탄핵과 조기 대선', `<ul><li>대통령 쪽 지지율이 크게 떨어지면 탄핵소추안이 발의될 수 있습니다. 국회의원 200명 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.</li>
