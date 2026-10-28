@@ -2687,7 +2687,7 @@ function pAdmin() {
   // 맨 위 지역 현안, 그 아래 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `${issCard}<div class="split"><div>${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
-    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
+    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${x.d > S.day - TURN ? '<span class="pill ok">NEW</span> ' : ''}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
 function bannerItems() {
