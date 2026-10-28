@@ -131,7 +131,7 @@
   const sceneCache = {};
   function scene(tab, c, o = {}) {
     const key = tab + c + (o.name || '');
-    if (!sceneCache[key]) { const r = rng(hash(tab)); sceneCache[key] = `<svg class="scn" viewBox="0 0 1200 200" preserveAspectRatio="xMaxYMax slice" aria-hidden="true">${sky(hash(tab) + 1)}${ground}${(SCENES[tab] || SCENES.home)(c, o, r)}</svg>`; }
+    if (!sceneCache[key]) { const r = rng(hash(tab)); sceneCache[key] = `<svg class="scn" viewBox="0 0 1200 200" preserveAspectRatio="xMaxYMax meet" aria-hidden="true">${sky(hash(tab) + 1)}${ground}${(SCENES[tab] || SCENES.home)(c, o, r)}</svg>`; }
     return sceneCache[key];
   }
 

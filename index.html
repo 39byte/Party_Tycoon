@@ -248,15 +248,17 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   --sea:#0A1830; --land:#25344F; --map-line:#0A1830;
 }}
 /* 탭 장면: 위쪽 그림 띠 + 왼쪽 제목 */
-.scene{position:relative;height:180px;border-radius:var(--r);overflow:hidden;margin-bottom:16px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky2)}
+.scene{position:relative;height:112px;border-radius:var(--r);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky1)}
+/* 그림은 오른쪽 아래에 맞춰 통째로 줄여 넣고(잘림 없음), 빈 왼쪽은 하늘·땅 색으로 이어 줌 */
+.scene::before{content:"";position:absolute;left:0;right:0;bottom:0;height:12%;background:var(--gnd);border-top:2px solid var(--gnd2)}
 .scene .scn{position:absolute;inset:0;width:100%;height:100%}
-.scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:2px;padding:14px 20px;color:#fff}
+.scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:10px 16px;color:#fff}
 /* 제목은 그림 위 단색 반투명 판에 */
 .scene-t>div{align-self:flex-start;padding:8px 14px;border-radius:10px;background:rgba(10,18,36,.72)}
-.scene-t h1{font-size:22px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+.scene-t h1{font-size:20px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .scene-t h1::before{content:"";width:10px;height:10px;transform:rotate(45deg);background:var(--gold);flex:none}
 .scene-t p{margin:0;font-size:13.5px;opacity:.92;max-width:46ch}
-@media (max-width:600px){.scene{height:104px;margin-bottom:10px}.scene-t{padding:10px 14px}.scene-t h1{font-size:19px}.scene-t p{font-size:12px}}
+@media (max-width:600px){.scene{height:84px;margin-bottom:10px}.scene-t{padding:8px 10px}.scene-t>div{padding:6px 10px}.scene-t h1{font-size:17px}.scene-t p{font-size:11.5px}}
 .scn .far rect{fill:var(--far)} .scn .mid{fill:var(--mid)} .scn .wd{fill:var(--wd)} .scn .wl{fill:var(--wl)}
 .scn .bld{fill:var(--bld)} .scn .bld2{fill:var(--bld2)} .scn .wall{fill:var(--wall)} .scn .col{fill:var(--col)} .scn .glass{fill:var(--glass)}
 .scn .gnd{fill:var(--gnd)} .scn .gnd2{fill:var(--gnd2)} .scn .tree circle{fill:var(--tree)} .scn .trunk{fill:var(--trunk)} .scn .door{fill:var(--door)}
@@ -2800,8 +2802,8 @@ function pAdmin() {
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
       <p class="small muted">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="acts">${govs.map(k => `<div class="act"><div class="who">${face(S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || { name: govName(k) || RK[k].n }, S.party.color, 48)}<h3>${RK[k].n} ${esc(govName(k))} 지사</h3></div>${meter(S.ops[k])}
-        <div class="why">${esc(why('govern', k))}</div><button class="btn pri" data-act="govern" data-k="${k}" ${why('govern', k) ? 'disabled' : ''}>역점사업 · 행정 행동력 1</button></div>`).join('')}</div>
+      <div class="acts">${govs.map(k => `<div class="act"><div class="who">${face(S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || { name: govName(k) || RK[k].n }, S.party.color, 48)}<h3>${RK[k].n} ${esc(govName(k))} 지사</h3><button class="btn pri" style="margin-left:auto" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
+        ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
       <p class="small muted">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
