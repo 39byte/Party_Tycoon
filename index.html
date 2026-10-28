@@ -137,7 +137,9 @@ nav .more{display:none}
 .act:hover{border-color:var(--primary2);box-shadow:0 6px 16px -10px var(--primary2)}
 .act h3{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* 활동 탭: 가로로 길고 낮은 카드. 설명·비용은 왼쪽, 실행 버튼은 오른쪽 */
-.acts.wide{grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:10px}
+.acts.wide{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:1180px){.acts.wide{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:720px){.acts.wide{grid-template-columns:1fr}}
 .act.row2{flex-direction:row;align-items:center;gap:14px;padding:10px 14px}
 .act.row2 .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .act.row2 .meta{margin-top:2px;justify-content:flex-start;gap:12px}
@@ -205,6 +207,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .desbtn{min-height:28px;padding:2px 10px;font-size:12.5px;flex:none;align-self:center}
 .desbtn[aria-pressed="true"]{border-color:var(--fg)}
 .negcell{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.negcell .btn{white-space:nowrap}
 .btn .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:none} /* 새 소식 알림 */
 /* 상단 배너: 선거·사회적 이슈 같은 큰 일정 */
 /* 상단 배너: HUD 아래 속보 띠 */
@@ -311,6 +314,12 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .kmap .inset{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:6 5}
 .kmap .ml-isle{font:600 13px var(--font);text-anchor:middle;fill:var(--muted)}
 .kmap .mk{stroke:var(--surface);stroke-width:2}
+.negbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.negbar .filters{margin-top:0}
+.ptys{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
+.pty{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-top:4px solid var(--pc);border-radius:var(--r);background:var(--surface)}
+.pty-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:16px}
+.pty .negcell{justify-content:flex-end;margin-top:auto}
 .mapbox{position:relative}
 .mapctl{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:6px}
 .mapctl .ib{min-width:40px;height:40px;font-size:18px;font-weight:800;box-shadow:var(--shadow)}
@@ -1578,7 +1587,7 @@ function negOutModal(oid) {
       lose: () => { m.rel -= 3; return `${who}이(가) "아직은 때가 아니다"라며 거절했습니다.`; } },
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
-        S.outs = S.outs.filter(x => x !== m); if (m.party) relAdd(m.party, -8, `${m.name} ${m.role} 영입`); S.fame += 1;
+        S.outs = S.outs.filter(x => x !== m); S.outs.push(genOut(S)); if (m.party) relAdd(m.party, -8, `${m.name} ${m.role} 영입`); // 영입한 만큼 새 인사로 채움 S.fame += 1;
         S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: Math.round(rr(40, 85)), rec: [], ban: false, role: '' });
         return `${who}이(가) 우리 당에 합류했습니다! 인재 탭에서 볼 수 있습니다.`;
       },
@@ -1612,13 +1621,15 @@ function negCard() {
   const mps = fav ? favMps : live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), outs = fav ? favOuts : S.outs;
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['O', '무소속']];
   const vv = [['all', '전체 목록'], ['fav', `관심 목록 ${nFav}`]];
-  const head = `<div class="card"><h2>교섭</h2><p class="small muted">협상가 ${esc(leader().name)} 대표(역량 ${leader().skill})</p><p class="tip">결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당·인물은 '관심 목록'에 모이고, 다시 교섭할 수 있게 되면 메뉴의 '교섭' 옆에 숫자로 알려 줍니다.</p>
-    ${left || S.ap < 1 ? `<p class="warn small">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}
-    <div class="filters" role="group" aria-label="교섭 보기">${vv.map(([k, n]) => `<button class="btn${negV === k ? ' pri' : ''}" data-negv="${k}" aria-pressed="${negV === k}">${n}</button>`).join('')}</div></div>`;
-  const parties = fav && !parts.length ? `<div class="card"><h2>정당</h2><p class="empty">별 버튼을 켠 정당이 없습니다.</p></div>` : `<div class="card"><h2>정당</h2><div class="tblwrap"><table><thead><tr><th>정당</th><th class="r">의석</th><th>노선</th><th style="min-width:130px">관계</th><th></th></tr></thead><tbody>
-    ${parts.map(id => `<tr><td><span class="legend"><span><i style="background:${pc(id)}"></i>${esc(pn(id))}</span></span>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</td>
-      <td class="r num">${seatTotal(id)}</td><td>${IDEO[Math.round(RIV[id].ideo)]}</td><td>${relBar(S.rel[id])}</td><td>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</td></tr>`).join('')}
-    </tbody></table></div></div>`;
+  // 맨 위: 보기 버튼 · (i) 설명 · 교섭 불가 사유 한 줄(별도 카드 없이 그림 띠 바로 아래)
+  const head = `<div class="negbar"><div class="filters" role="group" aria-label="교섭 보기">${vv.map(([k, n]) => `<button class="btn${negV === k ? ' pri' : ''}" data-negv="${k}" aria-pressed="${negV === k}">${n}</button>`).join('')}</div>
+    ${infoTip(`<p class="tip">협상가: ${esc(leader().name)} 대표(역량 ${leader().skill})</p><p class="tip">결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 정당·인물은 '관심 목록'에 모이고, 다시 교섭할 수 있게 되면 메뉴의 '교섭' 옆에 숫자로 알려 줍니다.</p>`)}
+    ${left || S.ap < 1 ? `<span class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</span>` : ''}</div>`;
+  // 정당: 정당마다 카드 한 장, 한 줄에 나란히(좁으면 줄바꿈)
+  const parties = fav && !parts.length ? `<div class="card"><h2>정당</h2><p class="empty">별 버튼을 켠 정당이 없습니다.</p></div>` : `<div class="card"><h2>정당</h2><div class="ptys">
+    ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</div>
+      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]}</div>${relBar(S.rel[id])}${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>`).join('')}
+    </div></div>`;
   // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임
   return `<div class="stack">${head}${parties}<div class="split">
     <div class="card"><h2>원내 의원 <span class="pill">${mps.length}명</span></h2>
@@ -2631,6 +2642,8 @@ function tipify(root) {
     h.lastElementChild.lastElementChild.append(...ps);
   }
 }
+let itipN = 0;
+const infoTip = html => `<span class="tipw"><button type="button" class="info" aria-label="설명 보기" aria-describedby="itip${++itipN}">i</button><span class="tipbox" role="tooltip" id="itip${itipN}">${html}</span></span>`;
 // 툴팁은 화면 기준(fixed)으로 버튼 아래에, 넘치면 위에
 function placeTip(b) {
   const box = b.nextElementSibling, r = b.getBoundingClientRect();
