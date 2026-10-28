@@ -136,6 +136,15 @@ nav .more{display:none}
 .act{display:flex;flex-direction:column;gap:6px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);transition:border-color .15s,transform .15s,box-shadow .15s}
 .act:hover{border-color:var(--primary2);box-shadow:0 6px 16px -10px var(--primary2)}
 .act h3{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+/* 활동 탭: 가로로 길고 낮은 카드. 설명·비용은 왼쪽, 실행 버튼은 오른쪽 */
+.acts.wide{grid-template-columns:repeat(auto-fill,minmax(min(420px,100%),1fr));gap:10px}
+.act.row2{flex-direction:row;align-items:center;gap:14px;padding:10px 14px}
+.act.row2 .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.act.row2 .meta{margin-top:2px;justify-content:flex-start;gap:12px}
+.act.row2 .why{min-height:0}
+.act.row2>.btn{flex:none;min-width:84px}
+.act .bell{min-width:30px;height:30px;padding:0;margin-left:auto;border-radius:8px}
+.act .bell .ic{width:16px;height:16px}
 .act .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
 .act .why{font-size:12.5px;color:var(--warn);min-height:3.1em} /* 사유 두 줄 자리 확보 */
 .act .meta{margin-top:auto} /* 설명 길이와 상관없이 비용·사유·버튼을 아래로 */
@@ -196,8 +205,6 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .desbtn{min-height:28px;padding:2px 10px;font-size:12.5px;flex:none;align-self:center}
 .desbtn[aria-pressed="true"]{border-color:var(--fg)}
 .negcell{display:flex;gap:6px;align-items:center;justify-content:flex-end}
-.act .watch{min-height:32px;padding:4px 10px;font-size:13px;font-weight:500;color:var(--muted)}
-.act .watch[aria-pressed="true"]{color:var(--fg);border-color:var(--fg)}
 .btn .dot{width:8px;height:8px;border-radius:50%;background:var(--danger);flex:none} /* 새 소식 알림 */
 /* 상단 배너: 선거·사회적 이슈 같은 큰 일정 */
 /* 상단 배너: HUD 아래 속보 띠 */
@@ -304,6 +311,12 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .kmap .inset{fill:none;stroke:var(--muted);stroke-width:1.5;stroke-dasharray:6 5}
 .kmap .ml-isle{font:600 13px var(--font);text-anchor:middle;fill:var(--muted)}
 .kmap .mk{stroke:var(--surface);stroke-width:2}
+.mapbox{position:relative}
+.mapctl{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:6px}
+.mapctl .ib{min-width:40px;height:40px;font-size:18px;font-weight:800;box-shadow:var(--shadow)}
+.mapctl [data-zoom="reset"]{font-size:12.5px}
+.kmap.zoomed{touch-action:none;cursor:grab}
+.kmap.zoomed:active{cursor:grabbing}
 .mapnote{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;margin-top:8px;font-size:13px;color:var(--muted)}
 .mapnote .grad{display:inline-block;width:90px;height:10px;border-radius:99px;vertical-align:-1px;margin:0 6px;border:1px solid var(--border)}
 /* 인물 초상 */
@@ -592,7 +605,7 @@ let S = null, tab = 'home', selReg = 'seoul', modalOpen = false;
 
 // ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
-  set: (() => { const d = { bgm: false, sfx: false, vol: 0.5, confAp: true, confAap: true }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
+  set: (() => { const d = { bgm: false, sfx: false, vol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
   ctx: null, out: null, bus: null, timer: null, step: 0, t: 0,
   saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(this.set)); } catch (e) { } },
   ensure() {
@@ -2632,8 +2645,53 @@ function markLead() {
   const cs = [...$('#main').querySelectorAll('.card')].filter(c => !c.parentElement.closest('.card')), t = cs.map(c => c.getBoundingClientRect().top), top = Math.min(...t);
   cs.forEach((c, i) => c.classList.toggle('lead', t[i] - top < 4));
 }
+// 비용·행동력 확인 창. '다시 보지 않기'는 설정(Snd.set.skipCost)에 남고, 설정 창에서 다시 켤 수 있음
+function confirmCost(name, cost, ap, run) {
+  if (Snd.set.skipCost) return run();
+  openModal({ title: name, html: `<p>비용 <b class="num">${cost ? won(cost) : '무료'}</b>, ${ap} <b>1</b>을 씁니다. 진행할까요?</p><label class="small"><input type="checkbox" id="skipCost"> 다시 보지 않기</label>`,
+    buttons: [{ t: '취소' }, { t: '실행', pri: true, fn: run }],
+    onOpen: m => { m.querySelector('#skipCost').onchange = e => { Snd.set.skipCost = e.target.checked; Snd.saveSet(); }; m.querySelector('[data-b="1"]').setAttribute('autofocus', ''); } });
+}
+// 지도 확대·축소·끌기. 보이는 범위(mapVB)는 다시 그려도 유지, null이면 전체
+let mapVB = null;
+const MAPVB = [40, 0, 980, 1560];
+function mapZoom(svg, m) {
+  const B = MAPVB, get = () => mapVB || B.slice();
+  const apply = v => {
+    const w = clamp(v[2], B[2] / 8, B[2]), h = w * B[3] / B[2];
+    mapVB = w >= B[2] - 1 ? null : [clamp(v[0], B[0] - w / 2, B[0] + B[2] - w / 2), clamp(v[1], B[1] - h / 2, B[1] + B[3] - h / 2), w, h];
+    svg.setAttribute('viewBox', (mapVB || B).join(' ')); svg.classList.toggle('zoomed', !!mapVB);
+  };
+  // 화면 px → 지도 좌표. 비율 유지(meet)라 남는 쪽은 가운데 정렬
+  const scale = () => { const v = get(), r = svg.getBoundingClientRect(); return Math.max(v[2] / r.width, v[3] / r.height); };
+  const pt = (cx, cy) => { const v = get(), r = svg.getBoundingClientRect(), s = scale(); return [v[0] + (cx - r.left - (r.width - v[2] / s) / 2) * s, v[1] + (cy - r.top - (r.height - v[3] / s) / 2) * s]; };
+  const zoomAt = (f, cx, cy) => { const v = get(), [px, py] = pt(cx, cy); apply([px - (px - v[0]) / f, py - (py - v[1]) / f, v[2] / f, v[3] / f]); };
+  const mid = () => { const r = svg.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; };
+  m.querySelectorAll('[data-zoom]').forEach(b => b.onclick = () => b.dataset.zoom === 'reset' ? apply(B) : zoomAt(b.dataset.zoom === 'in' ? 1.5 : 1 / 1.5, ...mid()));
+  // 전체 보기에서 휠을 아래로 굴리면 페이지가 스크롤되게 둠
+  svg.addEventListener('wheel', e => { if (!mapVB && e.deltaY > 0) return; e.preventDefault(); zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, e.clientX, e.clientY); }, { passive: false });
+  // 끌기: 4px 넘게 움직여야 시작(그 전엔 지역 클릭). 손가락은 확대된 상태에서만(전체 보기에선 페이지 스크롤)
+  const pts = new Map(); let moved = 0, dist = 0, dragged = false;
+  svg.addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && !mapVB && pts.size === 0) return; pts.set(e.pointerId, [e.clientX, e.clientY]); moved = 0; dist = 0; if (pts.size === 1) dragged = false; });
+  svg.addEventListener('pointermove', e => {
+    const p0 = pts.get(e.pointerId); if (!p0) return;
+    const p1 = [e.clientX, e.clientY]; pts.set(e.pointerId, p1);
+    if (pts.size === 2) { const [a, b] = [...pts.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]); if (dist) zoomAt(d / dist, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2); dist = d; dragged = true; return; }
+    moved += Math.abs(p1[0] - p0[0]) + Math.abs(p1[1] - p0[1]);
+    if (moved < 4) return;
+    if (!svg.hasPointerCapture(e.pointerId)) svg.setPointerCapture(e.pointerId);
+    dragged = true; const s = scale(), v = get(); apply([v[0] - (p1[0] - p0[0]) * s, v[1] - (p1[1] - p0[1]) * s, v[2], v[3]]);
+  });
+  const up = e => { pts.delete(e.pointerId); if (pts.size < 2) dist = 0; };
+  svg.addEventListener('pointerup', up); svg.addEventListener('pointercancel', up);
+  svg.addEventListener('click', e => { if (dragged) { e.stopPropagation(); e.preventDefault(); dragged = false; } }, true);
+}
 function bindPanel(m) {
-  m.querySelectorAll('[data-act]').forEach(b => b.onclick = () => doAct(b.dataset.act, b.dataset.k));
+  const zs = m.querySelector('.kmap.zoom'); if (zs) mapZoom(zs, m);
+  // 행정 사업은 사업 고르는 창에 비용이 따로 나오므로 확인 창 없이
+  m.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { const key = b.dataset.act, k = b.dataset.k;
+    if (key === 'govern') return doAct(key, k);
+    confirmCost(`${k ? RK[k].n + ' ' : ''}${ACT[key].n}`, ACT[key].c(), '행동력', () => doAct(key, k)); });
   m.querySelectorAll('[data-reg]').forEach(b => {
     b.onclick = () => { selReg = b.dataset.reg; Snd.sfx('click'); renderPanel(); };
     // 지도 지역(SVG)은 버튼이 아니라 키보드 선택을 직접 붙임. Space가 턴 종료로 새지 않게 막음
@@ -2642,7 +2700,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-up]').forEach(b => b.onclick = () => buyUp(b.dataset.up));
   m.querySelectorAll('[data-watch]').forEach(b => b.onclick = () => { const k = b.dataset.watch; S.watch[k] = !S.watch[k]; save(); renderPanel(); });
   m.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { tab = b.dataset.go; renderAll(); });
-  m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => lobbyBill(+b.dataset.lobby));
+  m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => confirmCost(b.textContent.trim(), 1e7, '행동력', () => lobbyBill(+b.dataset.lobby)));
   m.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { feedF = b.dataset.feed; feedN = 12; renderAll(); });
   m.querySelectorAll('[data-feedmore]').forEach(b => b.onclick = () => { feedN += 12; renderAll(); });
   m.querySelectorAll('[data-stance]').forEach(b => b.onclick = () => { const [id, s] = b.dataset.stance.split('|'); setStance(+id, +s); });
@@ -2662,9 +2720,15 @@ function bindPanel(m) {
   m.querySelectorAll('input[type=number][data-camp], input[type=range][data-camp]').forEach(el => el.addEventListener('input', () => draftChange(el, true)));
 }
 // watch: 재사용 알림 토글을 붙임(활동 탭의 전국 활동)
-function actBtn(key, k, watch) {
+function actBtn(key, k, watch, wide) {
   const a = ACT[key], w = why(key, k), cost = a.c(), on = !!S.watch[key];
-  return `<div class="act"><h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}</h3><p>${a.d}</p><div class="meta"><span>${cost ? won(cost) : '무료'}</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span></div><div class="why">${esc(w)}</div><button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행 · 행동력 1</button>${watch && a.cd ? `<button class="btn watch" data-watch="${key}" aria-pressed="${on}">${icon('i-bell')}재사용 알림 ${on ? '켜짐' : '꺼짐'}</button>` : ''}</div>`;
+  const bell = watch && a.cd ? `<button class="ib bell" data-watch="${key}" aria-pressed="${on}" aria-label="재사용 알림" title="재사용 알림 ${on ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button>` : '';
+  const run = `<button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행</button>`;
+  const meta = `<span>${cost ? won(cost) : '무료'} · 행동력 1</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span>`;
+  const h = `<h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}${bell}</h3>`;
+  // wide: 활동 탭(가로로 길고 낮게). 사유는 있을 때만 한 줄
+  if (wide) return `<div class="act row2"><div class="main">${h}<p>${a.d}</p><div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>${run}</div>`;
+  return `<div class="act">${h}<p>${a.d}</p><div class="meta">${meta}</div><div class="why">${esc(w)}</div>${run}</div>`;
 }
 
 function pHome() {
@@ -2728,7 +2792,7 @@ function pOrg() {
   const sps = R.map(x => regSupport(x.k)), lo = Math.min(...sps), hi = Math.max(...sps, lo + 1);
   // 지도: 우리 당 지지가 높을수록 당 색이 진함. 깃발 = 시·도당, 별 = 창당 본거지
   const kmap = ART.map({
-    sel: selReg, click: true,
+    sel: selReg, click: true, vb: mapVB, cls: 'zoom' + (mapVB ? ' zoomed' : ''),
     // 지역끼리 비교가 보이게 가장 낮은 곳~높은 곳을 15~90%로 펼침
     fill: k => `color-mix(in srgb,${c} ${Math.round(15 + (regSupport(k) - lo) / (hi - lo) * 75)}%,var(--land))`,
     label: k => regSupport(k).toFixed(0) + '%',
@@ -2738,7 +2802,7 @@ function pOrg() {
   const leanTxt = r.lean > 0.4 ? '진보 강세' : r.lean > 0.08 ? '진보 우세' : r.lean < -0.4 ? '보수 강세' : r.lean < -0.08 ? '보수 우세' : '경합';
   const seatRows = partyOrder().filter(id => S.seats[id].d[r.k]).map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${S.seats[id].d[r.k]}</span>`).join('');
   return `<div class="mapwrap">
-    <div class="card"><h2>전국 지도</h2>${kmap}<div class="mapnote"><span>우리 당 지지 낮음<i class="grad" style="background:linear-gradient(90deg,var(--land),${c})"></i>높음</span><span><svg width="14" height="16" viewBox="-4 -81 22 28" aria-hidden="true"><path d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/></svg> 시·도당</span><span style="color:var(--gold2)">★</span><span style="margin-left:-10px">창당 본거지</span><span>지역을 누르면 오른쪽에 자세히 나옵니다.</span></div></div>
+    <div class="card"><h2>전국 지도</h2><div class="mapbox">${kmap}<div class="mapctl" role="group" aria-label="지도 보기"><button class="ib" data-zoom="in" aria-label="확대" title="확대">+</button><button class="ib" data-zoom="out" aria-label="축소" title="축소">−</button><button class="ib" data-zoom="reset" title="전체 보기">전체</button></div></div><div class="mapnote"><span>우리 당 지지 낮음<i class="grad" style="background:linear-gradient(90deg,var(--land),${c})"></i>높음</span><span><svg width="14" height="16" viewBox="-4 -81 22 28" aria-hidden="true"><path d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/></svg> 시·도당</span><span style="color:var(--gold2)">★</span><span style="margin-left:-10px">창당 본거지</span><span>지역을 누르면 오른쪽에 자세히 나옵니다. 휠·버튼으로 확대하고, 확대한 뒤엔 끌어서 옮깁니다(휴대폰은 두 손가락으로도 확대).</span></div></div>
     <div class="card"><h2>${r.n} <span class="pill">${leanTxt}</span> ${r.k === S.party.home ? '<span class="pill">창당 본거지</span>' : ''}</h2>
       <div class="tblwrap"><table class="kv"><tbody>
         <tr><th>선거인 수</th><td class="num">약 ${r.voters}백만 명</td></tr>
@@ -2754,9 +2818,9 @@ function pOrg() {
     </div></div>`;
 }
 function pAct() {
-  return `<div class="card"><h2>전국 활동</h2><div class="acts">${['online', 'policy', 'media', 'talent', 'fund', 'tvad', 'debate'].map(k => actBtn(k, undefined, true)).join('')}</div>
-    <p class="tip">재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 메뉴의 '활동' 옆에 숫자로 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
-    <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
+  return `<div class="card"><h2>전국 활동</h2><div class="acts wide">${['online', 'policy', 'media', 'talent', 'fund', 'tvad', 'debate'].map(k => actBtn(k, undefined, true, true)).join('')}</div>
+    <p class="tip">종 버튼으로 재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 메뉴의 '활동' 옆에 숫자로 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
+    <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts wide">${UPS.map(u => `<div class="act row2"><div class="main"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
 function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
@@ -2765,7 +2829,7 @@ function pPeople() {
   const rows = [...S.pool].sort((a, b) => rank(a) - rank(b)).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
     <div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar"><i style="width:${clamp(v, 0, 100)}%;background:${col}"></i></div><b class="num">${v}</b>`).join('')}</div>
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
-  return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/30)</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입 탐색 (${won(ACT.talent.c())})</button></div>
+  return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/30)</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입</button></div>
     ${why('talent') ? `<p class="small warn">${esc(why('talent'))}</p>` : ''}
     <div class="pcards">${rows}</div>
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
@@ -2894,7 +2958,7 @@ function pOffice() {
   const bill = b => { const y = billYes(b), st = (s, t) => `<button class="btn${b.stance === s ? ' pri' : ''}" data-stance="${b.id}|${s}" aria-pressed="${b.stance === s}" ${left || b.lobbied ? 'disabled' : ''}>${t}</button>`;
     return `<li><div><b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></div>
     <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / 3)}%;background:${y >= 151 ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / 151표</span></div>
-    ${seats ? `<div class="btns">${b.by ? st(1, '찬성') + st(-1, '반대') + st(0, '자유투표') : ''}<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''}>${b.by ? '표 단속' : '여야 협상'} (1천만·행동력 1)</button></div>` : ''}</li>`; };
+    ${seats ? `<div class="btns">${b.by ? st(1, '찬성') + st(-1, '반대') + st(0, '자유투표') : ''}<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''}>${b.by ? '표 단속' : '여야 협상'}</button></div>` : ''}</li>`; };
   const list = bs => `<ul class="bills">${bs.map(bill).join('')}</ul>`;
   const mine = S.bills.filter(b => !b.by), theirs = S.bills.filter(b => b.by), fxs = S.fx.filter(f => f.until > S.day);
   // 맨 위: 법안 한 영역, 왼쪽 우리 법안 / 오른쪽 다른 당·정부 법안(좁으면 위아래)
@@ -3149,6 +3213,8 @@ function settingsModal() {
       <label class="f">음량<input type="range" id="sVol" min="0" max="1" step="0.05" value="${s.vol}"></label></div>
       <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
+      <h3 style="margin-top:16px">실행 확인</h3><p class="small muted">활동·인재 영입·표 단속 등을 누르면 비용과 행동력을 한 번 더 보여 줍니다.</p>
+      <div class="row"><label class="small"><input type="checkbox" id="sCost" ${s.skipCost ? '' : 'checked'}> 비용·행동력 확인 창 보기</label></div>
       <h3 style="margin-top:16px">저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
       <div class="btns"><button class="btn" id="sExp">파일로 내보내기</button><button class="btn" id="sImp">파일 불러오기</button><button class="btn danger" id="sNew">새 게임</button></div>
       <p class="small muted" style="margin-top:8px">${!window.showDirectoryPicker ? '폴더 자동 저장은 크롬·엣지에서만 됩니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/정당키우기_${esc(S.party.name)}.json (매 턴 덮어씀, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 매 턴 자동 저장합니다.'}</p>
@@ -3161,6 +3227,7 @@ function settingsModal() {
       m.querySelector('#sVol').oninput = e => Snd.vol(+e.target.value);
       m.querySelector('#sConfAp').onchange = e => { s.confAp = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sConfAap').onchange = e => { s.confAap = e.target.checked; Snd.saveSet(); };
+      m.querySelector('#sCost').onchange = e => { s.skipCost = !e.target.checked; Snd.saveSet(); };
       m.querySelector('#sExp').onclick = exportSave;
       m.querySelector('#sImp').onclick = () => $('#importFile').click();
       if (m.querySelector('#sDir')) m.querySelector('#sDir').onclick = pickSaveDir;

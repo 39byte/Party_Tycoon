@@ -13,13 +13,13 @@
   const METRO = ['seoul', 'incheon', 'sejong', 'daejeon', 'daegu', 'ulsan', 'busan'];
   // 라벨이 겹치는 곳만 손으로 옮김
   const LAB = Object.assign({}, MAP.lab, { gyeonggi: [470, 205], incheon: [190, 410], chungnam: [240, 640], jeonnam: [360, 1150], gyeongnam: [630, 1090], sejong: [392, 615], daejeon: [462, 728], seoul: [340, 336], daegu: [728, 870], ulsan: [905, 950], busan: [860, 1065], chungbuk: [580, 560], gangwon: [680, 270] });
-  // o: { fill(k), sel, label(k) → 둘째 줄, mark(k, x, y) → svg, click, aria(k) }
+  // o: { fill(k), sel, label(k) → 둘째 줄, mark(k, x, y) → svg, click, aria(k), vb 보이는 범위 [x, y, w, h], cls }
   function map(o = {}) {
     const ks = Object.keys(MAP.d).sort((a, b) => METRO.includes(a) - METRO.includes(b) || (a === o.sel) - (b === o.sel));
     const reg = k => `<path class="rg${k === o.sel ? ' sel' : ''}" d="${MAP.d[k]}" style="fill:${o.fill ? o.fill(k) : 'var(--land)'}"${o.click ? ` data-reg="${k}" role="button" tabindex="0" aria-pressed="${k === o.sel}" aria-label="${esc(o.aria ? o.aria(k) : NAMES[k])}"` : ''}><title>${esc(o.aria ? o.aria(k) : NAMES[k])}</title></path>`;
     const lab = k => { const [x, y] = LAB[k], m = METRO.includes(k), sub = o.label ? o.label(k) : '';
       return `<g class="ml${m ? ' sm' : ''}" transform="translate(${x} ${y})">${o.mark ? o.mark(k) : ''}<text y="${sub ? -6 : 10}">${NAMES[k]}</text>${sub ? `<text class="sub" y="${m ? 22 : 28}">${esc(sub)}</text>` : ''}</g>`; };
-    return `<svg class="kmap" viewBox="40 0 980 1560" role="group" aria-label="전국 지도">
+    return `<svg class="kmap${o.cls ? ' ' + o.cls : ''}" viewBox="${(o.vb || [40, 0, 980, 1560]).join(' ')}" role="group" aria-label="전국 지도">
       <rect x="935" y="362" width="84" height="74" rx="8" class="inset"/><circle cx="1004" cy="421" r="3" class="rg isle"/><circle cx="1010" cy="418" r="2.4" class="rg isle"/>
       <text x="977" y="452" class="ml-isle">울릉도·독도</text>
       ${ks.map(reg).join('')}<g class="labels" aria-hidden="true">${ks.map(lab).join('')}</g></svg>`;
