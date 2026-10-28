@@ -1465,6 +1465,10 @@ function billAgree(b, id) {
   if (S.president.party === id) a -= 0.12; // 여당은 다른 당 법안에 소극적
   return clamp(a, 0.03, 0.95);
 }
+// 의결 정족수는 정원(300)이 아니라 재적의원(지금 의석을 가진 의원 수) 기준. 표결엔 모두 출석한다고 봄
+// 일반 의결: 재적 과반 출석·출석 과반 찬성(헌법 제49조) · 거부권 재의결: 출석 3분의 2 이상(제53조④) · 대통령 탄핵소추: 재적 3분의 2 이상(제65조②)
+const seatsNow = () => sum(Object.keys(S.seats).map(seatTotal));
+const passNeed = () => Math.floor(seatsNow() / 2) + 1, twoThirds = () => Math.ceil(seatsNow() * 2 / 3);
 const billYes = b => sum(['P', 'A', 'B', 'C', 'O'].map(id => seatTotal(id) * billAgree(b, id)));
 const STAGE_N = ['상임위 심사 중', '본회의 상정 대기'];
 function billStep() {
@@ -1473,15 +1477,15 @@ function billStep() {
     if (S.day < b.next) return true;
     const y = billYes(b) + gauss() * 12;
     if (b.stage === 0) {
-      if (rnd() < clamp((y - 110) / 100, 0.05, 0.9)) { b.stage = 1; b.next = S.day + 14; notes.push(`'${b.t}' 상임위원회 통과${b.by && seatTotal('P') ? ' · 2주 뒤 본회의, 당론을 정하세요' : ''}`); return true; }
+      if (rnd() < clamp((y / seatsNow() * 300 - 110) / 100, 0.05, 0.9)) { b.stage = 1; b.next = S.day + 14; notes.push(`'${b.t}' 상임위원회 통과${b.by && seatTotal('P') ? ' · 2주 뒤 본회의, 당론을 정하세요' : ''}`); return true; }
       if (++b.tries >= 3) { notes.push(`'${b.t}' 상임위에서 끝내 계류, 사실상 폐기`); return false; }
       b.next = S.day + 28; notes.push(`'${b.t}' 상임위 계류, 다음 달 재논의`); return true;
     }
     if (b.by) return rivalVote(b, y, notes), false;
-    if (y < 151) { S.trust -= 0.5; notes.push(`'${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); return false; }
+    if (y < passNeed()) { S.trust -= 0.5; notes.push(`'${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); return false; }
     const pr = S.president.party;
     if (pr !== 'P' && billAgree(b, pr) < 0.45 && rnd() < clamp(0.7 - S.rel[pr] / 250, 0.2, 0.9)) {
-      if (y < 200) { S.fame += 1; notes.push(`'${b.t}' 본회의 통과했으나 대통령 재의요구(거부권)로 폐기`); return false; }
+      if (y < twoThirds()) { S.fame += 1; notes.push(`'${b.t}' 본회의 통과했으나 대통령 재의요구(거부권)로 폐기`); return false; }
       notes.push(`'${b.t}' 대통령 거부권 행사 → 국회 재의결 성립`);
     }
     const hot = b.issue === S.issue ? 1.6 : 1;
@@ -1511,19 +1515,19 @@ function rivalBill(notes) {
 // 다른 당·정부 법안 본회의: 우리 당론은 신뢰(여론과 맞는지)와 발의 당과의 관계에, 통과되면 제도가 바뀜
 function rivalVote(b, y, notes) {
   const seats = seatTotal('P'), s = seats ? b.stance : 0, who = b.gov ? '정부' : pn(b.by), pr = S.president.party;
-  let pass = y >= 151;
-  if (pass && !b.gov && y < 200 && (pr === 'P' ? s < 0 : pr !== b.by && billAgree(b, pr) < 0.45 && rnd() < 0.6)) {
+  let pass = y >= passNeed();
+  if (pass && !b.gov && y < twoThirds() && (pr === 'P' ? s < 0 : pr !== b.by && billAgree(b, pr) < 0.45 && rnd() < 0.6)) {
     pass = false; notes.push(`${who} '${b.t}' 본회의 통과했으나 ${pr === 'P' ? '우리 당 대통령이' : '대통령이'} 거부권 행사로 폐기`);
   }
   if (pass) {
     S.rw[b.by] += 0.5 + (b.pop - 0.5) * 4; S.rdone.push(b.t);
     if (b.fx) S.fx.push({ ...b.fx, t: b.t, until: 1e9 });
     notes.push(`${who} '${b.t}' 본회의 통과 (찬성 ${Math.round(y)}표)${b.fx ? ` → ${b.fx.n}` : ''}`); addLog(`${who} '${b.t}' 국회 통과${b.fx ? ` (${b.fx.n})` : ''}`);
-  } else if (y < 151) { S.rw[b.by] -= 0.3; notes.push(`${who} '${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); }
+  } else if (y < passNeed()) { S.rw[b.by] -= 0.3; notes.push(`${who} '${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); }
   if (!s) return;
   S.trust += s * (b.pop - 0.5) * 6;
   relAdd(b.by, s * 6, `'${b.t}' ${s > 0 ? '찬성' : '반대'} 당론`);
-  if (Math.abs(y - 151) < seats) { S.fame += 1; notes.push(`우리 당 ${seats}석이 '${b.t}' 표결의 캐스팅보트였습니다`); }
+  if (Math.abs(y - passNeed()) < seats) { S.fame += 1; notes.push(`우리 당 ${seats}석이 '${b.t}' 표결의 캐스팅보트였습니다`); }
 }
 function setStance(id, s) {
   const b = S.bills.find(x => x.id === id);
@@ -1532,7 +1536,7 @@ function setStance(id, s) {
 }
 function billModal() {
   openModal({
-    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 찬성 151표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
+    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 재적의원 ${seatsNow()}명의 과반인 찬성 ${passNeed()}표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
       <div class="choices">${ISSUES.map(i => BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}<small>${i.n}${S.bills.some(x => x.t === t) ? ' · 계류 중' : ''}</small></button>`).join('')).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-bill]').forEach(b => b.onclick = () => {
@@ -2248,7 +2252,7 @@ const EVENTS = [
       { t: '거리를 둔다', run: () => { S.trust -= 1; return '광장과 거리를 뒀습니다.'; } }] },
   { id: 'impeach', w: 2, cond: () => !ruling() && !S.president.acting && S.rw[S.president.party] < RIV[S.president.party].base - 4 && !S.seen['imp' + S.president.since], title: '대통령 탄핵소추안 발의',
     pre: () => (S.seen['imp' + S.president.since] = true),
-    body: () => `${presN()}의 직무상 위법 의혹으로 탄핵소추안이 발의됐습니다. 국회의원 200명 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.`,
+    body: () => `${presN()}의 직무상 위법 의혹으로 탄핵소추안이 발의됐습니다. 재적의원 3분의 2(${twoThirds()}명) 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.`,
     ch: () => !seatTotal('P') ? [{ t: '표결을 지켜본다', s: '우리 당은 국회 의석이 없습니다', run: () => impeachVote(null) }]
       : [{ t: '찬성한다', run: () => impeachVote(true) }, { t: '반대한다', run: () => impeachVote(false) }, { t: '기권한다', run: () => { S.trust -= 1; return impeachVote(null); } }] },
   { id: 'martial', w: 0.4, once: true, cond: () => !ruling() && S.day > 500, title: '심야의 비상계엄',
@@ -2363,7 +2367,7 @@ function impeachVote(yes) {
   if (yes) { relAdd(pr, -25, '대통령 탄핵소추 찬성'); ['A', 'B', 'C'].filter(id => id !== pr).forEach(id => relAdd(id, 4, '탄핵 공조')); }
   else if (yes === false) relAdd(pr, 12, '대통령 탄핵소추 반대');
   if (yes) { S.fame += 2; S.trust += 1; } else if (yes === false) { S.fame += 1; S.trust -= 2; }
-  if (v < 200) return `탄핵소추안이 찬성 ${v}표로 부결됐습니다.`;
+  if (v < twoThirds()) return `탄핵소추안이 찬성 ${v}표로 부결됐습니다(필요 ${twoThirds()}표).`;
   later(rr(60, 100), { ev: 'court', yes });
   hitPres(3);
   return `탄핵소추안이 찬성 ${v}표로 가결됐습니다. 대통령 직무가 정지되고 헌법재판소 심판이 시작됩니다.`;
@@ -2689,7 +2693,7 @@ const ACHS = [
   ['seat1', '첫 국회 의석', () => seatTotal('P') > 0], ['caucus', '원내교섭단체(20석)', () => seatTotal('P') >= 20],
   ['gov1', '첫 광역단체장', () => govCount('P') > 0], ['m100k', '당원 10만 명', () => totalMembers() >= 1e5],
   ['first', '원내 제1당', () => ['A', 'B', 'C', 'O'].every(id => seatTotal('P') > seatTotal(id))],
-  ['law1', '첫 법률 통과', () => S.laws.length > 0], ['major', '단독 과반(151석)', () => seatTotal('P') >= 151], ['pres', '대통령 배출', () => S.president.party === 'P'],
+  ['law1', '첫 법률 통과', () => S.laws.length > 0], ['major', '단독 과반(재적 과반)', () => seatTotal('P') >= passNeed()], ['pres', '대통령 배출', () => S.president.party === 'P'],
 ];
 function checkAch() { for (const [k, n, f] of ACHS) if (!S.ach[k] && f()) { S.ach[k] = S.day; addLog(`업적 달성: ${n}`, 'ok'); toast(`업적 달성: ${n}`, 'ok'); } }
 
@@ -3190,17 +3194,17 @@ function pOffice() {
     // 우리 법안: 여야 협상 버튼은 법안명 줄 오른쪽 / 다른 당 법안: 당론 버튼 왼쪽, 표 단속은 오른쪽 끝
     const lob = seats ? `<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''}>${b.by ? '표 단속' : '여야 협상'}</button>` : '';
     return `<li><div class="billh"><div><b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></div>${b.by ? '' : lob}</div>
-    <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / 3)}%;background:${y >= 151 ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / 151표</span></div>
+    <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / seatsNow() * 100)}%;background:${y >= passNeed() ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / ${passNeed()}표</span></div>
     ${seats && b.by ? `<div class="btns">${st(1, '찬성') + st(-1, '반대') + st(0, '자유투표')}<span class="push"></span>${lob}</div>` : ''}</li>`; };
   const list = bs => `<ul class="bills">${bs.map(bill).join('')}</ul>`;
   const mine = S.bills.filter(b => !b.by), theirs = S.bills.filter(b => b.by), fxs = S.fx.filter(f => f.until > S.day);
   // 맨 위: 법안 한 영역, 왼쪽 우리 법안 / 오른쪽 다른 당·정부 법안(좁으면 위아래)
   const bills = `<div class="card"><h2>법안 <span class="pill">계류 ${S.bills.length}건</span></h2><div class="split billsplit">
     <section><h3>우리 법안</h3>${!seats ? '<p class="empty">국회의원을 배출하면 법안을 발의할 수 있습니다.</p>' : mine.length ? `${list(mine)}
-      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 151표가 필요합니다. 여야 협상은 법안마다 두 번까지 할 수 있습니다. ${ruling() ? '' : '대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 200표).'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. 여야 협상은 법안마다 두 번까지 할 수 있습니다. ${ruling() ? '' : '대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       ${S.laws.length ? `<h3 style="margin-top:14px">통과시킨 법률 ${S.laws.length}건</h3><ul class="log">${[...S.laws].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${esc(l.t)}</span></li>`).join('')}</ul>` : ''}</section>
     <section><h3>다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
-      <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 200표 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
+      <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 3분의 2(${twoThirds()}표) 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
       ${fxs.length ? `<h3 style="margin-top:14px">바뀐 제도</h3><ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : ''}</section></div></div>`;
   const work = seats ? `<div class="card"><h2>의회 활동 <span class="pill">${seats}석</span></h2><div class="acts">${actBtn('bill')}${actBtn('question')}</div>
       <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p></div>`
@@ -3273,6 +3277,9 @@ function renderBanner() {
   el.querySelectorAll('[data-bgo]').forEach(b => b.onclick = () => { tab = b.dataset.bgo; Snd.sfx('click'); renderAll(); });
 }
 const LAWS = [
+  ['헌법 제49조', '국회는 헌법 또는 법률에 특별한 규정이 없는 한 재적의원 과반수의 출석과 출석의원 과반수의 찬성으로 의결한다.'],
+  ['헌법 제53조', '대통령이 재의를 요구한 법률안은 재적의원 과반수의 출석과 출석의원 3분의 2 이상의 찬성으로 다시 의결하면 법률로 확정된다.'],
+  ['헌법 제65조', '대통령 탄핵소추는 재적의원 과반수의 발의와 재적의원 3분의 2 이상의 찬성이 있어야 한다.'],
   ['헌법 제8조', '정당 설립은 자유이며 복수정당제는 보장된다. 목적·활동이 민주적 기본질서에 위배되면 헌법재판소 심판으로 해산된다.'],
   ['정당법 제6조', '창당준비위원회는 중앙당 200명 이상, 시·도당 100명 이상의 발기인으로 구성한다.'],
   ['정당법 제8조', '창당준비위원회는 결성신고일부터 6개월 안에 등록신청을 해야 하며, 하지 않으면 소멸한 것으로 본다.'],
@@ -3439,10 +3446,10 @@ function pGuide() {
       <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당은 정당 목록 맨 왼쪽, 의원·원외 인사는 각 목록 맨 위로 올라옵니다.</li>
       <li>원외 인사(전직 의원·장관·단체장, 당협위원장, 시민사회·노동계 인사, 정치 유튜버 등)에게는 지지 선언을 요청하거나 영입을 제안할 수 있습니다. 이름값이 클수록 효과도 크지만 설득하기 어렵습니다. 총선에서 물러난 의원 일부는 원외 인사로 남습니다.</li>
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
-    ${sec('탄핵과 조기 대선', `<ul><li>대통령 쪽 지지율이 크게 떨어지면 탄핵소추안이 발의될 수 있습니다. 국회의원 200명 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.</li>
+    ${sec('탄핵과 조기 대선', `<ul><li>대통령 쪽 지지율이 크게 떨어지면 탄핵소추안이 발의될 수 있습니다. 재적의원 3분의 2 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.</li>
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
       <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
-    ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(151표)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
+    ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
@@ -3458,7 +3465,7 @@ function pGuide() {
       <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속으로 다른 당 표를 움직일 수 있습니다. 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
       <li>후원 한도, 보조금 배분, 검찰 수사권처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
       <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
-      <li>우리 당이 집권하면, 반대 당론을 정한 법안이 200표 미만으로 통과될 때 대통령이 거부권을 행사합니다.</li>
+      <li>우리 당이 집권하면, 반대 당론을 정한 법안이 재적 3분의 2 미만으로 통과될 때 대통령이 거부권을 행사합니다.</li>
       <li>다른 당 광역단체장도 역점사업을 펼칩니다. 협조·견제·관망 중 입장을 고르면 몇 주 뒤 사업 성패에 따라 평가가 갈립니다. 지사 행정 지지도는 그 지역 선거에서 그 당의 득표에 반영됩니다.</li>
       <li>다른 당 지사가 우리 당 지사에게 공동사업을 제안하거나, 측근 비리 의혹이 터져 고발 여부를 정해야 할 때도 있습니다.</li></ul>`)}
     ${sec('게임 오버 조건', `<ul><li>창당준비위원회 결성 후 ${LAW.prepDays}일 안에 정당 등록 실패</li>
