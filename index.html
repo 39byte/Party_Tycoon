@@ -1902,7 +1902,7 @@ function why(key, k) {
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
   if (key === 'chapter') { if (S.chapters[k]) return '이미 등록된 시·도당'; if (S.members[k] < LAW.chapterMembers) return `당원 ${S.members[k].toLocaleString()} / 1,000명 필요 (정당법 제18조)`; }
-  if (key === 'talent' && S.pool.length >= 30) return '인재풀이 가득 찼습니다 (최대 30명)';
+  if (key === 'talent' && S.pool.length >= POOL_MAX) return `인재풀이 가득 찼습니다 (최대 ${POOL_MAX}명)`;
   if (key === 'fund') { const y = L.dayToDate(S.day).getUTCFullYear(); if (S.fund.year === y && S.fund.raised >= fundCap()) return '연간 모금한도 도달 (정치자금법 제12조)'; }
   if ((S.cd[cdk] || 0) > S.day) return `${Math.ceil((S.cd[cdk] - S.day) / TURN)}턴 후 다시 가능`;
   if (a.c() > 0 && S.money < a.c()) return '자금 부족';
@@ -1987,7 +1987,7 @@ function talentModal() {
     onOpen: m => {
       const got = new Set(), bs = [...m.querySelectorAll('[data-i]')], all = m.querySelectorAll('[data-all]')[0];
       const rest = () => cands.map((p, i) => i).filter(i => !got.has(i));
-      const can = is => S.pool.length + is.length <= 30 && S.money >= sum(is.map(i => fee(cands[i])));
+      const can = is => S.pool.length + is.length <= POOL_MAX && S.money >= sum(is.map(i => fee(cands[i])));
       const sync = () => {
         bs.forEach(b => { const i = +b.dataset.i; if (got.has(i)) { b.disabled = true; b.textContent = '영입 완료'; } else b.disabled = !can([i]); });
         const r = rest(); all.disabled = !r.length || !can(r); all.textContent = r.length ? `남은 후보 모두 영입 (${won(sum(r.map(i => fee(cands[i]))))})` : '모두 영입했습니다';
@@ -2342,7 +2342,7 @@ const EVENTS = [
     body: () => '거대 양당에 대한 피로감으로 "제3지대" 바람이 불고 있습니다. 중도층이 새 선택지를 찾습니다.',
     ch: [{ t: '중도 빅텐트를 선언한다', s: '화제성↑', run: () => { S.buzz += 3; S.fame += 2; return '"양당 기득권 타파" 깃발을 들었습니다.'; } },
       { t: '독자 노선을 지킨다', s: '신뢰↑', run: () => { S.trust += 1.5; return '정책으로 승부하겠다고 밝혔습니다.'; } }] },
-  { id: 'young', w: 1.2, cond: () => S.pool.length < 30, title: '청년 정치인 돌풍', pre: () => { ET.p = genPerson({ age: 33, fameAdd: 25 }); ET.p.skill = Math.max(ET.p.skill, 72); },
+  { id: 'young', w: 1.2, cond: () => S.pool.length < POOL_MAX, title: '청년 정치인 돌풍', pre: () => { ET.p = genPerson({ age: 33, fameAdd: 25 }); ET.p.skill = Math.max(ET.p.skill, 72); },
     body: () => `토론 배틀 프로그램에서 우승한 30대 <b>${esc(ET.p.name)}</b>(인지도 ${ET.p.fame}, 역량 ${ET.p.skill})가 화제입니다. 입당 의사를 타진해 왔습니다.`,
     ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); S.fame += 2; return `${ET.p.name} 영입! 청년층 반응이 뜨겁습니다.`; } },
       { t: '아직 이르다', run: () => '정중히 사양했습니다.' }] },
@@ -2366,7 +2366,7 @@ const EVENTS = [
       { t: '중앙정부 책임론', s: '행정 지지도↓', run: () => { S.ops[ET.k] -= 5; S.fame += 2; hitPres(1); return '책임 떠넘기기 공방이 길어졌습니다.'; } }] },
 
   // --- 당 운영 ---
-  { id: 'celeb', w: 2, cond: () => S.pool.length < 30, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
+  { id: 'celeb', w: 2, cond: () => S.pool.length < POOL_MAX, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
     body: () => { const p = ET.p; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. ${recOpen(p) ? `청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.` : '청렴도와 전과는 영입한 뒤에 알 수 있습니다.'}`; },
     ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); lateRec(ET.p, ET.p.job); S.fame += 2; return `${ET.p.name} 영입!`; } },
       { t: '정중히 사양', run: () => '입당을 보류했습니다.' }] },
@@ -2862,7 +2862,7 @@ function renderPanel() {
 const SCENE_SUB = {
   home: () => S.phase === 'prep' ? `창당준비위원회 · 등록 기한 D-${Math.max(0, LAW.prepDays - S.day)}` : `${IDEO[S.party.ideo]} 정당 · 대표 ${leader().name}`,
   org: () => `시·도당 ${chaptersOk()}곳 · 당원 ${totalMembers().toLocaleString()}명`, act: () => `행동력 ${S.ap}/${apMax()} · 활동으로 인지도와 신뢰를 쌓으세요`,
-  people: () => `인재풀 ${S.pool.length}/30명`, elec: () => { const ne = nextElection(); return ne ? `${ne.name} D-${ne.day - S.day}` : '선거 일정'; },
+  people: () => `인재풀 ${S.pool.length}/${POOL_MAX}명`, elec: () => { const ne = nextElection(); return ne ? `${ne.name} D-${ne.day - S.day}` : '선거 일정'; },
   office: () => `국회 의석 ${seatTotal('P')}석 / 300`, neg: () => '정당·의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
   pres: () => presT(), fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
 };
@@ -2975,6 +2975,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-autogov]').forEach(b => b.onchange = () => { S.autoGov = b.checked; Snd.sfx('click'); save(); renderAll(); });
   m.querySelectorAll('[data-des]').forEach(b => b.onclick = () => toggleDes(+b.dataset.des));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
+  m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; renderAll(); });
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
   m.querySelectorAll('[data-camp]').forEach(el => el.addEventListener('change', () => { draftChange(el); }));
@@ -3085,15 +3086,20 @@ function pAct() {
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts ups">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
 const statBars = (p, hide) => `<div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', hide ? null : p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar">${v == null ? '' : `<i style="width:${clamp(v, 0, 100)}%;background:${col}"></i>`}</div><b class="num">${v == null ? '?' : Math.round(v)}</b>`).join('')}</div>`; // hide: 청렴을 '?'로
+const POOL_MAX = 50;
+// 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
+const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
+let pSort = 'def', pDir = 1;
 function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
   // 직책 있는 사람 먼저: 당 대표 → 대통령 → 지역구 의원 → 비례 의원 → 시·도지사 → 나머지(원래 순서 유지)
   const rank = p => p.leader ? 0 : p.role === '대통령' ? 1 : /^국회의원\((?!비례)/.test(p.role) ? 2 : /비례/.test(p.role) ? 3 : /시·도지사$/.test(p.role) ? 4 : 5;
-  const rows = [...S.pool].sort((a, b) => rank(a) - rank(b)).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
+  const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
     ${statBars(p)}
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
-  return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/30)</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입</button></div>
+  return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/${POOL_MAX})</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입</button></div>
     ${why('talent') ? `<p class="small warn">${esc(why('talent'))}</p>` : ''}
+    <div class="filters" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div>
     <div class="pcards">${rows}</div>
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
 }
