@@ -239,6 +239,12 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* (i) 설명 버튼과 툴팁 */
 .tip{font-size:13px;color:var(--muted)}
+.kv{table-layout:fixed} .kv th{width:96px} /* 지역 정보: 지역을 바꿔도 칸 폭 고정 */
+/* 의회 법안 목록 */
+.bills{list-style:none;margin:0;padding:0}
+.bills>li{display:grid;gap:6px;padding:10px 0;border-bottom:1px solid var(--border)}
+.bills .btns .btn{min-height:34px;padding:4px 12px}
+@container (min-width:734px){.billsplit>section+section{border-left:1px solid var(--border);padding-left:14px}}
 .tipw{display:inline-flex;vertical-align:middle;margin-left:6px}
 .info{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;margin-left:2px;border:1.5px solid var(--muted);border-radius:50%;background:none;color:var(--muted);font:italic 700 13px/1 Georgia,"Times New Roman",serif;cursor:help}
 .info:hover,.info:focus-visible{color:var(--primary2);border-color:var(--primary2)}
@@ -1608,8 +1614,8 @@ function why(key, k) {
   const a = ACT[key], cdk = key + (k ? ':' + k : '');
   if (S.over) return '게임 종료';
   if (left) return '턴 진행 중';
-  if (key === 'govern') { if (S.aap < 1) return '이번 턴 행정 행동력 소진'; }
-  else if (S.ap < 1) return '이번 턴 행동력 소진 — 턴을 종료하세요';
+  if (key === 'govern') { if (S.aap < 1) return '행정 행동력 소진'; }
+  else if (S.ap < 1) return '행동력 소진';
   if (a.camp && !activeCamps().length) return '공식 선거운동기간에만 가능 (사전선거운동 금지, 공직선거법 제254조)';
   if (key === 'debate' && !activeCamps().some(c => c.type !== 'nat')) return '대선·지방선거 선거운동기간에만 열림';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
@@ -2674,10 +2680,12 @@ function pollChart(ban) {
 }
 function pOrg() {
   const r = RK[selReg], cs = activeCamps().length > 0, c = S.party.color;
+  const sps = R.map(x => regSupport(x.k)), lo = Math.min(...sps), hi = Math.max(...sps, lo + 1);
   // 지도: 우리 당 지지가 높을수록 당 색이 진함. 깃발 = 시·도당, 별 = 창당 본거지
   const kmap = ART.map({
     sel: selReg, click: true,
-    fill: k => `color-mix(in srgb,${c} ${Math.round(clamp(regSupport(k) / 70, 0.06, 0.9) * 100)}%,var(--land))`,
+    // 지역끼리 비교가 보이게 가장 낮은 곳~높은 곳을 15~90%로 펼침
+    fill: k => `color-mix(in srgb,${c} ${Math.round(15 + (regSupport(k) - lo) / (hi - lo) * 75)}%,var(--land))`,
     label: k => regSupport(k).toFixed(0) + '%',
     aria: k => `${RK[k].n} 지지 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명${S.chapters[k] ? ' · 시·도당' : ''}`,
     mark: k => (S.chapters[k] ? `<path class="mk" d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/>` : '') + (k === S.party.home ? `<path class="mk" d="M-30 -74l3.5 7 7.6 1.1-5.5 5.4 1.3 7.6-6.9-3.6-6.9 3.6 1.3-7.6-5.5-5.4 7.6-1.1z" style="fill:var(--gold)"/>` : ''),
@@ -2687,7 +2695,7 @@ function pOrg() {
   return `<div class="mapwrap">
     <div class="card"><h2>전국 지도</h2>${kmap}<div class="mapnote"><span>우리 당 지지 낮음<i class="grad" style="background:linear-gradient(90deg,var(--land),${c})"></i>높음</span><span><svg width="14" height="16" viewBox="-4 -81 22 28" aria-hidden="true"><path d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/></svg> 시·도당</span><span style="color:var(--gold2)">★</span><span style="margin-left:-10px">창당 본거지</span><span>지역을 누르면 오른쪽에 자세히 나옵니다.</span></div></div>
     <div class="card"><h2>${r.n} <span class="pill">${leanTxt}</span> ${r.k === S.party.home ? '<span class="pill">창당 본거지</span>' : ''}</h2>
-      <div class="tblwrap"><table><tbody>
+      <div class="tblwrap"><table class="kv"><tbody>
         <tr><th>선거인 수</th><td class="num">약 ${r.voters}백만 명</td></tr>
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
         <tr><th>우리 당 지지</th><td class="num">${regSupport(r.k).toFixed(1)}%</td></tr>
@@ -2813,26 +2821,27 @@ function pFin() {
 function pOffice() {
   const seats = seatTotal('P'), cases = S.cases;
   const stage = c => c.mine ? '고소·고발 수사 중' : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
-  const caseCard = `<div class="card" style="margin-top:14px"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>`;
+  const caseCard = `<div class="card"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>`;
+  // 법안 한 건: 제목·정보 / 예상 찬성 막대 / 당론·협상 버튼을 위아래로(반쪽 폭에도 들어가게)
   const bill = b => { const y = billYes(b), st = (s, t) => `<button class="btn${b.stance === s ? ' pri' : ''}" data-stance="${b.id}|${s}" aria-pressed="${b.stance === s}" ${left || b.lobbied ? 'disabled' : ''}>${t}</button>`;
-    return `<tr><td><b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></td>
-    <td style="min-width:140px"><div class="meter"><div class="bar"><i style="width:${Math.min(100, y / 3)}%;background:${y >= 151 ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)}표</span></div></td>
-    ${seats ? `<td><div style="display:flex;gap:6px;flex-wrap:wrap">${b.by ? st(1, '찬성') + st(-1, '반대') + st(0, '자유투표') : ''}<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''}>${b.by ? '표 단속' : '여야 협상'} (1천만·행동력 1)</button></div></td>` : ''}</tr>`; };
-  const tbl = bs => `<div class="tblwrap"><table><thead><tr><th>법안</th><th>예상 찬성 (151표 필요)</th>${seats ? '<th></th>' : ''}</tr></thead><tbody>${bs.map(bill).join('')}</tbody></table></div>`;
+    return `<li><div><b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></div>
+    <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / 3)}%;background:${y >= 151 ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / 151표</span></div>
+    ${seats ? `<div class="btns">${b.by ? st(1, '찬성') + st(-1, '반대') + st(0, '자유투표') : ''}<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''}>${b.by ? '표 단속' : '여야 협상'} (1천만·행동력 1)</button></div>` : ''}</li>`; };
+  const list = bs => `<ul class="bills">${bs.map(bill).join('')}</ul>`;
   const mine = S.bills.filter(b => !b.by), theirs = S.bills.filter(b => b.by), fxs = S.fx.filter(f => f.until > S.day);
-  const work = seats ? `<div class="card" style="margin-top:14px"><h2>의회 활동 <span class="pill">${seats}석</span></h2>
-      <div class="acts">${actBtn('bill')}${actBtn('question')}</div>
-      <h3 style="margin-top:14px">우리 법안</h3>${mine.length ? `${tbl(mine)}
-      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 여야 협상은 법안마다 두 번까지 할 수 있습니다. ${ruling() ? '' : '대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 200표).'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
-      ${S.laws.length ? `<h3 style="margin-top:14px">통과시킨 법률 ${S.laws.length}건</h3><ul class="log">${[...S.laws].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${esc(l.t)}</span></li>`).join('')}</ul>` : ''}
+  // 맨 위: 법안 한 영역, 왼쪽 우리 법안 / 오른쪽 다른 당·정부 법안(좁으면 위아래)
+  const bills = `<div class="card"><h2>법안 <span class="pill">계류 ${S.bills.length}건</span></h2><div class="split billsplit">
+    <section><h3>우리 법안</h3>${!seats ? '<p class="empty">국회의원을 배출하면 법안을 발의할 수 있습니다.</p>' : mine.length ? `${list(mine)}
+      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 151표가 필요합니다. 여야 협상은 법안마다 두 번까지 할 수 있습니다. ${ruling() ? '' : '대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 200표).'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+      ${S.laws.length ? `<h3 style="margin-top:14px">통과시킨 법률 ${S.laws.length}건</h3><ul class="log">${[...S.laws].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${esc(l.t)}</span></li>`).join('')}</ul>` : ''}</section>
+    <section><h3>다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+      <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 200표 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
+      ${fxs.length ? `<h3 style="margin-top:14px">바뀐 제도</h3><ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : ''}</section></div></div>`;
+  const work = seats ? `<div class="card"><h2>의회 활동 <span class="pill">${seats}석</span></h2><div class="acts">${actBtn('bill')}${actBtn('question')}</div>
       <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p></div>`
-    : `<div class="card" style="margin-top:14px"><h2>의회 활동</h2><p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p></div>`;
-  const trend = `<div class="card" style="margin-top:14px"><h2>국회·정부 동향</h2>
-    <h3>다른 당·정부 법안</h3>${theirs.length ? tbl(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
-    ${fxs.length ? `<h3 style="margin-top:14px">바뀐 제도</h3><ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : ''}
-    <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 200표 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p></div>`;
-  // 카드 간격은 .stack이 맡음(카드마다 붙은 margin-top 무시)
-  return `<div class="stack">${agendaCard()}${work}${trend}${caseCard}</div>`;
+    : `<div class="card"><h2>의회 활동</h2><p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p></div>`;
+  // 법안 → (의회 활동 | 수사·재판) → 사회적 이슈. 카드 간격은 .stack이 맡음
+  return `<div class="stack">${bills}<div class="split">${work}${caseCard}</div>${agendaCard()}</div>`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';
