@@ -3362,7 +3362,7 @@ function newGameModal() {
   new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', $('#top').offsetHeight + 'px')).observe($('#top'));
   new ResizeObserver(markLead).observe($('#main'));
   S = loadSave();
-  if (S) { renderAll(); openModal({ title: '정당 키우기', html: `<p><b>${esc(S.party.name)}</b> · ${fdate(S.day)} 저장 기록이 있습니다.</p>`, dismiss: false, buttons: [{ t: '새 게임', fn: newGameModal }, { t: '이어하기', pri: true }] }); if (S.over) gameOver(S.over.title, S.over.text); }
+  if (S) { renderAll(); openModal({ title: '정당 키우기', html: `<p><b>${esc(S.party.name)}</b> · ${fdate(S.day)} 저장 기록이 있습니다.</p>`, dismiss: false, buttons: [{ t: '새 게임', fn: newGameModal }, { t: '이어하기', pri: true }], onOpen: m => m.querySelector('[data-b="1"]').setAttribute('autofocus', '') /* 새로 고침하면 Enter로 바로 이어하기 */ }); if (S.over) gameOver(S.over.title, S.over.text); }
   else newGameModal();
 })();
 // 대선 단일화 제안 트리거(선거운동기간, 우리 후보가 앞설 때 한 번)
