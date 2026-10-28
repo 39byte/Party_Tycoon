@@ -318,10 +318,14 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .kmap .mk{stroke:var(--surface);stroke-width:2}
 .negbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
 .negbar .filters{margin-top:0}
+/* 원내 의원·원외 인사 표: 친분 막대를 같은 길이로 */
+.rel .bar{flex:none;width:96px}
+.rel .meter{white-space:nowrap}
 .ptys{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
 .pty{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-top:4px solid var(--pc);border-radius:var(--r);background:var(--surface)}
-.pty-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:16px}
-.pty .negcell{justify-content:flex-end;margin-top:auto}
+.pty-h{display:flex;align-items:flex-start;gap:8px;font-size:16px}
+.pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;padding-top:6px}
+.pty .negcell{margin-left:auto;flex:none}
 .mapbox{position:relative}
 .mapctl{position:absolute;top:8px;right:8px;display:flex;flex-direction:column;gap:6px}
 .mapctl .ib{min-width:40px;height:40px;font-size:18px;font-weight:800;box-shadow:var(--shadow)}
@@ -1613,8 +1617,8 @@ let negF = 'all', negV = 'all'; // negV: 'all' 전체 목록 · 'fav' 관심 목
 // 별: 관심 목록에 담고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
 const negBtn = (attr, cdk, who) => { const w = negWhy(cdk), on = !!S.watch[cdk];
   return `<div class="negcell">${fresh.includes(cdk) ? '<span class="pill ok">다시 가능</span>' : ''}<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
-const mpRow = m => `<tr><td><div class="who">${face(m, pc(m.party), 40)}<div><b>${esc(m.name)}</b><div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td style="min-width:100px">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원')}</td></tr>`;
-const outRow = m => `<tr><td><div class="who">${face(m, m.party ? pc(m.party) : '#64748B', 40)}<div><b>${esc(m.name)}</b><div class="small muted">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n} · 인지도 ${m.fame}</div></div></div></td><td style="min-width:100px">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role)}</td></tr>`;
+const mpRow = m => `<tr><td><div class="who">${face(m, pc(m.party), 40)}<div><b>${esc(m.name)}</b><div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원')}</td></tr>`;
+const outRow = m => `<tr><td><div class="who">${face(m, m.party ? pc(m.party) : '#64748B', 40)}<div><b>${esc(m.name)}</b><div class="small muted">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n} · 인지도 ${m.fame}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role)}</td></tr>`;
 const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
@@ -1630,8 +1634,8 @@ function negCard() {
     ${left || S.ap < 1 ? `<span class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</span>` : ''}</div>`;
   // 정당: 정당마다 카드 한 장, 한 줄에 나란히(좁으면 줄바꿈)
   const parties = fav && !parts.length ? `<div class="card"><h2>정당</h2><p class="empty">별 버튼을 켠 정당이 없습니다.</p></div>` : `<div class="card"><h2>정당</h2><div class="ptys">
-    ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</div>
-      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]}</div>${relBar(S.rel[id])}${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>`).join('')}
+    ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>
+      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]}</div>${relBar(S.rel[id])}</div>`).join('')}
     </div></div>`;
   // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임
   return `<div class="stack">${head}${parties}<div class="split">
