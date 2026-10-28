@@ -2171,6 +2171,9 @@ function agendaCard() {
 const rnews = (k, t, r, v) => { const x = { id: ++S.seq, d: S.day, k, t }; if (r) x.r = r; if (v) x.v = 1; S.rnews.push(x); if (S.rnews.length > 800) S.rnews.shift(); };
 // 안 읽은 지역 소식: 최근 2턴 안에 나왔고, 그 지역 소식을 마지막으로 연 뒤에 나온 것
 const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.d > (S.rseen[k] ?? -1));
+// NEW 표시: 마지막으로 끝난 턴(턴 진행 중이면 그 직전 턴)에 나왔고 아직 안 읽은 것. 지금 연 지역은 열기 전 읽음 시점 기준
+let rOpen = null;
+const rNew = x => x.d > (turnStart ? turnStart.day : S.day) - TURN && x.d > (rOpen?.k === x.k ? rOpen.seen : S.rseen[x.k] ?? -1);
 // 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
@@ -2681,13 +2684,14 @@ function pAdmin() {
     <p class="small muted">지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 우리 시·도당이 있는 곳은 현장 대응(행정 행동력 1·300만, 단체장이 없으면 행동력 1)으로 당원을 늘릴 수 있지만, 헛짚으면 잘 안 먹힙니다. 지정은 5주가 지나면 정리됩니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다.${admReg === 'all' ? '' : ' 아래 지역 소식에서 고른 지역만 보입니다.'}</p>
     ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 · ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음${x.party ? ' · 시·도당 대응함' : ''}${S.gov[x.k] === 'P' ? ' · 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="empty">지정한 현안이 없습니다. 아래 지역 소식에서 '현안 지정'을 눌러 담으세요.</p>`}</div>`;
   const k = admReg === 'all' ? null : admReg, g = k && S.rgov[k];
+  if (rOpen?.k !== k) rOpen = k && { k, seen: S.rseen[k] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
   const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · 단체장 ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 맨 위 지역 현안, 그 아래 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `${issCard}<div class="split"><div>${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
-    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${x.d > S.day - TURN ? '<span class="pill ok">NEW</span> ' : ''}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
+    ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${rNew(x) ? '<span class="pill ok">NEW</span> ' : ''}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
 // 큰 일정은 화면 맨 위 띠로: [꼬리표, 내용, 이동할 탭, 강조]
 function bannerItems() {
