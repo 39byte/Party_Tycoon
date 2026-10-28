@@ -782,8 +782,8 @@ const genRec = (integ, noBan) => {
   if (integ < 25 && rnd() < 0.5) rec.push(pick(pool));
   return { rec: rec.map(r => r.t), ban: rec.some(r => r.ban) };
 };
-// 영입 전엔 청렴·전과를 모름. 단 현직 의원(mp)과 선거에 나갔거나(후보 등록 때 전과 공개, 공직선거법 제49조) 공직에 있었던 인물은 공개
-const PUBLIC_RX = /국회의원|장관|광역단체장|고위공무원|지방의원|장성/, EXPOL_RX = /전 국회의원|전 광역단체장|전직 지방의원/;
+// 영입 전엔 청렴·전과를 모름. 단 현직 의원(mp)과 선거에 나갔거나(후보 등록 때 전과 공개, 공직선거법 제49조) 장관을 지낸(인사청문 때 범죄경력 제출) 인물은 공개
+const PUBLIC_RX = /국회의원|장관|광역단체장|지방의원/, EXPOL_RX = /전 국회의원|전 광역단체장|전직 지방의원/;
 const recOpen = (p, mp) => mp || PUBLIC_RX.test(p.role || p.job || '');
 // 전직 선출직의 공개 전과는 마지막 선거 때 기준이라, 아주 드물게 그 뒤 생긴 전과가 영입하고 나서 드러남
 function lateRec(p, src) {
@@ -1763,7 +1763,7 @@ function personInfo(key) {
   const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B', open = recOpen(m, mp);
   const aff = mp ? `${m.party === 'O' ? '무소속' : pn(m.party)} 의원 · ${RK[m.k].n} 지역구` : `${m.party ? RIV[m.party].name : '무당적'} · ${m.role} · ${RK[m.k].n} 기반`;
   openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div><div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
-      ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원' : '선거에 나갔거나 공직에 있었던 인물'}이라 전과 기록이 공개돼 있습니다(공직선거법 제49조).</p>`
+      ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
         : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}`,
     buttons: [{ t: '닫기', pri: true }] });
 }
@@ -1881,7 +1881,7 @@ const ACT = {
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
-  talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 청렴도·전과는 영입한 뒤 알 수 있습니다(선거에 나갔거나 공직에 있었던 사람은 공개, 공직선거법 제49조).' },
+  talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 청렴도·전과는 영입한 뒤 알 수 있습니다(선거에 나갔던 사람은 공개, 공직선거법 제49조).' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승.' },
   debate: { n: '후보 TV 토론회', c: () => 0, cd: 7, camp: true, d: '대선·지방선거 후보 역량 판정. 성공 시 큰 상승, 실패 시 하락.' },
@@ -1977,7 +1977,7 @@ function talentModal() {
   const fee = p => 5e6 + p.fame * p.fame * 2e4;
   openModal({
     title: '인재 영입', wide: true,
-    html: `<p class="muted small">영입비는 인지도에 비례합니다. 청렴도와 전과는 영입한 뒤에 알 수 있습니다. 단 선거에 나갔거나 공직에 있었던 사람은 전과 기록이 공개돼 있습니다(공직선거법 제49조).</p><div class="acts">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
+    html: `<p class="muted small">영입비는 인지도에 비례합니다. 청렴도와 전과는 영입한 뒤에 알 수 있습니다. 단 선거에 나갔던 사람은 전과 기록이 공개돼 있습니다(공직선거법 제49조).</p><div class="acts">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b>${recOpen(p) ? ` · 청렴 <b>${p.integ}</b>` : ''}</div>
       ${recOpen(p) ? `<div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}` : '<div class="small muted">청렴도·전과: 영입 후 확인</div>'}
       <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
