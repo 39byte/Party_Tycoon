@@ -455,6 +455,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
   <symbol id="i-set" viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></symbol>
   <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4zM20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"/></symbol>
   <symbol id="i-gov" viewBox="0 0 24 24"><path d="M3 10h18L12 4zM5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></symbol>
+  <symbol id="i-court" viewBox="0 0 24 24"><path d="M13 3l6 6M10 6l6 6M11.5 4.5l-5 5 4 4 5-5M8.5 11.5 3 17M12 21h9"/></symbol>
   <symbol id="i-city" viewBox="0 0 24 24"><path d="M3 21h18M5 21V8l6-4v17M11 21V10h8v11M14 13h2M14 17h2M7.5 10h1M7.5 14h1"/></symbol>
   <symbol id="i-deal" viewBox="0 0 24 24"><path d="M2 11l4-4 4 2 3-2 3 1 6 4M2 11l7 7 2-1 2 2 2-1 2 1 5-6M9 14l2 2M12 12l2 2"/></symbol>
   <symbol id="i-star" viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></symbol>
@@ -700,7 +701,7 @@ const sum = a => a.reduce((x, y) => x + y, 0);
 const pct = (x, d = 1) => (x * 100).toFixed(d) + '%';
 function won(n) {
   const s = n < 0 ? '-' : '', a = Math.abs(n);
-  if (a >= 1e8) return s + (a / 1e8).toFixed(a >= 1e10 ? 0 : a >= 1e9 ? 1 : 2).replace(/\.?0+$/, '') + '억';
+  if (a >= 99995000) return s + (+(a / 1e8).toFixed(a >= 1e10 ? 0 : a >= 1e9 ? 1 : 2)).toLocaleString() + '억'; // 9,999.5만부터는 '10,000만' 대신 1억
   if (a >= 1e4) return s + Math.round(a / 1e4).toLocaleString() + '만';
   return s + Math.round(a) + '원';
 }
@@ -2827,7 +2828,7 @@ function toast(msg, type = '') {
 
 // ---------- 렌더링 ----------
 // 메뉴 순서: 당 운영 | 의회·지방정부·교섭·선거 | 읽을거리. NAV_SEP 뒤에 구분선(wide는 위 간격 넓게)
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '국회', 'i-gov'], ['pres', '청와대', 'i-bh'], ['admin', '지방 정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '국회', 'i-gov'], ['court', '법원', 'i-court'], ['pres', '청와대', 'i-bh'], ['admin', '지방 정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
 const NAV_SEP = { fin: '', elec: ' wide' };
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 // 패널이 읽음 처리(지역 소식)를 하므로 탭 배지는 패널 다음에 그림
@@ -2853,13 +2854,13 @@ function renderTop() {
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
-const SEC = ['people', 'office', 'pres', 'neg', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
+const SEC = ['people', 'office', 'court', 'pres', 'neg', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
 function renderNav() {
   const nav = $('#nav'), open = nav.classList.contains('open');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = S.autoGov ? 0 : R.filter(r => rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
-  const badge = { elec: S.phase === 'reg' ? pend : 0, office: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length }, badgeSr = { admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
+  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length }, badgeSr = { admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
   nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('')
     + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length) && !open ? '<span class="badge">!</span>' : ''}</button>`;
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
@@ -2872,7 +2873,7 @@ function renderPanel() {
   if (tab !== shownTab) fresh = [];
   if (al && al.length) { fresh = [...fresh, ...al]; S.alerts[tab] = []; }
   shownTab = tab;
-  main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
+  main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, court: pCourt, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
   tipify(main); sentWrap(main);
   markLead();
@@ -2883,7 +2884,7 @@ const SCENE_SUB = {
   home: () => S.phase === 'prep' ? `창당준비위원회 · 등록 기한 D-${Math.max(0, LAW.prepDays - S.day)}` : `${IDEO[S.party.ideo]} 정당 · 대표 ${leader().name}`,
   org: () => `시·도당 ${chaptersOk()}곳 · 당원 ${totalMembers().toLocaleString()}명`, act: () => `행동력 ${S.ap}/${apMax()} · 활동으로 인지도와 신뢰를 쌓으세요`,
   people: () => `인재풀 ${S.pool.length}/${POOL_MAX}명`, elec: () => { const ne = nextElection(); return ne ? `${ne.name} D-${ne.day - S.day}` : '선거 일정'; },
-  office: () => `국회 의석 ${seatTotal('P')}석 / 300`, neg: () => '정당·의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
+  office: () => `국회 의석 ${seatTotal('P')}석 / 300`, court: () => `진행 중인 사건 ${S.cases.length}건`, neg: () => '정당·의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
   pres: () => presT(), fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
 };
 function sceneHead() {
@@ -3256,11 +3257,14 @@ function pFin() {
       <h2 style="margin-top:12px">숨긴 일</h2>${S.risks.length ? `<ul class="log">${S.risks.map(k => `<li class="warn"><span>${esc(k.label)} <span class="small">(공소시효 ${fdate(k.until)})</span></span></li>`).join('')}</ul><p class="tip">드러날지 묻힐지는 아무도 모릅니다. 시간이 지날수록 흐려지지만, 당이 커질수록 보는 눈이 많아집니다.</p>` : '<p class="small muted">없음. 깨끗합니다.</p>'}</div>
   </div>`;
 }
-// 의회: 교섭 · 사회적 이슈 · 법안·대정부 질문 · 다른 당/정부 동향 · 수사·재판
+// 법원: 수사·재판
+function pCourt() {
+  const cases = S.cases, stage = c => c.mine ? '고소·고발 수사 중' : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
+  return `<div class="card"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>`;
+}
+// 의회: 교섭 · 사회적 이슈 · 법안·대정부 질문 · 다른 당/정부 동향
 function pOffice() {
-  const seats = seatTotal('P'), cases = S.cases;
-  const stage = c => c.mine ? '고소·고발 수사 중' : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
-  const caseCard = `<div class="card"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>`;
+  const seats = seatTotal('P');
   // 법안 한 건: 제목·정보 / 예상 찬성 막대 / 당론·협상 버튼을 위아래로(반쪽 폭에도 들어가게)
   const bill = b => { const y = billYes(b), st = (s, t) => `<button class="btn${b.stance === s ? ' pri' : ''}" data-stance="${b.id}|${s}" aria-pressed="${b.stance === s}" ${left || b.lobbied ? 'disabled' : ''}>${t}</button>`;
     // 우리 법안: 여야 협상 버튼은 법안명 줄 오른쪽 / 다른 당 법안: 당론 버튼 왼쪽, 표 단속은 오른쪽 끝
@@ -3281,8 +3285,8 @@ function pOffice() {
   const work = seats ? `<div class="card"><h2>의회 활동 <span class="pill">${seats}석</span></h2><div class="acts">${actBtn('bill')}${actBtn('question')}</div>
       <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p></div>`
     : `<div class="card"><h2>의회 활동</h2><p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p></div>`;
-  // 법안 → (의회 활동 | 수사·재판) → 사회적 이슈. 카드 간격은 .stack이 맡음
-  return `<div class="stack">${bills}<div class="split">${work}${caseCard}</div>${agendaCard()}</div>`;
+  // 법안 → 의회 활동 → 사회적 이슈. 카드 간격은 .stack이 맡음
+  return `<div class="stack">${bills}${work}${agendaCard()}</div>`;
 }
 // 청와대: 지금은 대통령 정보만
 function pPres() {
@@ -3447,7 +3451,7 @@ function nextSteps() {
   }
   if (S.agenda && !S.agenda.visit && S.agenda.mine != null) out.push(['사회적 이슈가 정국을 덮고 있습니다. 국회 탭에서 각 당 입장을 보고 현장 방문을 할 수 있습니다.', 'office']);
   const cs = S.cases.filter(c => !c.mine).length;
-  if (cs) out.push([`수사·재판 중인 사건이 ${cs}건 있습니다. 단계마다 대응을 고르게 됩니다.`, 'office', true]);
+  if (cs) out.push([`수사·재판 중인 사건이 ${cs}건 있습니다. 단계마다 대응을 고르게 됩니다.`, 'court', true]);
   const vote = S.bills.filter(b => b.by && b.stage === 1 && !b.stance).length;
   if (seatTotal('P') && vote) out.push([`본회의 표결을 앞둔 다른 당·정부 법안이 ${vote}건 있습니다. 국회 탭에서 당론을 정하세요.`, 'office']);
   if (seatTotal('P') && !S.bills.some(b => !b.by)) out.push(['국회 의석이 있습니다. 법안을 발의해 통과시키면 지지율에 오래 남습니다.', 'office']);

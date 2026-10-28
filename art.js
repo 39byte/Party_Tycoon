@@ -120,6 +120,7 @@
     fin: (c, o, r) => `${colonnade(780, 240, 70, 6, 'ped')}<circle cx="780" cy="56" r="10" style="fill:${c}"/>
       ${[[980, 6], [1010, 9], [1040, 4], [580, 5], [610, 8]].map(([x, n]) => Array.from({ length: n }, (_, i) => `<ellipse cx="${x}" cy="${GY - 4 - i * 7}" rx="14" ry="4.5" class="coin"/>`).join('')).join('')}`,
     // 법령: 법원 + 저울
+    court: (c, o, r) => `${colonnade(800, 300, 66, 8, 'ped')}${flag(800, 40, c, 34)}${tree(600)}${tree(1010)}${tree(1060, .9)}`,
     law: (c, o, r) => `${colonnade(820, 260, 64, 7, 'ped')}<g transform="translate(620 ${GY})" class="scale"><rect x="-3" y="-90" width="6" height="90"/><rect x="-26" y="-6" width="52" height="6"/><path d="M-40 -84h80" stroke-width="4"/><path d="M-40 -84l-12 30h24zM40 -84l-12 30h24z" fill="none" stroke-width="2"/><path d="M-54 -54a14 6 0 0 0 28 0zM26 -54a14 6 0 0 0 28 0z"/></g>${tree(1050)}`,
     // 소식: 방송탑 + 언론사
     log: (c, o, r) => `<path d="M890 176L900 60h8L918 176z" class="bld"/><rect x="884" y="50" width="40" height="20" rx="4" class="bld2"/><rect x="901" y="22" width="6" height="30" class="pole"/><circle cx="904" cy="22" r="4" style="fill:${c}"/>
