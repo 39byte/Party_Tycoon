@@ -1276,7 +1276,12 @@ function runTurn() {
   if (modalOpen) return;
   if (left) {
     tick(); left--;
-    if (!left) { S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews(); addAlerts(readyWatched(turnStart.day)); save(); saveToDir(); renderAll(); }
+    if (!left) {
+      S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep(); S.news = makeNews(); regionNews();
+      const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); renderAll();
+      // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
+      if (ready.length) toast(`다시 할 수 있음: ${ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', ')}`, 'ok');
+    }
     return (turnTimer = setTimeout(runTurn, 90));
   }
   if (turnStart) { const t = turnStart; turnStart = null; brief(t); }
