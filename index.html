@@ -262,7 +262,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* (i) 설명 버튼과 툴팁 */
 .tip{font-size:13px;color:var(--muted)}
-/* 행정 탭 단체장 카드: 직명·이름이 한 줄씩 들어가게 초상·버튼을 줄임 */
+/* 지방정부 탭 단체장 카드: 직명·이름이 한 줄씩 들어가게 초상·버튼을 줄임 */
 .gov .who{gap:7px} .gov .face{width:36px;height:36px;border-radius:10px}
 .gt{flex:1;min-width:0;line-height:1.3}.gt .small{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt h3{overflow-wrap:anywhere}
 .gov .nowrap{min-height:36px;padding:6px 9px;font-size:14px}
@@ -585,7 +585,7 @@ const AGENDA = [
       { t: '임명 철회 요구', side: 1, pop: 0.6, against: true },
       { t: '"자녀 문제로 공직 검증은 과도"', side: -1, pop: 0.22, gov: true }] },
 ];
-// 지역 소식(행정 탭). {n} 지역 이름
+// 지역 소식(지방정부 탭). {n} 지역 이름
 const RNEWS = ['{n}, 청년 인구 유출 5년째 이어져', '{n} 전통시장 매출 회복세', '{n} 광역철도 예비타당성조사 통과', '{n} 산업단지 가동률 70%대로 떨어져', '{n} 응급실 의사 부족으로 야간 진료 축소',
   '{n} 지방의회, 내년 예산안 두고 여야 공방', '{n} 관광객 역대 최대 기록', '{n} 농가, 이상기후로 작황 부진', '{n} 소멸 위기 시·군 늘어', '{n} 신축 아파트 미분양 증가', '{n} 시내버스 노선 개편에 주민 반발',
   '{n} 지역 대학 신입생 미달 사태', '{n} 지역 축제에 주말 인파 몰려', '{n}, 이차전지 기업과 투자협약 체결', '{n} 공공기관 이전 유치전 가열', '{n} 출생아 수 반등', '{n} 상수도관 노후로 단수 사고'];
@@ -1287,7 +1287,7 @@ const wire = t => { S.wire.push({ d: S.day, t }); if (S.wire.length > 300) S.wir
 // ---------- 뉴스 ----------
 const shuffle = a => a.map(x => [rnd(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
 function makeNews() {
-  // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 행정 탭 지역 소식에도 올림
+  // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 지방정부 탭 지역 소식에도 올림
   const fill = h => { let k = null;
     const t = h.replace(/\{r\}/g, () => { const r = pick(R); k = r.k; return r.n; }).replace(/\{p\} 대통령/g, presT()).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
     return { t, k: k || (R.find(r => t.startsWith(r.n + ' ')) || {}).k }; };
@@ -1464,7 +1464,7 @@ function govModal(k) {
     title: `${AREA(k)} 행정 사업`,
     tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> · 남은 행정 행동력 <b class="num">${S.aap}</b></p>
-      ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 행정 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
+      ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
       <div class="choices">${GOV_PROJ.map(p => { const c = govCd(k, p.k);
         return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }],
@@ -2402,7 +2402,7 @@ function agendaCard() {
     <p class="small muted">여론 판정: ${fdate(g.end)} 무렵</p><p class="tip">${fdate(g.end)} 무렵 사건이 잦아들면 여론이 입장별로 갈립니다. 여론과 맞는 입장을 낸 당은 신뢰를 얻고, 엇갈린 당은 역풍을 맞습니다.</p>
     <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담 (5백만·행동력 1)</button>${w ? `<span class="small warn">${w}</span>` : ''}</div></div>`;
 }
-// 지역 소식(행정 탭)
+// 지역 소식(지방정부 탭)
 // c: 현안 소식이면 1
 // id: 현안 지정용, r: 연결된 실제 문제(숨김), v: 화제가 되어 지지율을 흔든 소식
 const rnews = (k, t, r, v) => { const x = { id: ++S.seq, d: S.day, k, t }; if (r) x.r = r; if (v) x.v = 1; S.rnews.push(x); if (S.rnews.length > 800) S.rnews.shift(); };
@@ -2411,7 +2411,7 @@ const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.
 // NEW 표시: 마지막으로 끝난 턴(턴 진행 중이면 그 직전 턴)에 나왔고 아직 안 읽은 것. 지금 연 지역은 열기 전 읽음 시점 기준
 let rOpen = null;
 const rNew = x => x.d > (turnStart ? turnStart.day : S.day) - TURN && x.d > (rOpen?.k === x.k ? rOpen.seen : S.rseen[x.k] ?? -1);
-// 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
+// 지방정부 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
 const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
@@ -2616,8 +2616,8 @@ function toast(msg, type = '') {
 }
 
 // ---------- 렌더링 ----------
-// 메뉴 순서: 당 운영 | 의회·행정·교섭·선거 | 읽을거리. NAV_SEP 뒤에 구분선(wide는 위 간격 넓게)
-const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '의회', 'i-gov'], ['admin', '행정', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
+// 메뉴 순서: 당 운영 | 의회·지방정부·교섭·선거 | 읽을거리. NAV_SEP 뒤에 구분선(wide는 위 간격 넓게)
+const TABS = [['home', '본부', 'i-home'], ['org', '조직·지역', 'i-map'], ['act', '활동', 'i-mega'], ['people', '인재', 'i-users'], ['fin', '재정', 'i-wallet'], ['office', '의회', 'i-gov'], ['admin', '지방정부', 'i-city'], ['neg', '교섭', 'i-deal'], ['elec', '선거', 'i-vote'], ['log', '소식', 'i-list'], ['law', '법령', 'i-law'], ['guide', '가이드', 'i-book']];
 const NAV_SEP = { fin: '', elec: ' wide' };
 const icon = id => `<svg class="ic" aria-hidden="true"><use href="#${id}"/></svg>`;
 // 패널이 읽음 처리(지역 소식)를 하므로 탭 배지는 패널 다음에 그림
@@ -3266,10 +3266,10 @@ function pGuide() {
       <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 의회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(151표)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
-      <li>광역단체장을 배출하면 행정 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
+      <li>광역단체장을 배출하면 지방정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다.</li>
-      <li>행정 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
-      <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 옆 '현안 지정'을 누르면 행정 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
+      <li>지방정부 탭에서는 시·도별 지역 소식(단체장 직무 평가, 지역 현안, 재난, 선거 결과)을 지역을 골라 볼 수 있습니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
+      <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 옆 '현안 지정'을 누르면 지방정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>제대로 짚은 현안에 맞는 역점사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚으면 보탬이 없고, 시·도당 현장 대응도 잘 안 먹힙니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
       <li>지정하지 않았더라도 진짜 문제를 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>
