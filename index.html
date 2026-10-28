@@ -419,6 +419,10 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .pcard .who h3{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
 .pstat b{text-align:right;color:var(--fg)}
+/* 교섭 인물 사진: 누르면 능력치 팝업 */
+.facebtn{display:inline-flex;flex:none;padding:0;border:0;background:none;border-radius:10px;cursor:pointer;transition:transform .1s}
+.facebtn:hover{transform:scale(1.06)}
+.facebtn:focus-visible{outline:2px solid var(--primary2);outline-offset:2px}
 .pstat .bar{height:7px}
 .pcard .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:auto;font-size:12.5px}
 .leader{display:flex;gap:14px;align-items:center;margin-bottom:10px}
@@ -866,6 +870,7 @@ function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
   o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
+  for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); } // 옛 저장: 인지도·청렴이 없던 인물
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
   o.mpv = 2;
@@ -1651,7 +1656,7 @@ function genMPs(o, keep = []) {
   for (const id in MP_N) {
     const has = out.filter(m => m.party === id);
     const ks = shuffle(R.filter(r => (o.seats[id].d[r.k] || 0) > has.filter(m => m.k === r.k).length).map(r => r.k)).slice(0, Math.max(0, MP_N[id] - has.length));
-    for (const k of ks) out.push({ id: ++o.seq, name: genName(rnd() < 0.25 ? 'F' : 'M'), party: id, k, skill: Math.round(rr(40, 85)), loyalty: Math.round(rr(30, 90)), rel: 0 });
+    for (const k of ks) out.push({ id: ++o.seq, name: genName(rnd() < 0.25 ? 'F' : 'M'), party: id, k, fame: Math.round(rr(20, 45)), skill: Math.round(rr(40, 85)), integ: Math.round(rr(40, 80)), loyalty: Math.round(rr(30, 90)), rel: 0 });
   }
   return out;
 }
@@ -1659,7 +1664,7 @@ function genMPs(o, keep = []) {
 function genOut(o) {
   const [role, f] = pick(OUT_ROLES), party = /시민|노동|유튜버|원외정당/.test(role) ? null : pick(['A', 'A', 'B', 'B', 'C']);
   return { id: ++o.seq, name: genName(rnd() < 0.3 ? 'F' : 'M'), role, party, ideo: party ? RIV[party].ideo : pick([-1, -0.5, 0, 0.5, 1]), k: pick(R).k,
-    fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), loyalty: Math.round(rr(20, 80)), rel: 0 };
+    fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ: Math.round(rr(40, 85)), loyalty: Math.round(rr(20, 80)), rel: 0 };
 }
 const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
 // 다른 당 광역단체장: { 지역: { p 정당, n 이름, o 행정 지지도 } }. 당이 바뀐 곳만 새 인물
@@ -1738,6 +1743,14 @@ function negModal(id) {
     onOpen: m => m.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:' + id, x.c, negOdds(x.k, id), x.win, x.lose); }),
   });
 }
+// 교섭 인물 정보: m12 원내 의원 · o5 원외 인사
+function personInfo(key) {
+  const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
+  const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B';
+  const aff = mp ? `${m.party === 'O' ? '무소속' : pn(m.party)} 의원 · ${RK[m.k].n} 지역구` : `${m.party ? RIV[m.party].name : '무당적'} · ${m.role} · ${RK[m.k].n} 기반`;
+  openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div><div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m)}`,
+    buttons: [{ t: '닫기', pri: true }] });
+}
 function negMpModal(mid) {
   const m = S.mps.find(x => x.id === mid); if (!m) return;
   const pn_ = m.party === 'O' ? '무소속' : RIV[m.party].name, who = `${m.name} 의원(${pn_}·${RK[m.k].n})`;
@@ -1752,7 +1765,7 @@ function negMpModal(mid) {
       win: () => {
         S.seats[m.party].d[m.k]--; S.seats.P.d[m.k] = (S.seats.P.d[m.k] || 0) + 1;
         S.mps = S.mps.filter(x => x !== m); relAdd(m.party, -15, `${m.name} 의원 빼가기`); S.fame += 2;
-        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: Math.round(rr(20, 45)), skill: m.skill, integ: Math.round(rr(40, 80)), rec: [], ban: false, role: `국회의원(${RK[m.k].n})` });
+        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [], ban: false, role: `국회의원(${RK[m.k].n})` });
         checkAch(); return `${who}이(가) 우리 당에 입당했습니다! 의석이 1석 늘었습니다.`;
       },
       lose: () => { m.rel -= 8; if (rnd() < 0.5) { relAdd(m.party, -6, `${m.name} 의원 영입 시도`); return `${who}이(가) 거절했고, 영입 시도가 언론에 새어 나갔습니다.`; } return `${who}이(가) 정중히 거절했습니다.`; } },
@@ -1782,7 +1795,7 @@ function negOutModal(oid) {
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
         S.outs = S.outs.filter(x => x !== m); S.outs.push(genOut(S)); if (m.party) relAdd(m.party, -8, `${m.name} ${m.role} 영입`); // 영입한 만큼 새 인사로 채움 S.fame += 1;
-        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: Math.round(rr(40, 85)), rec: [], ban: false, role: '' });
+        S.pool.push({ id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [], ban: false, role: '' });
         return `${who}이(가) 우리 당에 합류했습니다! 인재 탭에서 볼 수 있습니다.`;
       },
       lose: () => { m.rel -= 6; return `${who}이(가) 영입 제안을 거절했습니다.`; } },
@@ -1805,8 +1818,9 @@ let negF = 'all';
 const freshPill = cdk => fresh.includes(cdk) ? ' <span class="pill ok">다시 가능</span>' : '';
 const negBtn = (attr, cdk, who, pillOut) => { const w = negWhy(cdk), on = !!S.watch[cdk];
   return `<div class="negcell">${pillOut ? '' : freshPill(cdk).trim()}<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
-const mpRow = m => `<tr><td><div class="who">${face(m, pc(m.party), 40)}<div><b>${esc(m.name)}</b>${freshPill('neg:m' + m.id)}<div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원', true)}</td></tr>`;
-const outRow = m => `<tr><td><div class="who">${face(m, m.party ? pc(m.party) : '#64748B', 40)}<div><b>${esc(m.name)}</b>${freshPill('neg:o' + m.id)}<div class="small muted">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</div><div class="small muted">${esc(m.role)} · <span style="white-space:nowrap">인지도 ${m.fame}</span></div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
+const faceBtn = (key, m, c) => `<button class="facebtn" data-pinfo="${key}" aria-label="${esc(m.name)} 정보 보기" title="인물 정보">${face(m, c, 40)}</button>`;
+const mpRow = m => `<tr><td><div class="who">${faceBtn('m' + m.id, m, pc(m.party))}<div><b>${esc(m.name)}</b>${freshPill('neg:m' + m.id)}<div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원', true)}</td></tr>`;
+const outRow = m => `<tr><td><div class="who">${faceBtn('o' + m.id, m, m.party ? pc(m.party) : '#64748B')}<div><b>${esc(m.name)}</b>${freshPill('neg:o' + m.id)}<div class="small muted">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</div><div class="small muted">${esc(m.role)} · <span style="white-space:nowrap">인지도 ${m.fame}</span></div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
 const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap ppl"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
@@ -2936,6 +2950,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-stance]').forEach(b => b.onclick = () => { const [id, s] = b.dataset.stance.split('|'); setStance(+id, +s); });
   m.querySelectorAll('[data-neg]').forEach(b => b.onclick = () => negModal(b.dataset.neg));
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
+  m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-negout]').forEach(b => b.onclick = () => negOutModal(+b.dataset.negout));
   m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
@@ -3053,12 +3068,13 @@ function pAct() {
     <p class="tip">종 버튼으로 재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 메뉴의 '활동' 옆에 숫자로 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts ups">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
+const statBars = p => `<div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar"><i style="width:${clamp(v, 0, 100)}%;background:${col}"></i></div><b class="num">${Math.round(v)}</b>`).join('')}</div>`;
 function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
   // 직책 있는 사람 먼저: 당 대표 → 대통령 → 지역구 의원 → 비례 의원 → 시·도지사 → 나머지(원래 순서 유지)
   const rank = p => p.leader ? 0 : p.role === '대통령' ? 1 : /^국회의원\((?!비례)/.test(p.role) ? 2 : /비례/.test(p.role) ? 3 : /시·도지사$/.test(p.role) ? 4 : 5;
   const rows = [...S.pool].sort((a, b) => rank(a) - rank(b)).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
-    <div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar"><i style="width:${clamp(v, 0, 100)}%;background:${col}"></i></div><b class="num">${Math.round(v)}</b>`).join('')}</div>
+    ${statBars(p)}
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/30)</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입</button></div>
     ${why('talent') ? `<p class="small warn">${esc(why('talent'))}</p>` : ''}
