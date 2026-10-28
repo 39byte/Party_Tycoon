@@ -23,7 +23,9 @@
 }}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased}
+body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
+/* 여러 문장 글: 문장 단위로 줄을 바꾸고, 한 줄에 안 들어가는 문장만 띄어쓰기에서 바꿈 (sentWrap) */
+.sent{display:inline-block}
 button,input,select{font:inherit;color:inherit;accent-color:var(--primary2)}
 .num{font-variant-numeric:tabular-nums}
 .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
@@ -2790,6 +2792,7 @@ function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpe
   root.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const bt = buttons[+b.dataset.b]; Snd.sfx('click'); closeModal(); if (bt.fn) bt.fn(); });
   if (dismiss) root.querySelector('.scrim').onclick = ev => { if (ev.target === ev.currentTarget) closeModal(); };
   root.dataset.dismiss = dismiss ? '1' : '';
+  sentWrap(m);
   if (onOpen) onOpen(m);
   (m.querySelector('[autofocus]') || m.querySelector('button:not(.info),input,select'))?.focus(); // (i)는 건너뜀: 포커스되면 설명이 바로 펼쳐짐
 }
@@ -2854,7 +2857,7 @@ function renderPanel() {
   shownTab = tab;
   main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
-  tipify(main);
+  tipify(main); sentWrap(main);
   markLead();
   bindPanel(main);
 }
@@ -2873,6 +2876,20 @@ function sceneHead() {
 // 인물 초상: 성별·나이가 없는 인물(의원·원외 인사)은 이름으로 짐작
 const face = (p, c, s = 44) => ART.face({ name: p.name, gender: p.gender || (GF.includes(p.name.slice(1)) ? 'F' : 'M'), age: p.age }, c, s);
 // 설명 문구(p.tip)는 가까운 제목 옆 (i) 버튼 안으로 옮김. 마우스를 올리거나 포커스(터치)하면 보임
+// 문단(p·li)의 문장마다 .sent로 감쌈. 안쪽 태그(<b> 등)는 통째로 앞 문장에 붙고, 문장이 하나뿐이거나 블록 자식이 있으면 그대로 둠
+function sentWrap(root) {
+  for (const el of root.querySelectorAll('p, li')) {
+    if (el.querySelector('p, li, ul, ol, div, table, button, input, select, label')) continue;
+    const groups = [[]];
+    for (const n of [...el.childNodes]) {
+      if (n.nodeType !== 3) { groups.at(-1).push(n); continue; }
+      const parts = n.textContent.split(/(?<=[.?!])\s+(?=\S)/);
+      parts.forEach((t, i) => { if (i) groups.push([]); groups.at(-1).push(document.createTextNode(t)); });
+    }
+    if (groups.length < 2) continue;
+    el.replaceChildren(...groups.flatMap((g, i) => { const sp = document.createElement('span'); sp.className = 'sent'; sp.append(...g); return i ? [' ', sp] : [sp]; }));
+  }
+}
 function tipify(root) {
   const by = new Map();
   for (const p of root.querySelectorAll('p.tip')) {
