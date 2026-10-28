@@ -72,8 +72,7 @@
     for (let x = -20; x < 1220;) { const w = 30 + r() * 50, h = 30 + r() * 70; far += `<rect x="${x.toFixed(0)}" y="${(GY - h).toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}"/>`; x += w + r() * 6; }
     for (let x = -10; x < 1220;) { const w = 40 + r() * 50, h = 24 + r() * 50; mid += `<rect x="${x.toFixed(0)}" y="${(GY - h).toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}" class="mid"/>${win(x + 4, GY - h + 4, w - 8, h - 8, Math.max(2, Math.round(w / 14)), Math.max(1, Math.round(h / 14)), r)}`; x += w + 12 + r() * 40; }
     for (let i = 0; i < 40; i++) stars += `<circle cx="${(r() * 1200).toFixed(0)}" cy="${(r() * 110).toFixed(0)}" r="${(0.6 + r() * 1.2).toFixed(1)}"/>`;
-    return `<defs><linearGradient id="skyG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--sky1)"/><stop offset="1" style="stop-color:var(--sky2)"/></linearGradient></defs>
-      <rect width="1200" height="200" fill="url(#skyG)"/><g class="stars">${stars}</g><circle class="sun" cx="1150" cy="46" r="24"/><circle class="moon" cx="1150" cy="46" r="18"/><circle class="moonc" cx="1159" cy="40" r="16"/>
+    return `<rect width="1200" height="200" class="skyb"/><g class="stars">${stars}</g><circle class="sun" cx="1150" cy="46" r="24"/><circle class="moon" cx="1150" cy="46" r="18"/><circle class="moonc" cx="1159" cy="40" r="16"/>
       <g class="cloud"><ellipse cx="300" cy="44" rx="46" ry="12"/><ellipse cx="330" cy="36" rx="28" ry="12"/><ellipse cx="760" cy="30" rx="38" ry="9"/><ellipse cx="786" cy="24" rx="22" ry="9"/></g>
       <g class="far">${far}</g><g>${mid}</g>`;
   }
