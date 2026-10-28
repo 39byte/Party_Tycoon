@@ -320,6 +320,14 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .negbar .filters{margin-top:0}
 /* 원내 의원·원외 인사 표: 친분 막대를 같은 길이로 */
 .rel .bar{flex:none;width:96px}
+/* 표 폭이 좁으면(2단 배치·휴대폰) 인물 정보는 한 줄 통째로, 친분·버튼은 그 아래 줄로 */
+.ppl{container-type:inline-size}
+@container (max-width:520px){
+  .ppl thead{display:none}
+  .ppl tr{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .ppl td{border:0;padding:2px 4px}
+  .ppl td:first-child{grid-column:1/-1}
+}
 .rel .meter{white-space:nowrap}
 .ptys{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
 .pty{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-top:4px solid var(--pc);border-radius:var(--r);background:var(--surface)}
@@ -1615,11 +1623,12 @@ const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 
 let negF = 'all', negV = 'all'; // negV: 'all' 전체 목록 · 'fav' 관심 목록(별을 켠 정당·의원·원외 인사)
 // 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
 // 별: 관심 목록에 담고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
-const negBtn = (attr, cdk, who) => { const w = negWhy(cdk), on = !!S.watch[cdk];
-  return `<div class="negcell">${fresh.includes(cdk) ? '<span class="pill ok">다시 가능</span>' : ''}<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
-const mpRow = m => `<tr><td><div class="who">${face(m, pc(m.party), 40)}<div><b>${esc(m.name)}</b><div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원')}</td></tr>`;
-const outRow = m => `<tr><td><div class="who">${face(m, m.party ? pc(m.party) : '#64748B', 40)}<div><b>${esc(m.name)}</b><div class="small muted">${esc(m.role)} · ${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n} · 인지도 ${m.fame}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role)}</td></tr>`;
-const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
+const freshPill = cdk => fresh.includes(cdk) ? ' <span class="pill ok">다시 가능</span>' : '';
+const negBtn = (attr, cdk, who, pillOut) => { const w = negWhy(cdk), on = !!S.watch[cdk];
+  return `<div class="negcell">${pillOut ? '' : freshPill(cdk).trim()}<button class="btn" ${attr} ${w ? `disabled title="${w}"` : ''}>${/턴 후/.test(w) ? w.replace(' 다시 가능', '') : '교섭'}</button><button class="ib fav" data-watch="${cdk}" aria-pressed="${on}" aria-label="${esc(who)} 관심 목록" title="${on ? '관심 목록에서 빼기' : '관심 목록에 담기(교섭 재개 알림)'}">${icon('i-star')}</button></div>`; };
+const mpRow = m => `<tr><td><div class="who">${face(m, pc(m.party), 40)}<div><b>${esc(m.name)}</b>${freshPill('neg:m' + m.id)}<div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원', true)}</td></tr>`;
+const outRow = m => `<tr><td><div class="who">${face(m, m.party ? pc(m.party) : '#64748B', 40)}<div><b>${esc(m.name)}</b>${freshPill('neg:o' + m.id)}<div class="small muted">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</div><div class="small muted">${esc(m.role)} · <span style="white-space:nowrap">인지도 ${m.fame}</span></div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
+const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap ppl"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
   const fav = negV === 'fav', live = liveMPs();
