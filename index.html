@@ -239,6 +239,11 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 /* (i) 설명 버튼과 툴팁 */
 .tip{font-size:13px;color:var(--muted)}
+/* 행정 탭 단체장 카드: 직명·이름이 한 줄씩 들어가게 초상·버튼을 줄임 */
+.gov .who{gap:7px} .gov .face{width:36px;height:36px;border-radius:10px}
+.gt{flex:1;min-width:0;line-height:1.3}.gt .small{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gt h3{overflow-wrap:anywhere}
+.gov .nowrap{min-height:36px;padding:6px 9px;font-size:14px}
+.nowrap{white-space:nowrap;flex:none}
 .kv{table-layout:fixed} .kv th{width:96px} /* 지역 정보: 지역을 바꿔도 칸 폭 고정 */
 /* 의회 법안 목록 */
 .bills{list-style:none;margin:0;padding:0}
@@ -1390,7 +1395,7 @@ function govModal(k) {
       else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
       // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
       if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
-        need.forEach(x => rnews(k, `${n} ${govName(k)} 지사, '${shortT(x)}' 해결 나서… 주민 호평`)); }
+        need.forEach(x => rnews(k, `${GOVT[k]} ${govName(k)}, '${shortT(x)}' 해결 나서… 주민 호평`)); }
       S.ops[k] = clamp(S.ops[k], 5, 95); rnews(k, msg);
       later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
       closeModal(); info(`${n} 행정`, msg, !ok);
@@ -1757,6 +1762,12 @@ function buildReg(c) {
   const use = (p, where) => { if (used.has(p.id)) err.push(`${p.name}: ${used.get(p.id)}와(과) ${where} 중복 입후보 불가`); used.set(p.id, where); };
   const out = { cost: 0, deposits: 0 };
   const recCount = { n: 0 };
+  // '인재풀 자동 배치': 직접 고른 인재를 뺀 나머지 중 출마 가능한 사람을 섞어 차례로 냄(같은 선거에선 늘 같은 순서). 모자라면 공모 후보
+  const kind = c.type === 'gov' ? 'gov' : 'nat', picked = new Set(c.type === 'gov' ? R.filter(r => d.reg[r.k].run).map(r => d.reg[r.k].cand) : [...R.filter(r => +d.reg[r.k].n > 0).map(r => d.reg[r.k].strat), ...d.prIds.slice(0, +d.prN || 0)]);
+  const h32 = t => [...t].reduce((h, ch) => Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0, 2166136261);
+  const auto = c.type === 'pres' ? [] : S.pool.filter(p => !p.leader && !picked.has(String(p.id)) && !picked.has(p.id) && !(kind === 'gov' ? /국회의원|대통령/ : /시·도지사|대통령/).test(p.role) && eligible(p, kind)).sort((a, b) => h32(c.key + a.id) - h32(c.key + b.id));
+  out.auto = [];
+  const autoNext = (r, g) => { const p = auto.shift(); if (p) out.auto.push(`${r.n} ${p.name}`); return p || genericCand(g); };
   const mk = (p, kind, spendC, spendB) => {
     const dep = L.deposit(kind, p.age);
     out.cost += dep + spendC; out.deposits += dep; recCount.n += p.rec ? p.rec.length : 0;
@@ -1767,6 +1778,7 @@ function buildReg(c) {
     for (const r of R) {
       const x = d.reg[r.k], n = clamp(+x.n || 0, 0, r.seats), list = [];
       if (x.strat && n > 0) { const p = person(x.strat); if (!eligible(p, 'nat')) err.push(`${p ? p.name : '?'}: 피선거권 요건 미충족`); else { use(p, `${r.n} 지역구`); list.push(p); } }
+      else if (n > 0) { const p = autoNext(r, rnd() < d.women / 100 ? 'F' : 'M'); if (p.id != null) use(p, `${r.n} 지역구`); list.push(p); }
       while (list.length < n) list.push(genericCand(rnd() < d.women / 100 ? 'F' : 'M'));
       out.dist[r.k] = list.map(p => mk(p, 'nat', NAT_SPEND[x.spend].c, NAT_SPEND[x.spend].b));
       women += list.filter(p => p.gender === 'F').length; total += list.length;
@@ -1788,7 +1800,8 @@ function buildReg(c) {
     out.gov = {}; let women = 0, total = 0;
     for (const r of R) {
       const x = d.reg[r.k]; if (!x.run) continue;
-      let p = x.cand ? person(x.cand) : genericCand(rnd() < d.women / 100 ? 'F' : 'M');
+      let p = x.cand ? person(x.cand) : autoNext(r, rnd() < d.women / 100 ? 'F' : 'M');
+      if (!x.cand && p.id != null) use(p, `${r.n} 시·도지사`);
       if (x.cand) { if (!eligible(p, 'gov')) { err.push(`${p ? p.name : '?'}: 피선거권 요건 미충족`); continue; } use(p, `${r.n} 시·도지사`); }
       const lim = govLimit(r.k);
       out.gov[r.k] = mk(p, 'gov', lim * GOV_SPEND[x.spend].f, GOV_SPEND[x.spend].b);
@@ -1870,20 +1883,20 @@ function officialPick() {
 const SELF_GOOD = {
   mp: [{ t: '{p} 의원, 국정감사 송곳 질의 영상 조회 100만 회', b: 3, f: 1 }, { t: '{p} 의원, 보좌진과 수해 복구 자원봉사', b: 2, tr: 1 },
     { t: '{p} 의원, 상대 당과 민생 법안 공동 발의', b: 1.5, tr: 1.5 }, { t: '{p} 의원 "세비 인상분 전액 기부" 선언', b: 2.5 }, { t: '{p} 의원, 지역 전통시장 상인과 밤샘 간담회', b: 1.5, tr: 0.5 }],
-  gov: [{ t: '{p} 지사, 새벽 수산시장 찾은 사진 화제', b: 1.5, ops: 2 }, { t: '{p} 지사, 산불 현장 밤샘 지휘에 "믿음직"', b: 2.5, ops: 3 },
-    { t: '{p} 지사, 민원인 응대 영상 "공감 행정" 호평', b: 2, ops: 2 }, { t: '{p} 지사, 관사 반납하고 원룸 생활', b: 2, ops: 2 }],
+  gov: [{ t: '{p}, 새벽 수산시장 찾은 사진 화제', b: 1.5, ops: 2 }, { t: '{p}, 산불 현장 밤샘 지휘에 "믿음직"', b: 2.5, ops: 3 },
+    { t: '{p}, 민원인 응대 영상 "공감 행정" 호평', b: 2, ops: 2 }, { t: '{p}, 관사 반납하고 원룸 생활', b: 2, ops: 2 }],
 };
 const SELF_BAD = {
   mp: ['{p} 의원, 지역 행사에서 "여성 비하" 실언', '{p} 의원 보좌진 갑질 의혹 폭로', '{p} 의원, 상임위 회의 중 코인 거래 포착', '{p} 의원, 재난 와중에 해외 출장 논란',
     '{p} 의원 SNS에 상대 당 조롱 게시물', '{p} 의원, 본회의장에서 조는 모습 카메라에 잡혀', '{p} 의원, 음식점 "갑질 계산" 목격담 확산'],
-  gov: ['{p} 지사, 폭우 경보 중 골프 회동 논란', '{p} 지사, 측근을 산하기관장에 낙하산 임명', '{p} 지사 관용차로 자녀 등교 의혹', '{p} 지사, 기자회견서 "그럼 이사 가라" 막말',
-    '{p} 지사, 축제 예산으로 해외 연수 논란', '{p} 지사, 재난 문자 늑장 발송 논란'],
+  gov: ['{p}, 폭우 경보 중 골프 회동 논란', '{p}, 측근을 산하기관장에 낙하산 임명', '{p} 관용차로 자녀 등교 의혹', '{p}, 기자회견서 "그럼 이사 가라" 막말',
+    '{p}, 축제 예산으로 해외 연수 논란', '{p}, 재난 문자 늑장 발송 논란'],
 };
 // 소속 정치인의 자율 행동: 역량·청렴이 높을수록 잘함. 실수하면 상대 당이 공격해 지지율이 크게 빠짐
 function selfAct() {
   const p = officialPick(); if (!p) return;
   const gov = /시·도지사/.test(p.role), r = gov ? R.find(x => p.role.startsWith(x.n + ' ')) : null, k = r && S.gov[r.k] === 'P' ? r.k : null;
-  const who = k ? `${RK[k].n} ${p.name}` : p.name, kind = k ? 'gov' : 'mp';
+  const who = k ? `${GOVT[k]} ${p.name}` : p.name, kind = k ? 'gov' : 'mp';
   if (rnd() < clamp(0.35 + (p.skill - 50) / 150 + (p.integ - 50) / 200, 0.15, 0.7)) {
     const g = pick(SELF_GOOD[kind]), t = g.t.replace('{p}', who);
     S.buzz += g.b; S.fame += g.f || 0.5; S.trust += g.tr || 0; if (g.ops && k) S.ops[k] = clamp(S.ops[k] + g.ops, 5, 95);
@@ -2011,7 +2024,7 @@ const EVENTS = [
       { t: '관망', run: () => '상황을 지켜보기로 했습니다.' }] },
   { id: 'disaster', w: 2, cond: () => true, title: '집중호우 피해', pre: () => { ET.k = pick(R).k; rnews(ET.k, `${RK[ET.k].n} 집중호우로 큰 피해`); },
     body: () => `${RK[ET.k].n}에 집중호우로 큰 피해가 발생했습니다.${S.gov[ET.k] === 'P' ? ' 우리 당 단체장이 있는 지역입니다.' : ''}`,
-    ch: () => [...(S.gov[ET.k] === 'P' ? [{ t: '도지사가 밤새 현장을 지휘한다', s: '행정 지지도↑', run: () => { S.ops[ET.k] = clamp(S.ops[ET.k] + 6, 5, 95); S.trust += 1; return '도지사의 발 빠른 대응이 호평을 받았습니다.'; } }] : []),
+    ch: () => [...(S.gov[ET.k] === 'P' ? [{ t: '도지사가 밤새 현장을 지휘한다', s: '행정 지지도↑', run: () => { S.ops[ET.k] = clamp(S.ops[ET.k] + 6, 5, 95); S.trust += 1; return '단체장의 발 빠른 대응이 호평을 받았습니다.'; } }] : []),
       { t: '정쟁 중단, 복구 봉사', s: '비용 2천만 · 진정성 또는 보여주기 논란', run: () => { spend(2e7, '활동'); if (luck(0.7)) { S.trust += 4; return '진정성 있는 대응으로 신뢰가 올랐습니다.'; } S.trust -= 2; return '봉사 현장에서 사진 촬영에만 열중했다는 보도가 나왔습니다.'; } },
       { t: '정부 책임론 제기', s: '인지도↑', run: () => { S.fame += 3; S.trust -= ruling() ? 6 : 1; return ruling() ? '여당이 정부를 비판해 혼란만 키웠습니다.' : '책임론이 이슈가 되었습니다.'; } }] },
   { id: 'tragedy', w: 1, cond: () => S.day > 180, title: '대형 참사',
@@ -2072,8 +2085,8 @@ const EVENTS = [
   // --- 우리 당 단체장이 있을 때 ---
   { id: 'devscandal', w: 1.5, cond: () => Object.keys(S.ops).length > 0, title: '개발사업 특혜 의혹', pre: () => { ET.k = pick(Object.keys(S.ops)); ET.real = S.risks.find(r => r.pen.gov === ET.k); rnews(ET.k, `${RK[ET.k].n} 도시개발 특혜 의혹 보도`); },
     body: () => `${RK[ET.k].n} 도시개발 사업에서 민간업자가 수천억 원을 챙겼다는 보도가 나왔습니다. 경쟁 정당이 우리 당 도지사를 고발했습니다.`,
-    ch: [{ t: '특검이라도 받겠다', s: '결백하면 신뢰↑', run: () => { S.trust += ET.real ? 0 : 2; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: '도지사 직 상실' } }); return '"한 점 부끄럼 없다"며 수사를 자청했습니다.'; } },
-      { t: '"정치 공세"라고 반박', run: () => { S.fame += 1; S.ops[ET.k] -= 3; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: '도지사 직 상실' } }); return '의혹을 정면 반박했습니다.'; } }] },
+    ch: [{ t: '특검이라도 받겠다', s: '결백하면 신뢰↑', run: () => { S.trust += ET.real ? 0 : 2; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '"한 점 부끄럼 없다"며 수사를 자청했습니다.'; } },
+      { t: '"정치 공세"라고 반박', run: () => { S.fame += 1; S.ops[ET.k] -= 3; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '의혹을 정면 반박했습니다.'; } }] },
   { id: 'jamboree', w: 1, cond: () => Object.keys(S.ops).length > 0, title: '국제행사 파행', pre: () => { ET.k = pick(Object.keys(S.ops)); rnews(ET.k, `${RK[ET.k].n} 국제 청소년 행사 파행, 책임 공방`); },
     body: () => `${RK[ET.k].n}에서 열린 국제 청소년 행사가 폭염과 준비 부족으로 파행을 빚었습니다. 책임 공방이 시작됐습니다.`,
     ch: [{ t: '도지사가 공식 사과', s: '행정 지지도 소폭↓', run: () => { S.ops[ET.k] -= 2; S.trust += 1; return '깔끔한 사과로 불길을 잡았습니다.'; } },
@@ -2123,7 +2136,7 @@ const XEV = {
   devbribe: q => S.gov[q.k] === 'P' && showEvent({ title: '개발업자의 방문',
     body: () => `${RK[q.k].n} 개발사업 인허가를 앞두고 한 시행사 대표가 도지사를 찾아와 "선거 때 진 빚은 갚겠다"며 <b>2억 원</b>이 든 쇼핑백을 내밀었습니다.`,
     ch: [{ t: '돌려보낸다', run: () => { S.trust += 1; return '돈을 돌려보냈습니다.'; } },
-      { t: '받는다', s: '자금 +2억', run: () => { earn(2e8, '기타'); addRisk(`${RK[q.k].n} 개발 인허가 금품 수수`, 0.015, 10 * 365, { money: -3e8, trust: -14, gov: q.k, note: '뇌물 수수 유죄, 도지사 직 상실' }); return '쇼핑백은 당 금고로 들어갔습니다.'; } }] }),
+      { t: '받는다', s: '자금 +2억', run: () => { earn(2e8, '기타'); addRisk(`${RK[q.k].n} 개발 인허가 금품 수수`, 0.015, 10 * 365, { money: -3e8, trust: -14, gov: q.k, note: `뇌물 수수 유죄, ${GOVT[q.k]} 직 상실` }); return '쇼핑백은 당 금고로 들어갔습니다.'; } }] }),
   court: q => {
     const ok = rnd() < 0.65;
     if (ok) hitPres(8); else if (!ruling()) S.rw[S.president.party] += 3;
@@ -2179,7 +2192,7 @@ const XEV = {
   rgov: () => {
     rgovSync(S);
     const ks = Object.keys(S.rgov); if (!ks.length) return;
-    const k = pick(ks), g = S.rgov[k], id = g.p, n = RK[k].n, who = `${n} ${esc(g.n)} 지사(${esc(pn(id))})`, mine = Object.keys(S.ops), roll = rnd();
+    const k = pick(ks), g = S.rgov[k], id = g.p, n = RK[k].n, who = `${GOVT[k]} ${esc(g.n)}(${esc(pn(id))})`, mine = Object.keys(S.ops), roll = rnd();
     const w = `${n} ${g.n} 지사(${pn(id)})`, wr = t => (wire(t), rnews(k, t));
     if (mine.length && roll < 0.2) {
       const m = pick(mine);
@@ -2191,8 +2204,8 @@ const XEV = {
     if (roll < 0.4) {
       g.o -= 4; wr(`${w} 측근 인허가 개입 의혹 보도`);
       return showEvent({ title: `${n} 지사 측근 비리 의혹`, body: () => `${who}의 측근이 산하기관 인사와 인허가에 개입했다는 의혹이 보도됐습니다.`,
-        ch: [{ t: '검찰에 고발한다', s: `${pn(id)} 관계 크게↓`, run: () => { openCase({ t: `${n} 지사 측근 인허가 개입`, guilty: rnd() < 0.5, mine: true, target: id }); relAdd(id, -12, `${n} 지사 측근 고발`); S.fame += 1; return '시·도당 명의로 고발장을 냈습니다. 수사 결과는 몇 주 뒤 나옵니다.'; } },
-          { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { g.o -= 3; relAdd(id, -4, `${n} 지사 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
+        ch: [{ t: '검찰에 고발한다', s: `${pn(id)} 관계 크게↓`, run: () => { openCase({ t: `${GOVT[k]} 측근 인허가 개입`, guilty: rnd() < 0.5, mine: true, target: id }); relAdd(id, -12, `${GOVT[k]} 측근 고발`); S.fame += 1; return '시·도당 명의로 고발장을 냈습니다. 수사 결과는 몇 주 뒤 나옵니다.'; } },
+          { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { g.o -= 3; relAdd(id, -4, `${GOVT[k]} 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
           { t: '정치 공세는 자제한다', run: () => { S.trust += 0.5; return '수사를 지켜보겠다는 입장만 냈습니다.'; } }] });
     }
     const t = pick(RGOV_PROJ), ok = rnd() < 0.55, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
@@ -2308,6 +2321,11 @@ const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsa
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
 const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
   return `<button class="btn desbtn" data-des="${x.id}" aria-pressed="${on}" ${full ? `disabled title="이 지역은 ${desMax}건까지 지정할 수 있습니다"` : ''}>${on ? '지정됨' : '현안 지정'}</button>`; };
+// 광역단체장 직명(특별·광역시는 시장, 도는 도지사)
+const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: '대구광역시장', incheon: '인천광역시장', gwangju: '광주광역시장', daejeon: '대전광역시장', ulsan: '울산광역시장', sejong: '세종특별자치시장',
+  gyeonggi: '경기도지사', gangwon: '강원특별자치도지사', chungbuk: '충청북도지사', chungnam: '충청남도지사', jeonbuk: '전북특별자치도지사', jeonnam: '전라남도지사', gyeongbuk: '경상북도지사', gyeongnam: '경상남도지사', jeju: '제주특별자치도지사' };
+// 인재의 직책 표시: 내부 값 'OO 시·도지사'는 실제 직명으로
+const roleLabel = role => { const r = /시·도지사$/.test(role) && R.find(x => role === `${x.n} 시·도지사`); return r ? GOVT[r.k] : role; };
 const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a }) || null; };
 const govName = k => govPerson(k)?.name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
@@ -2342,10 +2360,10 @@ function regionNews() {
   S.rcur = S.rcur.filter(x => {
     const g = S.rgov[x.k], n = RK[x.k].n;
     // 다른 당 지사도 실제 문제에 대응함(턴마다 30%)
-    if (x.pj && g && rnd() < 0.3) { g.o = clamp(g.o + 0.5, 5, 95); rnews(x.k, `${n} ${g.n} 지사, '${shortT(x)}' 대응책 발표`); return false; }
+    if (x.pj && g && rnd() < 0.3) { g.o = clamp(g.o + 0.5, 5, 95); rnews(x.k, `${GOVT[x.k]} ${g.n}, '${shortT(x)}' 대응책 발표`); return false; }
     if (x.until > S.day) return true;
-    if (x.pj && S.gov[x.k] === 'P') { S.ops[x.k] = clamp(S.ops[x.k] - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 대응 지지부진… ${govName(x.k)} 지사 책임론`); }
-    else if (x.pj && g) { g.o = clamp(g.o - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 장기화… ${g.n} 지사 책임론`); }
+    if (x.pj && S.gov[x.k] === 'P') { S.ops[x.k] = clamp(S.ops[x.k] - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 대응 지지부진… ${GOVT[x.k]} ${govName(x.k)} 책임론`); }
+    else if (x.pj && g) { g.o = clamp(g.o - 1, 5, 95); rnews(x.k, `${n} '${shortT(x)}' 장기화… ${GOVT[x.k]} ${g.n} 책임론`); }
     return false;
   });
   // 지정은 5주가 지나거나, 실제 문제가 풀리거나 사라지면 함께 정리
@@ -2355,7 +2373,7 @@ function regionNews() {
     if (x < 0.45) { const it = pick(RISSUE), t = fillR(it.t, k); if (rnd() < 0.65) addIssue(k, it, t); else rnews(k, t, 0, viral(k, t, -1)); }
     else if (x < 0.75) { const t = fillR(pick(RMICRO), k); rnews(k, t, 0, viral(k, t, 1)); }
     else if (x < 0.88) rnews(k, fillR(pick(RNEWS), k));
-    else rnews(k, S.gov[k] === 'P' ? `${r.n} ${govName(k)} 지사(${S.party.name}) 직무 긍정 평가 ${Math.round(S.ops[k])}%` : g ? `${r.n} ${g.n} 지사(${pn(g.p)}) 직무 긍정 평가 ${Math.round(g.o)}%` : fillR(pick(RMICRO), k));
+    else rnews(k, S.gov[k] === 'P' ? `${GOVT[k]} ${govName(k)}(${S.party.name}) 직무 긍정 평가 ${Math.round(S.ops[k])}%` : g ? `${GOVT[k]} ${g.n}(${pn(g.p)}) 직무 긍정 평가 ${Math.round(g.o)}%` : fillR(pick(RMICRO), k));
   }
 }
 // 우리 시·도당의 현장 대응(단체장 있으면 행정 행동력, 없으면 일반 행동력): 지정한 현안에. 진짜 문제가 아니면 잘 안 먹힘. 실패 문구는 같아서 진위가 드러나지 않음
@@ -2400,7 +2418,7 @@ function showEvent(e) {
 function scandalEv(pid) {
   const p = person(pid); if (!p) return;
   const what = pick(['음주운전 적발', '부동산 투기 의혹', '갑질 폭로', '논문 표절 의혹', '막말 녹취 공개', '성비위 폭로']);
-  showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc(p.role || p.job)})의 ${what} 보도가 나왔습니다.`,
+  showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc(roleLabel(p.role) || p.job)})의 ${what} 보도가 나왔습니다.`,
     note: /비례/.test(p.role) ? '비례대표 의원을 제명하면 무소속으로 의원직을 유지해 당은 의석을 잃습니다.' : '',
     ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
       { t: '사과하고 당직 정지', s: '신뢰 소폭 하락', run: () => { S.trust -= 2; p.integ = clamp(p.integ + 15, 0, 100); return '공개 사과했습니다.'; } },
@@ -2726,7 +2744,7 @@ function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
   // 직책 있는 사람 먼저: 당 대표 → 대통령 → 지역구 의원 → 비례 의원 → 시·도지사 → 나머지(원래 순서 유지)
   const rank = p => p.leader ? 0 : p.role === '대통령' ? 1 : /^국회의원\((?!비례)/.test(p.role) ? 2 : /비례/.test(p.role) ? 3 : /시·도지사$/.test(p.role) ? 4 : 5;
-  const rows = [...S.pool].sort((a, b) => rank(a) - rank(b)).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(p.role)}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
+  const rows = [...S.pool].sort((a, b) => rank(a) - rank(b)).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
     <div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar"><i style="width:${clamp(v, 0, 100)}%;background:${col}"></i></div><b class="num">${v}</b>`).join('')}</div>
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/30)</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입 탐색 (${won(ACT.talent.c())})</button></div>
@@ -2734,10 +2752,20 @@ function pPeople() {
     <div class="pcards">${rows}</div>
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
 }
+// 제명돼도 공직은 그대로(무소속). 공직선거법 제192조 제4항은 비례대표 의원도 '제명'은 퇴직 사유에서 뺌. 단체장은 당적과 무관
+// 그래서 그 의석·단체장 자리가 우리 당에서 무소속으로 넘어감
 function fire(id) {
   const p = person(id); if (!p) return;
-  openModal({ title: '제명 확인', html: `<p>${esc(p.name)}을(를) 제명할까요? 되돌릴 수 없습니다.${/국회의원/.test(p.role) ? '<br><b class="bad">현직 의원을 제명하면 무소속이 되어 우리 당 의석이 줄어듭니다.</b>' : ''}</p>`,
-    buttons: [{ t: '취소' }, { t: '제명', pri: true, fn: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); pgovSync(S); addLog(`${p.name} 제명`); renderAll(); } }] });
+  const dk = (R.find(r => p.role === `국회의원(${r.n})`) || {}).k, pr = /비례/.test(p.role), gk = (R.find(r => p.role === `${r.n} 시·도지사`) || {}).k;
+  const warn = dk || pr ? '현직 국회의원은 제명돼도 의원직을 잃지 않고 무소속 의원이 됩니다(비례대표도 제명은 퇴직 사유가 아님, 공직선거법 제192조 제4항). 우리 당 의석이 1석 줄어듭니다.'
+    : gk && S.gov[gk] === 'P' ? `${GOVT[gk]}은(는) 제명돼도 직을 잃지 않고 무소속 단체장이 됩니다. 우리 당 광역단체장이 1곳 줄어듭니다.` : '';
+  openModal({ title: '제명 확인', html: `<p>${esc(p.name)}을(를) 제명할까요? 되돌릴 수 없습니다.${warn ? `<br><b class="bad">${warn}</b>` : ''}</p>`,
+    buttons: [{ t: '취소' }, { t: '제명', pri: true, fn: () => {
+      if (dk && S.seats.P.d[dk] > 0) { S.seats.P.d[dk]--; S.seats.O.d[dk] = (S.seats.O.d[dk] || 0) + 1; }
+      else if (pr && S.seats.P.pr > 0) { S.seats.P.pr--; S.seats.O.pr++; }
+      else if (dk || pr) loseSeat(false);
+      if (gk && S.gov[gk] === 'P') { S.gov[gk] = 'O'; S.rgov[gk] = { p: 'O', n: p.name, o: S.ops[gk] ?? 50 }; delete S.ops[gk]; S.aap = Math.min(S.aap, aapMax()); }
+      S.pool = S.pool.filter(x => x !== p); pgovSync(S); addLog(`${p.name} 제명${warn ? ' (무소속으로 직 유지)' : ''}`); renderAll(); } }] });
 }
 function pElec() {
   const camps = Object.values(S.camps).sort((a, b) => a.day - b.day);
@@ -2762,7 +2790,7 @@ function campCard(c) {
   if (S.day > dl) return `<div class="card" style="margin-bottom:14px">${head}<p class="bad">후보자 등록 기간이 지나 이번 선거에 참여하지 못합니다.</p></div>`;
   return `<div class="card" style="margin-bottom:14px">${head}${nomForm(c)}<div id="sum-${c.key}">${nomSummary(c)}</div><div class="btns" style="margin-top:10px"><button class="btn pri" data-register="${c.key}">후보자 등록 신청</button></div></div>`;
 }
-const personOpts = (sel, kind) => `<option value="">공모 후보(자동)</option>` + S.pool.filter(p => eligible(p, kind)).map(p => `<option value="${p.id}" ${+sel === p.id && sel !== '' ? 'selected' : ''}>${esc(p.name)} (인지도 ${p.fame}, ${p.age}세)</option>`).join('');
+const personOpts = (sel, kind) => `<option value="">인재풀 자동 배치</option>` + S.pool.filter(p => eligible(p, kind)).map(p => `<option value="${p.id}" ${+sel === p.id && sel !== '' ? 'selected' : ''}>${esc(p.name)} (인지도 ${p.fame}, ${p.age}세)</option>`).join('');
 function nomForm(c) {
   const d = c.draft, a = `data-camp="${c.key}"`;
   if (c.type === 'nat') {
@@ -2772,6 +2800,7 @@ function nomForm(c) {
       <td><select ${a} data-k="${r.k}" data-f="strat" aria-label="${r.n} 전략공천">${personOpts(x.strat, 'nat')}</select></td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }).join('')}
       </tbody></table></div>
+      <p class="tip">'인재풀 자동 배치'는 인재를 직접 고르지 않은 지역에 인재풀에서 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 공모 후보를 내고, 공모 후보의 성별은 여성 비율 설정을 따릅니다.</p>
       <div class="row" style="margin-top:12px">
         <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원</span></label>
         <label class="f">지역구 공모 후보 여성 비율 <b class="num" id="wv-${c.key}">${d.women}%</b><input type="range" min="0" max="100" step="5" value="${d.women}" ${a} data-f="women"><span class="h">30% 이상이면 여성추천보조금(정치자금법 제26조)</span></label>
@@ -2787,7 +2816,7 @@ function nomForm(c) {
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }).join('')}
       </tbody></table></div>
       <label class="f" style="margin-top:10px">공모 후보 여성 비율 <b class="num" id="wv-${c.key}">${d.women}%</b><input type="range" min="0" max="100" step="5" value="${d.women}" ${a} data-f="women"></label>
-      <p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
+      <p class="tip">'인재풀 자동 배치'는 인재를 직접 고르지 않은 지역에 인재풀에서 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 공모 후보를 내고, 공모 후보의 성별은 여성 비율 설정을 따릅니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
   }
   return `<div class="row"><label class="f">대통령 후보 (당내 경선)<select ${a} data-f="cand">${'<option value="">선택</option>' + S.pool.filter(p => eligible(p, 'pres')).map(p => `<option value="${p.id}" ${+d.cand === p.id && d.cand !== '' ? 'selected' : ''}>${esc(p.name)} (${p.age}세, 인지도 ${p.fame}, 역량 ${p.skill})</option>`).join('')}</select><span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
     <label class="f">선거비용<select ${a} data-f="spend">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select><span class="h">선거비용제한액(약 588억) 이내</span></label></div>
@@ -2798,6 +2827,7 @@ function nomSummary(c) {
   const lines = [`예상 비용 <b>${won(out.cost)}</b> (기탁금 ${won(out.deposits)}) · 보유 ${won(S.money)}`];
   if (c.type === 'nat') lines.push(`지역구 후보 ${out.count - (out.pr ? out.pr.length : 0)}명 · 여성 ${pct(out.womenRatio || 0, 0)} · 비례 ${out.pr ? out.pr.length : 0}명`);
   if (c.type === 'gov') lines.push(`출마 ${out.count}곳`);
+  if (out.auto?.length) lines.push(`<span class="small muted">자동 배치: ${out.auto.map(esc).join(', ')}</span>`);
   if (c.type === 'nat' && out.pr && out.pr.length) lines.push(`<span class="small muted">비례 명부: ${out.pr.slice(0, 6).map((p, i) => `${i + 1}.${esc(p.name)}(${p.gender === 'F' ? '여' : '남'})`).join(' ')}${out.pr.length > 6 ? ' …' : ''}</span>`);
   const show = err.filter(e => !/1명 이상|1곳 이상|고르세요/.test(e));
   return `<div class="lawnote" style="margin-top:12px">${lines.join('<br>')}${show.length ? `<br><span class="bad">${show.map(esc).join('<br>')}</span>` : ''}</div>`;
@@ -2863,11 +2893,11 @@ function pAdmin() {
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="acts">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<h3>${RK[k].n} ${esc(govName(k))} 지사</h3><button class="btn pri" style="margin-left:auto" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
+      <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]}">${GOVT[k]}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
       <p class="tip">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
-  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
+  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${GOVT[r.k]} ${esc(g.n)}</b> <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
       <p class="tip">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
   const iss = R_ADM.flatMap(r => desOf(r.k)).filter(x => admReg === 'all' || x.k === admReg);
   const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 · 행정 행동력 1" ${why('govern', x.k) ? 'disabled' : ''}>행정 사업</button>` : ''}${S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.nid}" ${left || (aapMax() ? S.aap : S.ap) < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
@@ -2878,7 +2908,7 @@ function pAdmin() {
   if (rOpen?.k !== k) rOpen = k && { k, seen: S.rseen[k] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
-  const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · 단체장 ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
+  const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 맨 위 지역 현안, 그 아래 좌: 행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `${issCard}<div class="split"><div>${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
