@@ -252,6 +252,10 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .choices{display:flex;flex-direction:column;gap:8px;margin-top:14px}
 .choices .btn{justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-start;font-weight:600}
 .choices .btn small{font-weight:400;color:var(--muted)}
+/* 창 안 2단(정책 발표: 헤드라인 | 정책 분야). 좁은 화면에선 위아래로 */
+.split2{display:grid;grid-template-columns:1fr 1fr;margin-top:12px} .split2>div{min-width:0;padding:0 14px} .split2>div:first-child{padding-left:0} .split2>div+div{border-left:1px solid var(--border);padding-right:0}
+.split2 h3{font-size:14px;margin:0 0 8px} .split2 .choices{margin-top:0}
+@media (max-width:640px){.split2{grid-template-columns:1fr;gap:14px}.split2>div{padding:0}.split2>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
 .toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60;max-width:min(380px,calc(100vw - 32px))}
 /* 알림: HUD색 판 + 왼쪽 상태 띠 */
 .toast{background:var(--hud2);color:var(--on-hud);padding:10px 14px;border:1px solid var(--hud-line);border-left:4px solid var(--gold);border-radius:10px;font-size:14px;box-shadow:0 8px 24px rgba(2,6,23,.35);animation:tin .2s ease-out}
@@ -1922,7 +1926,7 @@ function doAct(key, k) {
 function policyModal() {
   const fit = i => i.fit[S.party.ideo + 1];
   openModal({
-    title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 민심이 쏠린 쟁점을 짚으면 반응이 뜨겁습니다. 이번 주 뉴스를 참고하세요.</p>${newsList()}<div class="choices">${ISSUES.map(i => `<button class="btn" data-issue="${i.k}">${i.n}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div>`,
+    title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 민심이 쏠린 쟁점을 짚으면 반응이 뜨겁습니다. 이번 주 뉴스를 참고하세요.</p><div class="split2"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발표할 정책 분야</h3><div class="choices">${ISSUES.map(i => `<button class="btn" data-issue="${i.k}">${i.n}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div></div></div>`, wide: true,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
       const i = ISSUES.find(x => x.k === b.dataset.issue), mult = fit(i) * (i.k === S.issue ? 2 : 1) * (S.up.inst ? 1.5 : 1);
