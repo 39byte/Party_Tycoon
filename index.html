@@ -152,7 +152,10 @@ nav .more{display:none}
 .act.row2 .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
 .act.row2 .meta{margin-top:2px;justify-content:flex-start;gap:12px}
 .act.row2 .why{min-height:0}
-.act.row2>.btn{flex:none;min-width:84px}
+.act.row2{align-items:flex-start}
+.act.row2 .side{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:2px;font-size:12.5px;color:var(--muted);white-space:nowrap}
+.act.row2 .side .btn{min-width:84px;margin-bottom:4px}
+.act.row2 .bell{margin-left:2px}
 .act .bell{min-width:30px;height:30px;padding:0;margin-left:auto;border-radius:8px}
 .act .bell .ic{width:16px;height:16px}
 .act .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
@@ -2790,8 +2793,9 @@ function actBtn(key, k, watch, wide) {
   const run = `<button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행</button>`;
   const meta = `<span>${cost ? won(cost) : '무료'} · 행동력 1</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span>`;
   const h = `<h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}${bell}</h3>`;
-  // wide: 활동 탭(가로로 길고 낮게). 사유는 있을 때만 한 줄
-  if (wide) return `<div class="act row2"><div class="main">${h}<p>${a.d}</p><div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>${run}</div>`;
+  // wide: 활동 탭(가로로 길고 낮게). 왼쪽 제목(+종)·설명, 오른쪽 위 실행 버튼 아래로 비용·행동력, 그 아래 재사용 턴. 사유는 있을 때만
+  if (wide) return `<div class="act row2"><div class="main">${h}<p>${a.d}</p>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>
+    <div class="side">${run}<span>${cost ? won(cost) : '무료'} · 행동력 1</span>${a.cd ? `<span>재사용 ${Math.ceil(a.cd / TURN)}턴</span>` : ''}</div></div>`;
   return `<div class="act">${h}<p>${a.d}</p><div class="meta">${meta}</div><div class="why">${esc(w)}</div>${run}</div>`;
 }
 
