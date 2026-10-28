@@ -81,7 +81,9 @@ main{padding:18px;min-width:0}
 /* 좌우로 나뉠 만큼 넓을 때만(360×2+14) 오른쪽 칸이 스크롤을 따라옴. 상단바 높이(--top-h)는 JS가 맞춤. 화면보다 길면 칸 안에서 스크롤 */
 @container (min-width:734px){.split>.follow{position:sticky;top:calc(var(--top-h,58px) + 12px);max-height:calc(100dvh - var(--top-h,58px) - 24px);overflow:auto;overscroll-behavior:contain}}
 /* 패널: 윗변 띠 + 제목 앞 금색 표식으로 게임 창처럼 */
-.card{position:relative;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--primary);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);min-width:0}
+.card{position:relative;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow);min-width:0}
+/* 파란 윗선은 탭 맨 윗줄 카드에만(markLead가 .lead를 붙임) */
+.card.lead{border-top:3px solid var(--primary)}
 .card>h2:first-child{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:-2px -16px 12px;padding:0 16px 10px;border-bottom:1px solid var(--border)}
 .card>h2:first-child::before{content:"";width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 2px rgba(242,179,61,.25)}
 @media (max-width:900px){
@@ -2522,6 +2524,7 @@ function renderPanel() {
   shownTab = tab;
   main.innerHTML = sceneHead() + ({ home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y;
+  markLead();
   bindPanel(main);
 }
 // 탭 맨 위 장면 그림 + 제목
@@ -2538,6 +2541,11 @@ function sceneHead() {
 }
 // 인물 초상: 성별·나이가 없는 인물(의원·원외 인사)은 이름으로 짐작
 const face = (p, c, s = 44) => ART.face({ name: p.name, gender: p.gender || (GF.includes(p.name.slice(1)) ? 'F' : 'M'), age: p.age }, c, s);
+// 화면 배치(1~3열)에 따라 맨 윗줄이 바뀌므로 그려진 위치로 고름
+function markLead() {
+  const cs = [...$('#main').querySelectorAll('.card')].filter(c => !c.parentElement.closest('.card')), t = cs.map(c => c.getBoundingClientRect().top), top = Math.min(...t);
+  cs.forEach((c, i) => c.classList.toggle('lead', t[i] - top < 4));
+}
 function bindPanel(m) {
   m.querySelectorAll('[data-act]').forEach(b => b.onclick = () => doAct(b.dataset.act, b.dataset.k));
   m.querySelectorAll('[data-reg]').forEach(b => {
@@ -2809,7 +2817,7 @@ function pAdmin() {
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${r.n}</b> ${esc(g.n)} <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
       <p class="small muted">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
   const iss = R_ADM.flatMap(r => desOf(r.k)).filter(x => admReg === 'all' || x.k === admReg);
-  const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" ${why('govern', x.k) ? 'disabled' : ''}>역점사업</button>` : ''}${S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.nid}" ${left || (aapMax() ? S.aap : S.ap) < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
+  const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 · 행정 행동력 1" ${why('govern', x.k) ? 'disabled' : ''}>행정 사업</button>` : ''}${S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.nid}" ${left || (aapMax() ? S.aap : S.ap) < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
   const issCard = `<div class="card" style="margin-bottom:14px"><h2>지역 현안 <span class="pill">${iss.length}건</span></h2>
     <p class="small muted">지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 우리 시·도당이 있는 곳은 현장 대응(행정 행동력 1·300만, 단체장이 없으면 행동력 1)으로 당원을 늘릴 수 있지만, 헛짚으면 잘 안 먹힙니다. 지정은 5주가 지나면 정리됩니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다.${admReg === 'all' ? '' : ' 아래 지역 소식에서 고른 지역만 보입니다.'}</p>
     ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 · ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음${x.party ? ' · 시·도당 대응함' : ''}${S.gov[x.k] === 'P' ? ' · 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="empty">지정한 현안이 없습니다. 아래 지역 소식에서 '현안 지정'을 눌러 담으세요.</p>`}</div>`;
@@ -3092,6 +3100,7 @@ function newGameModal() {
 (function boot() {
   // 상단바(배너 포함) 높이를 따라오는 칸의 기준으로
   new ResizeObserver(() => document.documentElement.style.setProperty('--top-h', $('#top').offsetHeight + 'px')).observe($('#top'));
+  new ResizeObserver(markLead).observe($('#main'));
   S = loadSave();
   if (S) { renderAll(); openModal({ title: '정당 키우기', html: `<p><b>${esc(S.party.name)}</b> · ${fdate(S.day)} 저장 기록이 있습니다.</p>`, dismiss: false, buttons: [{ t: '새 게임', fn: newGameModal }, { t: '이어하기', pri: true }] }); if (S.over) gameOver(S.over.title, S.over.text); }
   else newGameModal();
