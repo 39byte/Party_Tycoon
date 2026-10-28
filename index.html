@@ -521,11 +521,11 @@ const OUT_ROLES = [['전 국회의원', 30], ['원외 당협위원장', 12], ['�
 const DIST = {
   seoul: ['강남구', '마포구', '노원구', '관악구', '송파구', '은평구', '구로구'], busan: ['해운대구', '사하구', '부산진구', '영도구', '기장군'],
   daegu: ['수성구', '달서구', '북구', '동구', '군위군'], incheon: ['연수구', '남동구', '부평구', '강화군', '미추홀구'],
-  gwangju: ['북구', '광산구', '서구', '남구'], daejeon: ['유성구', '서구', '대덕구', '중구'], ulsan: ['남구', '동구', '북구', '울주군'],
+  daejeon: ['유성구', '서구', '대덕구', '중구'], ulsan: ['남구', '동구', '북구', '울주군'],
   sejong: ['조치원읍', '나성동', '보람동', '고운동'], gyeonggi: ['수원시', '성남시', '고양시', '평택시', '화성시', '포천시', '안산시', '남양주시'],
   gangwon: ['춘천시', '원주시', '강릉시', '정선군', '속초시'], chungbuk: ['청주시', '충주시', '제천시', '괴산군', '음성군'],
   chungnam: ['천안시', '아산시', '당진시', '서산시', '논산시', '보령시'], jeonbuk: ['전주시', '군산시', '익산시', '남원시', '김제시'],
-  jeonnam: ['여수시', '순천시', '목포시', '나주시', '신안군', '해남군'], gyeongbuk: ['포항시', '구미시', '경주시', '안동시', '의성군', '영천시'],
+  jeonnam: ['광주 북구', '광주 광산구', '광주 서구', '여수시', '순천시', '목포시', '나주시', '신안군', '해남군'], gyeongbuk: ['포항시', '구미시', '경주시', '안동시', '의성군', '영천시'],
   gyeongnam: ['창원시', '김해시', '진주시', '거제시', '통영시', '양산시'], jeju: ['제주시', '서귀포시', '애월읍', '성산읍'],
 };
 // 지역 현안: pj 맞는 역점사업(대응하면 성공률·효과↑, 방치하면 지사 책임론), bad 그 사업에 악재(성공률↓). m 동네(미시) 사건
@@ -702,9 +702,27 @@ function newState(f) {
 // 저장 파일 호환: 나중에 추가된 필드 채우기
 // 50에서 시작해 매달 45 쪽으로 5%씩만 다가간 값 = 사건·사업으로 한 번도 움직이지 않은 지지도
 const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0.05) if (Math.abs(v - x) < 1e-6) return true; return false; };
+// 2026.7.1 광주·전남 통합(전남광주통합특별시): 예전 저장 파일의 광주를 전남광주(jeonnam)로 합침
+// 당원·의석은 더하고, 단체장·시·도당 등은 전남 쪽을 이어받음(광주 단체장은 물러남). 지역 이름이 '전남'→'전남광주'로 바뀌어 직책 문자열도 고침
+function mergeGJ(o) {
+  if (!o.members || o.members.gwangju == null) return;
+  const G = 'gwangju', J = 'jeonnam', sum = x => { if (x && G in x) { x[J] = (x[J] || 0) + x[G]; delete x[G]; } }, keep = x => { if (x && G in x) { if (!(J in x)) x[J] = x[G]; delete x[G]; } };
+  sum(o.members); for (const id in o.seats) sum(o.seats[id].d);
+  keep(o.chapters); keep(o.rseen);
+  for (const x of [o.gov, o.rgov, o.ops, o.pgov]) if (x) delete x[G];
+  for (const c of Object.values(o.camps || {})) { if (c.draft?.reg) delete c.draft.reg[G]; if (c.reg?.dist) delete c.reg.dist[G]; if (c.reg?.gov) delete c.reg.gov[G]; }
+  for (const k in o.cd || {}) if (k.includes(':' + G)) delete o.cd[k];
+  const fix = x => { if (x && x.k === G) x.k = J; };
+  for (const a of [o.mps, o.outs, o.rnews, o.rcur, o.rdes, o.queue]) a?.forEach(fix);
+  o.later?.forEach(x => fix(x.q));
+  if (o.party?.home === G) o.party.home = J;
+  const RN = { '국회의원(광주)': '국회의원(전남광주)', '국회의원(전남)': '국회의원(전남광주)', '광주 시·도지사': '', '전남 시·도지사': '전남광주 시·도지사' };
+  o.pool?.forEach(p => { if (p.role in RN) p.role = RN[p.role]; });
+  o.log?.push({ d: o.day, t: '광주광역시와 전라남도가 전남광주통합특별시로 통합되었습니다(2026.7.1 출범). 두 지역의 당원·의석을 합쳤고, 단체장·시·도당은 전남 쪽을 이어받았습니다.', c: '' });
+}
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
-  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
+  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
   o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
@@ -2317,13 +2335,13 @@ const rUnread = k => S.rnews.some(x => x.k === k && x.d > S.day - 2 * TURN && x.
 let rOpen = null;
 const rNew = x => x.d > (turnStart ? turnStart.day : S.day) - TURN && x.d > (rOpen?.k === x.k ? rOpen.seen : S.rseen[x.k] ?? -1);
 // 행정 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
-const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
+const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
 const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
   return `<button class="btn desbtn" data-des="${x.id}" aria-pressed="${on}" ${full ? `disabled title="이 지역은 ${desMax}건까지 지정할 수 있습니다"` : ''}>${on ? '지정됨' : '현안 지정'}</button>`; };
 // 광역단체장 직명(특별·광역시는 시장, 도는 도지사)
-const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: '대구광역시장', incheon: '인천광역시장', gwangju: '광주광역시장', daejeon: '대전광역시장', ulsan: '울산광역시장', sejong: '세종특별자치시장',
-  gyeonggi: '경기도지사', gangwon: '강원특별자치도지사', chungbuk: '충청북도지사', chungnam: '충청남도지사', jeonbuk: '전북특별자치도지사', jeonnam: '전라남도지사', gyeongbuk: '경상북도지사', gyeongnam: '경상남도지사', jeju: '제주특별자치도지사' };
+const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: '대구광역시장', incheon: '인천광역시장', daejeon: '대전광역시장', ulsan: '울산광역시장', sejong: '세종특별자치시장',
+  gyeonggi: '경기도지사', gangwon: '강원특별자치도지사', chungbuk: '충청북도지사', chungnam: '충청남도지사', jeonbuk: '전북특별자치도지사', jeonnam: '전남광주통합특별시장', gyeongbuk: '경상북도지사', gyeongnam: '경상남도지사', jeju: '제주특별자치도지사' };
 // 인재의 직책 표시: 내부 값 'OO 시·도지사'는 실제 직명으로
 const roleLabel = role => { const r = /시·도지사$/.test(role) && R.find(x => role === `${x.n} 시·도지사`); return r ? GOVT[r.k] : role; };
 const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a }) || null; };
@@ -2759,8 +2777,17 @@ function fire(id) {
   const dk = (R.find(r => p.role === `국회의원(${r.n})`) || {}).k, pr = /비례/.test(p.role), gk = (R.find(r => p.role === `${r.n} 시·도지사`) || {}).k;
   const warn = dk || pr ? '현직 국회의원은 제명돼도 의원직을 잃지 않고 무소속 의원이 됩니다(비례대표도 제명은 퇴직 사유가 아님, 공직선거법 제192조 제4항). 우리 당 의석이 1석 줄어듭니다.'
     : gk && S.gov[gk] === 'P' ? `${GOVT[gk]}은(는) 제명돼도 직을 잃지 않고 무소속 단체장이 됩니다. 우리 당 광역단체장이 1곳 줄어듭니다.` : '';
-  openModal({ title: '제명 확인', html: `<p>${esc(p.name)}을(를) 제명할까요? 되돌릴 수 없습니다.${warn ? `<br><b class="bad">${warn}</b>` : ''}</p>`,
-    buttons: [{ t: '취소' }, { t: '제명', pri: true, fn: () => {
+  // 정당법 제33조: 소속 국회의원 제명은 당헌 절차 외에 소속 국회의원 전원의 2분의 1 이상 찬성이 필요. 본인은 반대표
+  const mp = dk || pr, n = seatTotal('P'), need = Math.ceil(n / 2);
+  const law = mp ? `<p class="lawnote">국회의원 제명은 의원총회에서 소속 국회의원 ${n}명 중 ${need}명 이상이 찬성해야 합니다(정당법 제33조). 본인은 반대하고, 대표 역량이 높을수록, 전과가 있을수록 찬성이 늘고 인지도가 높을수록 줄어듭니다.</p>` : '';
+  openModal({ title: '제명 확인', html: `<p>${esc(p.name)}을(를) 제명할까요? 되돌릴 수 없습니다.${warn ? `<br><b class="bad">${warn}</b>` : ''}</p>${law}`,
+    buttons: [{ t: '취소' }, { t: mp ? '의원총회 표결' : '제명', pri: true, fn: () => {
+      if (mp) {
+        const pYes = clamp(0.55 + (leader().skill - 50) / 150 + (p.rec.length ? 0.2 : 0) - (p.fame - 20) / 200, 0.1, 0.95);
+        let yes = 0; for (let i = 1; i < n; i++) if (rnd() < pYes) yes++;
+        if (yes < need) { S.trust -= 1; addLog(`${p.name} 의원 제명안 부결 (찬성 ${yes}/${n}, 필요 ${need})`, 'bad'); toast(`의원총회에서 ${p.name} 의원 제명안이 부결됐습니다 (찬성 ${yes}/${n}명, 필요 ${need}명). 당 내홍으로 신뢰가 조금 떨어졌습니다.`, 'bad'); renderAll(); return; }
+        toast(`의원총회 가결: 찬성 ${yes}/${n}명 (필요 ${need}명)`, 'ok');
+      }
       if (dk && S.seats.P.d[dk] > 0) { S.seats.P.d[dk]--; S.seats.O.d[dk] = (S.seats.O.d[dk] || 0) + 1; }
       else if (pr && S.seats.P.pr > 0) { S.seats.P.pr--; S.seats.O.pr++; }
       else if (dk || pr) loseSeat(false);
