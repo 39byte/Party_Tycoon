@@ -163,8 +163,7 @@ nav .more{display:none}
 .act .bell{min-width:30px;height:30px;padding:0;margin-left:auto;border-radius:8px}
 .act .bell .ic{width:16px;height:16px}
 .act .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
-.act .why{font-size:12.5px;color:var(--warn);min-height:3.1em} /* 사유 두 줄 자리 확보 */
-.act .meta{margin-top:auto} /* 설명 길이와 상관없이 비용·사유·버튼을 아래로 */
+.act .why{font-size:12.5px;color:var(--warn)}
 .act p{margin:0;font-size:13px;color:var(--muted)}
 
 /* progress */
@@ -290,6 +289,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .gov .nowrap{min-height:36px;padding:6px 9px;font-size:14px}
 .nowrap{white-space:nowrap;flex:none}
 .kv{table-layout:fixed} .kv th{width:96px} /* 지역 정보: 지역을 바꿔도 칸 폭 고정 */
+.regkv .kv th{width:82px} .regkv .kv{width:100%}
 /* 후보자 등록 현황: 지역구 | 비례대표 2단, 좁은 화면에선 위아래로 */
 .regsplit{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:8px;margin-top:10px}
 .regsplit>div{padding:10px 12px;min-width:0} .regsplit>div+div{border-left:1px solid var(--border)}
@@ -3026,7 +3026,8 @@ function actBtn(key, k, watch, wide) {
   // wide: 활동 탭(가로로 길고 낮게). 왼쪽 제목(+종)·설명, 오른쪽 위 실행 버튼 아래로 비용·행동력, 그 아래 재사용 턴. 사유는 있을 때만
   if (wide) return `<div class="act row2"><div class="main">${h}<p>${a.d}</p>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>
     <div class="side">${run}<span>${cost ? won(cost) : '무료'} · 행동력 1</span>${a.cd ? `<span>재사용 ${Math.ceil(a.cd / TURN)}턴</span>` : ''}</div></div>`;
-  return `<div class="act">${h}<p>${a.d}</p><div class="meta">${meta}</div><div class="why">${esc(w)}</div>${run}</div>`;
+  // 기본 카드: 설명 → 실행 → 비용·재사용 → 사유(있을 때만)
+  return `<div class="act">${h}<p>${a.d}</p>${run}<div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>`;
 }
 
 function pHome() {
@@ -3101,16 +3102,17 @@ function pOrg() {
   return `<div class="mapwrap">
     <div class="card"><h2>전국 지도</h2><div class="mapbox">${kmap}<div class="mapctl" role="group" aria-label="지도 보기"><button class="ib" data-zoom="in" aria-label="확대" title="확대">+</button><button class="ib" data-zoom="out" aria-label="축소" title="축소">−</button><button class="ib" data-zoom="reset" title="전체 보기">전체</button></div></div><p class="tip mapnote"><span>우리 당 지지 낮음<i class="grad" style="background:linear-gradient(90deg,var(--land),${c})"></i>높음</span></p><p class="tip mapnote"><span><svg width="14" height="16" viewBox="-4 -81 22 28" aria-hidden="true"><path d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/></svg> 시·도당</span><span><span style="color:var(--gold)">★</span> 창당 본거지</span></p><p class="tip">지역을 누르면 오른쪽에 자세히 나옵니다. 휠·버튼으로 확대하고, 확대한 뒤엔 끌어서 옮깁니다(휴대폰은 두 손가락으로도 확대).</p></div>
     <div class="card"><h2>${r.n} <span class="pill">${leanTxt}</span> ${r.k === S.party.home ? '<span class="pill">창당 본거지</span>' : ''}</h2>
-      <div class="tblwrap"><table class="kv"><tbody>
+      <div class="split2 regkv"><div><table class="kv"><tbody>
         <tr><th>선거인 수</th><td class="num">약 ${r.voters}백만 명</td></tr>
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
         <tr><th>우리 당 지지</th><td class="num">${regSupport(r.k).toFixed(1)}%</td></tr>
-        <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)} <span class="muted small">(전국 평균 ${S.trust.toFixed(1)})</span></td></tr>
+        <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
+      </tbody></table></div><div><table class="kv"><tbody>
         <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
         <tr><th>시·도당</th><td>${S.chapters[r.k] ? '<b class="ok">등록됨</b>' : '미창당'}</td></tr>
         <tr><th>시·도지사</th><td>${S.gov[r.k] ? esc(pn(S.gov[r.k])) : '-'}</td></tr>
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
-      </tbody></table></div>
+      </tbody></table></div></div>
       ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${Math.min(S.members[r.k], 1000).toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
       <div class="acts" style="margin-top:10px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
     </div></div>`;
