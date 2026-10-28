@@ -292,7 +292,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .nowrap{white-space:nowrap;flex:none}
 .kv{table-layout:fixed} .kv th{width:96px} /* 지역 정보: 지역을 바꿔도 칸 폭 고정 */
 .regkv .kv th{width:82px} .regkv .kv{width:100%}
-.regkv{border-bottom:1px solid var(--border)} .regkv tr:last-child>*{border-bottom:0} /* 아래 구분선은 두 칸을 가로질러 한 줄 */
+.regkv{border-bottom:1px solid var(--border);padding-bottom:10px;margin-bottom:18px} /* 세로선이 아래 가로선에 닿지 않게 */ .regkv tr:last-child>*{border-bottom:0} /* 아래 구분선은 두 칸을 가로질러 한 줄 */
 /* 후보자 등록 현황: 지역구 | 비례대표 2단, 좁은 화면에선 위아래로 */
 .regsplit{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--border);border-radius:8px;margin-top:10px}
 .regsplit>div{padding:10px 12px;min-width:0} .regsplit>div+div{border-left:1px solid var(--border)}
@@ -3117,7 +3117,7 @@ function pOrg() {
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
       </tbody></table></div></div>
       ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${Math.min(S.members[r.k], 1000).toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
-      <div class="acts" style="margin-top:10px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
+      <div class="acts" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
     </div></div>`;
 }
 function pAct() {
