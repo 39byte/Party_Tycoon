@@ -699,7 +699,7 @@ function newState(f) {
 const untouched = v => { for (let m = 0, x = 50; m < 600; m++, x += (45 - x) * 0.05) if (Math.abs(v - x) < 1e-6) return true; return false; };
 function migrate(o) {
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
-  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); o.briefs ??= []; o.wire ??= [];
+  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
   o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
   else if (o.mps && o.seats.A && !o.mpv) o.mps = genMPs(o, o.mps); // 옛 저장: 주요 의원 8명 → 원내 명단으로 확장
@@ -815,7 +815,7 @@ function simGov(c) {
     if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
     const res = shareRace(r.k, ids, mods);
     win[r.k] = res.win;
-    if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
+    if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
   }
   return { win, mine };
 }
@@ -918,6 +918,7 @@ function resolveElection(c) {
       S.lastPart = S.day;
       g.mine.forEach(d => { refund += d.cost * L.refundRate(d.share); if (d.win && d.pid != null) { const p = person(d.pid); if (p) p.role = `${RK[d.k].n} 시·도지사`; } });
     }
+    S.pgov = Object.fromEntries((c.reg ? g.mine : []).filter(d => d.win && d.pid == null).map(d => [d.k, { n: d.name, g: d.g, a: d.age }])); pgovSync(S);
     html = govResultHTML(g);
     R.forEach(r => rnews(r.k, `${r.n} 시·도지사 선거: ${S.gov[r.k] === 'P' ? `${govName(r.k) || '우리 당 후보'}(${S.party.name})` : `${S.rgov[r.k].n}(${pn(S.rgov[r.k].p)})`} 당선`));
     lines.push(`${c.name} 결과: ${S.party.name} 광역단체장 ${govCount('P')}곳`);
@@ -1428,6 +1429,13 @@ function rgovSync(o) {
   for (const k in o.rgov) if (o.gov[k] !== o.rgov[k].p) delete o.rgov[k];
   for (const k in o.gov) if (o.gov[k] !== 'P' && !o.rgov[k]) o.rgov[k] = { p: o.gov[k], n: genName(rnd() < 0.2 ? 'F' : 'M'), o: o === S ? opsBase(o.gov[k], k) : 50 }; // 불러오는 중이면 migrate가 맞춤
 }
+// 우리 당 지사 중 인재풀에 없는 사람(공모 후보로 당선): { 지역: { n 이름, g 성별, a 나이 } }. 인재풀 지사가 생기거나 지사직을 잃으면 지움
+const poolGov = (o, k) => o.pool.find(p => p.role === `${RK[k].n} 시·도지사`);
+function pgovSync(o) {
+  o.pgov ??= {};
+  for (const k in o.pgov) if (o.gov[k] !== 'P' || poolGov(o, k)) delete o.pgov[k];
+  for (const k in o.gov) if (o.gov[k] === 'P' && !o.pgov[k] && !poolGov(o, k)) { const g = rnd() < 0.2 ? 'F' : 'M'; o.pgov[k] = { n: genName(g), g, a: Math.round(rr(45, 68)) }; }
+}
 const liveMPs = () => S.mps.filter(m => (S.seats[m.party].d[m.k] || 0) > 0);
 const allyCamp = () => Object.values(S.camps).find(c => c.type !== 'pres' && !c.ally && S.day <= c.day - LAW.regDeadline[c.type]);
 const NEG_BASE = { meet: 0.7, pact: 0.4, ally: 0.3, mpMeet: 0.75, mpBill: 0.55, mpJoin: 0.12, outMeet: 0.8, outBack: 0.45, outJoin: 0.3 };
@@ -1819,7 +1827,7 @@ function applyPen(pen) {
   if (pen.money) spend(Math.abs(pen.money), '벌금·추징');
   if (pen.trust) S.trust = clamp(S.trust + pen.trust, 0, 100);
   if (pen.fame) S.fame = clamp(S.fame + pen.fame, 0, 100);
-  if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.aap = Math.min(S.aap, aapMax()); S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); }
+  if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.aap = Math.min(S.aap, aapMax()); S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); pgovSync(S); }
   let lost = 0;
   for (let i = 0; i < (pen.seat || 0); i++) if (loseSeat(false)) lost++;
   return lost;
@@ -2300,7 +2308,8 @@ const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'gwangju', 'daejeon', 'ulsa
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
 const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
   return `<button class="btn desbtn" data-des="${x.id}" aria-pressed="${on}" ${full ? `disabled title="이 지역은 ${desMax}건까지 지정할 수 있습니다"` : ''}>${on ? '지정됨' : '현안 지정'}</button>`; };
-const govName = k => (S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || {}).name || '';
+const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a }) || null; };
+const govName = k => govPerson(k)?.name || '';
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
 // ---------- 지역 현안: 뉴스 → 역점사업, 역점사업 → 뉴스 ----------
 // S.rcur: 실제 지역 문제(화면엔 안 보임) [{ id, k, pj | bad, t, d, until }] — pj 수요(방치하면 그 지역 지사 책임론), bad 악재(그 사업 성공률↓)
@@ -2728,7 +2737,7 @@ function pPeople() {
 function fire(id) {
   const p = person(id); if (!p) return;
   openModal({ title: '제명 확인', html: `<p>${esc(p.name)}을(를) 제명할까요? 되돌릴 수 없습니다.${/국회의원/.test(p.role) ? '<br><b class="bad">현직 의원을 제명하면 무소속이 되어 우리 당 의석이 줄어듭니다.</b>' : ''}</p>`,
-    buttons: [{ t: '취소' }, { t: '제명', pri: true, fn: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); addLog(`${p.name} 제명`); renderAll(); } }] });
+    buttons: [{ t: '취소' }, { t: '제명', pri: true, fn: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); pgovSync(S); addLog(`${p.name} 제명`); renderAll(); } }] });
 }
 function pElec() {
   const camps = Object.values(S.camps).sort((a, b) => a.day - b.day);
@@ -2854,7 +2863,7 @@ function pAdmin() {
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span></h2>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="acts">${govs.map(k => `<div class="act"><div class="who">${face(S.pool.find(p => p.role === `${RK[k].n} 시·도지사`) || { name: govName(k) || RK[k].n }, S.party.color, 48)}<h3>${RK[k].n} ${esc(govName(k))} 지사</h3><button class="btn pri" style="margin-left:auto" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
+      <div class="acts">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<h3>${RK[k].n} ${esc(govName(k))} 지사</h3><button class="btn pri" style="margin-left:auto" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
       <p class="tip">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
