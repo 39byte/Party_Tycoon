@@ -2551,7 +2551,7 @@ function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpe
   if (dismiss) root.querySelector('.scrim').onclick = ev => { if (ev.target === ev.currentTarget) closeModal(); };
   root.dataset.dismiss = dismiss ? '1' : '';
   if (onOpen) onOpen(m);
-  (m.querySelector('[autofocus]') || m.querySelector('button,input,select'))?.focus();
+  (m.querySelector('[autofocus]') || m.querySelector('button:not(.info),input,select'))?.focus(); // (i)는 건너뜀: 포커스되면 설명이 바로 펼쳐짐
 }
 function closeModal() { $('#modalRoot').innerHTML = ''; modalOpen = false; renderAll(); if (left || turnStart) turnTimer = setTimeout(runTurn, 90); }
 document.addEventListener('keydown', e => {
