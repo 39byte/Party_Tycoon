@@ -3773,9 +3773,9 @@ function pFin() {
 // 법원: 수사·재판
 function pCourt() {
   const cases = S.cases, stage = c => c.mine ? (c.stage ? '1심 재판 중' : '검찰 수사 중') : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
-  return `<div class="stack"><div class="card"><h2>고발</h2><div class="acts">${actBtn('accuse')}</div>
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start"><div class="card" style="margin-top:0"><h2>고발</h2><div class="acts">${actBtn('accuse')}</div>
     <p class="tip">교섭 자리에서 들은 의혹을 근거로 상대 당·우리 당 현직 의원과 단체장, 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다. 후보에서 내려온 사람은 후보로는 고를 수 없습니다. 기소·유죄가 나오면 그 당의 신뢰와 지지율이 떨어지고, 불기소·무죄면 우리 당이 역풍을 맞습니다.</p></div>
-    <div class="card"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.acc ? '우리가 고발' : c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div></div>`;
+    <div class="card" style="margin-top:0"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.acc ? '우리가 고발' : c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div></div>`;
 }
 // 의회: 교섭 · 사회적 이슈 · 법안·대정부 질문 · 다른 당/정부 동향
 function pOffice() {
