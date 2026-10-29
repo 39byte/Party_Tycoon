@@ -1540,8 +1540,8 @@ const newsList = (ns = S.news) => ns.length ? `<ul class="news">${ns.map(n => `<
 // ---------- 수사·재판 (검찰 → 법원) ----------
 const later = (days, q) => S.later.push({ d: S.day + Math.round(days), q });
 // guilty: 실제로 한 일인지. mine: 우리가 고소·고발한 사건
-function openCase({ t, guilty, pen, mine, target }) {
-  const c = { id: ++S.seq, t, guilty, pen, mine, target, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
+function openCase({ t, guilty, pen, mine, target, acc }) {
+  const c = { id: ++S.seq, t, guilty, pen, mine, target, acc, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
   S.cases.push(c);
   if (mine) later(rr(28, 56), { ev: 'case', id: c.id }); else S.queue.push({ ev: 'case', id: c.id });
   return c;
@@ -1555,6 +1555,7 @@ function caseEv(id) {
   const c = S.cases.find(x => x.id === id); if (!c) return;
   const close = () => (S.cases = S.cases.filter(x => x !== c));
   c.ev = clamp(c.ev, 0.02, 1);
+  if (c.acc) return accEv(c, close);
   if (c.mine) {
     close();
     const ok = rnd() < c.ev;
@@ -1586,6 +1587,118 @@ function caseEv(id) {
   }
   S.trust += 3; S.fame += 1;
   return info('1심 판결: 무죄', `법원이 '${c.t}' 혐의에 무죄를 선고했습니다.`, false);
+}
+
+// ---------- 고발: 누구든지 범죄가 있다고 생각하면 고발할 수 있음(형사소송법 제234조) ----------
+// 대상: 현직 국회의원·광역단체장(모든 당) · 대통령 · 원외 인사 · 등록을 마친 이번 선거 후보(사퇴·단일화로 내려오면 '후보'로는 못 고름)
+// t: { key, name, party, role, grp, fid | pid, integ }
+function accTargets() {
+  const out = [], candF = new Map(), candP = new Map();
+  for (const c of Object.values(S.camps)) {
+    if (S.day <= c.day - LAW.regDeadline[c.type] || S.day >= c.day) continue; // 후보자 등록 마감 뒤 ~ 선거일 전
+    for (const k in c.rv || {}) c.rv[k].forEach((s, i) => { for (const id in s) {
+      if (!rvOut(s[id]) || (c.ally === id && (c.type === 'nat' ? c.reg?.dist[k]?.[i] : c.reg?.gov[k]))) continue; // 선거 연대로 양보한 자리
+      candF.set(s[id].fid, `${c.name} ${RK[k].n} 후보`);
+    } });
+    for (const id in c.rivals || {}) if (c.rivals[id].fid && !(id === 'C' && c.unified)) candF.set(c.rivals[id].fid, `${c.name} 후보`);
+    if (c.reg) for (const x of [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand].filter(Boolean)) candP.set(x.id, `${c.name} 후보`);
+  }
+  for (const f of S.figs) {
+    const cr = candF.get(f.id), role = f.pos === 'gov' ? GOVT[f.k] : f.pos === 'pr' ? '비례대표 국회의원' : f.pos === 'd' ? `${RK[f.k].n} 지역구 국회의원` : '';
+    if (role || cr) out.push({ key: 'f' + f.id, name: f.name, party: f.party, role: [role, cr].filter(Boolean).join(' · '), grp: cr ? 'cand' : f.pos === 'gov' ? 'gov' : 'mp', fid: f.id, integ: f.integ });
+  }
+  for (const p of S.pool) {
+    const cr = candP.get(p.id), role = /국회의원|시·도지사/.test(p.role) ? p.role : '';
+    if (role || cr) out.push({ key: 'p' + p.id, name: p.name, party: 'P', role: [role, cr].filter(Boolean).join(' · '), grp: cr ? 'cand' : /시·도지사/.test(p.role) ? 'gov' : 'mp', pid: p.id, integ: p.integ });
+  }
+  for (const k in S.pgov || {}) out.push({ key: 'g' + k, name: S.pgov[k].n, party: 'P', role: GOVT[k], grp: 'gov' });
+  const P = S.president; if (P.name) out.push({ key: 'pres', name: P.name, party: P.party, role: P.acting ? '대통령 권한대행' : '대통령', grp: 'pres', pid: P.pid });
+  for (const m of S.outs) out.push({ key: 'o' + m.id, name: m.name, party: m.party || 'O', role: m.role, grp: 'out', integ: m.integ });
+  return out;
+}
+// 그 사람에 대해 교섭 자리에서 들은 얘기(맞는지는 친분만큼). 그 당 차원 루머는 그 당 의원 몫으로도 보여 줌
+const accHints = t => [...S.mps, ...S.outs].flatMap(m => (m.talk || []).filter(x => x.ref && (
+  t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
+) || (x.ref?.ik === 'party' && x.ref.party === t.party && t.grp === 'mp')).map(x => ({ ...x, who: m.name, pty: x.ref.ik === 'party' }))); // pty: 그 사람 얘기가 아닌 당 소문
+const accOpen = t => S.cases.some(c => c.acc?.key === t.key);
+function accuseFile(t, ch) {
+  spend(ACT.accuse.c(), '법률 비용'); S.ap--; S.cd.accuse = S.day + ACT.accuse.cd;
+  // 진위: 아직 보도 안 된 그 사람 사건 · 이미 보도된 그 사람 의혹 · 그 당 차원 루머(현역 의원이면 40% 연루) · 그 밖엔 청렴도만큼
+  const f = t.fid != null && fig(t.fid), inc = S.inc.find(x => ch.inc.includes(x.k) && (f ? x.fid === f.id : t.pid != null && x.pid === t.pid));
+  const pinc = ch.rum && t.grp === 'mp' && S.inc.find(x => x.k === 'party' && x.party === t.party && ch.rum.test(x.d) && rnd() < 0.4);
+  const real = !!inc || !!pinc || !!f?.news?.some(n => ch.inc.includes(n.k)) || rnd() < (100 - (t.integ ?? 55)) / 100 * 0.2;
+  S.inc = S.inc.filter(x => x !== inc && x !== pinc); // 고발로 드러났으니 따로 보도되지 않음
+  const pres = t.grp === 'pres', c = openCase({ t: `${t.name} ${ch.n}`, guilty: real, mine: true, target: t.party, acc: { key: t.key, name: t.name, role: t.role, ch: ch.k, fid: t.fid, pid: t.pid, pres } });
+  if (pres) c.ev *= 0.7; // 살아 있는 권력 수사는 더 조심스러움
+  if (t.party in S.rel) relAdd(t.party, -10, `${t.name} 고발`);
+  S.fame += 0.5;
+  wire(`${S.party.name}, ${t.role} ${t.name} '${ch.n}' 혐의로 검찰 고발`);
+  const msg = `${t.role} ${t.name}을(를) '${ch.n}' 혐의로 고발했습니다(${ch.law}). 검찰 처분은 몇 주 뒤 나옵니다.`;
+  addLog(msg); toast(msg); Snd.sfx('ok'); renderAll();
+}
+// 결과에 따른 여론: 상대 당이면 신뢰 격차만큼 세기가 달라짐(atkMul·gapHit). 우리 당 사람이면 자정 노력과 의혹 확인이 엇갈림
+function accEv(c, close) {
+  const a = c.acc, id = c.target, riv = TR_IDS.includes(id), own = id === 'P', m = riv ? atkMul(id) : 1, f = a.fid != null && fig(a.fid), ch = CHARGES.find(x => x.k === a.ch), who = `${a.role} ${a.name}`;
+  const govK = f && f.pos === 'gov' && S.rgov[f.k]?.fid === f.id ? f.k : null;
+  const hit = (tr, rw) => { if (riv) { trustAll(id, tr * m); S.rw[id] += rw * m; } if (govK) S.rgov[govK].o = clamp(S.rgov[govK].o + tr * 2, 5, 95); };
+  if (!c.stage) {
+    if (rnd() >= c.ev) {
+      close();
+      if (own) S.trust -= 1; else { S.trust -= 1.5 * (riv ? gapHit(id) : 1); S.buzz -= 0.5; hit(1, 0.5); }
+      // 근거 없는 고발이었으면 상대가 무고로 맞고소할 수 있음(형법 제156조)
+      if (!c.guilty && !own && rnd() < 0.3) later(rr(7, 21), { ev: 'mugo', name: a.name, party: id });
+      return info('고발 사건 불기소', `검찰이 ${who}의 '${ch.n}' 혐의를 ${c.guilty ? '증거 불충분으로' : '혐의 없음으로'} 불기소했습니다. ${own ? '"내부 총질"이었다는 말이 나옵니다.' : '"무리한 정치 고발"이라는 비판이 나옵니다.'}`, true);
+    }
+    if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: `${a.name}, ${ch.n} 혐의 ${a.pres ? '수사 결과 발표' : '기소'}`, k: ch.inc[0] }); }
+    wire(`검찰, ${who} '${ch.n}' 혐의 ${a.pres ? '수사 결과 발표… 재직 중이라 기소는 임기 뒤로' : '기소'}`);
+    if (a.pres) { // 헌법 제84조: 대통령은 내란·외환 말고는 재직 중 형사 소추를 받지 않음 → 수사 결과만 공개되고 끝
+      close();
+      if (own) { S.trust -= 3; S.buzz -= 2; } else { hit(-3, -2.5); S.trust += 1; S.buzz += 1; }
+      return info('대통령 수사 결과 발표', `검찰이 ${who}의 '${ch.n}' 혐의를 상당 부분 확인했다고 발표했습니다. 대통령은 재직 중 형사 소추를 받지 않아(헌법 제84조) 기소는 임기 뒤로 미뤄졌지만, ${own ? '우리 당 정부에 큰 타격입니다' : `${pn(id)}에 큰 타격입니다`}.`, own);
+    }
+    c.stage = 1; later(rr(42, 84), { ev: 'case', id: c.id });
+    if (own) { S.trust -= 1.5; S.buzz -= 1.5; } else { hit(-2.5, -1.5); S.trust += 1; S.fame += 1; S.buzz += 1; }
+    return info('고발 사건 기소', `검찰이 ${who}을(를) '${ch.n}' 혐의로 재판에 넘겼습니다(${ch.law}). 1심 선고까지 몇 달 걸립니다.${own ? ' 우리 당 사람이라 타격이 있지만 "제 식구 감싸기는 안 한다"는 평도 나옵니다.' : ''}`, own);
+  }
+  close(); // ponytail: 1심에서 끝. 확정 전엔 무죄추정(헌법 제27조 제4항)이라 직은 유지. 항소·당선무효가 필요해지면 stage를 늘릴 것
+  if (rnd() < (c.guilty ? 0.8 : 0.2)) {
+    const tag = `${ch.n}(1심 유죄, 항소 중)`, p = a.pid != null && person(a.pid);
+    if (f) f.rec.push(tag);
+    if (p) { p.rec.push(tag); p.integ = clamp(p.integ - 15, 0, 100); }
+    if (own) { S.trust -= 2; S.buzz -= 2; } else { hit(-4, -2.5); S.trust += 1.5; S.buzz += 1; }
+    wire(`법원, ${who} '${ch.n}' 1심 유죄`);
+    return info('1심 판결: 유죄', `법원이 ${who}의 '${ch.n}' 혐의를 유죄로 판단했습니다. 판결이 확정되기 전까지는 직을 유지합니다.`, own);
+  }
+  if (own) S.trust -= 1; else { S.trust -= 2 * (riv ? gapHit(id) : 1); hit(1.5, 0.5); }
+  wire(`법원, ${who} '${ch.n}' 1심 무죄`);
+  return info('1심 판결: 무죄', `법원이 ${who}의 '${ch.n}' 혐의에 무죄를 선고했습니다. ${own ? '당이 제 사람을 무리하게 몰아세웠다는 비판이 나옵니다.' : '고발한 우리 당이 역풍을 맞았습니다.'}`, true);
+}
+// 고발 대상·죄목 고르기. 대상마다 교섭 자리에서 들은 얘기를 보여 주고, 들은 얘기가 가리키는 죄목을 먼저 골라 둠
+function accuseModal() {
+  const ts = accTargets(), GR = [['mp', '국회의원'], ['gov', '광역단체장'], ['pres', '대통령'], ['out', '원외 인사'], ['cand', '등록 후보']], st = { g: 'mp', key: '', ch: '' };
+  openModal({ title: '고발장 제출', wide: true, html: '<div data-acc></div>', buttons: [{ t: '취소' }],
+    onOpen: m => {
+      const box = m.querySelector('[data-acc]');
+      const draw = () => {
+        const list = ts.filter(t => t.grp === st.g).map(t => { const hs = accHints(t); return { ...t, hs, n: hs.filter(h => !h.pty).length }; }).sort((x, y) => y.n - x.n || x.party.localeCompare(y.party));
+        if (!list.some(t => t.key === st.key)) { st.key = list[0]?.key || ''; st.ch = ''; }
+        const t = list.find(x => x.key === st.key), hs = t?.hs || [];
+        st.ch ||= hs.map(h => refCharge(h.ref)).find(Boolean)?.k || CHARGES[0].k;
+        const ch = CHARGES.find(x => x.k === st.ch), busy = t && accOpen(t);
+        box.innerHTML = `<div class="split2">
+          <label class="f">대상 구분<select data-g>${GR.map(([k, n]) => `<option value="${k}" ${st.g === k ? 'selected' : ''}>${n} (${ts.filter(x => x.grp === k).length}명)</option>`).join('')}</select></label>
+          <label class="f">대상<select data-t ${list.length ? '' : 'disabled'}>${list.map(x => `<option value="${x.key}" ${x.key === st.key ? 'selected' : ''}>${esc(x.name)} · ${esc(x.party === 'O' ? '무소속' : pn(x.party))} · ${esc(x.role)}${x.n ? ` · 들은 얘기 ${x.n}` : ''}</option>`).join('')}</select></label></div>
+          <label class="f">죄목<select data-ch>${CHARGES.map(x => `<option value="${x.k}" ${x.k === st.ch ? 'selected' : ''}>${x.n} (${x.law})</option>`).join('')}</select></label>
+          ${!t ? '<p class="empty">이 구분에 고발할 수 있는 사람이 없습니다.</p>' : `<h3 style="margin-top:12px">${esc(t.name)}에 대해 들은 얘기</h3>${hs.length ? `<ul class="log">${hs.map(h => `<li><time>${fdate(h.d)}</time><span>${esc(h.t)} <span class="small muted">— ${esc(h.who)}${h.pty ? ' · 당 차원 소문' : ''}</span>${refCharge(h.ref) ? ` <span class="pill">${esc(refCharge(h.ref).n)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">들은 얘기가 없습니다. 근거 없이 고발하면 불기소될 가능성이 높습니다.</p>'}`}
+          <p class="tip">친분이 두터운 사람에게 들은 얘기일수록 맞습니다. 불기소·무죄가 나오면 우리 당이 역풍을 맞고, 근거 없는 고발엔 무고 맞고소(형법 제156조)가 들어올 수 있습니다. 상대 당보다 신뢰가 높을수록 기소·유죄의 파장이 그 당에 크게 갑니다.${st.g === 'pres' ? ' 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.' : ''}</p>
+          <div class="btns"><button class="btn pri" data-go ${!t || busy ? 'disabled' : ''}>${busy ? '이미 수사 중인 대상' : `고발장 제출 (${won(ACT.accuse.c())} · 행동력 1)`}</button></div>`;
+        box.querySelector('[data-g]').onchange = e => { st.g = e.target.value; st.key = ''; draw(); };
+        box.querySelector('[data-t]').onchange = e => { st.key = e.target.value; st.ch = ''; draw(); };
+        box.querySelector('[data-ch]').onchange = e => { st.ch = e.target.value; draw(); };
+        box.querySelector('[data-go]').onclick = () => { closeModal(); accuseFile(t, ch); };
+      };
+      draw();
+    } });
 }
 
 // ---------- 의회: 법안 발의 → 상임위 → 본회의 → 정부 이송(거부권) ----------
@@ -1889,6 +2002,18 @@ const INC = [
 ];
 const INC_PARTY = { cats: ['pol', 'bcast'], pen: 1.5 }; // 당 차원 사건(내용은 RUMORS)
 const incT = x => x.k === 'party' ? INC_PARTY : INC.find(t => t.k === x.k);
+// 고발 죄목(사건·루머 풀을 큰 단위로 묶음). inc: 해당하는 숨은 사건 종류 · rum: 해당하는 당 차원 루머
+// 막말(모욕)은 친고죄라 피해자 고소 없이 제3자 고발로는 처벌 못 해 뺌(형법 제311조·제312조)
+const CHARGES = [
+  { k: 'fund', n: '불법 정치자금 수수', law: '정치자금법 제45조', inc: ['money'], rum: /후원금/ },
+  { k: 'bribe', n: '뇌물 수수', law: '형법 제129조 · 특정범죄가중처벌법 제2조', inc: ['probe'] },
+  { k: 'nom', n: '공천 대가 금품 거래', law: '공직선거법 제47조의2', inc: [], rum: /공천|순번/ },
+  { k: 'land', n: '업무상 비밀 이용 땅 투기', law: '이해충돌방지법 제27조', inc: ['land'] },
+  { k: 'favor', n: '입시·병역 특혜 청탁', law: '형법 제314조(업무방해) · 병역법 제86조', inc: ['edu', 'mil'] },
+  { k: 'abuse', n: '갑질·강요', law: '형법 제324조(강요) · 제260조(폭행)', inc: ['abuse'], rum: /갑질/ },
+];
+// 들은 얘기(ref)가 가리키는 죄목
+const refCharge = r => r && CHARGES.find(c => r.ik === 'party' ? c.rum?.test(r.d) : c.inc.includes(r.ik));
 function incNew(o, f, days, party) {
   const t = f ? pick(INC) : { k: 'party', d: pick(RUMORS) };
   o.inc.push({ id: ++o.seq, k: t.k, d: t.d, fid: f ? f.id : null, party: f ? f.party : party, at: o.day + Math.round(days) });
@@ -1903,7 +2028,7 @@ function incReport() {
     if (!w) return false; // 그 사이 명부에서 빠짐(낙선·은퇴)
     const h = x.k === 'party' ? `[단독] ${w}, ${x.d}는 의혹 보도… 당은 "사실무근"` : incT(x).h(w);
     if (me) { S.trust -= 2; S.buzz -= 1; addLog(`[보도] ${h}`, 'bad'); toast(`영입하기 전 일이 터졌습니다: ${h}`, 'bad'); }
-    else { S.rw[x.party] -= incT(x).pen; trustAll(x.party, -incT(x).pen * 0.5); if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: h }); } }
+    else { S.rw[x.party] -= incT(x).pen; trustAll(x.party, -incT(x).pen * 0.5); if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: h, k: x.k }); } }
     wire(h);
     const told = [...S.mps, ...S.outs].flatMap(p => (p.talk || []).filter(y => y.iid === x.id).map(y => (y.hit = 1, p)));
     if (told.length) { const msg = `${told[0].name}에게 들었던 얘기가 현실이 됐습니다. ${h}`; addLog(msg); toast(msg); }
@@ -2027,9 +2152,9 @@ function incSay(m, cat, tp) {
   const ok = rnd() < clamp(tp + (incT(x).cats.includes(cat) ? 0.15 : 0) + (cat === 'press' ? 0.1 : 0) - (cat === 'bcast' ? 0.2 : 0), 0.05, 0.95);
   const say = (w, d, party) => party ? `${SRC[cat]} ${w} 쪽에서 ${d}는 얘기가 있어요.` : `${SRC[cat]} ${w}의 ${d} 건이 곧 문제가 될 거래요.`;
   const when = cat === 'press' ? (x.at - S.day <= 21 ? ' 기사가 곧 나올 것 같아요.' : ' 기사로 나오려면 아직 좀 걸린대요.') : '';
-  if (ok) return [TAG[cat] || '소문', say(incWho(x), x.d, x.k === 'party') + when, null, 'inc', x.id];
-  const f = pick(S.figs.filter(y => y.id !== m.fid)); // 헛소문
-  return f && [TAG[cat] || '소문', say(figWho(f), pick(INC).d) + when, null, 'inc'];
+  if (ok) return [TAG[cat] || '소문', say(incWho(x), x.d, x.k === 'party') + when, null, 'inc', x.id, { fid: x.fid, pid: x.pid, party: x.party, ik: x.k, d: x.d }];
+  const f = pick(S.figs.filter(y => y.id !== m.fid)), fk = pick(INC); // 헛소문(고발해 봐야 틀린 걸 앎)
+  return f && [TAG[cat] || '소문', say(figWho(f), fk.d) + when, null, 'inc', null, { fid: f.id, party: f.party, ik: fk.k }];
 }
 // 공천 내정: 상대 당이 아직 발표 안 한 자리 하나를 미리 정해 두고 귀띔(친분만큼 맞음)
 function nomSay(own, tp) {
@@ -2062,8 +2187,8 @@ function gossip(m) {
   const wt = x => CAT_W[cat]?.[x[3]] ?? 1;
   let r = rnd() * sum(xs.map(wt)), pickd = xs[0];
   for (const x of xs) if ((r -= wt(x)) < 0) { pickd = x; break; }
-  const [k, t, q, , iid] = pickd, id = ++S.seq;
-  (m.talk ??= []).push({ id, d: S.day, k, t, ...(iid ? { iid } : {}) }); if (m.talk.length > 20) m.talk.shift();
+  const [k, t, q, , iid, ref] = pickd, id = ++S.seq;
+  (m.talk ??= []).push({ id, d: S.day, k, t, ...(iid ? { iid } : {}), ...(ref ? { ref } : {}) }); if (m.talk.length > 20) m.talk.shift();
   if (q && rnd() < tp) later(rr(14, 49), { ev: 'talkReal', tid: id, who: m.name, ...q });
   return ` 식사 자리에서 이런 얘기를 들었습니다.\n\n"${t}"`;
 }
@@ -2203,6 +2328,7 @@ const ACT = {
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
+  accuse: { n: '고발장 제출', c: () => 5e6, cd: 14, d: '현직 의원·단체장·대통령·원외 인사·등록 후보를 검찰에 고발합니다(형사소송법 제234조). 교섭에서 들은 얘기가 근거가 됩니다.' },
   talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 청렴도·전과는 영입한 뒤 알 수 있습니다(선거에 나갔던 사람은 공개, 공직선거법 제49조).' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승.' },
@@ -2221,6 +2347,7 @@ function why(key, k) {
   if (a.camp && !activeCamps().length) return '공식 선거운동기간에만 가능 (사전선거운동 금지, 공직선거법 제254조)';
   if (key === 'debate' && !activeCamps().some(c => c.type !== 'nat')) return '대선·지방선거 선거운동기간에만 열림';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
+  if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
   if (key === 'chapter') { if (S.chapters[k]) return '이미 등록된 시·도당'; if (S.members[k] < LAW.chapterMembers) return `당원 ${S.members[k].toLocaleString()} / 1,000명 필요 (정당법 제18조)`; }
@@ -2234,6 +2361,7 @@ function doAct(key, k) {
   if (why(key, k)) return;
   const a = ACT[key];
   if (key === 'policy') return policyModal();
+  if (key === 'accuse') return accuseModal();
   if (key === 'bill') return billModal();
   if (key === 'govern') return govModal(k);
   if (key === 'talent') { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; return talentModal(); }
@@ -2362,7 +2490,7 @@ function buildReg(c) {
   const mk = (p, kind, spendC, spendB) => {
     const dep = L.deposit(kind, p.age);
     out.cost += dep + spendC; out.deposits += dep; recCount.n += p.rec ? p.rec.length : 0;
-    return { id: p.id, name: p.name, gender: p.gender, age: p.age, fame: p.fame, skill: p.skill, rec: p.rec || [], dep, spend: spendC, spendB };
+    return { id: p.id, name: p.name, gender: p.gender, age: p.age, fame: p.fame, skill: p.skill, integ: p.integ, rec: p.rec || [], dep, spend: spendC, spendB };
   };
   if (c.type === 'nat') {
     out.dist = {}; let women = 0, total = 0;
@@ -2867,6 +2995,8 @@ const XEV = {
     if (S.gov[q.k] === 'P') { if (f.ops) S.ops[q.k] = clamp(S.ops[q.k] + f.ops, 5, 95); if (f.mem) S.members[q.k] += f.mem; }
   },
   selfAct: () => selfAct(),
+  // 우리가 근거 없이 고발했던 상대의 맞고소: 일부러 허위 고발했는지가 쟁점이라 유죄는 드묾
+  mugo: q => { if (q.party in S.rel) relAdd(q.party, -5, '무고 맞고소'); wire(`${q.name} 측, ${S.party.name} 지도부 무고 혐의로 맞고소`); openCase({ t: `${q.name} 측 무고 맞고소(형법 제156조)`, guilty: rnd() < 0.3, pen: { money: -2e7, trust: -4, note: '무고죄 벌금형' } }); },
   smearCourt: q => { if (luck(0.6)) { S.buzz += q.hit * 0.7; S.trust += 1; info('법원 판단', `'${q.t}' 유포자에게 허위사실 명예훼손 유죄가 나왔습니다. 정정 보도가 이어지며 지지율이 회복됐습니다.`, false); }
     else info('법원 판단', `'${q.t}' 고소가 무혐의로 끝났습니다. "괜히 키웠다"는 말이 나옵니다.`, true); },
   inst: () => openModal({ title: '정책연구소 설치 안내', html: `<p>국고보조금 배분 대상 정당이 되었습니다. 보조금을 받는 정당은 정책연구소를 두어야 하고, 경상보조금의 30% 이상을 정책연구소에 배분해야 합니다. 활동 탭에서 정책연구소를 설립하세요.</p>`, buttons: [{ t: '확인', pri: true }] }),
@@ -3614,8 +3744,10 @@ function pFin() {
 }
 // 법원: 수사·재판
 function pCourt() {
-  const cases = S.cases, stage = c => c.mine ? '고소·고발 수사 중' : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
-  return `<div class="card"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>`;
+  const cases = S.cases, stage = c => c.mine ? (c.stage ? '1심 재판 중' : '검찰 수사 중') : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
+  return `<div class="stack"><div class="card"><h2>고발</h2><div class="acts">${actBtn('accuse')}</div>
+    <p class="tip">교섭 자리에서 들은 의혹을 근거로 상대 당·우리 당 현직 의원과 단체장, 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다. 후보에서 내려온 사람은 후보로는 고를 수 없습니다. 기소·유죄가 나오면 그 당의 신뢰와 지지율이 떨어지고, 불기소·무죄면 우리 당이 역풍을 맞습니다.</p></div>
+    <div class="card"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.acc ? '우리가 고발' : c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div></div>`;
 }
 // 의회: 교섭 · 사회적 이슈 · 법안·대정부 질문 · 다른 당/정부 동향
 function pOffice() {
@@ -3869,7 +4001,7 @@ function pGuide() {
       <li>각 당이 입장을 내고, 우리도 입장을 고릅니다. 법안형 입장은 의석이 있으면 바로 발의되고, 정부 책임을 묻는 입장은 대통령 쪽 당과의 관계를 해칩니다.</li>
       <li>사건이 잦아들 무렵 여론이 입장별로 갈립니다. 여론과 맞는 입장을 낸 당은 신뢰·지지를 얻고, 엇갈린 당은 역풍을 맞습니다. 끝내 입장을 내지 않으면 "침묵했다"는 비판을 받습니다.</li>
       <li>사건마다 한 번 현장 방문·유가족 면담을 할 수 있습니다. 진정성으로 읽힐 수도, 사진 찍기로 읽힐 수도 있습니다.</li></ul>`)}
-    ${sec('수사와 재판', `<ul><li>의혹이 드러나거나 고발당하면 검찰 수사 → 기소 여부 결정 → 1심 판결 순으로 몇 달에 걸쳐 진행됩니다. 결백해도 고발은 당할 수 있습니다.</li>
+    ${sec('수사와 재판', `<ul><li>법원 탭에서 현직 의원·광역단체장(우리 당 포함), 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다(형사소송법 제234조). 교섭 자리에서 들은 의혹이 근거가 되고, 친분이 두터운 사람의 말일수록 맞습니다. 기소·유죄면 그 당의 신뢰·지지율이, 불기소·무죄면 우리 당 신뢰가 떨어지며, 근거 없는 고발엔 무고 맞고소가 들어올 수 있습니다. 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.</li><li>의혹이 드러나거나 고발당하면 검찰 수사 → 기소 여부 결정 → 1심 판결 순으로 몇 달에 걸쳐 진행됩니다. 결백해도 고발은 당할 수 있습니다.</li>
       <li>단계마다 대응을 고릅니다. 성실한 조사, 변호인단 선임, "정치 탄압" 프레임, 증거 정리 같은 선택마다 기소·유죄 가능성과 여론이 달라집니다.</li>
       <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
       <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li></ul>`)}
