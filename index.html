@@ -3321,15 +3321,17 @@ function pHome() {
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${e.name}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
           <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년, 대선은 3년마다 열립니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
       </div>
-      <div class="card" style="order:3"><h2>정당 지지율 추이 (월별)</h2>${pollChart(ban)}</div>
+      <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start">
+        <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (월별)</h2>${pollChart(ban)}</div>
+        <div class="card" style="flex:1 1 200px;margin-top:0"><h2>현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
+          ${['P', 'B', 'A', 'C', 'O'].filter(id => !ban || id === 'P').map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
+          ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
+      </div>
       <div class="card" style="order:5"><h2>국회 의석 분포 (300석)</h2>${hemicycle()}</div>
     </div>
     <div class="stack">
       <div class="card" style="order:2"><h2>이번 주 뉴스</h2>${newsList()}<p class="tip">민심이 어느 쟁점에 쏠렸는지는 헤드라인으로 짐작하세요. 맞힌 분야로 정책을 발표하면 반응이 뜨겁습니다.</p>
-        <button class="btn" data-go="log">지난 소식 모아 보기</button>
-        <h2 style="margin-top:14px">현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
-        ${['P', 'B', 'A', 'C', 'O'].filter(id => !ban || id === 'P').map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
-        ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
+        <button class="btn" data-go="log">지난 소식 모아 보기</button></div>
       <div class="card" style="order:6"><h2>업적</h2><ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] != null ? 'done' : ''}">${S.ach[k] != null ? '✓' : ''}</span><div>${n}${S.ach[k] != null ? `<div class="small muted">${fdate(S.ach[k])}</div>` : ''}</div></li>`).join('')}</ul></div>
     </div>
   </div>`;
