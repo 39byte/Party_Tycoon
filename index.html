@@ -212,7 +212,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .log li time{color:var(--muted);font-size:12.5px;white-space:nowrap;padding-top:1px}
 .log li.bad{color:var(--danger)} .log li.ok{color:var(--ok)}
 .pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
-.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)}
+.pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--danger)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:5px;vertical-align:-1px}
 .empty{color:var(--muted);font-size:14px;padding:16px 0;text-align:center}
@@ -1551,19 +1551,28 @@ const newsList = (ns = S.news) => ns.length ? `<ul class="news">${ns.map(n => `<
 const later = (days, q) => S.later.push({ d: S.day + Math.round(days), q });
 // guilty: 실제로 한 일인지. mine: 우리가 고소·고발한 사건
 function openCase({ t, guilty, pen, mine, target, acc }) {
-  const c = { id: ++S.seq, t, guilty, pen, mine, target, acc, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
+  const c = { id: ++S.seq, d: S.day, t, guilty, pen, mine, target, acc, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
   S.cases.push(c);
   if (mine) later(rr(14, 28), { ev: 'case', id: c.id }); else S.queue.push({ ev: 'case', id: c.id });
   return c;
 }
+let infoT = null; // 마지막 info 제목·좋고 나쁨(사건 결과를 수사 내역에 남기는 데 씀)
 function info(title, text, bad) {
+  infoT = { title, bad };
   S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
   addLog(`[${title}] ${text}`, bad ? 'bad' : 'ok'); Snd.sfx(bad ? 'bad' : 'ok');
   openModal({ title, html: text.split('\n\n').map((t, i) => `<p${i ? ' style="margin-top:12px"' : ''}>${esc(t)}</p>`).join(''), buttons: [{ t: '확인', pri: true }] }); // 빈 줄(\n\n)은 문단 나눔
 }
+// 사건 한 단계 진행. 끝난 사건(불기소·판결)은 법원 탭 수사 내역에 남김(최근 30건)
+const caseKind = c => c.acc ? '우리가 고발' : c.mine ? '우리가 고소' : '피고발';
 function caseEv(id) {
   const c = S.cases.find(x => x.id === id); if (!c) return;
-  const close = () => (S.cases = S.cases.filter(x => x !== c));
+  infoT = null; const r = caseStep(c);
+  if (!S.cases.includes(c)) { (S.caseLog ??= []).push({ t: c.t, k: caseKind(c), d: c.d, end: S.day, res: infoT?.title || '종결', bad: !!infoT?.bad }); if (S.caseLog.length > 30) S.caseLog.shift(); }
+  return r;
+}
+function caseStep(c) {
+  const id = c.id, close = () => (S.cases = S.cases.filter(x => x !== c));
   c.ev = clamp(c.ev, 0.02, 1);
   if (c.acc) return accEv(c, close);
   if (c.mine) {
@@ -3904,7 +3913,8 @@ function pCourt() {
   const cases = S.cases, stage = c => c.mine ? (c.stage ? '1심 재판 중' : '검찰 수사 중') : ['수사 착수 대기', '검찰 수사 중', '1심 재판 중'][c.stage];
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start"><div class="card" style="margin-top:0"><h2>고발</h2><div class="acts">${actBtn('accuse')}</div>
     <p class="tip">교섭 자리에서 들은 의혹을 근거로 상대 당·우리 당 현직 의원과 단체장, 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다. 후보에서 내려온 사람은 후보로는 고를 수 없습니다. 기소·유죄가 나오면 그 당의 신뢰와 지지율이 떨어지고, 불기소·무죄면 우리 당이 역풍을 맞습니다.</p></div>
-    <div class="card" style="margin-top:0"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${c.acc ? '우리가 고발' : c.mine ? '우리가 고소' : '피고발'}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div></div>`;
+    <div class="card" style="margin-top:0"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${caseKind(c)}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>
+    <div class="card" style="margin-top:0"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 · ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 1심 판결이 나오면 여기에 남습니다.</p>'}</div></div>`;
 }
 // 의회: 교섭 · 사회적 이슈 · 법안·대정부 질문 · 다른 당/정부 동향
 function pOffice() {
