@@ -2532,23 +2532,44 @@ function prRec(c) {
   const ps = nomPool(c);
   return { exp, n: Math.min(LAW.prSeats, 2 * ps.filter(p => p.gender === 'F').length, ps.length, Math.max(2, Math.ceil(exp * 1.3) + 1)) };
 }
+// 지역구 당선 가능성(대략): 우리 후보 vs 그 지역 A·B 중 강한 쪽(상대 후보 점수는 RV_TYP로 가정). 득표 잡음 σ 0.22 둘의 차 ≈ 0.31, 정규분포를 로지스틱으로 근사
+// ponytail: C·무소속·다른 당 유세는 뺌. 크게 어긋나면 shareRace를 몇 번 돌려 세는 식으로
+const RV_TYP = 0.55, NOM_HOPE = 0.1;
+const distOdds = (c, k, p) => { const ns = natShares(), me = ns.P * pf('P', k) * candMul(p) * campBoost(c, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(ns.A * pf('A', k), ns.B * pf('B', k)) * Math.exp(RV_TYP); return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
+let nomPref = { spread: 'focus', first: 'pr' }; // 총선 자동 배치 방식(이번 실행 동안 기억)
+function nomAutoAsk(key) {
+  const c = S.camps[key]; if (!c || c.reg) return;
+  if (c.type !== 'nat') return nomAuto(key);
+  const opt = (n, v, t, h) => `<label style="display:block;margin:6px 0"><input type="radio" name="${n}" value="${v}" ${nomPref[n] === v ? 'checked' : ''}> <b>${t}</b> <span class="small muted">${h}</span></label>`;
+  const fs = (lg, body) => `<fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">${lg}</legend>${body}</fieldset>`;
+  openModal({ title: '자동 배치', html: fs('지역구', opt('spread', 'focus', '가망 없는 지역 포기', `당선 가능성 ${NOM_HOPE * 100}% 미만인 자리엔 내지 않고 승산 높은 지역에 몰아서`) + opt('spread', 'even', '최대한 균등하게', '지역마다 한 자리씩 돌아가며 고르게(가망 낮은 곳도 냄)'))
+      + fs('인재 우선순위', opt('first', 'pr', '비례 우선', `비례 명부 추천 ${prRec(c).n}명을 먼저 채우고 남는 인재로 지역구`) + opt('first', 'dist', '지역구 우선', '지역구에 먼저 내고 남는 인재로 비례 명부(추천 수까지)')),
+    onOpen: m => m.querySelectorAll('input[type=radio]').forEach(i => i.onchange = () => { nomPref[i.name] = i.value; }),
+    buttons: [{ t: '취소' }, { t: '배치', pri: true, fn: () => nomAuto(key) }] });
+}
 function nomAuto(key) {
   const c = S.camps[key]; if (!c || c.reg) return;
   nomFill(c);
   const d = c.draft, ss = nomSlots(c), sc = p => L.candScore(p);
   let ps = nomPool(c).sort((a, b) => sc(b) - sc(a));
   if (c.type === 'nat') {
-    // 총선은 비례 후보 수(추천값)와 출마 지역구 수도 정함: 비례 몫을 뺀 인재 전부를, 우리 지지 높은 지역부터 의석 수만큼 채워 나감
-    d.prN = prRec(c).n;
-    const prN = d.prN, F = ps.filter(p => p.gender === 'F'), needF = Math.min(F.length, Math.ceil(prN / 2));
-    const resF = F.slice(F.length - needF), rest = ps.filter(p => !resF.includes(p)), cut = Math.max(0, rest.length - Math.max(0, prN - needF));
-    d.prIds = [...resF, ...rest.slice(cut)].map(p => p.id);
-    const seats = [...R].sort((a, b) => regSupport(b.k) - regSupport(a.k)).flatMap(r => Array(r.seats).fill(d.reg[r.k])), dist = rest.slice(0, Math.min(cut, seats.length));
+    // 총선은 비례 후보 수와 출마 지역구 수도 정함(nomPref: 지역구 몰기·고르게 / 비례·지역구 우선)
+    const rec = prRec(c).n, isF = p => p.gender === 'F', focus = nomPref.spread === 'focus';
+    // 비례 몫: 후보 점수 낮은 쪽부터(비례 득표는 후보 점수와 무관), 홀수 순번 여성을 먼저 확보
+    const prPick = (xs, n) => { const F = xs.filter(isF); n = Math.min(n, 2 * F.length, xs.length); const f = F.slice(F.length - Math.ceil(n / 2)), o = xs.filter(p => !f.includes(p)); return [...f, ...o.slice(o.length - (n - f.length))]; };
+    // 자리 순서: 승산 높은 지역부터 의석 수만큼(몰기) 또는 지역마다 한 자리씩 돌아가며(고르게)
+    const rs = [...R].sort((a, b) => distOdds(c, b.k) - distOdds(c, a.k));
+    const seats = focus ? rs.flatMap(r => Array(r.seats).fill(r)) : Array.from({ length: Math.max(...R.map(r => r.seats)) }, (_, j) => rs.filter(r => r.seats > j)).flat();
+    let pr = nomPref.first === 'pr' ? prPick(ps, rec) : [];
+    const dist = [];
+    for (const p of ps) { if (pr.includes(p)) continue; const r = seats[dist.length]; if (!r || focus && distOdds(c, r.k, p) < NOM_HOPE) break; dist.push([r, p]); }
+    if (nomPref.first === 'dist') pr = prPick(ps.filter(p => !dist.some(x => x[1] === p)), rec);
     for (const r of R) d.reg[r.k].ids = [];
-    dist.forEach((p, i) => seats[i].ids.push(p.id));
+    for (const [r, p] of dist) d.reg[r.k].ids.push(p.id);
     for (const r of R) d.reg[r.k].n = d.reg[r.k].ids.length;
-    // 돈이 모자라면 지지 낮은 지역의 점수 낮은 후보부터 뺌. ponytail: 가망 없는 지역도 돈만 되면 냄(기탁금 반환선 미반영)
-    for (let i = dist.length - 1; i >= 0 && buildReg(c).out.cost > S.money; i--) { seats[i].ids.pop(); seats[i].n--; }
+    d.prN = pr.length; d.prIds = pr.map(p => p.id);
+    // 돈이 모자라면 나중에 배치한(승산 낮은) 지역구 후보부터 뺌
+    for (let i = dist.length - 1; i >= 0 && buildReg(c).out.cost > S.money; i--) { const x = d.reg[dist[i][0].k]; x.ids.splice(x.ids.indexOf(dist[i][1].id), 1); x.n--; }
     nomFill(c); Snd.sfx('click'); return renderPanel();
   }
   const order = c.type === 'pres' ? ss : [...ss].sort((a, b) => regSupport(b[2]) - regSupport(a[2]));
@@ -3558,7 +3579,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; pPage = 0; renderAll(); });
   m.querySelectorAll('[data-ppage]').forEach(b => b.onclick = () => { pPage = +b.dataset.ppage; renderAll(); m.querySelector('.phead')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
-  m.querySelectorAll('[data-nomauto]').forEach(b => b.onclick = () => nomAuto(b.dataset.nomauto));
+  m.querySelectorAll('[data-nomauto]').forEach(b => b.onclick = () => nomAutoAsk(b.dataset.nomauto));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
   m.querySelectorAll('[data-camp]').forEach(el => el.addEventListener('change', () => { draftChange(el); }));
   m.querySelectorAll('input[type=number][data-camp], input[type=range][data-camp]').forEach(el => el.addEventListener('input', () => draftChange(el, true)));
@@ -3799,7 +3820,7 @@ function nomForm(c) {
   nomFill(c);
   const d = c.draft, a = `data-camp="${c.key}"`, ss = nomSlots(c);
   const slot = (i, label) => `<select ${a} data-f="slot" data-s="${i}" aria-label="${label}">${personOpts(ss[i][0][ss[i][1]], nomKind(c))}</select>`;
-  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button><span class="small muted">후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 우리 지지가 높은 지역부터 배치합니다.${c.type === 'nat' ? ' 비례대표 후보 수(추천값)와 출마 지역구 수도 보유 자금 안에서 정합니다.' : ''}</span></div>`;
+  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button>${infoTip(`후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 ${c.type === 'nat' ? '승산 높은 지역' : c.type === 'gov' ? '우리 지지가 높은 지역' : '대선 후보'}부터 배치합니다.${c.type === 'nat' ? ' 누르면 지역구 배치(가망 없는 지역 포기·최대한 균등하게)와 우선순위(비례·지역구)를 고르고, 비례대표 후보 수와 출마 지역구 수까지 보유 자금 안에서 정합니다.' : ''}`)}</div>`;
   let si = 0;
   if (c.type === 'nat') {
     return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th></tr></thead><tbody>
