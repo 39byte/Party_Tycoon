@@ -2193,7 +2193,7 @@ function gossip(m) {
     g && (a => { const i = own && g.pos[own] != null && rnd() < tp ? g.pos[own] : Math.floor(rnd() * a.ops.length);
       return ['사건 의견', `'${a.t}' 말인데요, ${own ? '저희 당은' : '저는'} "${a.ops[i].t.replace(/"/g, '')}" 쪽이 맞다고 봐요.`, null, 'opinion']; })(AGENDA.find(x => x.k === g.k)),
     !g && news.length && ['사건 의견', `'${pick(news).t}' 보셨어요? ${pick(['여의도는 온통 그 얘기예요.', '오래 갈 것 같아요.', '일주일이면 잊힐 거예요.', '다들 표정 관리 중이에요.'])}`, null, 'opinion'],
-    ne && (id => (r => ['예정 활동', `${ne.name}(D-${ne.day - S.day}) 앞두고 ${own ? '저희 당은' : `${pn(id)} 쪽은`} ${r.n}에 공을 많이 들일 거래요.`, { kind: 'camp', id, k: r.k }, 'camp'])(pick(R)))(own || pick(others)),
+    ne && (id => (r => ['예정 활동', `${ne.name}(D-${ne.day - S.day}) 앞두고 ${own ? '저희 당은' : `${pn(id)} 쪽은`} ${r.n}에 공을 많이 들일 거래요.`, { kind: 'camp', id, k: r.k, ek: ne.key }, 'camp'])(pick(R)))(own || pick(others)),
     // 지역 민심: 그 지역 우리 지지가 전국보다 높은지(친분만큼 맞게 말함)
     (r => { const up = (regSupport(r.k) >= S.support) === (rnd() < tp); return ['지역 민심', `요즘 ${r.n} 민심이 ${S.party.name}에 ${up ? '나쁘지 않대요. 해볼 만하다고들 해요' : '싸늘하대요. 공을 더 들이셔야겠어요'}.`, null, 'mood']; })(pick(R)),
   ].filter(Boolean);
@@ -3043,7 +3043,8 @@ const XEV = {
     let t;
     if (q.kind === 'scandal') { S.rw[q.id] -= 1.5; trustAll(q.id, -2); t = `[단독] ${pn(q.id)}, ${q.r}는 의혹 보도… 당은 "사실무근"`; }
     else if (q.kind === 'whip') { const b = S.bills.find(x => x.id === q.bid); if (!b) return; b.lobby += 0.08; t = `${pn(q.id)}, '${b.t}' 통과 위해 표 단속 돌입`; }
-    else { S.rw[q.id] += 0.5; t = `${pn(q.id)} 지도부 ${RK[q.k].n} 총출동… 집중 공략 나서`; }
+    else { if (S.done[q.ek]) return; // 그 선거가 이미 끝났으면 없던 일로
+      S.rw[q.id] += 0.5; t = `${pn(q.id)} 지도부 ${RK[q.k].n} 총출동… 집중 공략 나서`; }
     wire(t);
     const x = talkers().flatMap(p => p.talk || []).find(x => x.id === q.tid); if (x) x.hit = 1;
     const msg = `${q.who}에게 들었던 얘기가 현실이 됐습니다. ${t}`; addLog(msg); toast(msg);
