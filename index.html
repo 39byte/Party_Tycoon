@@ -1516,7 +1516,7 @@ function brief(t) {
   S.briefs.push(r); if (S.briefs.length > 104) S.briefs.shift(); save();
   const wk = S.wire.filter(x => x.d > S.day - TURN);
   const pol = Object.entries(WIRE_C).map(([c, n]) => { const ls = [...wk.filter(x => x.c === c).map(x => x.t), ...(c === 'hall' ? t.notes : [])];
-    return ls.length ? `<h4>${n}</h4>${noteList(ls)}` : ''; }).join('');
+    return ls.length ? `<h4>${c === 'reg' ? '지역 소식' : n}</h4>${noteList(ls)}` : ''; }).join('');
   openModal({
     title: `${turnNo()}턴 · 주간 브리핑`, wide: true,
     html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>${briefPills(r)}
@@ -1524,8 +1524,8 @@ function brief(t) {
     buttons: [{ t: '확인', pri: true }, { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
   });
 }
-// 정치 동향(소식 탭·주간 브리핑). c: hall 국회·정당 · pres 청와대 · gov 지방 정부(단체장·행정 사업)
-const WIRE_C = { hall: '국회', pres: '청와대', gov: '지방 정부' };
+// 정치 동향(소식 탭·주간 브리핑). c: hall 국회·정당 · pres 청와대 · gov 지방 정부(단체장·행정 사업) · reg 지역 소식(지역에서 터진 일·화제)
+const WIRE_C = { hall: '국회', pres: '청와대', gov: '지방 정부', reg: '지역' };
 const wire = (t, c = 'hall') => { S.wire.push({ d: S.day, t, c }); if (S.wire.length > 800) S.wire.shift(); };
 
 // ---------- 뉴스 ----------
@@ -2599,7 +2599,7 @@ function viral(k, t, sign) {
   if (!id || id === 'O') return false;
   const v = sign * rr(0.6, 1.8);
   if (id === 'P') { S.buzz += v; S.trust += v * 0.3; } else { S.rw[id] = Math.max(1, S.rw[id] + v); trustAll(id, v * 0.3); }
-  wire(`'${t}' 화제… ${pn(id)} 지지율 ${v > 0 ? '들썩' : '흔들'}`, 'gov');
+  wire(`'${t}' 화제… ${pn(id)} 지지율 ${v > 0 ? '들썩' : '흔들'}`, 'reg');
   return true;
 }
 // 소속 의원·단체장: 이름이 있는 인재가 없으면(비례 등) 무명 의원으로
@@ -2752,7 +2752,7 @@ const EVENTS = [
     body: () => '환율 급등과 수출 부진으로 경기 침체 우려가 커졌습니다. 시장이 크게 흔들리고 있습니다.',
     ch: [{ t: '긴급 민생대책 발표', s: '비용 3천만 · 호평 또는 "재탕" 혹평', run: () => { spend(3e7, '활동'); S.fame += 2; if (luck(0.6)) { S.trust += 3; return '민생대책이 호평받았습니다.'; } S.trust -= 1; return '"지난 대책 재탕"이라는 혹평을 받았습니다.'; } },
       { t: '관망', run: () => '상황을 지켜보기로 했습니다.' }] },
-  { id: 'disaster', w: 2, cond: () => true, title: '집중호우 피해', pre: () => { ET.k = pick(R).k; rnews(ET.k, `${RK[ET.k].n} 집중호우로 큰 피해`); },
+  { id: 'disaster', w: 2, cond: () => true, title: '집중호우 피해', pre: () => { ET.k = pick(R).k; rnews(ET.k, `${RK[ET.k].n} 집중호우로 큰 피해`); wire(`${RK[ET.k].n} 집중호우로 큰 피해`, 'reg'); },
     body: () => `${RK[ET.k].n}에 집중호우로 큰 피해가 발생했습니다.${S.gov[ET.k] === 'P' ? ' 우리 당 단체장이 있는 지역입니다.' : ''}`,
     ch: () => [...(S.gov[ET.k] === 'P' ? [{ t: '도지사가 밤새 현장을 지휘한다', s: '행정 지지도↑', run: () => { S.ops[ET.k] = clamp(S.ops[ET.k] + 6, 5, 95); S.trust += 1; return '단체장의 발 빠른 대응이 호평을 받았습니다.'; } }] : []),
       { t: '정쟁 중단, 복구 봉사', s: '비용 2천만 · 진정성 또는 보여주기 논란', run: () => { spend(2e7, '활동'); if (luck(0.7)) { S.trust += 4; return '진정성 있는 대응으로 신뢰가 올랐습니다.'; } S.trust -= 2; return '봉사 현장에서 사진 촬영에만 열중했다는 보도가 나왔습니다.'; } },
@@ -2813,11 +2813,11 @@ const EVENTS = [
       { t: '내지 않는다', run: () => '이번엔 건너뛰기로 했습니다.' }] },
 
   // --- 우리 당 단체장이 있을 때 ---
-  { id: 'devscandal', w: 1.5, cond: () => Object.keys(S.ops).length > 0, title: '개발사업 특혜 의혹', pre: () => { ET.k = pick(Object.keys(S.ops)); ET.real = S.risks.find(r => r.pen.gov === ET.k); wire(`${RK[ET.k].n} 도시개발 특혜 의혹 보도`, 'gov'); },
+  { id: 'devscandal', w: 1.5, cond: () => Object.keys(S.ops).length > 0, title: '개발사업 특혜 의혹', pre: () => { ET.k = pick(Object.keys(S.ops)); ET.real = S.risks.find(r => r.pen.gov === ET.k); wire(`${RK[ET.k].n} 도시개발 특혜 의혹 보도`, 'reg'); },
     body: () => `${RK[ET.k].n} 도시개발 사업에서 민간업자가 수천억 원을 챙겼다는 보도가 나왔습니다. 경쟁 정당이 우리 당 도지사를 고발했습니다.`,
     ch: [{ t: '특검이라도 받겠다', s: '결백하면 신뢰↑', run: () => { trustAt(ET.k, ET.real ? 0 : 2); ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '"한 점 부끄럼 없다"며 수사를 자청했습니다.'; } },
       { t: '"정치 공세"라고 반박', run: () => { S.fame += 1; S.ops[ET.k] -= 3; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '의혹을 정면 반박했습니다.'; } }] },
-  { id: 'jamboree', w: 1, cond: () => Object.keys(S.ops).length > 0, title: '국제행사 파행', pre: () => { ET.k = pick(Object.keys(S.ops)); wire(`${RK[ET.k].n} 국제 청소년 행사 파행, 책임 공방`, 'gov'); },
+  { id: 'jamboree', w: 1, cond: () => Object.keys(S.ops).length > 0, title: '국제행사 파행', pre: () => { ET.k = pick(Object.keys(S.ops)); wire(`${RK[ET.k].n} 국제 청소년 행사 파행, 책임 공방`, 'reg'); },
     body: () => `${RK[ET.k].n}에서 열린 국제 청소년 행사가 폭염과 준비 부족으로 파행을 빚었습니다. 책임 공방이 시작됐습니다.`,
     ch: [{ t: '도지사가 공식 사과', s: '행정 지지도 소폭↓', run: () => { S.ops[ET.k] -= 2; S.trust += 1; return '깔끔한 사과로 불길을 잡았습니다.'; } },
       { t: '중앙정부 책임론', s: '행정 지지도↓', run: () => { S.ops[ET.k] -= 5; S.fame += 2; hitPres(1); return '책임 떠넘기기 공방이 길어졌습니다.'; } }] },
@@ -3939,7 +3939,7 @@ function pLog() {
     return parts.length ? `<section class="card" style="margin-top:14px"><h2>${w.k}턴 <span class="small muted">${fdate((w.k - 1) * TURN)}</span>${w.k === cur ? ' <span class="pill">이번 턴</span>' : ''}</h2>${parts.join('')}</section>` : '';
   };
   const cards = Object.values(W).sort((a, b) => b.k - a.k).map(card).filter(Boolean);
-  return `<div class="card"><h2>소식</h2><p class="tip">턴마다 브리핑, 헤드라인, 국회·청와대·지방 정부 소식, 우리 당 기록을 모았습니다. 지방 정부에는 직접·자동화로 펼친 행정 사업과 후속 보도, 단체장 직무 평가가 모입니다. 지난 헤드라인을 이어 보면 민심의 흐름이 보입니다.</p>
+  return `<div class="card"><h2>소식</h2><p class="tip">턴마다 브리핑, 헤드라인, 국회·청와대·지방 정부·지역 소식, 우리 당 기록을 모았습니다. 지방 정부에는 직접·자동화로 펼친 행정 사업과 후속 보도, 단체장 직무 평가가, 지역 소식에는 지역에서 터진 사고·의혹과 화제가 된 소식이 모입니다. 지난 헤드라인을 이어 보면 민심의 흐름이 보입니다.</p>
     <div class="filters" role="group" aria-label="소식 분류">${FEED_F.map(([k, n]) => `<button class="btn${feedF === k ? ' pri' : ''}" data-feed="${k}" aria-pressed="${feedF === k}">${n}</button>`).join('')}</div></div>
     ${cards.slice(0, feedN).join('') || '<div class="card" style="margin-top:14px"><p class="empty">아직 소식이 없습니다.</p></div>'}
     ${cards.length > feedN ? `<button class="btn" data-feedmore="1" style="margin-top:14px;width:100%">이전 소식 더 보기 (${cards.length - feedN}턴 남음)</button>` : ''}`;
