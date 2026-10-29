@@ -1916,12 +1916,13 @@ function relAdd(id, v, t) {
 // 경쟁 정당의 주요 지역구 의원(교섭·영입 대상)
 // 교섭할 수 있는 다른 당 원내 의원 명단. keep(남은 인물)을 두고 당별 정원까지 채움
 const MP_N = { A: 6, B: 6, C: 3, O: 2 };
+const mpOf = (o, f) => ({ id: ++o.seq, fid: f.id, name: f.name, gender: f.gender, party: f.party, k: f.k, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, loyalty: Math.round(rr(30, 90)), rel: 0 });
 function genMPs(o, keep = []) {
   const out = [...keep];
   for (const id in MP_N) {
     const fs = shuffle(o.figs.filter(f => f.pos === 'd' && f.party === id && !out.some(m => m.fid === f.id)));
     for (const f of fs.slice(0, Math.max(0, MP_N[id] - out.filter(m => m.party === id).length)))
-      out.push({ id: ++o.seq, fid: f.id, name: f.name, gender: f.gender, party: id, k: f.k, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, loyalty: Math.round(rr(30, 90)), rel: 0 });
+      out.push(mpOf(o, f));
   }
   return out;
 }
@@ -2204,8 +2205,9 @@ function figInfo(id) {
   const pos = { d: `${RK[f.k].n} 지역구 국회의원`, pr: '비례대표 국회의원', gov: GOVT[f.k], cand: `${RK[f.k].n} 후보` }[f.pos];
   openModal({ title: f.name, html: `<div class="who" style="margin-bottom:12px">${face(f, f.party === 'O' ? '#64748B' : pc(f.party), 64)}<div><div class="small">${esc(figParty(f))} · ${pos}</div><div class="small muted">${f.gender === 'F' ? '여' : '남'} · ${f.age}세 · 출신: ${esc(f.job)}</div></div></div>${statBars(f)}
       <p class="small ${f.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${f.rec.length ? esc(f.rec.join(', ')) : '없음'}</p><p class="tip">공직선거 후보와 당선인은 전과 기록이 공개됩니다(공직선거법 제49조).</p>
-      ${f.news?.length ? `<h3 style="margin-top:14px">보도된 의혹</h3><ul class="log">${[...f.news].reverse().map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)}</span></li>`).join('')}</ul>` : ''}`,
-    buttons: [{ t: '닫기', pri: true }] });
+      ${f.news?.length ? `<h3 style="margin-top:14px">보도된 의혹</h3><ul class="log">${[...f.news].reverse().map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)}</span></li>`).join('')}</ul>` : ''}
+      ${f.pos === 'd' ? '' : '<p class="tip">교섭 명단에는 지역구 국회의원만 넣을 수 있습니다.</p>'}`,
+    buttons: [...(f.pos === 'd' ? [{ t: '교섭 명단에 추가', fn: () => { const m = mpOf(S, f); S.mps.push(m); toast(`${f.name} 의원(${figParty(f)}·${RK[f.k].n})을 교섭 명단에 넣었습니다. 교섭 탭에서 만날 수 있습니다.`); renderAll(); } }] : []), { t: '닫기', pri: true }] });
 }
 function personInfo(key) {
   if (key[0] === 'f') return figInfo(+key.slice(1));
@@ -3545,7 +3547,7 @@ function dirCard() {
   const xs = (dirCat === 'out' ? S.outs.map(m => ({ key: 'o' + m.id, p: m, party: m.party || 'O', k: m.k, sub: `${m.party ? RIV[m.party].name : '무당적'} · ${m.role}` }))
     : S.figs.filter(f => dirCat === 'mp' ? f.pos === 'd' || f.pos === 'pr' : f.pos === dirCat).map(f => {
       const mp = S.mps.find(m => m.fid === f.id); // 교섭 명단 의원이면 친분·대화 내역까지
-      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}` };
+      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}${mp ? ' · 교섭 명단' : ''}` };
     })).filter(x => !dirPar || x.party === dirPar).sort((a, b) => po.indexOf(a.party) - po.indexOf(b.party) || ri(a.k) - ri(b.k));
   const pages = Math.max(1, Math.ceil(xs.length / DIR_PER)); dirPage = Math.min(dirPage, pages - 1);
   const chip = (at, v, n, on) => `<button class="btn${on ? ' pri' : ''}" data-${at}="${v}" aria-pressed="${on}">${n}</button>`;
@@ -3554,7 +3556,7 @@ function dirCard() {
     <div class="filters chips" role="group" aria-label="정당">${chip('dirpar', '', '전체', !dirPar)}${po.map(id => chip('dirpar', id, id === 'O' ? (dirCat === 'out' ? '무소속·무당적' : '무소속') : esc(pn(id)), dirPar === id)).join('')}</div>
     ${xs.length ? `<div class="dirl">${xs.slice(dirPage * DIR_PER, (dirPage + 1) * DIR_PER).map(x => `<button class="dirp" data-pinfo="${x.key}">${face(x.p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.p.name)}</b><span class="small muted">${esc(x.sub)}</span></span></button>`).join('')}</div>
       ${pages > 1 ? pager(dirPage, pages, 'dpage', '명부 쪽 이동') : ''}` : `<p class="empty">${dirCat === 'cand' ? '지금은 공천 기간이 아니거나 아직 발표된 후보가 없습니다.' : '해당하는 인물이 없습니다.'}</p>`}
-    <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
+    <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원은 그 창에서 교섭 명단에 넣을 수 있습니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
 function pollChart(ban) {
   const h = S.hist.slice(-60);
