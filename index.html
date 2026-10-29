@@ -754,7 +754,7 @@ let S = null, tab = 'home', selReg = 'seoul', modalOpen = false;
 
 // ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
-  set: (() => { const d = { bgm: false, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
+  set: (() => { const d = { bgm: false, song: 0, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
   ctx: null, sfxG: null, bus: null, timer: null, step: 0, t: 0, ci: 0, ct: 0,
   saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(this.set)); } catch (e) { } },
   ensure() {
@@ -797,21 +797,30 @@ const Snd = {
   // 2박마다 화음
   CH: 'G G G G G C D D G D E G G D G G D D G G A D D D G D E G G D G G'.split(' '),
   CHN: { G: [43, 55, 59, 62], C: [48, 55, 60, 64], D: [50, 57, 62, 66], E: [52, 55, 59, 64], A: [45, 57, 60, 64] },
+  // 아리랑(경기 민요, 3/4) 다장조: [MIDI(0=쉼), 박]
+  ARI: (() => {
+    const L2 = [[74, 1.5], [76, .5], [74, 1], [72, 1], [69, .5], [67, .5], [69, 1], [72, 1], [69, .5], [67, .5], [64, 1], [67, 3]];
+    return [[67, 1.5], [69, .5], [67, 1], [69, 1], [72, 1.5], [74, .5], [72, 1], [69, .5], [67, .5], [69, 1], [72, 3], ...L2,
+      [76, 1.5], [79, .5], [76, 1], [74, 1], [72, .5], [69, .5], [72, 1], [74, 1], [72, .5], [69, .5], [67, 1], [69, 3], ...L2];
+  })(),
+  // 곡별 [박자 빠르기, 화음 하나의 박 수, 선율, 화음]
+  SONGS: () => [[72, 2, Snd.MEL, Snd.CH], [96, 3, Snd.ARI, 'C C A C G A E C E G A A G A E C'.split(' ')]],
   bgm(on) {
     clearInterval(this.timer); this.timer = null;
     if (!on || !this.ensure()) return;
-    const q = 60 / 72, hz = m => 440 * 2 ** ((m - 69) / 12);
+    const [bpm, cb, MEL, CH] = this.SONGS()[this.set.song] || this.SONGS()[0];
+    const q = 60 / bpm, hz = m => 440 * 2 ** ((m - 69) / 12);
     this.t = this.ct = this.ctx.currentTime + 0.1; this.step = this.ci = 0;
     this.timer = setInterval(() => {
       const end = this.ctx.currentTime + 0.6;
       while (this.ct < end) {
-        const [r, ...ch] = this.CHN[this.CH[this.ci++ % this.CH.length]];
-        ch.forEach(m => this.note(this.bus, hz(m), this.ct, q * 2.2, 'triangle', 0.025, 0.4));
-        this.note(this.bus, hz(r), this.ct, q * 1.8, 'sine', 0.07, 0.05);
-        this.ct += q * 2;
+        const [r, ...ch] = this.CHN[CH[this.ci++ % CH.length]];
+        ch.forEach(m => this.note(this.bus, hz(m), this.ct, q * cb * 1.1, 'triangle', 0.025, 0.4));
+        this.note(this.bus, hz(r), this.ct, q * cb * 0.9, 'sine', 0.07, 0.05);
+        this.ct += q * cb;
       }
       while (this.t < end) {
-        const [m, d] = this.MEL[this.step++ % this.MEL.length];
+        const [m, d] = MEL[this.step++ % MEL.length];
         if (m) this.note(this.bus, hz(m), this.t, d * q * 0.95, 'triangle', 0.06, 0.04);
         this.t += d * q;
       }
@@ -4245,7 +4254,7 @@ function settingsModal() {
   openModal({
     title: '설정·저장', html: `
       <h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
-      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
+      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
       <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>
       <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
@@ -4259,6 +4268,7 @@ function settingsModal() {
     buttons: [{ t: '닫기', pri: true }],
     onOpen: m => {
       m.querySelector('#sBgm').onchange = e => { s.bgm = e.target.checked; Snd.saveSet(); Snd.bgm(s.bgm); };
+      m.querySelector('#sSong').onchange = e => { s.song = +e.target.value; Snd.saveSet(); if (s.bgm) Snd.bgm(true); };
       m.querySelector('#sSfx').onchange = e => { s.sfx = e.target.checked; Snd.saveSet(); Snd.sfx('click'); };
       m.querySelector('#sBgmVol').oninput = e => Snd.vol('bgmVol', +e.target.value);
       m.querySelector('#sSfxVol').oninput = e => Snd.vol('sfxVol', +e.target.value);
