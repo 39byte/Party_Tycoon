@@ -2431,9 +2431,9 @@ function talentModal() {
   const fee = p => 5e6 + p.fame * p.fame * 2e4;
   openModal({
     title: '인재 영입', wide: true,
-    html: `<p class="muted small">영입비는 인지도에 비례합니다. 청렴도와 전과는 영입한 뒤에 알 수 있습니다. 단 선거에 나갔던 사람은 전과 기록이 공개돼 있습니다(공직선거법 제49조).</p><div class="acts tal">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
-      <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b>${recOpen(p) ? ` · 청렴 <b>${p.integ}</b>` : ''}</div>
-      ${recOpen(p) ? `<div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}` : '<div class="small muted">청렴도·전과: 영입 후 확인</div>'}
+    html: `<p class="muted small">영입비는 인지도에 비례합니다.</p><div class="acts tal">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
+      <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
+      <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
       <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
       <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button></div>`,
     buttons: [{ t: '닫기' }],
