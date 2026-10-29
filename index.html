@@ -3553,7 +3553,7 @@ function dirCard() {
     : S.figs.filter(f => dirCat === 'mp' ? f.pos === 'd' || f.pos === 'pr' : f.pos === dirCat).map(f => {
       const mp = S.mps.find(m => m.fid === f.id); // 교섭 명단 의원이면 친분·대화 내역까지
       return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}`, neg: !!mp };
-    })).filter(x => !dirPar || x.party === dirPar).sort((a, b) => po.indexOf(a.party) - po.indexOf(b.party) || ri(a.k) - ri(b.k));
+    })).filter(x => !dirPar || x.party === dirPar).sort((a, b) => !!b.neg - !!a.neg || po.indexOf(a.party) - po.indexOf(b.party) || ri(a.k) - ri(b.k)); // 교섭 명단 먼저
   const pages = Math.max(1, Math.ceil(xs.length / DIR_PER)); dirPage = Math.min(dirPage, pages - 1);
   const chip = (at, v, n, on) => `<button class="btn${on ? ' pri' : ''}" data-${at}="${v}" aria-pressed="${on}">${n}</button>`;
   return `<h2>인물 명부 <span class="pill">${xs.length}명</span></h2>
