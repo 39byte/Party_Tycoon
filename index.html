@@ -913,15 +913,8 @@ const TRUST_UP = 0.4, TRUST_DOWN = 1.3;
 const lowTrust = t => t < 50 ? 0.5 + t / 100 : 1;
 // 지역 지지율 하락 배율: 신뢰도 0이면 2배 ~ 50이면 1배 ~ 100이면 0.5배
 const trustFall = t => t < 50 ? 2 - t / 50 : 1.5 - t / 100;
-// 하락세 가중: 사건으로 신뢰가 순감한 주가 SLIDE_FREE주 넘게 이어지면 그 뒤 한 주마다 깎이는 폭 +15%(최대 2배). 끊기는 조건은 trendStep
-const SLIDE_FREE = 3;
-const slide = id => Math.min(2, 1 + 0.15 * Math.max(0, (S.tslide?.[id] || 0) - SLIDE_FREE));
-// 오르는 신뢰는 그 지역이 지금 낮을수록 더 적게 반영. 이번 주 사건으로 움직인 양은 tflow에 모아 추세 판정에 씀(평소 50으로 돌아가는 흐름은 빠짐)
-const trustScale = (d, t, id = 'P') => {
-  const x = d * (d > 0 ? TRUST_UP * lowTrust(t) : TRUST_DOWN * slide(id));
-  if (S?.tflow) S.tflow[id] = (S.tflow[id] || 0) + x;
-  return x;
-};
+// 오르는 신뢰는 그 지역이 지금 낮을수록 더 적게 반영
+const trustScale = (d, t) => d * (d > 0 ? TRUST_UP * lowTrust(t) : TRUST_DOWN);
 function defTrust(o) {
   Object.defineProperty(o, 'trust', {
     configurable: true, enumerable: false,
@@ -936,7 +929,7 @@ const trAvg = id => id === 'P' ? S.trust : sum(R.map(r => S.rtr[id][r.k])) / R.l
 // 그 지역 신뢰도가 그 당 전국 평균보다 높으면 그만큼 유리(지지율 식의 신뢰 항과 같은 비율)
 const trReg = (id, k) => (0.25 + 0.75 * trMap(id)[k] / 100) / (0.25 + 0.75 * trAvg(id) / 100);
 // 한 지역에서만 생긴 일: 그 지역 신뢰도만 바꿈
-const trustAt = (k, d, id = 'P') => { const m = trMap(id); m[k] = clamp(m[k] + trustScale(d, m[k], id), 0, 100); };
+const trustAt = (k, d, id = 'P') => { const m = trMap(id); m[k] = clamp(m[k] + trustScale(d, m[k]), 0, 100); };
 // 전국 사건(우리 당의 S.trust += d와 같음). 무소속은 무시
 const trustAll = (id, d) => { if (id === 'P' || TR_IDS.includes(id)) for (const r of R) trustAt(r.k, d, id); };
 // 신뢰도 차이(우리 − 상대): 해명·반박이 먹힐 확률과 공세 파장에 반영. 우리가 20 높으면 확률 +10%p, 공세 파장 ×0.8
@@ -948,7 +941,7 @@ const gapNote = id => { const g = tGap(id); return Math.abs(g) < 5 ? '' : ` 우�
 function migrate(o) {
   if (!o.rtrust) { const t = o.trust ?? 50; delete o.trust; o.rtrust = Object.fromEntries(R.map(r => [r.k, t])); }
   defTrust(o); o.rsup ??= {};
-  o.rtr ??= Object.fromEntries(TR_IDS.map(id => [id, Object.fromEntries(R.map(r => [r.k, 50]))])); o.tflow ??= {}; o.tslide ??= {};
+  o.rtr ??= Object.fromEntries(TR_IDS.map(id => [id, Object.fromEntries(R.map(r => [r.k, 50]))]));
   // 옛 저장 파일: 예전 등록 마감(대선·총선 23일, 지선 19일 전)으로 이미 정산한 공천은 다시 정산하지 않음
   for (const c of Object.values(o.camps || {})) c.settled ??= c.day - o.day < { pres: 23, nat: 23, gov: 19 }[c.type] - 1;
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
@@ -1410,7 +1403,7 @@ function tick() {
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
-  if (S.day % TURN === 0) { rivalWeek(); trendStep(); }
+  if (S.day % TURN === 0) rivalWeek();
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
   if (nOff && rnd() < Math.min(0.08, 0.01 + nOff * 0.003)) S.queue.push({ ev: 'selfAct' });
@@ -1438,18 +1431,6 @@ function rivalWeek() {
     if (rnd() < 0.2) { trustAll(id, 1.5); S.rw[id] += 0.3; wire(`${pn(id)} ${pick(RIV_GOOD)}`); }
     if (rnd() < 0.06) { const hit = rr(2.5, 5.5); S.rw[id] -= hit * 0.5; trustAll(id, -hit * 0.3); wire(`${pn(id)} ${pick(RIV_GAFFE)}`); }
   }
-}
-// 이번 주 신뢰가 SLIDE_MIN 넘게 순감했으면 하락 연속 기록 +1. 순증이면 바로 끊기고, 조용하거나 찔끔 깎인 주는 1주씩 회복
-const SLIDE_MIN = 0.5;
-function trendStep() {
-  for (const id of ['P', ...TR_IDS]) {
-    const f = S.tflow[id] || 0, was = slide(id), s = S.tslide[id] || 0;
-    S.tslide[id] = f < -SLIDE_MIN ? s + 1 : f > 0 ? 0 : Math.max(0, s - 1);
-    if (id !== 'P') continue;
-    if (slide('P') > was) addLog(`신뢰 하락세가 ${S.tslide.P}주째 이어지고 있습니다. 악재가 터질 때 신뢰가 더 크게 깎입니다 (×${slide('P').toFixed(2)}).`, 'bad');
-    else if (was > 1 && slide('P') < was) addLog(`신뢰 하락세가 한풀 꺾였습니다 (악재 파장 ×${slide('P').toFixed(2)}).`, 'ok');
-  }
-  S.tflow = {};
 }
 
 // ---------- 턴: 1턴 = 1주. 행동력을 쓰고 '턴 종료'하면 7일이 하루씩 흐름 ----------
@@ -2316,7 +2297,7 @@ function negCard() {
   // 정당: 정당마다 카드 한 장, 한 줄에 나란히(좁으면 줄바꿈)
   const parties = `<div class="card"><h2>정당</h2><div class="ptys">
     ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>
-      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]} · 신뢰 <b class="num">${trAvg(id).toFixed(1)}</b>${slide(id) > 1 ? ' <span class="bad">하락세</span>' : ''}</div>${relBar(S.rel[id])}</div>`).join('')}
+      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]} · 신뢰 <b class="num">${trAvg(id).toFixed(1)}</b></div>${relBar(S.rel[id])}</div>`).join('')}
     </div></div>`;
   // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임
   return `<div class="stack">${head}${parties}<div class="split">
@@ -3519,7 +3500,7 @@ function pHome() {
       <div class="leader">${face(L_, S.party.color, 72)}<div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 · 역량 ${L_.skill} · 청렴 ${L_.integ}</div></div></div>
       <div class="tblwrap"><table><tbody>
       <tr><th>당 대표</th><td>${esc(L_.name)} (${L_.age}세)</td><th>등록일</th><td>${fdate(S.regDay)}</td></tr>
-      <tr><th>인지도</th><td class="num">${S.fame.toFixed(1)}</td><th>신뢰도</th><td class="num">${S.trust.toFixed(1)}${slide('P') > 1 ? `<div class="bad small">하락세 ${S.tslide.P}주째 · 악재 ×${slide('P').toFixed(2)}</div>` : ''}</td></tr>
+      <tr><th>인지도</th><td class="num">${S.fame.toFixed(1)}</td><th>신뢰도</th><td class="num">${S.trust.toFixed(1)}</td></tr>
       <tr><th>시·도당</th><td>${chaptersOk()}곳 ${S.grace != null ? `<b class="bad">요건 미달 — ${fdate(S.grace)}까지 회복</b>` : ''}</td><th>국회 의석</th><td>${seatTotal('P')}석</td></tr>
       <tr><th>광역단체장</th><td colspan="3">${govCount('P')}곳</td></tr>
       ${S.day - S.lastPart > 3 * 365 ? `<tr><th>등록취소 경고</th><td colspan="3" class="bad">최근 4년간 선거 미참여: ${fdate(S.lastPart + 4 * 365)}까지 국회의원선거나 지방선거에 후보를 내야 합니다 (정당법 제44조)</td></tr>` : ''}
@@ -4015,7 +3996,7 @@ function pGuide() {
       <li>당원이 ${LAW.chapterMembers.toLocaleString()}명을 넘은 시·도에서 시·도당 창당대회를 엽니다. <b>${LAW.minChapters}곳</b>이 되면 본부 탭에서 등록을 신청합니다.</li>
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
-      <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 신뢰가 깎이는 주가 3주 넘게 이어지면 그 뒤로는 악재마다 더 크게 깎입니다(최대 2배). 신뢰가 조금이라도 오른 주가 오면 하락세는 바로 끊기고, 큰 악재 없이 지나간 주마다 한 주씩 풀립니다.</li>
+      <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다.</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 한 달쯤마다 바뀔 수 있습니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
