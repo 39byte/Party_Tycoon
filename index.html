@@ -446,7 +446,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .who>div{min-width:0}
 /* 인재 카드 */
 .pcards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
-.pager{justify-content:center;margin:14px 0 0}.pager .btn{min-width:32px}
+.pager{justify-content:center;margin:14px 0 0}.pager .btn{min-width:32px}.pager .btn[aria-label]{font-size:16px;line-height:1}
 .psort{margin:0;grid-column:1/-1}
 /* 작은 필터 버튼(인재 정렬·지역 소식 지역·원내 의원 소속): 같은 크기·간격 */
 .chips{gap:4px}.chips:not(.psort){margin-bottom:14px}.follow .chips{margin-bottom:22px}.chips .btn{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
@@ -3201,6 +3201,11 @@ const POOL_MAX = 300;
 // 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
 let pSort = 'def', pDir = 1, pPage = 0;
+// 게시판식 쪽 선택: « 처음 ‹ 이전 [10쪽 묶음] 다음 › 마지막 ». p는 0부터
+function pager(p, n) {
+  const g = Math.floor(p / 10) * 10, b = (i, t, lab, off) => `<button class="btn${i === p && !lab ? ' pri' : ''}" data-ppage="${i}" ${lab ? `aria-label="${lab}"` : i === p ? 'aria-current="page"' : ''} ${off ? 'disabled' : ''}>${t}</button>`;
+  return `<div class="filters chips pager" role="navigation" aria-label="인재 쪽 이동">${b(0, '«', '처음 쪽', p === 0)}${b(Math.max(0, g - 1), '‹', '이전 묶음', g === 0)}${Array.from({ length: Math.min(10, n - g) }, (_, i) => b(g + i, g + i + 1)).join('')}${b(Math.min(n - 1, g + 10), '›', '다음 묶음', g + 10 >= n)}${b(n - 1, '»', '마지막 쪽', p === n - 1)}</div>`;
+}
 const P_PER = 20; // 인재 탭 한 쪽에 카드 20장
 function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
@@ -3215,7 +3220,7 @@ function pPeople() {
   return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${recruit}</div>
     <div class="filters psort chips" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div></div>
     <div class="pcards">${rows}</div>
-    ${pages > 1 ? `<nav class="filters chips pager" aria-label="인재 쪽">${Array.from({ length: pages }, (_, i) => `<button class="btn${i === pPage ? ' pri' : ''}" data-ppage="${i}" ${i === pPage ? 'aria-current="page"' : ''}>${i + 1}</button>`).join('')}</nav>` : ''}
+    ${pages > 1 ? pager(pPage, pages) : ''}
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
 }
 // 제명돼도 공직은 그대로(무소속). 공직선거법 제192조 제4항은 비례대표 의원도 '제명'은 퇴직 사유에서 뺌. 단체장은 당적과 무관
