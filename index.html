@@ -1609,14 +1609,15 @@ const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref &&
   t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
 ) || (x.ref.ik === 'party' && x.ref.party === t.party && t.grp === 'mp'))).map(x => ({ ...x, who: m.name, pty: x.ref.ik === 'party' }))); // pty: 그 사람 얘기가 아닌 당 소문
 const accOpen = t => S.cases.some(c => c.acc?.key === t.key);
-function accuseFile(t, ch) {
+function accuseFile(t, ks) {
+  const ch = chMix(ks);
   spend(ACT.accuse.c(), '법률 비용'); S.ap--; S.cd.accuse = S.day + ACT.accuse.cd;
   // 진위: 아직 보도 안 된 그 사람 사건 · 이미 보도된 그 사람 의혹 · 그 당 차원 루머(현역 의원이면 40% 연루) · 그 밖엔 청렴도만큼
   const f = t.fid != null && fig(t.fid), inc = S.inc.find(x => ch.inc.includes(x.k) && (f ? x.fid === f.id : t.pid != null && x.pid === t.pid));
-  const pinc = ch.rum && t.grp === 'mp' && S.inc.find(x => x.k === 'party' && x.party === t.party && ch.rum.test(x.d) && rnd() < 0.4);
+  const pinc = ch.rum.length && t.grp === 'mp' && S.inc.find(x => x.k === 'party' && x.party === t.party && ch.rum.some(r => r.test(x.d)) && rnd() < 0.4);
   const real = !!inc || !!pinc || !!f?.news?.some(n => ch.inc.includes(n.k)) || rnd() < (100 - (t.integ ?? 55)) / 100 * 0.2;
   S.inc = S.inc.filter(x => x !== inc && x !== pinc); // 고발로 드러났으니 따로 보도되지 않음
-  for (const h of accHints(t)) if (refCharge(h.ref)?.k === ch.k) talkers().flatMap(m => m.talk || []).forEach(x => { if (x.id === h.id) x.acc = 1; }); // 이 죄목으로 고발한 얘기(그 사람 얘기·당 차원 소문)는 다시 추천하지 않음
+  for (const h of accHints(t)) if (ch.k.includes(refCharge(h.ref)?.k)) talkers().flatMap(m => m.talk || []).forEach(x => { if (x.id === h.id) x.acc = 1; }); // 이 죄목으로 고발한 얘기(그 사람 얘기·당 차원 소문)는 다시 추천하지 않음
   const pres = t.grp === 'pres', c = openCase({ t: `${t.name} ${ch.n}`, guilty: real, mine: true, target: t.party, acc: { key: t.key, name: t.name, role: t.role, ch: ch.k, fid: t.fid, pid: t.pid, pres } });
   if (pres) c.ev *= 0.7; // 살아 있는 권력 수사는 더 조심스러움
   if (t.party in S.rel) relAdd(t.party, -10, `${t.name} 고발`);
@@ -1627,7 +1628,7 @@ function accuseFile(t, ch) {
 }
 // 결과에 따른 여론: 상대 당이면 신뢰 격차만큼 세기가 달라짐(atkMul·gapHit). 우리 당 사람이면 자정 노력과 의혹 확인이 엇갈림
 function accEv(c, close) {
-  const a = c.acc, id = c.target, riv = TR_IDS.includes(id), own = id === 'P', m = riv ? atkMul(id) : 1, f = a.fid != null && fig(a.fid), ch = CHARGES.find(x => x.k === a.ch), who = `${a.role} ${a.name}`;
+  const a = c.acc, id = c.target, riv = TR_IDS.includes(id), own = id === 'P', m = riv ? atkMul(id) : 1, f = a.fid != null && fig(a.fid), ch = chMix([a.ch].flat()), who = `${a.role} ${a.name}`;
   const govK = f && f.pos === 'gov' && S.rgov[f.k]?.fid === f.id ? f.k : null;
   const hit = (tr, rw) => { if (riv) { trustAll(id, tr * m); S.rw[id] += rw * m; } if (govK) S.rgov[govK].o = clamp(S.rgov[govK].o + tr * 2, 5, 95); };
   if (!c.stage) {
@@ -1664,27 +1665,28 @@ function accEv(c, close) {
 }
 // 고발 대상·죄목 고르기. 대상마다 교섭 자리에서 들은 얘기를 보여 주고, 들은 얘기가 가리키는 죄목을 먼저 골라 둠
 function accuseModal() {
-  const ts = accTargets(), GR = [['mp', '국회의원'], ['gov', '광역단체장'], ['pres', '대통령'], ['out', '원외 인사'], ['cand', '등록 후보']], st = { g: 'mp', key: '', ch: '' };
+  const ts = accTargets(), GR = [['mp', '국회의원'], ['gov', '광역단체장'], ['pres', '대통령'], ['out', '원외 인사'], ['cand', '등록 후보']], st = { g: 'mp', key: '', ch: null };
   openModal({ title: '고발장 제출', wide: true, html: '<div data-acc></div>', buttons: [{ t: '취소' }],
     onOpen: m => {
       const box = m.querySelector('[data-acc]');
       const draw = () => {
         const list = ts.filter(t => t.grp === st.g).map(t => { const hs = accHints(t); return { ...t, hs, n: hs.filter(h => !h.pty).length }; }).sort((x, y) => y.n - x.n || x.party.localeCompare(y.party));
-        if (!list.some(t => t.key === st.key)) { st.key = list[0]?.key || ''; st.ch = ''; }
+        if (!list.some(t => t.key === st.key)) { st.key = list[0]?.key || ''; st.ch = null; }
         const t = list.find(x => x.key === st.key), hs = t?.hs || [];
-        st.ch ||= hs.map(h => refCharge(h.ref)).find(Boolean)?.k || CHARGES[0].k;
-        const ch = CHARGES.find(x => x.k === st.ch), busy = t && accOpen(t);
+        st.ch ??= (ks => ks.length ? ks : [CHARGES[0].k])([...new Set(hs.map(h => refCharge(h.ref)?.k).filter(Boolean))]); // 들은 얘기가 가리키는 죄목을 모두 골라 둠
+        const busy = t && accOpen(t);
         box.innerHTML = `<div class="split2">
           <label class="f">대상 구분<select data-g>${GR.map(([k, n]) => `<option value="${k}" ${st.g === k ? 'selected' : ''}>${n} (${ts.filter(x => x.grp === k).length}명)</option>`).join('')}</select></label>
           <label class="f">대상<select data-t ${list.length ? '' : 'disabled'}>${list.map(x => `<option value="${x.key}" ${x.key === st.key ? 'selected' : ''}>${esc(x.name)} · ${esc(x.party === 'O' ? '무소속' : pn(x.party))} · ${esc(x.role)}${x.n ? ` · 들은 얘기 ${x.n}` : ''}</option>`).join('')}</select></label></div>
-          <label class="f">죄목<select data-ch>${CHARGES.map(x => `<option value="${x.k}" ${x.k === st.ch ? 'selected' : ''}>${x.n} (${x.law})</option>`).join('')}</select></label>
+          <div class="f">죄목 <span class="small muted">(여러 개 고를 수 있음)</span><div class="filters chips" role="group" aria-label="죄목">${CHARGES.map(x => `<button class="btn${st.ch.includes(x.k) ? ' pri' : ''}" data-ch="${x.k}" aria-pressed="${st.ch.includes(x.k)}" title="${x.law}">${x.n}</button>`).join('')}</div>
+            ${st.ch.length ? `<p class="small muted" style="margin:-8px 0 0">${esc(chMix(st.ch).law)}</p>` : ''}</div>
           ${!t ? '<p class="empty">이 구분에 고발할 수 있는 사람이 없습니다.</p>' : `<h3 style="margin-top:12px">${esc(t.name)}에 대해 들은 얘기</h3>${hs.length ? `<ul class="log">${hs.map(h => `<li><time>${fdate(h.d)}</time><span>${esc(h.t)} <span class="small muted">— ${esc(h.who)}${h.pty ? ' · 당 차원 소문' : ''}</span>${refCharge(h.ref) ? ` <span class="pill">${esc(refCharge(h.ref).n)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">들은 얘기가 없습니다. 근거 없이 고발하면 불기소될 가능성이 높습니다.</p>'}`}
           <p class="tip">친분이 두터운 사람에게 들은 얘기일수록 맞습니다. 불기소·무죄가 나오면 우리 당이 역풍을 맞고, 근거 없는 고발엔 무고 맞고소(형법 제156조)가 들어올 수 있습니다. 상대 당보다 신뢰가 높을수록 기소·유죄의 파장이 그 당에 크게 갑니다.${st.g === 'pres' ? ' 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.' : ''}</p>
-          <div class="btns"><button class="btn pri" data-go ${!t || busy ? 'disabled' : ''}>${busy ? '이미 수사 중인 대상' : `고발장 제출 (${won(ACT.accuse.c())} · 행동력 1)`}</button></div>`;
+          <div class="btns"><button class="btn pri" data-go ${!t || busy || !st.ch.length ? 'disabled' : ''}>${busy ? '이미 수사 중인 대상' : !st.ch.length ? '죄목을 고르세요' : `고발장 제출 (${won(ACT.accuse.c())} · 행동력 1)`}</button></div>`;
         box.querySelector('[data-g]').onchange = e => { st.g = e.target.value; st.key = ''; draw(); };
-        box.querySelector('[data-t]').onchange = e => { st.key = e.target.value; st.ch = ''; draw(); };
-        box.querySelector('[data-ch]').onchange = e => { st.ch = e.target.value; draw(); };
-        box.querySelector('[data-go]').onclick = () => { closeModal(); accuseFile(t, ch); };
+        box.querySelector('[data-t]').onchange = e => { st.key = e.target.value; st.ch = null; draw(); };
+        box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { const k = b.dataset.ch; st.ch = st.ch.includes(k) ? st.ch.filter(x => x !== k) : [...st.ch, k]; draw(); });
+        box.querySelector('[data-go]').onclick = () => { closeModal(); accuseFile(t, st.ch); };
       };
       draw();
     } });
@@ -2006,6 +2008,8 @@ const CHARGES = [
   { k: 'favor', n: '입시·병역 특혜 청탁', law: '형법 제314조(업무방해) · 병역법 제86조', inc: ['edu', 'mil'] },
   { k: 'abuse', n: '갑질·강요', law: '형법 제324조(강요) · 제260조(폭행)', inc: ['abuse'], rum: /갑질/ },
 ];
+// 여러 죄목을 한 고발장에: 이름·법조문을 잇고 관련 사건·루머를 합침
+const chMix = ks => { const cs = CHARGES.filter(c => ks.includes(c.k)); return { k: cs.map(c => c.k), n: cs.map(c => c.n).join('·'), law: cs.map(c => c.law).join(' / '), inc: cs.flatMap(c => c.inc), rum: cs.flatMap(c => c.rum ? [c.rum] : []) }; };
 // 들은 얘기(ref)가 가리키는 죄목
 const refCharge = r => r && CHARGES.find(c => r.ik === 'party' ? c.rum?.test(r.d) : c.inc.includes(r.ik));
 function incNew(o, f, days, party) {
