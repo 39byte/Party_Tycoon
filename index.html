@@ -605,7 +605,17 @@ const RBILLS = [
   { t: '방송3법 개정안', issue: 'reform', side: 1 }, { t: '검찰 수사권 조정법', issue: 'reform', side: 1, fx: { k: 'probe', m: 0.75, n: '정당 수사 적발률 −25%' } },
   { t: '정치자금 후원 한도 상향법', issue: 'reform', side: 0, fx: { k: 'funds', m: 1.25, n: '후원금 모금 +25%' } },
   { t: '정당 보조금 교섭단체 우대법', issue: 'reform', side: 0, big: true, fx: { k: 'subsidy', m: 0.8, n: '20석 미만 정당 보조금 −20%' } },
+  { t: '법인세 인하법', issue: 'econ', side: -1 }, { t: '상속세 완화법', issue: 'econ', side: -1 },
+  { t: '노조 회계 공시 의무화법', issue: 'econ', side: -1 }, { t: '주 4.5일 근무제 도입법', issue: 'econ', side: 1 },
+  { t: '반도체 산업 지원 특별법', issue: 'econ', side: -0.5 }, { t: '재건축 초과이익 환수 완화법', issue: 'house', side: -1 },
+  { t: '다주택자 양도세 중과 폐지법', issue: 'house', side: -1 }, { t: '공공임대주택 확충 특별법', issue: 'house', side: 1 },
+  { t: '상병수당 도입법', issue: 'welfare', side: 1 }, { t: '저출생 대응 특별법', issue: 'welfare', side: 0 },
+  { t: '북한인권법 개정안', issue: 'security', side: -1 }, { t: '탄소세 도입법', issue: 'climate', side: 1 },
+  { t: '대학 등록금 자율화법', issue: 'youth', side: -1 }, { t: '지역 의대 신설 특별법', issue: 'region', side: 0.5 },
+  { t: '국회의원 세비 동결법', issue: 'reform', side: 0 },
 ];
+// 통과된 다른 당 법안은 국회 임기(4년)가 지나면 다시 발의될 수 있음(개정·재추진)
+const RB_AGAIN = 4 * 365;
 // 대통령 정책(행정부). pop: 여론 반응 기댓값. fx는 days 동안, on은 즉시 우리에게 미치는 영향
 const GOV_POL = [
   { t: '가계대출 총량 규제 강화', issue: 'house', pop: 0.5 }, { t: '전 국민 긴급재난지원금 지급', issue: 'econ', pop: 0.7 },
@@ -957,7 +967,7 @@ function migrate(o) {
     const byName = n => n === '정부' ? 'G' : Object.keys(RIV).find(id => RIV[id].name === n) || 'P';
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0;
-  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone ??= []; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
+  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x); // 옛 저장: 통과 날짜 모름 → 게임 시작일로 o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
   o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o);
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= [];
@@ -1765,7 +1775,7 @@ function rivalBill(notes) {
   const gov = !ruling() && rnd() < 0.3, ids = ['A', 'B', 'C'], w = ids.map(id => seatTotal(id) + 2);
   let x = rnd() * sum(w);
   const by = gov ? S.president.party : ids.find((id, i) => (x -= w[i]) < 0);
-  const pool = RBILLS.filter(r => Math.abs(r.side - RIV[by].ideo) <= 1 && !(r.big && seatTotal(by) < 20) && !S.bills.some(b => b.t === r.t) && !S.rdone.includes(r.t));
+  const pool = RBILLS.filter(r => Math.abs(r.side - RIV[by].ideo) <= 1 && !(r.big && seatTotal(by) < 20) && !S.bills.some(b => b.t === r.t) && !S.rdone.some(x => x.t === r.t && S.day - x.d < RB_AGAIN));
   if (!pool.length) return;
   const r = pick(pool), mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
   const pop = clamp(0.5 + (r.issue === S.issue ? 0.05 : 0) + gauss() * 0.15, 0.15, 0.85), poll = Math.round(clamp(pop + gauss() * 0.05, 0.05, 0.95) * 100);
@@ -1784,8 +1794,8 @@ function rivalVote(b, y, notes) {
     pass = false; notes.push(`${who} '${b.t}' 본회의 통과했으나 ${pr === 'P' ? '우리 당 대통령이' : '대통령이'} 거부권 행사로 폐기`);
   }
   if (pass) {
-    S.rw[b.by] += 0.5 + (b.pop - 0.5) * 4; S.rdone.push(b.t); passLog(b);
-    if (b.fx) S.fx.push({ ...b.fx, t: b.t, until: 1e9 });
+    S.rw[b.by] += 0.5 + (b.pop - 0.5) * 4; S.rdone = [...S.rdone.filter(x => x.t !== b.t), { t: b.t, d: S.day }]; passLog(b);
+    if (b.fx && !S.fx.some(f => f.t === b.t)) S.fx.push({ ...b.fx, t: b.t, until: 1e9 });
     notes.push(`${who} '${b.t}' 본회의 통과 (찬성 ${Math.round(y)}표)${b.fx ? ` → ${b.fx.n}` : ''}`); addLog(`${who} '${b.t}' 국회 통과${b.fx ? ` (${b.fx.n})` : ''}`);
   } else if (y < passNeed()) { S.rw[b.by] -= 0.3; notes.push(`${who} '${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); }
   if (!s) return;
