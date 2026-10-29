@@ -828,10 +828,11 @@ function genPerson(o = {}) {
   const job = pick(JOBS);
   let age = o.age || Math.round(rr(30, 68) - (S && S.up.youth && rnd() < 0.4 ? 10 : 0));
   const integ = Math.round(clamp(gauss() * 18 + 64, 5, 100)), { rec, ban } = genRec(integ);
+  const rb = rec.length * 9; // 전과가 있는 사람은 그만큼 세상 물정에 밝고 이름도 알려진 편: 전과 1건당 인지도·역량 평균 +9
   return {
     id: S.nid++, name: genName(gender), gender, age: clamp(age, 18, 80), job: job.n,
-    fame: Math.round(clamp(gauss() * 10 + job.f + (o.fameAdd || 0), 1, 95)),
-    skill: Math.round(clamp(gauss() * 12 + job.s, 10, 99)), integ, rec, ban, role: '',
+    fame: Math.round(clamp(gauss() * 10 + job.f + rb + (o.fameAdd || 0), 1, 95)),
+    skill: Math.round(clamp(gauss() * 12 + job.s + rb, 10, 99)), integ, rec, ban, role: '',
   };
 }
 const candFactor = c => clamp(1 + (c.fame - 15) / 200 + (c.skill - 50) / 250 - (c.rec ? c.rec.length : 0) * 0.05, 0.6, 1.6);
