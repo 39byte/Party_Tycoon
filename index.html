@@ -3459,7 +3459,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-up]').forEach(b => b.onclick = () => buyUp(b.dataset.up));
   m.querySelectorAll('[data-watch]').forEach(b => b.onclick = () => { const k = b.dataset.watch; S.watch[k] = !S.watch[k]; save(); renderPanel(); });
   m.querySelectorAll('[data-go]').forEach(b => b.onclick = () => { tab = b.dataset.go; renderAll(); });
-  m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => confirmCost(b.textContent.trim(), 1e7, '행동력', () => lobbyBill(+b.dataset.lobby)));
+  m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => confirmCost(b.dataset.n, 1e7, '행동력', () => lobbyBill(+b.dataset.lobby)));
   m.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { feedF = b.dataset.feed; feedN = 12; renderAll(); });
   m.querySelectorAll('[data-feedmore]').forEach(b => b.onclick = () => { feedN += 12; renderAll(); });
   m.querySelectorAll('[data-stance]').forEach(b => b.onclick = () => { const [id, s] = b.dataset.stance.split('|'); setStance(+id, +s); });
@@ -3792,7 +3792,7 @@ function pOffice() {
   // 법안 한 건: 제목·정보 / 예상 찬성 막대 / 당론·협상 버튼을 위아래로(반쪽 폭에도 들어가게)
   const bill = b => { const y = billYes(b), st = (s, t) => `<button class="btn${b.stance === s ? ' pri' : ''}" data-stance="${b.id}|${s}" aria-pressed="${b.stance === s}" ${left || b.lobbied ? 'disabled' : ''}>${t}</button>`;
     // 우리 법안: 여야 협상 버튼은 법안명 줄 오른쪽 / 다른 당 법안: 당론 버튼 왼쪽, 표 단속은 오른쪽 끝
-    const lob = seats ? `<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''}>${b.by ? '표 단속' : '여야 협상'}</button>` : '';
+    const lob = seats ? `<button class="btn" data-lobby="${b.id}" ${left || S.ap < 1 || b.lobbied >= 2 || S.money < 1e7 || (b.by && !b.stance) ? 'disabled' : ''} data-n="${b.by ? '표 단속' : '여야 협상'}">${b.by ? '표 단속' : '여야 협상'}${b.lobbied >= 2 ? ' 완료' : b.lobbied ? ` ${b.lobbied}/2` : ''}</button>` : ''; // 몇 번 했는지 보여 줌(법안마다 두 번)
     return `<li><div class="billh"><div><b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></div>${b.by ? '' : lob}</div>
     <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / seatsNow() * 100)}%;background:${y >= passNeed() ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / ${passNeed()}표</span></div>
     ${seats && b.by ? `<div class="btns">${st(1, '찬성') + st(-1, '반대') + st(0, '자유투표')}<span class="push"></span>${lob}</div>` : ''}</li>`; };
