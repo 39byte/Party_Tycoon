@@ -1628,7 +1628,7 @@ function govModal(k) {
     }),
   });
 }
-// 자동화 찐빠: 단체장에게 맡긴 사업이 엇나감(행정 지지도 −2~5). 역량이 높아도 25%는 남음
+// 자동화 찐빠: 단체장에게 맡긴 사업이 엇나감(행정 지지도 −2~5). 역량이 높아도 26%는 남음
 const GOV_FLOP = [
   k => `보고서만 보고 결재한 ${GOVT[k]} ${govName(k)}의 사업이 현장과 동떨어져 '탁상행정' 뭇매를 맞았습니다.`,
   k => `${RK[k].n} 사업 예산이 엉뚱한 곳에 집행돼 감사에서 지적받았습니다.`,
@@ -1638,13 +1638,13 @@ const GOV_FLOP = [
   k => `${RK[k].n} 사업이 업체 선정 잡음으로 첫 삽도 못 뜨고 멈췄습니다.`,
 ];
 // 역점사업 한 건 실행(행정 행동력 1). 창에서 고르든 자동화든 여기로
-// 자동화(auto)는 직접 챙기지 않으니 성공률 −16%p, 찐빠 확률 40−역량/4 %(역량 50 → 27.5%, 60 이상 → 25%). 역량 50~60이면 행정 지지도가 대체로 제자리
+// 자동화(auto)는 직접 챙기지 않으니 성공률 −20%p, 찐빠 확률 43−역량/4 %(역량 50 → 30.5%, 68 이상 → 26%). 역량 60~70이면 행정 지지도가 대체로 제자리
 function govRun(k, pj, auto) {
   const n = RK[k].n;
   S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
-  const a = pjAdj(k, pj) - (auto ? 0.16 : 0), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
+  const a = pjAdj(k, pj) - (auto ? 0.2 : 0), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
   let msg, ok = true;
-  if (auto && rnd() < clamp(0.4 - (govPerson(k)?.skill ?? 50) / 400, 0.25, 0.4)) { S.ops[k] -= rr(2, 5); S.trust -= 0.5; ok = false; msg = pick(GOV_FLOP)(k); }
+  if (auto && rnd() < clamp(0.43 - (govPerson(k)?.skill ?? 50) / 400, 0.26, 0.43)) { S.ops[k] -= rr(2, 5); S.trust -= 0.5; ok = false; msg = pick(GOV_FLOP)(k); }
   else if (pj === 'dev') {
     if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
     else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
@@ -3340,7 +3340,7 @@ function pAdmin() {
   const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span>
-      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 찐빠를 냅니다. 역량 50~60대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
+      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 찐빠를 냅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
