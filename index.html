@@ -1531,7 +1531,7 @@ const later = (days, q) => S.later.push({ d: S.day + Math.round(days), q });
 function openCase({ t, guilty, pen, mine, target, acc }) {
   const c = { id: ++S.seq, t, guilty, pen, mine, target, acc, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
   S.cases.push(c);
-  if (mine) later(rr(28, 56), { ev: 'case', id: c.id }); else S.queue.push({ ev: 'case', id: c.id });
+  if (mine) later(rr(14, 28), { ev: 'case', id: c.id }); else S.queue.push({ ev: 'case', id: c.id });
   return c;
 }
 function info(title, text, bad) {
@@ -1552,7 +1552,7 @@ function caseEv(id) {
     return info(ok ? '고소·고발 사건 기소' : '고소·고발 사건 불기소', ok ? `검찰이 '${c.t}' 사건 피고소인을 재판에 넘겼습니다.` : `검찰이 '${c.t}' 사건을 증거 불충분으로 불기소했습니다.${c.target ? ' 무리한 고발이었다는 비판이 나옵니다.' : ''}`, !ok);
   }
   if (c.stage === 0) {
-    S.trust -= 2; S.fame += 1; c.stage = 1; later(rr(28, 49), { ev: 'case', id });
+    S.trust -= 2; S.fame += 1; c.stage = 1; later(rr(14, 24), { ev: 'case', id });
     return showEvent({ title: '검찰 수사 착수', body: () => `검찰이 <b>${esc(c.t)}</b> 의혹으로 ${pick(['당사를 압수수색했습니다', '당직자들을 줄소환했습니다', '당 계좌 추적에 나섰습니다'])}. 몇 주 안에 기소 여부가 결정됩니다.`,
       ch: [{ t: '성실히 조사받는다', s: '협조하면 형량이 줄어듭니다', run: () => { c.ev += c.guilty ? 0.05 : -0.12; c.coop = true; return '검찰 조사에 성실히 응하겠다고 밝혔습니다.'; } },
         { t: '대형 로펌 변호인단을 꾸린다', s: '비용 1억', run: () => { spend(1e8, '법률 비용'); c.ev -= 0.15; return '검사 출신 변호사들로 변호인단을 꾸렸습니다.'; } },
@@ -1561,8 +1561,8 @@ function caseEv(id) {
   }
   if (c.stage === 1) {
     if (rnd() >= c.ev) { close(); if (!c.guilty) S.trust += 2; return info('검찰 처분: 불기소', c.guilty ? `'${c.t}' 사건이 증거 불충분으로 불기소 처분됐습니다.` : `'${c.t}' 의혹에 무혐의 처분이 나왔습니다. 결백이 확인됐습니다.`, false); }
-    S.trust -= 3; c.stage = 2; later(rr(42, 84), { ev: 'case', id });
-    return showEvent({ title: '검찰, 기소 결정', body: () => `검찰이 <b>${esc(c.t)}</b> 혐의로 관계자들을 재판에 넘겼습니다. 1심 선고까지 몇 달이 걸립니다.`,
+    S.trust -= 3; c.stage = 2; later(rr(21, 42), { ev: 'case', id });
+    return showEvent({ title: '검찰, 기소 결정', body: () => `검찰이 <b>${esc(c.t)}</b> 혐의로 관계자들을 재판에 넘겼습니다. 1심 선고까지 몇 주가 걸립니다.`,
       ch: [{ t: '무죄를 다툰다', run: () => '법정에서 끝까지 다투기로 했습니다.' },
         { t: '혐의를 인정하고 선처를 구한다', s: '유죄는 확정, 형량은 절반', run: () => { c.ev = 1; c.plea = true; S.trust += 1; return '혐의를 인정하고 국민께 사과했습니다.'; } },
         { t: '변호인단을 보강한다', s: '비용 1억', run: () => { spend(1e8, '법률 비용'); c.ev -= 0.12; return '변호인단을 보강했습니다.'; } }] });
@@ -1639,7 +1639,7 @@ function accEv(c, close) {
       close();
       if (own) S.trust -= 1; else { S.trust -= 1.5 * (riv ? gapHit(id) : 1); S.buzz -= 0.5; hit(1, 0.5); }
       // 근거 없는 고발이었으면 상대가 무고로 맞고소할 수 있음(형법 제156조)
-      if (!c.guilty && !own && rnd() < 0.3) later(rr(7, 21), { ev: 'mugo', name: a.name, party: id });
+      if (!c.guilty && !own && rnd() < 0.3) later(rr(4, 10), { ev: 'mugo', name: a.name, party: id });
       return info('고발 사건 불기소', `검찰이 ${who}의 '${ch.n}' 혐의를 ${c.guilty ? '증거 불충분으로' : '혐의 없음으로'} 불기소했습니다. ${own ? '"내부 총질"이었다는 말이 나옵니다.' : '"무리한 정치 고발"이라는 비판이 나옵니다.'}`, true);
     }
     if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: `${a.name}, ${ch.n} 혐의 ${a.pres ? '수사 결과 발표' : '기소'}`, k: ch.inc[0] }); }
@@ -1649,9 +1649,9 @@ function accEv(c, close) {
       if (own) { S.trust -= 3; S.buzz -= 2; } else { hit(-3, -2.5); S.trust += 1; S.buzz += 1; }
       return info('대통령 수사 결과 발표', `검찰이 ${who}의 '${ch.n}' 혐의를 상당 부분 확인했다고 발표했습니다. 대통령은 재직 중 형사 소추를 받지 않아(헌법 제84조) 기소는 임기 뒤로 미뤄졌지만, ${own ? '우리 당 정부에 큰 타격입니다' : `${pn(id)}에 큰 타격입니다`}.`, own);
     }
-    c.stage = 1; later(rr(42, 84), { ev: 'case', id: c.id });
+    c.stage = 1; later(rr(21, 42), { ev: 'case', id: c.id });
     if (own) { S.trust -= 1.5; S.buzz -= 1.5; } else { hit(-2.5, -1.5); S.trust += 1; S.fame += 1; S.buzz += 1; }
-    return info('고발 사건 기소', `검찰이 ${who}을(를) '${ch.n}' 혐의로 재판에 넘겼습니다(${ch.law}). 1심 선고까지 몇 달 걸립니다.${own ? ' 우리 당 사람이라 타격이 있지만 "제 식구 감싸기는 안 한다"는 평도 나옵니다.' : ''}`, own);
+    return info('고발 사건 기소', `검찰이 ${who}을(를) '${ch.n}' 혐의로 재판에 넘겼습니다(${ch.law}). 1심 선고까지 몇 주 걸립니다.${own ? ' 우리 당 사람이라 타격이 있지만 "제 식구 감싸기는 안 한다"는 평도 나옵니다.' : ''}`, own);
   }
   close(); // ponytail: 1심에서 끝. 확정 전엔 무죄추정(헌법 제27조 제4항)이라 직은 유지. 항소·당선무효가 필요해지면 stage를 늘릴 것
   if (rnd() < (c.guilty ? 0.8 : 0.2)) {
@@ -2334,7 +2334,7 @@ const ACT = {
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
-  accuse: { n: '고발장 제출', c: () => 5e6, cd: 14, d: '현직 의원·단체장·대통령·원외 인사·등록 후보를 검찰에 고발합니다(형사소송법 제234조). 교섭에서 들은 얘기가 근거가 됩니다.' },
+  accuse: { n: '고발장 제출', c: () => 5e6, cd: 7, d: '현직 의원·단체장·대통령·원외 인사·등록 후보를 검찰에 고발합니다(형사소송법 제234조). 교섭에서 들은 얘기가 근거가 됩니다.' },
   talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 20, d: '후보 3명 중 원하는 만큼 영입합니다. 청렴도·전과는 영입한 뒤 알 수 있습니다(선거에 나갔던 사람은 공개, 공직선거법 제49조).' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승.' },
