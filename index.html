@@ -180,7 +180,9 @@ nav .more{display:none}
 @media (max-width:900px){.mapwrap{grid-template-columns:1fr}}
 .mapwrap>*{min-width:0}
 /* 지도·지역 정보 카드가 각각 한 화면(상단 바 아래)에 들어가게: 지도는 화면 높이에 맞춰 줄이고, 지역 카드는 칸을 촘촘히 */
-.mapwrap{align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .mapwrap .kmap{max-height:max(320px,calc(100dvh - 300px))}
+.mapwrap .kmap{max-height:max(320px,calc(100dvh - 300px))}
+/* 2단일 때 지도 카드 높이 = 지역 정보 카드 높이: 지도 카드는 자기 내용으로 줄 높이를 키우지 않고(contain:size) 남는 높이를 지도가 채움 */
+@media (min-width:901px){.mapwrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .mapwrap>.card:first-child{contain:size;display:flex;flex-direction:column} .mapwrap .mapbox{flex:1;min-height:240px} .mapwrap .kmap{height:100%;max-height:none}}
 .mapwrap .kv th,.mapwrap .kv td{padding:4px 8px}
 /* 지역 활동 카드: 카드 수와 카드 폭에 맞춰 칸 수를 정함(빈 칸 없게). 2칸일 때 홀수 개면 마지막 카드는 한 줄 전체 */
 .mapwrap>.card:last-child{container-type:inline-size}
@@ -325,7 +327,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 @media (prefers-reduced-motion:reduce){.sw input,.sw input::after{transition:none}}
 @container (min-width:734px){.billsplit>section+section{border-left:1px solid var(--border);padding-left:14px}}
 .tipw{display:inline-flex;vertical-align:middle;margin-left:6px}
-.info{display:inline-grid;place-items:center;width:22px;height:22px;padding:0;margin-left:2px;border:1.5px solid var(--muted);border-radius:50%;background:none;color:var(--muted);font:italic 700 13px/1 Georgia,"Times New Roman",serif;cursor:help}
+.info{position:relative;display:inline-grid;place-items:center;width:17px;height:17px;padding:0;margin-left:2px;border:1.5px solid var(--muted);border-radius:50%;background:none;color:var(--muted);font:italic 700 11px/1 Georgia,"Times New Roman",serif;cursor:help}
+.info::after{content:"";position:absolute;inset:-6px} /* 보이는 원은 작게, 누르는 영역은 29px 유지 */
 .info:hover,.info:focus-visible{color:var(--primary2);border-color:var(--primary2)}
 .tipbox{position:fixed;left:0;top:0;z-index:70;width:max-content;max-width:min(340px,calc(100vw - 16px));padding:10px 12px;border:1px solid var(--hud-line);border-radius:10px;background:var(--hud2);color:var(--on-hud);box-shadow:0 8px 24px rgba(2,6,23,.35);font-size:13px;font-weight:400;line-height:1.55;letter-spacing:0;text-align:left;white-space:normal;word-break:keep-all;overflow-wrap:break-word;visibility:hidden;opacity:0;transition:opacity .12s;pointer-events:none}
 .tipw:hover .tipbox,.tipw:focus-within .tipbox{visibility:visible;opacity:1}
@@ -1624,13 +1627,24 @@ function govModal(k) {
     }),
   });
 }
+// 자동화 찐빠: 단체장에게 맡긴 사업이 엇나감(행정 지지도 −2~5). 역량이 높아도 25%는 남음
+const GOV_FLOP = [
+  k => `${GOVT[k]} ${govName(k)}이 보고서만 보고 결재한 사업이 현장과 동떨어져 '탁상행정' 뭇매를 맞았습니다.`,
+  k => `${RK[k].n} 사업 예산이 엉뚱한 곳에 집행돼 감사에서 지적받았습니다.`,
+  k => `${RK[k].n} 사업 공고가 담당 공무원 실수로 두 번이나 정정돼 "준비가 덜 됐다"는 비판이 나옵니다.`,
+  k => `${GOVT[k]} ${govName(k)}이 사업 현장 방문 중 한 말이 실언 논란으로 번졌습니다.`,
+  k => `${RK[k].n}에서 주민 설명회 없이 밀어붙인 사업에 주민들이 반발했습니다.`,
+  k => `${RK[k].n} 사업이 업체 선정 잡음으로 첫 삽도 못 뜨고 멈췄습니다.`,
+];
 // 역점사업 한 건 실행(행정 행동력 1). 창에서 고르든 자동화든 여기로
+// 자동화(auto)는 직접 챙기지 않으니 성공률 −16%p, 찐빠 확률 40−역량/4 %(역량 50 → 27.5%, 60 이상 → 25%). 역량 50~60이면 행정 지지도가 대체로 제자리
 function govRun(k, pj, auto) {
   const n = RK[k].n;
   S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
-  const a = pjAdj(k, pj), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
+  const a = pjAdj(k, pj) - (auto ? 0.16 : 0), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => (realOf(x) || {}).pj === pj);
   let msg, ok = true;
-  if (pj === 'dev') {
+  if (auto && rnd() < clamp(0.4 - (govPerson(k)?.skill ?? 50) / 400, 0.25, 0.4)) { S.ops[k] -= rr(2, 5); S.trust -= 0.5; ok = false; msg = pick(GOV_FLOP)(k); }
+  else if (pj === 'dev') {
     if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
     else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
     if (rnd() < 0.35) later(rr(14, 60), { ev: 'devbribe', k });
@@ -3325,7 +3339,7 @@ function pAdmin() {
   const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span>
-      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
+      <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label>${infoTip(`<p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 찐빠를 냅니다. 역량 50~60대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 직접 할 수 있습니다(쓴 만큼 자동화 몫이 줄어듭니다).</p>`)}</span></h2>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
