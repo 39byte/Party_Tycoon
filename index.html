@@ -182,7 +182,7 @@ nav .more{display:none}
 /* 지도·지역 정보 카드가 각각 한 화면(상단 바 아래)에 들어가게: 지도는 화면 높이에 맞춰 줄이고, 지역 카드는 칸을 촘촘히 */
 .mapwrap .kmap{max-height:max(320px,calc(100dvh - 300px))}
 /* 2단일 때 지도 카드 높이 = 지역 정보 카드 높이: 지도 카드는 자기 내용으로 줄 높이를 키우지 않고(contain:size) 남는 높이를 지도가 채움 */
-@media (min-width:901px){.mapwrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .mapwrap>.card:last-child{min-height:min(860px,calc(100dvh - 90px))} .mapwrap>.card:first-child{contain:size;display:flex;flex-direction:column} .mapwrap .mapbox{flex:1;min-height:240px} .mapwrap .kmap{height:100%;max-height:none}}
+@media (min-width:901px){.mapwrap{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .mapwrap>.card:last-child{min-height:min(680px,calc(100dvh - 115px))} .mapwrap>.card:first-child{contain:size;display:flex;flex-direction:column} .mapwrap .mapbox{flex:1;min-height:240px} .mapwrap .kmap{height:100%;max-height:none}}
 .mapwrap .kv th,.mapwrap .kv td{padding:4px 8px}
 /* 지역 활동 카드: 카드 수와 카드 폭에 맞춰 칸 수를 정함(빈 칸 없게). 2칸일 때 홀수 개면 마지막 카드는 한 줄 전체 */
 .mapwrap>.card:last-child{container-type:inline-size}
