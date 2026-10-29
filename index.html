@@ -3842,7 +3842,7 @@ function pOffice() {
     <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / seatsNow() * 100)}%;background:${y >= passNeed() ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / ${passNeed()}표</span></div>
     ${seats && b.by ? `<div class="btns">${st(1, '찬성') + st(-1, '반대') + st(0, '자유투표')}<span class="push"></span>${lob}</div>` : ''}</li>`; };
   const list = bs => `<ul class="bills">${bs.map(bill).join('')}</ul>`;
-  const mine = S.bills.filter(b => !b.by), theirs = S.bills.filter(b => b.by), fxs = S.fx.filter(f => f.until > S.day);
+  const mine = S.bills.filter(b => !b.by), theirs = S.bills.filter(b => b.by).reverse(), fxs = S.fx.filter(f => f.until > S.day);
   // 맨 위: 법안 한 영역, 왼쪽 우리 법안·다른 당·정부 법안(위아래) / 오른쪽 의회 활동·최근 통과 법안(좁으면 위아래)
   const bills = `<div class="card"><h2>법안 <span class="pill">계류 ${S.bills.length}건</span></h2><div class="split billsplit">
     <section><h3>우리 법안</h3>${!seats ? '<p class="empty">국회의원을 배출하면 법안을 발의할 수 있습니다.</p>' : mine.length ? `${list(mine)}
