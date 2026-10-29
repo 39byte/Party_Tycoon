@@ -459,6 +459,9 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
 .pstat b{text-align:right;color:var(--fg)}
 /* 교섭 인물 사진: 누르면 능력치 팝업 */
+.dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
+.dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
+.dirp:hover{background:var(--surface2)}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
 .facebtn{display:inline-flex;flex:none;padding:0;border:0;background:none;border-radius:10px;cursor:pointer;transition:transform .1s}
 .facebtn:hover{transform:scale(1.06)}
 .facebtn:focus-visible{outline:2px solid var(--primary2);outline-offset:2px}
@@ -3455,6 +3458,9 @@ function bindPanel(m) {
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
+  m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; renderAll(); });
+  m.querySelectorAll('[data-dirpar]').forEach(b => b.onclick = () => { dirPar = b.dataset.dirpar; dirPage = 0; renderAll(); });
+  m.querySelectorAll('[data-dpage]').forEach(b => b.onclick = () => { dirPage = +b.dataset.dpage; renderAll(); m.querySelector('.dircard')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-negout]').forEach(b => b.onclick = () => negOutModal(+b.dataset.negout));
   m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
@@ -3522,6 +3528,7 @@ function pHome() {
           ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
       </div>
       <div class="card" style="order:5"><h2>국회 의석 분포 (300석)</h2>${hemicycle()}</div>
+      ${S.figs.length || S.outs.length ? `<div class="card dircard" style="order:7">${dirCard()}</div>` : ''}
     </div>
     <div class="stack">
       <div class="card" style="order:2"><h2>이번 주 뉴스</h2>${newsList()}<p class="tip">민심이 어느 쟁점에 쏠렸는지는 헤드라인으로 짐작하세요. 맞힌 분야로 정책을 발표하면 반응이 뜨겁습니다.</p>
@@ -3529,6 +3536,25 @@ function pHome() {
       <div class="card" style="order:6"><h2>업적</h2><ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] != null ? 'done' : ''}">${S.ach[k] != null ? '✓' : ''}</span><div>${n}${S.ach[k] != null ? `<div class="small muted">${fdate(S.ach[k])}</div>` : ''}</div></li>`).join('')}</ul></div>
     </div>
   </div>`;
+}
+// 인물 명부: 프로필이 있는 다른 사람들(다른 당 의원·광역단체장·공천 후보·원외 인사). 누르면 인물 정보
+let dirCat = 'mp', dirPar = '', dirPage = 0;
+const DIR_CAT = [['mp', '국회의원'], ['gov', '광역단체장'], ['cand', '공천 후보'], ['out', '원외 인사']], DIR_PER = 24;
+function dirCard() {
+  const ri = k => R.findIndex(r => r.k === k), po = ['A', 'B', 'C', 'O'];
+  const xs = (dirCat === 'out' ? S.outs.map(m => ({ key: 'o' + m.id, p: m, party: m.party || 'O', k: m.k, sub: `${m.party ? RIV[m.party].name : '무당적'} · ${m.role}` }))
+    : S.figs.filter(f => dirCat === 'mp' ? f.pos === 'd' || f.pos === 'pr' : f.pos === dirCat).map(f => {
+      const mp = S.mps.find(m => m.fid === f.id); // 교섭 명단 의원이면 친분·대화 내역까지
+      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}` };
+    })).filter(x => !dirPar || x.party === dirPar).sort((a, b) => po.indexOf(a.party) - po.indexOf(b.party) || ri(a.k) - ri(b.k));
+  const pages = Math.max(1, Math.ceil(xs.length / DIR_PER)); dirPage = Math.min(dirPage, pages - 1);
+  const chip = (at, v, n, on) => `<button class="btn${on ? ' pri' : ''}" data-${at}="${v}" aria-pressed="${on}">${n}</button>`;
+  return `<h2>인물 명부 <span class="pill">${xs.length}명</span></h2>
+    <div class="filters chips" role="group" aria-label="인물 분류">${DIR_CAT.map(([k, n]) => chip('dircat', k, n, dirCat === k)).join('')}</div>
+    <div class="filters chips" role="group" aria-label="정당">${chip('dirpar', '', '전체', !dirPar)}${po.map(id => chip('dirpar', id, id === 'O' ? (dirCat === 'out' ? '무소속·무당적' : '무소속') : esc(pn(id)), dirPar === id)).join('')}</div>
+    ${xs.length ? `<div class="dirl">${xs.slice(dirPage * DIR_PER, (dirPage + 1) * DIR_PER).map(x => `<button class="dirp" data-pinfo="${x.key}">${face(x.p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.p.name)}</b><span class="small muted">${esc(x.sub)}</span></span></button>`).join('')}</div>
+      ${pages > 1 ? pager(dirPage, pages, 'dpage', '명부 쪽 이동') : ''}` : `<p class="empty">${dirCat === 'cand' ? '지금은 공천 기간이 아니거나 아직 발표된 후보가 없습니다.' : '해당하는 인물이 없습니다.'}</p>`}
+    <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
 function pollChart(ban) {
   const h = S.hist.slice(-60);
@@ -3587,9 +3613,9 @@ const POOL_MAX = 300;
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
 let pSort = 'def', pDir = 1, pPage = 0;
 // 게시판식 쪽 선택: « 처음 ‹ 이전 [10쪽 묶음] 다음 › 마지막 ». p는 0부터
-function pager(p, n) {
-  const g = Math.floor(p / 10) * 10, b = (i, t, lab, off) => `<button class="btn${i === p && !lab ? ' pri' : ''}" data-ppage="${i}" ${lab ? `aria-label="${lab}"` : i === p ? 'aria-current="page"' : ''} ${off ? 'disabled' : ''}>${t}</button>`;
-  return `<div class="filters chips pager" role="navigation" aria-label="인재 쪽 이동">${b(0, '«', '처음 쪽', p === 0)}${b(Math.max(0, g - 1), '‹', '이전 묶음', g === 0)}${Array.from({ length: Math.min(10, n - g) }, (_, i) => b(g + i, g + i + 1)).join('')}${b(Math.min(n - 1, g + 10), '›', '다음 묶음', g + 10 >= n)}${b(n - 1, '»', '마지막 쪽', p === n - 1)}</div>`;
+function pager(p, n, at = 'ppage', aria = '인재 쪽 이동') {
+  const g = Math.floor(p / 10) * 10, b = (i, t, lab, off) => `<button class="btn${i === p && !lab ? ' pri' : ''}" data-${at}="${i}" ${lab ? `aria-label="${lab}"` : i === p ? 'aria-current="page"' : ''} ${off ? 'disabled' : ''}>${t}</button>`;
+  return `<div class="filters chips pager" role="navigation" aria-label="${aria}">${b(0, '«', '처음 쪽', p === 0)}${b(Math.max(0, g - 1), '‹', '이전 묶음', g === 0)}${Array.from({ length: Math.min(10, n - g) }, (_, i) => b(g + i, g + i + 1)).join('')}${b(Math.min(n - 1, g + 10), '›', '다음 묶음', g + 10 >= n)}${b(n - 1, '»', '마지막 쪽', p === n - 1)}</div>`;
 }
 const P_PER = 20; // 인재 탭 한 쪽에 카드 20장
 function pPeople() {
