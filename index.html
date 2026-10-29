@@ -3594,7 +3594,7 @@ function dirCard() {
     <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원은 그 창에서 교섭 명단에 넣을 수 있습니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
 function pollChart(ban) {
-  const h = S.hist.slice(-60);
+  const h = S.hist.slice(-7); // 월별 기록이라 7점 = 최근 6개월;
   if (h.length < 2) return '<p class="empty">한 달 이상 지나면 추이가 표시됩니다.</p>';
   const W = 600, H = 200, pl = 34, pr = 100, pt = 10, pb = 24;
   const ids = ban ? ['P'] : ['B', 'A', 'C', 'P'];
