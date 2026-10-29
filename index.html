@@ -1436,23 +1436,38 @@ function tick() {
 }
 
 // ---------- 다른 당의 한 주 ----------
-// 우리처럼 봉사활동(지역 신뢰↑)을 하고, 선거운동기간엔 거리 유세(그 당 지역 신뢰도만큼 효과). 교섭단체는 한 번 더 움직임. 가끔 정책 발표 등으로 신뢰를 얻고, 말실수로 잃음
+// 우리처럼 봉사활동(지역 신뢰↑)을 하고, 선거운동기간엔 거리 유세(그 당 지역 신뢰도만큼 효과). 한 주 3번, 교섭단체는 4번. 가끔 정책 발표 등으로 신뢰를 얻고, 말실수로 잃음
+// 선거 때는 접전 지역에 유세를 몰고, 우리 당이 따라붙거나 앞선 지역엔 네거티브 공세(그 지역 우리 유세 효과·화제성↓)
 const RIV_GOOD = ['민생 정책 패키지 발표에 호평', '지도부 수해 현장 복구 봉사', '청년 공약 발표에 "참신하다" 평가', '정치개혁안 선제 발표', '소속 의원 세비 인상분 기부 선언'];
 const RIV_GAFFE = ['대변인 논평 "막말" 논란', '지도부 회의 중 내분 고성 생중계', '당직자 음주운전 적발', '청년 비하 발언 녹취 공개', '공천 잡음… 탈당 행렬'];
-// ponytail: 지역은 (선거인 × 그 당 지역 강세) 가중 무작위. 우리 당과의 접전 지역을 노리는 전략은 필요해지면
-const rivPick = id => { const w = R.map(r => r.voters * pfBase(id, r.k)); let x = rnd() * sum(w); return R.find((r, i) => (x -= w[i]) < 0) || R[0]; };
+// 지역 몫(운 빼고): 전국 득표 × 지역 배율
+const rivShare = (id, k) => natShares()[id] * pf(id, k);
+// 접전도: 그 당 몫과 그 지역에서 가장 센 다른 당 몫이 비슷할수록 1
+const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P', 'A', 'B', 'C'].filter(x => x !== id).map(x => rivShare(x, k))); return me > 0 && op > 0 ? Math.exp(-Math.abs(Math.log(me / op)) / 0.3) : 0; };
+// 지역 고르기: 선거운동기간엔 (선거인 × 접전도), 평소엔 (선거인 × 그 당 지역 강세 × 신뢰 낮은 곳 다지기) 가중 무작위
+const rivPick = (id, camp) => { const w = R.map(r => r.voters * (camp ? rivClose(id, r.k) + 0.02 : pfBase(id, r.k) * (1.5 - S.rtr[id][r.k] / 100))); let x = rnd() * sum(w); return R.find((r, i) => (x -= w[i]) < 0) || R[0]; };
+// 그 선거에 우리 후보가 그 지역에 나왔는지
+const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
 function rivalWeek() {
   const camps = Object.values(S.camps).filter(inCampaign);
   for (const id of TR_IDS) {
-    if (!seatTotal(id) && rnd() < 0.5) continue; // 원외 정당은 격주꼴
-    for (let i = 0, n = seatTotal(id) >= LAW.caucus ? 3 : 2; i < n; i++) {
-      const k = rivPick(id).k;
-      if (camps.length && rnd() < 0.7) {
+    if (!seatTotal(id) && rnd() < 0.25) continue; // 원외 정당은 가끔 쉼
+    for (let i = 0, n = seatTotal(id) >= LAW.caucus ? 4 : 3; i < n; i++) {
+      const camp = camps.length && rnd() < 0.8, k = rivPick(id, camp).k;
+      if (camp) {
         const m = 0.5 + S.rtr[id][k] / 100; // 우리 거리 유세와 같은 식
-        for (const c of camps) { const b = ((c.rb ??= {})[id] ??= {}); b[k] = Math.min(0.2, (b[k] || 0) + 0.06 * m * (1 - (b[k] || 0) / 0.2) + 0.002); }
+        for (const c of camps) { const b = ((c.rb ??= {})[id] ??= {}); b[k] = Math.min(0.3, (b[k] || 0) + 0.1 * m * (1 - (b[k] || 0) / 0.3) + 0.002); }
       } else trustAt(k, 0.8, id);
     }
-    if (rnd() < 0.2) { trustAll(id, 1.5); S.rw[id] += 0.3; wire(`${pn(id)} ${pick(RIV_GOOD)}`); }
+    // 네거티브 공세: 우리 후보가 나온 지역 중 우리 몫이 그 당의 0.8배 이상인 곳
+    for (const c of camps) {
+      const hot = R.filter(r => myRun(c, r.k) && rivShare('P', r.k) >= 0.8 * rivShare(id, r.k));
+      if (!hot.length || rnd() >= 0.5) continue;
+      const r = pick(hot);
+      c.boost.reg[r.k] = Math.max(-0.15, (c.boost.reg[r.k] || 0) - 0.04); S.buzz -= 0.5; // 우리 유세가 없으면 마이너스까지
+      relAdd(id, -1, `${r.n} 네거티브 공세`); wire(`${pn(id)}, ${r.n}서 ${S.party.name} 겨냥 네거티브 공세`);
+    }
+    if (rnd() < 0.3) { trustAll(id, 1.5); S.rw[id] += 0.3; wire(`${pn(id)} ${pick(RIV_GOOD)}`); }
     if (rnd() < 0.06) { const hit = rr(2.5, 5.5); S.rw[id] -= hit * 0.5; trustAll(id, -hit * 0.3); wire(`${pn(id)} ${pick(RIV_GAFFE)}`); }
   }
 }
@@ -4143,7 +4158,7 @@ function pGuide() {
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
       <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 신뢰도 20 미만에서는 0.8배, 20~40에서는 0.6배만 오르고, 40을 넘으면 높아질수록 오르기가 점점 어려워집니다(60이면 절반 이하, 80이면 5분의 1).</li>
-      <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
+      <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 한 달쯤마다 바뀔 수 있습니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
       <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
