@@ -3219,7 +3219,7 @@ function showEvent(e) {
   Snd.sfx('event');
   openModal({
     title: e.title, dismiss: false,
-    html: `<p>${e.body()}</p>${e.note ? `<div class="lawnote">${e.note}</div>` : ''}<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`,
+    html: `<p>${e.body()}</p>${e.html ? e.html() : ''}${e.note ? `<div class="lawnote">${e.note}</div>` : ''}<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`,
     onOpen: m => m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
       const msg = ch[+b.dataset.c].run();
       S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
@@ -3233,6 +3233,8 @@ function scandalEv(pid) {
   const p = person(pid); if (!p) return;
   const what = pick(['음주운전 적발', '부동산 투기 의혹', '갑질 폭로', '논문 표절 의혹', '막말 녹취 공개', '성비위 폭로']);
   showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc(roleLabel(p.role) || p.job)})의 ${what} 보도가 나왔습니다.`,
+    html: () => `<div class="pcard" style="margin-top:12px"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
+      ${statBars(p)}<div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span></div></div>`, // 제명할지 판단하도록 그 사람 프로필
     note: /비례/.test(p.role) ? '비례대표 의원을 제명하면 무소속으로 의원직을 유지해 당은 의석을 잃습니다.' : '',
     ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
       { t: '사과하고 당직 정지', s: '신뢰 소폭 하락', run: () => { S.trust -= 2; p.integ = clamp(p.integ + 15, 0, 100); return '공개 사과했습니다.'; } },
