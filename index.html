@@ -446,6 +446,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .who>div{min-width:0}
 /* 인재 카드 */
 .pcards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.pager{justify-content:center;margin:14px 0 0}.pager .btn{min-width:32px}
 .psort{margin:0;grid-column:1/-1}
 /* 작은 필터 버튼(인재 정렬·지역 소식 지역·원내 의원 소속): 같은 크기·간격 */
 .chips{gap:4px}.chips:not(.psort){margin-bottom:14px}.follow .chips{margin-bottom:22px}.chips .btn{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
@@ -3082,7 +3083,8 @@ function bindPanel(m) {
   m.querySelectorAll('[data-autogov]').forEach(b => b.onchange = () => { S.autoGov = b.checked; Snd.sfx('click'); save(); renderAll(); });
   m.querySelectorAll('[data-des]').forEach(b => b.onclick = () => toggleDes(+b.dataset.des));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
-  m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; renderAll(); });
+  m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; pPage = 0; renderAll(); });
+  m.querySelectorAll('[data-ppage]').forEach(b => b.onclick = () => { pPage = +b.dataset.ppage; renderAll(); m.querySelector('.phead')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
   m.querySelectorAll('[data-camp]').forEach(el => el.addEventListener('change', () => { draftChange(el); }));
@@ -3198,12 +3200,14 @@ const statBars = (p, hide) => `<div class="pstat">${[['인지도', p.fame, 'var(
 const POOL_MAX = 300;
 // 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
-let pSort = 'def', pDir = 1;
+let pSort = 'def', pDir = 1, pPage = 0;
+const P_PER = 20; // 인재 탭 한 쪽에 카드 20장
 function pPeople() {
   // 인재 카드: 초상 + 능력치 막대
   // 직책 있는 사람 먼저: 당 대표 → 대통령 → 지역구 의원 → 비례 의원 → 시·도지사 → 나머지(원래 순서 유지)
   const rank = p => p.leader ? 0 : p.role === '대통령' ? 1 : /^국회의원\((?!비례)/.test(p.role) ? 2 : /비례/.test(p.role) ? 3 : /시·도지사$/.test(p.role) ? 4 : 5;
-  const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
+  const pages = Math.max(1, Math.ceil(S.pool.length / P_PER)); pPage = Math.min(pPage, pages - 1); // 제명 등으로 쪽이 줄면 마지막 쪽으로
+  const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).slice(pPage * P_PER, (pPage + 1) * P_PER).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
     ${statBars(p)}
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   // 머리: [제목 | (대기 안내문) 인재 영입] / [정렬]
@@ -3211,6 +3215,7 @@ function pPeople() {
   return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${recruit}</div>
     <div class="filters psort chips" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div></div>
     <div class="pcards">${rows}</div>
+    ${pages > 1 ? `<nav class="filters chips pager" aria-label="인재 쪽">${Array.from({ length: pages }, (_, i) => `<button class="btn${i === pPage ? ' pri' : ''}" data-ppage="${i}" ${i === pPage ? 'aria-current="page"' : ''}>${i + 1}</button>`).join('')}</nav>` : ''}
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
 }
 // 제명돼도 공직은 그대로(무소속). 공직선거법 제192조 제4항은 비례대표 의원도 '제명'은 퇴직 사유에서 뺌. 단체장은 당적과 무관
