@@ -3714,7 +3714,7 @@ function campCard(c) {
   if (S.day > dl) return `<div class="card" style="margin-bottom:14px">${head}<p class="bad">후보자 등록 기간이 지나 이번 선거에 참여하지 못합니다.</p></div>`;
   return `<div class="card" style="margin-bottom:14px">${head}${nomForm(c)}<div id="sum-${c.key}">${nomSummary(c)}</div><div class="btns" style="margin-top:10px"><button class="btn pri" data-register="${c.key}">후보자 등록 신청</button></div></div>`;
 }
-const personOpts = (sel, kind) => `<option value="">인재풀 자동 배치</option>` + S.pool.filter(p => eligible(p, kind)).map(p => `<option value="${p.id}" ${+sel === p.id && sel !== '' ? 'selected' : ''}>${esc(p.name)} (인지도 ${p.fame}, ${p.age}세)</option>`).join('');
+const personOpts = (sel, kind) => `<option value="">인재풀 자동 배치</option>` + S.pool.filter(p => eligible(p, kind)).map(p => `<option value="${p.id}" ${+sel === p.id && sel !== '' ? 'selected' : ''}>${esc(p.name)} (인지도 ${Math.round(p.fame)}, ${p.age}세)</option>`).join('');
 function nomForm(c) {
   const d = c.draft, a = `data-camp="${c.key}"`;
   if (c.type === 'nat') {
@@ -3740,7 +3740,7 @@ function nomForm(c) {
       </tbody></table></div>
       <p class="tip">후보는 인재풀에서만 나옵니다. '인재풀 자동 배치'는 인재를 직접 고르지 않은 지역에 출마 가능한 인재(당 대표·대통령·다른 선거 현직 제외)를 무작위로 냅니다. 인재가 모자라면 등록할 수 없습니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
   }
-  return `<div class="row"><label class="f">대통령 후보 (당내 경선)<select ${a} data-f="cand">${'<option value="">선택</option>' + S.pool.filter(p => eligible(p, 'pres')).map(p => `<option value="${p.id}" ${+d.cand === p.id && d.cand !== '' ? 'selected' : ''}>${esc(p.name)} (${p.age}세, 인지도 ${p.fame}, 역량 ${p.skill})</option>`).join('')}</select><span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
+  return `<div class="row"><label class="f">대통령 후보 (당내 경선)<select ${a} data-f="cand">${'<option value="">선택</option>' + S.pool.filter(p => eligible(p, 'pres')).map(p => `<option value="${p.id}" ${+d.cand === p.id && d.cand !== '' ? 'selected' : ''}>${esc(p.name)} (${p.age}세, 인지도 ${Math.round(p.fame)}, 역량 ${p.skill})</option>`).join('')}</select><span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
     <label class="f">선거비용<select ${a} data-f="spend">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select><span class="h">선거비용제한액(약 588억) 이내</span></label></div>
     <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${x.fame})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
 }
