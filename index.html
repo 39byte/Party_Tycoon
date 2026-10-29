@@ -1049,6 +1049,8 @@ function shareRace(k, ids, mods) {
 }
 function campBoost(c, k) { return c ? 1 + c.boost.nat + (c.boost.reg[k] || 0) : 1; }
 
+// 비례 득표 가중(운 빼고). 비례 후보 수 추천에도 씀
+const prWeight = (c, id, ns) => id === 'P' ? ns.P * 1.15 * campBoost(c, '') * (c?.sat ? 1.3 : 1) : ns[id] * (id === 'C' ? 1.3 : id === 'O' ? 0.8 : 1);
 function simGeneral(c) {
   const reg = c && c.reg, seatsD = { P: {}, A: {}, B: {}, C: {}, O: {} }, pDist = [], wins = [];
   for (const r of R) {
@@ -1069,8 +1071,8 @@ function simGeneral(c) {
     }
   }
   const ns = natShares(), raw = {};
-  for (const id of ['A', 'B', 'C', 'O']) raw[id] = ns[id] * (id === 'C' ? 1.3 : id === 'O' ? 0.8 : 1) * Math.exp(gauss() * 0.05);
-  raw.P = reg && reg.pr.length ? ns.P * 1.15 * campBoost(c, '') * (c.sat ? 1.3 : 1) * Math.exp(gauss() * 0.05) : 0;
+  for (const id of ['A', 'B', 'C', 'O']) raw[id] = prWeight(c, id, ns) * Math.exp(gauss() * 0.05);
+  raw.P = reg && reg.pr.length ? prWeight(c, 'P', ns) * Math.exp(gauss() * 0.05) : 0;
   const rs = sum(Object.values(raw)), pv = {};
   for (const id in raw) pv[id] = raw[id] / rs;
   const dist = id => sum(Object.values(seatsD[id]));
@@ -2522,14 +2524,23 @@ function nomFill(c) {
 }
 // 자동 배치: 후보 점수(L.candScore: 득표 배율의 지수) 높은 인재부터 우리 지지가 높은 지역 자리에. 총선은 비례 몫(홀수 순번 여성)을 점수 낮은 쪽에서 먼저 떼어 둠(비례 득표는 후보 점수와 무관)
 // ponytail: 지지 높은 곳 = 접전이라는 근사(우리가 대개 소수 정당). 이미 크게 앞서는 곳이 생기면 접전 지역 우선으로 바꿀 것
+// 비례 후보 수 추천: 지금 여론대로면 받을 비례 의석(우리 지역구 당선은 0으로 쳐 넉넉히) × 1.3 + 1로 여론 변동 대비.
+// 비례 득표율이 국고보조금 배분 기준이라 최소 2명. 홀수 순번 여성·인재 수 안에서
+function prRec(c) {
+  const ns = natShares(), ids = ['P', 'A', 'B', 'C', 'O'];
+  const exp = L.allocatePR(ids.map(id => ({ id, votes: prWeight(c, id, ns), district: id === 'P' || id === 'O' ? 0 : sum(Object.values(S.seats[id].d)) }))).P;
+  const ps = nomPool(c);
+  return { exp, n: Math.min(LAW.prSeats, 2 * ps.filter(p => p.gender === 'F').length, ps.length, Math.max(2, Math.ceil(exp * 1.3) + 1)) };
+}
 function nomAuto(key) {
   const c = S.camps[key]; if (!c || c.reg) return;
   nomFill(c);
   const d = c.draft, ss = nomSlots(c), sc = p => L.candScore(p);
   let ps = nomPool(c).sort((a, b) => sc(b) - sc(a));
   if (c.type === 'nat') {
-    // 총선은 출마 지역구 수도 정함: 비례 몫을 뺀 인재 전부를, 우리 지지 높은 지역부터 의석 수만큼 채워 나감
-    const prN = clamp(+d.prN || 0, 0, LAW.prSeats), F = ps.filter(p => p.gender === 'F'), needF = Math.min(F.length, Math.ceil(prN / 2));
+    // 총선은 비례 후보 수(추천값)와 출마 지역구 수도 정함: 비례 몫을 뺀 인재 전부를, 우리 지지 높은 지역부터 의석 수만큼 채워 나감
+    d.prN = prRec(c).n;
+    const prN = d.prN, F = ps.filter(p => p.gender === 'F'), needF = Math.min(F.length, Math.ceil(prN / 2));
     const resF = F.slice(F.length - needF), rest = ps.filter(p => !resF.includes(p)), cut = Math.max(0, rest.length - Math.max(0, prN - needF));
     d.prIds = [...resF, ...rest.slice(cut)].map(p => p.id);
     const seats = [...R].sort((a, b) => regSupport(b.k) - regSupport(a.k)).flatMap(r => Array(r.seats).fill(d.reg[r.k])), dist = rest.slice(0, Math.min(cut, seats.length));
@@ -3788,7 +3799,7 @@ function nomForm(c) {
   nomFill(c);
   const d = c.draft, a = `data-camp="${c.key}"`, ss = nomSlots(c);
   const slot = (i, label) => `<select ${a} data-f="slot" data-s="${i}" aria-label="${label}">${personOpts(ss[i][0][ss[i][1]], nomKind(c))}</select>`;
-  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button><span class="small muted">후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 우리 지지가 높은 지역부터 배치합니다.${c.type === 'nat' ? ' 출마 지역구 수도 정합니다(비례 후보 수는 그대로, 보유 자금 안에서).' : ''}</span></div>`;
+  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button><span class="small muted">후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 우리 지지가 높은 지역부터 배치합니다.${c.type === 'nat' ? ' 비례대표 후보 수(추천값)와 출마 지역구 수도 보유 자금 안에서 정합니다.' : ''}</span></div>`;
   let si = 0;
   if (c.type === 'nat') {
     return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th></tr></thead><tbody>
@@ -3799,7 +3810,7 @@ function nomForm(c) {
       </tbody></table></div>
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마 수를 늘리면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, 직접 바꾸거나 '자동 배치'를 누르세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다. 지역구 여성 후보가 30% 이상이면 여성추천보조금(정치자금법 제26조).</p>
       <div class="row" style="margin-top:12px">
-        <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원</span></label>
+        <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원 · ${(r => `추천 ${r.n}명 (지금 여론이면 비례 ${r.exp}석 예상)`)(prRec(c))}</span></label>
       </div>
       <fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">비례대표 명부 상위 배치 인재 (선택 순서대로)</legend>
       <div class="row">${S.pool.filter(p => eligible(p, 'nat') && !ss.some(([o, f]) => o[f] === p.id)).map(p => `<label class="small"><input type="checkbox" ${a} data-f="prPick" value="${p.id}" ${d.prIds.includes(p.id) ? 'checked' : ''}> ${esc(p.name)}(${p.gender === 'F' ? '여' : '남'})</label>`).join('') || '<span class="muted small">인재 없음</span>'}</div>
