@@ -3318,12 +3318,12 @@ function renderNav() {
 function renderPanel() {
   if (!S) return;
   const main = $('#main');
-  const y = main.scrollTop, al = S.alerts[tab];
+  const y = main.scrollTop, al = S.alerts[tab], fy = tab === shownTab ? [...main.querySelectorAll('.follow')].map(e => e.scrollTop) : []; // 안쪽 스크롤 영역(지역 소식 등)도 유지
   if (tab !== shownTab) fresh = [];
   if (al && al.length) { fresh = [...fresh, ...al]; S.alerts[tab] = []; }
   shownTab = tab;
   main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, court: pCourt, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
-  main.scrollTop = y;
+  main.scrollTop = y; main.querySelectorAll('.follow').forEach((e, i) => e.scrollTop = fy[i] || 0);
   tipify(main); sentWrap(main);
   markLead();
   bindPanel(main);
