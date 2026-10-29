@@ -1131,7 +1131,7 @@ function newCamp(e) {
     c.draft = { cand: '', spend: 1 };
     c.rivals = {};
     for (const id of ['A', 'B', 'C']) if (id !== 'C' || rnd() < 0.7)
-      c.rivals[id] = { name: genName(rnd() < 0.3 ? 'F' : 'M'), fame: Math.round(rr(id === 'C' ? 35 : 55, id === 'C' ? 60 : 85)), skill: Math.round(rr(50, 85)) };
+      c.rivals[id] = bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: Math.round(rr(id === 'C' ? 35 : 55, id === 'C' ? 60 : 85)), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
   }
   return c;
 }
@@ -1961,13 +1961,20 @@ const FIG_JOBS = ['변호사', '검사 출신 변호사', '판사 출신 변호�
 const POL_ROLE = /국회의원|당협위원장|광역단체장|원외정당/;
 const figOf = (o, id) => id != null && o.figs.find(f => f.id === id);
 const fig = id => figOf(S, id);
-function genFig(o, party, k, pos, x = {}) {
+// 무작위 인물(명부에 넣기 전 능력치만). x에 준 값은 그대로 씀
+function figSpec(pos, x = {}) {
   const gender = x.gender || (x.name ? (GF.includes(x.name.slice(1)) ? 'F' : 'M') : rnd() < 0.22 ? 'F' : 'M'), integ = x.integ ?? Math.round(clamp(gauss() * 15 + 60, 10, 95));
-  const f = { id: ++o.seq, name: x.name || genName(gender), gender, age: x.age || Math.round(rr(40, 70)), party, k, pos, job: x.job || pick(FIG_JOBS),
+  return { name: x.name || genName(gender), gender, age: x.age || Math.round(rr(40, 70)), job: x.job || pick(FIG_JOBS),
     fame: x.fame ?? Math.round(rr(pos === 'cand' ? 8 : 20, pos === 'gov' ? 60 : 45)), skill: x.skill ?? Math.round(rr(40, 85)), integ, ...(x.rec ? { rec: x.rec, ban: !!x.ban } : genRec(integ, true)) };
+}
+// 다른 당 공천: 출마 희망자 RV_HOPE명(+그 자리 현역) 중 후보 점수(L.candScore)가 가장 높은 사람
+const RV_HOPE = 3;
+const bestCand = xs => xs.reduce((a, b) => L.candScore(b) > L.candScore(a) ? b : a);
+function genFig(o, party, k, pos, x = {}) {
+  const f = { id: ++o.seq, ...figSpec(pos, x), party, k, pos };
   o.figs.push(f);
   // 청렴이 낮을수록 언젠가 터질 일을 안고 있음(후보는 낙선하면 명부에서 빠지니 덜 만듦)
-  if (rnd() < (100 - integ) / 100 * (pos === 'cand' ? 0.1 : 0.25)) incNew(o, f, rr(20, 540));
+  if (rnd() < (100 - f.integ) / 100 * (pos === 'cand' ? 0.1 : 0.25)) incNew(o, f, rr(20, 540));
   return f;
 }
 // 명부에서 뺌. 그 사람 사건도 지움(우리 당으로 온 사람 몫은 남김)
@@ -2054,7 +2061,7 @@ function incReport() {
 // c.rv: { 지역: [의석별 { 당: { at, fid } }] } (지방선거는 지역마다 한 자리). 등록 마감까지 모두 발표. 대선은 c.rivals[당].fid
 function rvPlan(c) {
   if (c.rv) return;
-  if (c.type === 'pres') { for (const id in c.rivals) { const x = c.rivals[id]; x.fid ??= genFig(S, id, pick(R).k, 'cand', { name: x.name, fame: x.fame, skill: x.skill, age: Math.round(rr(52, 70)) }).id; } c.rv = {}; return; }
+  if (c.type === 'pres') { for (const id in c.rivals) { const x = c.rivals[id]; x.fid ??= genFig(S, id, pick(R).k, 'cand', { age: Math.round(rr(52, 70)), ...x }).id; } c.rv = {}; return; }
   const end = c.day - LAW.regDeadline[c.type], at = () => Math.round(rr(S.day, end)), nat = c.type === 'nat';
   c.rv = Object.fromEntries(R.map(r => [r.k, Array.from({ length: nat ? r.seats : 1 }, () => {
     const s = { A: { at: at() }, B: { at: at() } };
@@ -2064,10 +2071,11 @@ function rvPlan(c) {
   })]));
 }
 const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.values(s).map(x => x.fid)), ...Object.values(c.rivals || {}).map(x => x.fid)].filter(Boolean);
-// 한 자리 사람 정하기: 그 지역 현역은 대개(75%) 다시 공천받음
+// 한 자리 사람 정하기: 그 지역 현역(피선거권 있으면)과 새 출마 희망자들 중 후보 점수가 가장 높은 사람
 function rvPick(c, k, id, used) {
-  const cur = S.figs.find(f => f.party === id && f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov') && !used.has(f.id));
-  const f = cur && rnd() < 0.75 ? cur : genFig(S, id, k, 'cand'); used.add(f.id); return f;
+  const cur = S.figs.find(f => f.party === id && f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov') && !used.has(f.id) && !f.ban);
+  const b = bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => figSpec('cand'))]);
+  const f = b === cur ? cur : genFig(S, id, k, 'cand', b); used.add(f.id); return f;
 }
 function rvFill(c) {
   if (!c.rv) return;
