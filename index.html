@@ -2689,9 +2689,14 @@ function selfAct() {
   showEvent({ title: '소속 정치인 논란', body: () => `${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(pn(att))}이(가) 즉각 사퇴를 요구하며 맹공에 나섰고, 우리 당 지지율이 흔들립니다.${esc(gapNote(att))}`,
     ch: [{ t: '즉각 사과하고 당직 정지', s: '파장 절반으로', run: () => { S.buzz += hit * 0.5; S.trust += 0.5; if (!p.temp) p.integ = clamp(p.integ + 10, 0, 100); return '빠른 사과로 불길이 잦아들었습니다.'; } },
       { t: '"왜곡·짜깁기"라며 감싼다', s: '통하면 역공, 아니면 더 커짐', run: () => { if (vsLuck(0.35, att)) { S.buzz += hit * 0.9; S.rw[att] -= 1; trustAll(att, -1); return '원본 영상이 공개되며 상대 당 공세가 역풍을 맞았습니다.'; } S.buzz -= hit * 0.6; S.trust -= 1.5; return '감싸기가 "내로남불"로 번지며 파장이 커졌습니다.'; } },
-      { t: '윤리위원회 징계 회부', s: '신뢰↑ · 당원 일부 반발', run: () => { S.buzz += hit * 0.6; S.trust += 1; for (const x in S.members) S.members[x] = Math.round(S.members[x] * 0.99); return '당 윤리위가 징계에 착수했습니다. 일부 당원은 "너무 가혹하다"며 반발합니다.'; } },
+      { t: '윤리위원회 징계 회부', s: `신뢰↑ · 당원 일부 반발${(S.ethics || []).filter(d => S.day - d < ETH_WIN).length >= ETH_MAX ? ' · 잦은 징계로 지지율↓' : ''}`, run: () => { S.buzz += hit * 0.6; S.trust += 1; for (const x in S.members) S.members[x] = Math.round(S.members[x] * 0.99);
+        // 8주 안에 3번째 회부부터는 "당이 콩가루"라는 인상에 지지율 소폭 하락(넘친 만큼 1씩)
+        S.ethics = [...(S.ethics || []).filter(d => S.day - d < ETH_WIN), S.day]; const over = S.ethics.length - ETH_MAX;
+        if (over > 0) S.buzz -= over;
+        return `당 윤리위가 징계에 착수했습니다. 일부 당원은 "너무 가혹하다"며 반발합니다.${over > 0 ? ` 최근 ${ETH_WIN / TURN}주 사이 ${S.ethics.length}번째 징계 회부라 "당이 내분으로 흔들린다"는 말이 돌며 지지율이 조금 내려갔습니다.` : ''}`; } },
       { t: '상대 당 과거 사례로 맞불', s: '인지도↑ · 관계↓', run: () => { S.fame += 1; S.buzz += hit * 0.2; S.rw[att] -= 0.8; relAdd(att, -6, '맞불 폭로'); return '진흙탕 공방으로 번졌습니다. 양쪽 모두 상처를 입었습니다.'; } }] });
 }
+const ETH_WIN = 8 * TURN, ETH_MAX = 2; // 징계 회부는 8주에 2번까지 괜찮음
 // '억까' 사건: 근거가 약해도 일단 퍼지면 지지율이 빠짐. 대응에 따라 회복하거나 역풍
 const SMEAR = (id, title, body) => ({ id, w: 2.5, cond: () => S.fame > 3, title,
   pre: () => { ET.att = attacker(); ET.hit = rr(2, 5) * gapHit(ET.att); ET.title = title; S.buzz -= ET.hit; S.trust -= ET.hit * 0.2; relAdd(ET.att, -2, title); wire(`${title}… ${pn(ET.att)} 공세`); },
