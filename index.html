@@ -444,7 +444,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .who>div{min-width:0}
 /* 인재 카드 */
 .pcards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
-.psort{gap:4px;margin:0 0 14px}.psort .btn{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
+.psort{gap:4px;margin:0}.psort .btn{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
 .pcard{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
 .pcard .who h3{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
@@ -3163,9 +3163,9 @@ function pPeople() {
   const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
     ${statBars(p)}
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
-  return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h2 style="margin:0">인재풀 (${S.pool.length}/${POOL_MAX})</h2><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입</button></div>
+  // 정렬 버튼과 인재 영입 버튼은 아래 끝선을 맞춤(.row = align-items:flex-end)
+  return `<div class="card"><div class="row" style="justify-content:space-between;margin-bottom:14px"><div><h2 style="margin:0 0 10px">인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="filters psort" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div></div><button class="btn pri" data-act="talent" ${why('talent') ? 'disabled' : ''}>인재 영입</button></div>
     ${why('talent') ? `<p class="small warn">${esc(why('talent'))}</p>` : ''}
-    <div class="filters psort" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div>
     <div class="pcards">${rows}</div>
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
 }
