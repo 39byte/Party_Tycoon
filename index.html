@@ -913,7 +913,11 @@ const TRUST_DOWN = 1.3, TRUST_UP = 0.6;
 const lowTrust = t => t < 50 ? 0.5 + t / 100 : 1;
 // 지역 지지율 하락 배율: 신뢰도 0이면 2배 ~ 50이면 1배 ~ 100이면 0.5배
 const trustFall = t => t < 50 ? 2 - t / 50 : 1.5 - t / 100;
-const trustScale = d => d * (d > 0 ? TRUST_UP : TRUST_DOWN);
+// 40을 넘으면 오르는 폭이 e^(−(t−40)/25)배로 줄어 로그 곡선처럼 둔해짐(50 → 0.67배, 60 → 0.45배, 80 → 0.2배, 100 → 0.09배)
+// 한 번에 크게 오를 때도 구간을 쪼개 적분: 40까지는 그대로, 넘는 몫 r은 t = 40 + K·ln(e^((t0−40)/K) + r/K)
+const TRUST_SOFT = 40, TRUST_K = 25;
+const trustUp = (d, t) => { const a = clamp(TRUST_SOFT - t, 0, d), r = d - a, t0 = t + a; return a + (r > 0 ? TRUST_SOFT + TRUST_K * Math.log(Math.exp((t0 - TRUST_SOFT) / TRUST_K) + r / TRUST_K) - t0 : 0); };
+const trustScale = (d, t) => d > 0 ? trustUp(d * TRUST_UP, t) : d * TRUST_DOWN;
 function defTrust(o) {
   Object.defineProperty(o, 'trust', {
     configurable: true, enumerable: false,
@@ -4057,7 +4061,7 @@ function pGuide() {
       <li>당원이 ${LAW.chapterMembers.toLocaleString()}명을 넘은 시·도에서 시·도당 창당대회를 엽니다. <b>${LAW.minChapters}곳</b>이 되면 본부 탭에서 등록을 신청합니다.</li>
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
-      <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다.</li>
+      <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 40을 넘으면 높아질수록 오르기가 점점 어려워집니다(60이면 절반 이하, 80이면 5분의 1).</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 한 달쯤마다 바뀔 수 있습니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
