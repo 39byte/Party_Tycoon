@@ -461,7 +461,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 /* 교섭 인물 사진: 누르면 능력치 팝업 */
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.dirp:hover{background:var(--surface2)}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
+.dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
 .facebtn{display:inline-flex;flex:none;padding:0;border:0;background:none;border-radius:10px;cursor:pointer;transition:transform .1s}
 .facebtn:hover{transform:scale(1.06)}
 .facebtn:focus-visible{outline:2px solid var(--primary2);outline-offset:2px}
@@ -1621,7 +1621,9 @@ function accTargets() {
   return out;
 }
 // 그 사람에 대해 교섭 자리에서 들은 얘기(맞는지는 친분만큼). 그 당 차원 루머는 그 당 의원 몫으로도 보여 줌
-const accHints = t => [...S.mps, ...S.outs].flatMap(m => (m.talk || []).filter(x => x.ref && (
+// 대화를 나눈 사람들(교섭 명단에서 뺀 의원 포함)
+const talkers = () => [...S.mps, ...S.outs, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])];
+const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && (
   t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
 ) || (x.ref?.ik === 'party' && x.ref.party === t.party && t.grp === 'mp')).map(x => ({ ...x, who: m.name, pty: x.ref.ik === 'party' }))); // pty: 그 사람 얘기가 아닌 당 소문
 const accOpen = t => S.cases.some(c => c.acc?.key === t.key);
@@ -1916,7 +1918,8 @@ function relAdd(id, v, t) {
 // 경쟁 정당의 주요 지역구 의원(교섭·영입 대상)
 // 교섭할 수 있는 다른 당 원내 의원 명단. keep(남은 인물)을 두고 당별 정원까지 채움
 const MP_N = { A: 6, B: 6, C: 3, O: 2 };
-const mpOf = (o, f) => ({ id: ++o.seq, fid: f.id, name: f.name, gender: f.gender, party: f.party, k: f.k, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, loyalty: Math.round(rr(30, 90)), rel: 0 });
+// 명단에서 뺐던 의원을 다시 넣으면 그때 친분·대화 내역(f.mp)을 그대로 되살림
+const mpOf = (o, f) => f.mp ? (m => (delete f.mp, m))(f.mp) : ({ id: ++o.seq, fid: f.id, name: f.name, gender: f.gender, party: f.party, k: f.k, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, loyalty: Math.round(rr(30, 90)), rel: 0 });
 function genMPs(o, keep = []) {
   const out = [...keep];
   for (const id in MP_N) {
@@ -2035,7 +2038,7 @@ function incReport() {
     if (me) { S.trust -= 2; S.buzz -= 1; addLog(`[보도] ${h}`, 'bad'); toast(`영입하기 전 일이 터졌습니다: ${h}`, 'bad'); }
     else { S.rw[x.party] -= incT(x).pen; trustAll(x.party, -incT(x).pen * 0.5); if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: h, k: x.k }); } }
     wire(h);
-    const told = [...S.mps, ...S.outs].flatMap(p => (p.talk || []).filter(y => y.iid === x.id).map(y => (y.hit = 1, p)));
+    const told = talkers().flatMap(p => (p.talk || []).filter(y => y.iid === x.id).map(y => (y.hit = 1, p)));
     if (told.length) { const msg = `${told[0].name}에게 들었던 얘기가 현실이 됐습니다. ${h}`; addLog(msg); toast(msg); }
     return false;
   });
@@ -2217,7 +2220,7 @@ function personInfo(key) {
   openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div>${mp || POL_ROLE.test(m.role) ? `<div class="small muted">출신: ${esc(talkJob(m))}</div>` : ''}<div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
       ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
         : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}${talkHTML(m)}`,
-    buttons: [{ t: '닫기', pri: true }] });
+    buttons: [...(mp ? [{ t: '교섭 명단에서 빼기', fn: () => { const f = fig(m.fid); if (f) f.mp = m; S.mps = S.mps.filter(x => x !== m); toast(`${m.name} 의원을 교섭 명단에서 뺐습니다. 다시 넣으면 그동안의 친분이 이어집니다.`); renderAll(); } }] : []), { t: '닫기', pri: true }] });
 }
 function negMpModal(mid) {
   const m = S.mps.find(x => x.id === mid); if (!m) return;
@@ -2992,7 +2995,7 @@ const XEV = {
     else if (q.kind === 'whip') { const b = S.bills.find(x => x.id === q.bid); if (!b) return; b.lobby += 0.08; t = `${pn(q.id)}, '${b.t}' 통과 위해 표 단속 돌입`; }
     else { S.rw[q.id] += 0.5; t = `${pn(q.id)} 지도부 ${RK[q.k].n} 총출동… 집중 공략 나서`; }
     wire(t);
-    const x = [...S.mps, ...S.outs].flatMap(p => p.talk || []).find(x => x.id === q.tid); if (x) x.hit = 1;
+    const x = talkers().flatMap(p => p.talk || []).find(x => x.id === q.tid); if (x) x.hit = 1;
     const msg = `${q.who}에게 들었던 얘기가 현실이 됐습니다. ${t}`; addLog(msg); toast(msg);
   },
   // 역점사업 후속 보도: 지지도·당원이 조금 움직이고, 새 현안·악재가 생기기도 함
