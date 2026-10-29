@@ -182,7 +182,12 @@ nav .more{display:none}
 /* 지도·지역 정보 카드가 각각 한 화면(상단 바 아래)에 들어가게: 지도는 화면 높이에 맞춰 줄이고, 지역 카드는 칸을 촘촘히 */
 .mapwrap{align-items:start;grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .mapwrap .kmap{max-height:max(320px,calc(100dvh - 300px))}
 .mapwrap .kv th,.mapwrap .kv td{padding:4px 8px}
-.mapwrap .acts{grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px}
+/* 지역 활동 카드: 카드 수와 카드 폭에 맞춰 칸 수를 정함(빈 칸 없게). 2칸일 때 홀수 개면 마지막 카드는 한 줄 전체 */
+.mapwrap>.card:last-child{container-type:inline-size}
+.mapwrap .acts{grid-template-columns:minmax(0,1fr);gap:10px}
+@container (min-width:380px){.mapwrap .acts{grid-template-columns:repeat(2,minmax(0,1fr))} .mapwrap .acts>.act:last-child:nth-child(odd){grid-column:1/-1}}
+@container (min-width:560px){.mapwrap .acts.n3{grid-template-columns:repeat(3,minmax(0,1fr))} .mapwrap .acts.n3>.act:last-child{grid-column:auto}}
+@container (min-width:760px){.mapwrap .acts.n4{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .mapwrap .act{padding:10px 12px}
 
 /* tables */
@@ -3123,7 +3128,7 @@ function pOrg() {
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
       </tbody></table></div></div>
       ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${Math.min(S.members[r.k], 1000).toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
-      <div class="acts" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
+      <div class="acts n${2 + !S.chapters[r.k] + cs}" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
     </div></div>`;
 }
 function pAct() {
