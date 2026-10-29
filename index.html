@@ -3853,7 +3853,7 @@ function pOffice() {
 </section>
     <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill')}${actBtn('question')}</div>
       <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
-    <h3 style="margin-top:14px">최근 통과 법안${S.laws.length ? ` <span class="pill">우리 당 누적 ${S.laws.length}건</span>` : ''}</h3>${S.passed.length ? `<ul class="log">${[...S.passed].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${byPill(l.by)} ${esc(l.t)}</span></li>`).join('')}</ul>` : '<p class="small muted">아직 통과된 법안이 없습니다.</p>'}</section></div></div>`;
+    <h3 style="margin:28px 0 10px">최근 통과 법안${S.laws.length ? ` <span class="pill">우리 당 누적 ${S.laws.length}건</span>` : ''}</h3>${S.passed.length ? `<ul class="log">${[...S.passed].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${byPill(l.by)} ${esc(l.t)}</span></li>`).join('')}</ul>` : '<p class="small muted">아직 통과된 법안이 없습니다.</p>'}</section></div></div>`;
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도 | 사회적 이슈 나란히(좁으면 위아래)
   return `<div class="stack">${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}${agendaCard()}</div></div>`;
