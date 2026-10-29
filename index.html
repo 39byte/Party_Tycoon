@@ -3549,14 +3549,14 @@ function dirCard() {
   const xs = (dirCat === 'out' ? S.outs.map(m => ({ key: 'o' + m.id, p: m, party: m.party || 'O', k: m.k, sub: `${m.party ? RIV[m.party].name : '무당적'} · ${m.role}` }))
     : S.figs.filter(f => dirCat === 'mp' ? f.pos === 'd' || f.pos === 'pr' : f.pos === dirCat).map(f => {
       const mp = S.mps.find(m => m.fid === f.id); // 교섭 명단 의원이면 친분·대화 내역까지
-      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}${mp ? ' · 교섭 명단' : ''}` };
+      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}`, neg: !!mp };
     })).filter(x => !dirPar || x.party === dirPar).sort((a, b) => po.indexOf(a.party) - po.indexOf(b.party) || ri(a.k) - ri(b.k));
   const pages = Math.max(1, Math.ceil(xs.length / DIR_PER)); dirPage = Math.min(dirPage, pages - 1);
   const chip = (at, v, n, on) => `<button class="btn${on ? ' pri' : ''}" data-${at}="${v}" aria-pressed="${on}">${n}</button>`;
   return `<h2>인물 명부 <span class="pill">${xs.length}명</span></h2>
     <div class="filters chips" role="group" aria-label="인물 분류">${DIR_CAT.map(([k, n]) => chip('dircat', k, n, dirCat === k)).join('')}</div>
     <div class="filters chips" role="group" aria-label="정당">${chip('dirpar', '', '전체', !dirPar)}${po.map(id => chip('dirpar', id, id === 'O' ? (dirCat === 'out' ? '무소속·무당적' : '무소속') : esc(pn(id)), dirPar === id)).join('')}</div>
-    ${xs.length ? `<div class="dirl">${xs.slice(dirPage * DIR_PER, (dirPage + 1) * DIR_PER).map(x => `<button class="dirp" data-pinfo="${x.key}">${face(x.p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.p.name)}</b><span class="small muted">${esc(x.sub)}</span></span></button>`).join('')}</div>
+    ${xs.length ? `<div class="dirl">${xs.slice(dirPage * DIR_PER, (dirPage + 1) * DIR_PER).map(x => `<button class="dirp" data-pinfo="${x.key}">${face(x.p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.p.name)}${x.neg ? ' <span class="pill">교섭</span>' : ''}</b><span class="small muted">${esc(x.sub)}</span></span></button>`).join('')}</div>
       ${pages > 1 ? pager(dirPage, pages, 'dpage', '명부 쪽 이동') : ''}` : `<p class="empty">${dirCat === 'cand' ? '지금은 공천 기간이 아니거나 아직 발표된 후보가 없습니다.' : '해당하는 인물이 없습니다.'}</p>`}
     <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원은 그 창에서 교섭 명단에 넣을 수 있습니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
