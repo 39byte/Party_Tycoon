@@ -2254,6 +2254,12 @@ function gossip(m) {
 const talkHTML = m => `<h3 style="margin-top:14px">대화 내역 ${infoTip(`<p class="tip">친분이 두터운 사람의 말일수록 들어맞습니다. 루머·의혹·예정 활동은 몇 주 뒤 실제로 벌어지기도 합니다(지금 친분이면 ${Math.round(talkTrue(m) * 100)}%).</p>`)}</h3>${m.talk?.length ? `<ul class="log">${[...m.talk].reverse().map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <span class="pill">${x.k}</span>${x.hit ? ' <span class="pill ok">현실이 됨</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">친분 쌓기 자리에서 들은 이야기가 여기에 모입니다.</p>'}`;
 // 교섭 인물 정보: m12 원내 의원 · o5 원외 인사
 const figBtn = (fid, name) => fig(fid) ? `<button class="lnk" data-pinfo="f${fid}">${esc(name)}</button>` : esc(name);
+// 우리 당 광역단체장(인재풀 사람, 없으면 옛 저장 파일의 이름만 남은 기록)
+function govInfo(k) {
+  const p = govPerson(k); if (!p) return;
+  openModal({ title: p.name, html: `<div class="who" style="margin-bottom:12px">${face(p, S.party.color, 64)}<div><div class="small">${esc(S.party.name)} · ${GOVT[k]}</div><div class="small muted">${p.gender === 'F' ? '여' : '남'}${p.age ? ` · ${p.age}세` : ''}${p.job ? ` · ${esc(p.job)}` : ''}</div><div class="small muted">행정 지지도 ${Math.round(S.ops[k] ?? 50)}</div></div></div>${statBars({ fame: p.fame ?? 0, skill: p.skill ?? 50, integ: p.integ }, p.integ == null)}
+      ${p.rec ? `<p class="small ${p.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</p>` : ''}`, buttons: [{ t: '닫기' }] });
+}
 function figInfo(id) {
   const f = fig(id); if (!f) return;
   const pos = { d: `${RK[f.k].n} 지역구 국회의원`, pr: '비례대표 국회의원', gov: GOVT[f.k], cand: `${RK[f.k].n} 후보` }[f.pos];
@@ -2265,6 +2271,7 @@ function figInfo(id) {
 }
 function personInfo(key) {
   if (key[0] === 'f') return figInfo(+key.slice(1));
+  if (key[0] === 'g') return govInfo(key.slice(1));
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
   const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B', open = recOpen(m, mp);
   const aff = mp ? `${m.party === 'O' ? '무소속' : pn(m.party)} 의원 · ${RK[m.k].n} 지역구` : `${m.party ? RIV[m.party].name : '무당적'} · ${m.role} · ${RK[m.k].n} 기반`;
@@ -3984,7 +3991,7 @@ function pAdmin() {
       <span class="h2r"><label class="sw">자동화<input type="checkbox" role="switch" data-autogov ${S.autoGov ? 'checked' : ''}></label></span></h2>
       <p class="tip">켜면 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 찐빠를 냅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠기며, 시·도당 대응은 기본 행동력으로 직접 할 수 있습니다.</p>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${face(govPerson(k) || { name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
+      <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${govPerson(k) ? `<button class="facebtn" data-pinfo="g${k}" aria-label="${esc(govName(k))} 정보 보기" title="인물 정보">${face(govPerson(k), S.party.color, 48)}</button>` : face({ name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
       <p class="tip">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있으며, 단체장 역량이 높을수록 성공률이 오릅니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
