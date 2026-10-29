@@ -1624,9 +1624,9 @@ function accTargets() {
 // 대화를 나눈 사람들(교섭 명단에서 뺀 의원 포함)
 const talkers = () => [...S.mps, ...S.outs, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])];
 // 이미 고발한 얘기(x.acc)는 빼고 보여 줌
-const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && !x.acc && (
+const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && !x.acc && ((
   t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
-) || (x.ref?.ik === 'party' && x.ref.party === t.party && t.grp === 'mp')).map(x => ({ ...x, who: m.name, pty: x.ref.ik === 'party' }))); // pty: 그 사람 얘기가 아닌 당 소문
+) || (x.ref.ik === 'party' && x.ref.party === t.party && t.grp === 'mp'))).map(x => ({ ...x, who: m.name, pty: x.ref.ik === 'party' }))); // pty: 그 사람 얘기가 아닌 당 소문
 const accOpen = t => S.cases.some(c => c.acc?.key === t.key);
 function accuseFile(t, ch) {
   spend(ACT.accuse.c(), '법률 비용'); S.ap--; S.cd.accuse = S.day + ACT.accuse.cd;
@@ -1635,7 +1635,7 @@ function accuseFile(t, ch) {
   const pinc = ch.rum && t.grp === 'mp' && S.inc.find(x => x.k === 'party' && x.party === t.party && ch.rum.test(x.d) && rnd() < 0.4);
   const real = !!inc || !!pinc || !!f?.news?.some(n => ch.inc.includes(n.k)) || rnd() < (100 - (t.integ ?? 55)) / 100 * 0.2;
   S.inc = S.inc.filter(x => x !== inc && x !== pinc); // 고발로 드러났으니 따로 보도되지 않음
-  for (const h of accHints(t)) if (!h.pty && refCharge(h.ref)?.k === ch.k) talkers().flatMap(m => m.talk || []).forEach(x => { if (x.id === h.id) x.acc = 1; }); // 이 죄목으로 고발한 그 사람 얘기는 다시 추천하지 않음
+  for (const h of accHints(t)) if (refCharge(h.ref)?.k === ch.k) talkers().flatMap(m => m.talk || []).forEach(x => { if (x.id === h.id) x.acc = 1; }); // 이 죄목으로 고발한 얘기(그 사람 얘기·당 차원 소문)는 다시 추천하지 않음
   const pres = t.grp === 'pres', c = openCase({ t: `${t.name} ${ch.n}`, guilty: real, mine: true, target: t.party, acc: { key: t.key, name: t.name, role: t.role, ch: ch.k, fid: t.fid, pid: t.pid, pres } });
   if (pres) c.ev *= 0.7; // 살아 있는 권력 수사는 더 조심스러움
   if (t.party in S.rel) relAdd(t.party, -10, `${t.name} 고발`);
