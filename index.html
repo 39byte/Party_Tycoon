@@ -72,6 +72,7 @@ nav button:hover{background:rgba(255,255,255,.07);color:var(--on-hud)}
 nav button[aria-current="page"]{color:#fff;font-weight:800;border-color:rgba(242,179,61,.55);background:rgba(242,179,61,.14);box-shadow:inset 3px 0 0 var(--gold)}
 nav button[aria-current="page"] .ic{color:var(--gold)}
 nav :focus-visible{outline-color:var(--gold)}
+nav .badge.ndot{min-width:0;width:9px;height:9px;padding:0}
 nav .badge{margin-left:auto;background:var(--danger);color:#fff;border-radius:99px;font-size:11px;font-weight:800;min-width:20px;text-align:center;padding:0 6px;box-shadow:0 0 0 2px var(--hud)}
 main{padding:18px;min-width:0}
 /* 메뉴 묶음 구분선(연하게). 읽을거리 묶음은 위를 더 띄움. 좁은 화면(가로·하단 메뉴)에선 숨김 */
@@ -1804,7 +1805,7 @@ function rivalBill(notes) {
   const r = pick(pool), mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
   const pop = clamp(0.5 + (r.issue === S.issue ? 0.05 : 0) + gauss() * 0.15, 0.15, 0.85), poll = Math.round(clamp(pop + gauss() * 0.05, 0.05, 0.95) * 100);
   const b = { id: ++S.seq, t: r.t, issue: r.issue, side: r.side, fx: r.fx, by, gov, mp: mp ? mp.name : genName('M'), pop, poll, stance: 0, stage: 0, tries: 0, next: S.day + 21, lobby: 0, lobbied: 0 };
-  S.bills.push(b);
+  S.bills.push(b); S.billNew = 1; // 국회 탭 빨간 점
   notes.push(`${gov ? '정부' : `${pn(by)} ${b.mp} 의원`}, '${r.t}' ${gov ? '국회 제출' : '대표발의'} (여론조사 찬성 ${poll}%)`);
 }
 // 다른 당·정부 법안 본회의: 우리 당론은 신뢰(여론과 맞는지)와 발의 당과의 관계에, 통과되면 제도가 바뀜
@@ -3457,8 +3458,8 @@ function renderNav() {
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = S.autoGov ? 0 : R.filter(r => rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
   const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length }, badgeSr = { admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
-  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('')
-    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length) && !open ? '<span class="badge">!</span>' : ''}</button>`;
+  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('')
+    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length || S.billNew) && !open ? '<span class="badge">!</span>' : ''}</button>`;
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
   nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
 }
@@ -3467,6 +3468,7 @@ function renderPanel() {
   const main = $('#main');
   const y = main.scrollTop, al = S.alerts[tab], fy = tab === shownTab ? [...main.querySelectorAll('.follow')].map(e => e.scrollTop) : []; // 안쪽 스크롤 영역(지역 소식 등)도 유지
   if (tab !== shownTab) fresh = [];
+  if (tab === 'office') S.billNew = 0;
   if (al && al.length) { fresh = [...fresh, ...al]; S.alerts[tab] = []; }
   shownTab = tab;
   main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, court: pCourt, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
