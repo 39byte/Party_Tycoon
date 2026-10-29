@@ -1801,6 +1801,29 @@ function negModal(id) {
     onOpen: m => m.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:' + id, x.c, negOdds(x.k, id), x.win, x.lose); }),
   });
 }
+// 친분 쌓기 자리에서 듣는 정치 얘기. 게임 상태(숨긴 일·계류 법안·사회적 이슈·선거 일정)에서 뽑으니 귀띔은 대체로 맞음
+// 친분이 두터우면(우호 이상) 속 얘기도 해 줌: 우리 당 의혹이 새고 있다는 귀띔, 우리 법안에 대한 그 당 표심
+const RUMORS = ['사무총장이 공천 대가로 돈을 받았다', '지도부가 비례대표 순번을 두고 뒷거래를 했다', '대표 측근이 기업 후원금을 쪼개 받았다', '중진 의원 몇이 탈당을 저울질한다', '불리한 여론조사 결과를 지도부가 덮었다', '당직자 갑질 제보가 내부에서 묵살됐다'];
+function gossip(m) {
+  const own = ['A', 'B', 'C'].includes(m.party) ? m.party : null, near = m.rel >= 20, g = S.agenda, ne = nextElection();
+  const others = ['A', 'B', 'C'].filter(id => id !== own), mine = S.bills.filter(b => !b.by), theirs = own ? S.bills.filter(b => b.by === own) : [];
+  const news = S.wire.filter(x => x.c !== 'gov' && S.day - x.d < 21);
+  const says = [
+    near && S.risks.length && ['의혹', `요즘 기자들 사이에 ${S.party.name} '${pick(S.risks).label}' 얘기가 돈다던데요. 조심하시는 게 좋겠어요.`],
+    ['루머', `${pn(pick(others))} 쪽에서 ${pick(RUMORS)}는 말이 있어요. 확인된 건 아니고요.`],
+    own && ['의혹', `저희 당도 시끄러워요. ${pick(RUMORS)}는 소문 때문에 다들 눈치만 봐요.`],
+    theirs.length && ['예정 활동', `저희 당은 '${pick(theirs).t}'을(를) 이번에 꼭 통과시키려고 표 단속에 들어갈 거예요.`],
+    near && own && mine.length && (b => { const a = billAgree(b, own); return ['예상 기조', `${S.party.name}의 '${b.t}' 말인데, 저희 당은 ${a >= 0.6 ? '찬성 쪽으로 기울었어요' : a <= 0.35 ? '반대 기류가 강해요' : '의원들 생각이 갈려 있어요. 설득하면 넘어올 사람도 있고요'}.`]; })(pick(mine)),
+    g && (a => ['사건 의견', `'${a.t}' 말인데요, 저는 "${a.ops[own && g.pos[own] != null ? g.pos[own] : Math.floor(rnd() * a.ops.length)].t.replace(/"/g, '')}" 쪽이 맞다고 봐요.`])(AGENDA.find(x => x.k === g.k)),
+    !g && news.length && ['사건 의견', `'${pick(news).t}' 보셨어요? ${pick(['여의도는 온통 그 얘기예요.', '오래 갈 것 같아요.', '일주일이면 잊힐 거예요.', '다들 표정 관리 중이에요.'])}`],
+    ne && ['예정 활동', `${ne.name}(D-${ne.day - S.day}) 앞두고 ${own ? '저희 당은' : `${pn(pick(others))} 쪽은`} ${pick(R).n}에 공을 많이 들일 거래요.`],
+  ].filter(Boolean);
+  const seen = (m.talk || []).slice(-3).map(x => x.t), fresh_ = says.filter(x => !seen.includes(x[1])); // 최근 3번 한 얘기는 되풀이하지 않음
+  const [k, t] = pick(fresh_.length ? fresh_ : says);
+  (m.talk ??= []).push({ d: S.day, k, t }); if (m.talk.length > 20) m.talk.shift();
+  return ` 식사 자리에서 이런 얘기를 들었습니다. "${t}"`;
+}
+const talkHTML = m => `<h3 style="margin-top:14px">대화 내역</h3>${m.talk?.length ? `<ul class="log">${[...m.talk].reverse().map(x => `<li><time>${fdate(x.d)}</time><span><span class="pill">${x.k}</span> ${esc(x.t)}</span></li>`).join('')}</ul>` : '<p class="small muted">친분 쌓기 자리에서 들은 이야기가 여기에 모입니다.</p>'}`;
 // 교섭 인물 정보: m12 원내 의원 · o5 원외 인사
 function personInfo(key) {
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
@@ -1808,15 +1831,15 @@ function personInfo(key) {
   const aff = mp ? `${m.party === 'O' ? '무소속' : pn(m.party)} 의원 · ${RK[m.k].n} 지역구` : `${m.party ? RIV[m.party].name : '무당적'} · ${m.role} · ${RK[m.k].n} 기반`;
   openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div><div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
       ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
-        : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}`,
+        : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}${talkHTML(m)}`,
     buttons: [{ t: '닫기', pri: true }] });
 }
 function negMpModal(mid) {
   const m = S.mps.find(x => x.id === mid); if (!m) return;
   const pn_ = m.party === 'O' ? '무소속' : RIV[m.party].name, who = `${m.name} 의원(${pn_}·${RK[m.k].n})`;
   const deals = [
-    { k: 'mpMeet', t: '친분 쌓기', d: '식사하며 개인적 신뢰를 쌓습니다.', c: 3e6,
-      win: () => { m.rel = clamp(m.rel + 12, -100, 100); relAdd(m.party, 1, `${m.name} 의원과 회동`); return `${who}과(와) 가까워졌습니다.`; },
+    { k: 'mpMeet', t: '친분 쌓기', d: '식사하며 개인적 신뢰를 쌓고 정치권 이야기를 듣습니다.', c: 3e6,
+      win: () => { m.rel = clamp(m.rel + 12, -100, 100); relAdd(m.party, 1, `${m.name} 의원과 회동`); return `${who}과(와) 가까워졌습니다.${gossip(m)}`; },
       lose: () => { m.rel -= 3; return `${who}이(가) 바쁘다며 자리를 피했습니다.`; } },
     ...(S.bills.length ? [{ k: 'mpBill', t: '법안 협조 요청', d: '계류 중인 우리 법안 전체에 같은 당 의원들의 찬성을 끌어옵니다.', c: 5e6,
       win: () => { S.bills.forEach(b => (b.lobby += 0.04)); m.rel += 3; return `${who}이(가) 같은 당 의원들을 설득해 주기로 했습니다.`; },
@@ -1846,8 +1869,8 @@ function negOutModal(oid) {
   const m = S.outs.find(x => x.id === oid); if (!m) return;
   const aff = m.party ? `${RIV[m.party].name} 소속` : '무당적', who = `${m.name} ${m.role}`;
   const deals = [
-    { k: 'outMeet', t: '친분 쌓기', d: '만나서 조언을 구하고 신뢰를 쌓습니다.', c: 3e6,
-      win: () => { m.rel = clamp(m.rel + 12, -100, 100); return `${who}과(와) 가까워졌습니다.`; },
+    { k: 'outMeet', t: '친분 쌓기', d: '만나서 조언을 구하고 신뢰를 쌓으며 정치권 이야기를 듣습니다.', c: 3e6,
+      win: () => { m.rel = clamp(m.rel + 12, -100, 100); return `${who}과(와) 가까워졌습니다.${gossip(m)}`; },
       lose: () => { m.rel -= 3; return `${who}이(가) 일정을 이유로 만남을 미뤘습니다.`; } },
     { k: 'outBack', t: '지지 선언 요청', d: `이름값만큼 인지도가 오르고 ${RK[m.k].n} 당원이 늡니다.${m.party ? ` ${RIV[m.party].name}은 불쾌해합니다.` : ''}`, c: 1e7,
       win: () => { S.fame += m.fame / 15; S.members[m.k] += m.fame * 15; S.trust += 0.5; m.rel += 5; if (m.party) relAdd(m.party, -3, `${m.name} ${m.role} 지지 선언`); rnews(m.k, `${m.name} ${m.role}, ${S.party.name} 지지 선언`); return `${who}이(가) 우리 당 지지를 선언했습니다.`; },
