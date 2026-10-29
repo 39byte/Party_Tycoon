@@ -843,7 +843,8 @@ function genPerson(o = {}) {
     skill: Math.round(clamp(gauss() * 12 + job.s + rb, 10, 99)), integ, rec, ban, role: '',
   };
 }
-const candFactor = c => clamp(1 + (c.fame - 15) / 200 + (c.skill - 50) / 250 - (c.rec ? c.rec.length : 0) * 0.05, 0.6, 1.6);
+// 후보 개인 점수는 logic.js(L.candScore). 득표력에 exp(점수)배, 모든 당 후보에 같은 식. 이름 없는 자리는 0점
+const candMul = p => Math.exp(L.candScore(p));
 const person = id => S.pool.find(p => p.id === +id);
 const leader = () => S.pool.find(p => p.leader);
 // 무난해 보이는 대안도 늘 통하진 않음. 대표 역량이 높을수록 잘 풀림
@@ -1049,8 +1050,8 @@ function simGeneral(c) {
       const cand = mine[i], mods = {};
       for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[r.k] || 0) / r.seats);
       for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88; // 최근 의혹 보도된 후보
-      for (const id of ids) mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)); // 다른 당 거리 유세
-      if (cand) { ids.push('P'); mods.P = candFactor(cand) * campBoost(c, r.k) * (1 + cand.spendB); }
+      for (const id of ids) mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
+      if (cand) { ids.push('P'); mods.P = candMul(cand) * campBoost(c, r.k) * (1 + cand.spendB); }
       if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
       const { v, win } = shareRace(r.k, ids, mods);
       seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1;
@@ -1082,10 +1083,10 @@ function simGov(c) {
     const slot = c?.rv?.[r.k]?.[0], ids = slot ? Object.keys(slot) : ['A', 'B'];
     if (!slot) { if (rnd() < 0.3) ids.push('C'); if (rnd() < 0.3) ids.push('O'); }
     const cand = c && c.reg && c.reg.gov[r.k], mods = {};
-    if (cand) { ids.push('P'); mods.P = candFactor(cand) * campBoost(c, r.k) * (1 + cand.spendB) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? opsBase('P', r.k)) - opsBase('P', r.k)) / 100 : 1); }
+    if (cand) { ids.push('P'); mods.P = candMul(cand) * campBoost(c, r.k) * (1 + cand.spendB) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? opsBase('P', r.k)) - opsBase('P', r.k)) / 100 : 1); }
     if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
     for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
-    for (const id of ids) mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)); // 다른 당 거리 유세
+    for (const id of ids) if (id !== 'P') mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
     const res = shareRace(r.k, ids, mods);
     win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid });
     if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, sk: cand.skill, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
@@ -1101,7 +1102,7 @@ function simPres(c) {
   if (cand) ids.push('P');
   let tot = 0;
   for (const id of ids) {
-    const cf = (id === 'P' ? candFactor(cand) * campBoost(c, '') * (1 + cand.spendB) : 1 + (c.rivals[id].fame - 50) / 150 + (c.rivals[id].skill - 50) / 250)
+    const cf = (id === 'P' ? candMul(cand) * campBoost(c, '') * (1 + cand.spendB) : candMul(fig(c.rivals[id].fid) || c.rivals[id]))
       * (1 + byVoters(id === 'P' ? c.boost.reg : c.rb?.[id])); // 지역 거리 유세는 선거인 수 비중만큼 전국에 반영
     let x = ns[id] * cf * Math.exp(gauss() * 0.07);
     if (id === 'P' && c.unified) x += ns.C * 0.6;
@@ -3852,7 +3853,7 @@ function pGuide() {
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
     ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림), 대통령선거는 3년마다입니다.</li>
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
-      <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 인지도·역량이 높을수록, 전과가 적을수록 유리합니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
+      <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
       <li>등록을 마치면 선거일 전 공식 선거운동기간(대선 ${LAW.campaignDays.pres}일, 총선·지방선거 ${LAW.campaignDays.nat}일)에 거리 유세·방송 광고·TV 토론을 할 수 있습니다.</li>
       <li>지역구 여성 후보를 30% 이상 내면 여성추천보조금을 받습니다.</li></ul>`)}

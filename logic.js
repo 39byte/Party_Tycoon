@@ -136,6 +136,14 @@
     return age < 30 ? base * 0.5 : age < 40 ? base * 0.7 : base;
   }
 
-  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, schedule, hare, allocatePR, subsidyShares, refundRate, deposit };
+  // 후보 개인 점수(로그 배율, 득표력에 exp(점수)배). 기준(0점) = 역량 60·청렴 60·인지도 30·전과 없음
+  // 비중(최고~최저 후보 차이): 역량 2.9 > 정당 지지율(ln 지역 정당 득표력, 40% 대 5%면 2.1) > 전과 0.9(3건까지) > 청렴 0.8 > 인지도 0.55
+  // 그래서 지지율이 높은 당이라도 역량·전과·청렴이 크게 처지는 후보는 짐
+  const CW = { skill: 1.3, rec: 0.3, integ: 0.35, fame: 0.25 };
+  const cl = (x, a, b) => Math.min(b, Math.max(a, x));
+  const candScore = p => p ? CW.skill * cl((p.skill - 60) / 40, -1.25, 1) - CW.rec * Math.min(3, p.rec?.length || 0)
+    + CW.integ * cl(((p.integ ?? 60) - 60) / 40, -1.25, 1) + CW.fame * cl((p.fame - 30) / 40, -0.75, 1.5) : 0;
+
+  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
