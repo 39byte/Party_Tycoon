@@ -1804,26 +1804,31 @@ function negModal(id) {
 // 친분 쌓기 자리에서 듣는 정치 얘기. 게임 상태(숨긴 일·계류 법안·사회적 이슈·선거 일정)에서 뽑으니 귀띔은 대체로 맞음
 // 친분이 두터우면(우호 이상) 속 얘기도 해 줌: 우리 당 의혹이 새고 있다는 귀띔, 우리 법안에 대한 그 당 표심
 const RUMORS = ['사무총장이 공천 대가로 돈을 받았다', '지도부가 비례대표 순번을 두고 뒷거래를 했다', '대표 측근이 기업 후원금을 쪼개 받았다', '중진 의원 몇이 탈당을 저울질한다', '불리한 여론조사 결과를 지도부가 덮었다', '당직자 갑질 제보가 내부에서 묵살됐다'];
+// 들어맞을 확률: 친분 0 → 20%, 50 → 55%, 100 → 90%
+const talkTrue = m => clamp(0.2 + m.rel * 0.007, 0.1, 0.9);
+// 얘기 셋째 칸(q)은 몇 주 뒤 실제로 벌어질 일(talkReal). 기조·의견은 친분만큼 맞는 말을 하고, 아니면 엇나간 말을 함
 function gossip(m) {
-  const own = ['A', 'B', 'C'].includes(m.party) ? m.party : null, near = m.rel >= 20, g = S.agenda, ne = nextElection();
+  const own = ['A', 'B', 'C'].includes(m.party) ? m.party : null, near = m.rel >= 20, g = S.agenda, ne = nextElection(), tp = talkTrue(m);
   const others = ['A', 'B', 'C'].filter(id => id !== own), mine = S.bills.filter(b => !b.by), theirs = own ? S.bills.filter(b => b.by === own) : [];
-  const news = S.wire.filter(x => x.c !== 'gov' && S.day - x.d < 21);
+  const news = S.wire.filter(x => x.c !== 'gov' && S.day - x.d < 21), STANCE = ['찬성 쪽으로 기울었어요', '의원들 생각이 갈려 있어요. 설득하면 넘어올 사람도 있고요', '반대 기류가 강해요'];
   const says = [
     near && S.risks.length && ['의혹', `요즘 기자들 사이에 ${S.party.name} '${pick(S.risks).label}' 얘기가 돈다던데요. 조심하시는 게 좋겠어요.`],
-    ['루머', `${pn(pick(others))} 쪽에서 ${pick(RUMORS)}는 말이 있어요. 확인된 건 아니고요.`],
-    own && ['의혹', `저희 당도 시끄러워요. ${pick(RUMORS)}는 소문 때문에 다들 눈치만 봐요.`],
-    theirs.length && ['예정 활동', `저희 당은 '${pick(theirs).t}'을(를) 이번에 꼭 통과시키려고 표 단속에 들어갈 거예요.`],
-    near && own && mine.length && (b => { const a = billAgree(b, own); return ['예상 기조', `${S.party.name}의 '${b.t}' 말인데, 저희 당은 ${a >= 0.6 ? '찬성 쪽으로 기울었어요' : a <= 0.35 ? '반대 기류가 강해요' : '의원들 생각이 갈려 있어요. 설득하면 넘어올 사람도 있고요'}.`]; })(pick(mine)),
-    g && (a => ['사건 의견', `'${a.t}' 말인데요, 저는 "${a.ops[own && g.pos[own] != null ? g.pos[own] : Math.floor(rnd() * a.ops.length)].t.replace(/"/g, '')}" 쪽이 맞다고 봐요.`])(AGENDA.find(x => x.k === g.k)),
+    (id => (r => ['루머', `${pn(id)} 쪽에서 ${r}는 말이 있어요. 확인된 건 아니고요.`, { kind: 'scandal', id, r }])(pick(RUMORS)))(pick(others)),
+    own && (r => ['의혹', `저희 당도 시끄러워요. ${r}는 소문 때문에 다들 눈치만 봐요.`, { kind: 'scandal', id: own, r }])(pick(RUMORS)),
+    theirs.length && (b => ['예정 활동', `저희 당은 '${b.t}'을(를) 이번에 꼭 통과시키려고 표 단속에 들어갈 거예요.`, { kind: 'whip', id: own, bid: b.id }])(pick(theirs)),
+    near && own && mine.length && (b => { const a = billAgree(b, own), i = a >= 0.6 ? 0 : a <= 0.35 ? 2 : 1; return ['예상 기조', `${S.party.name}의 '${b.t}' 말인데, 저희 당은 ${STANCE[rnd() < tp ? i : pick([0, 1, 2].filter(j => j !== i))]}.`]; })(pick(mine)),
+    g && (a => { const i = own && g.pos[own] != null && rnd() < tp ? g.pos[own] : Math.floor(rnd() * a.ops.length);
+      return ['사건 의견', `'${a.t}' 말인데요, ${own ? '저희 당은' : '저는'} "${a.ops[i].t.replace(/"/g, '')}" 쪽이 맞다고 봐요.`]; })(AGENDA.find(x => x.k === g.k)),
     !g && news.length && ['사건 의견', `'${pick(news).t}' 보셨어요? ${pick(['여의도는 온통 그 얘기예요.', '오래 갈 것 같아요.', '일주일이면 잊힐 거예요.', '다들 표정 관리 중이에요.'])}`],
-    ne && ['예정 활동', `${ne.name}(D-${ne.day - S.day}) 앞두고 ${own ? '저희 당은' : `${pn(pick(others))} 쪽은`} ${pick(R).n}에 공을 많이 들일 거래요.`],
+    ne && (id => (r => ['예정 활동', `${ne.name}(D-${ne.day - S.day}) 앞두고 ${own ? '저희 당은' : `${pn(id)} 쪽은`} ${r.n}에 공을 많이 들일 거래요.`, { kind: 'camp', id, k: r.k }])(pick(R)))(own || pick(others)),
   ].filter(Boolean);
   const seen = (m.talk || []).slice(-3).map(x => x.t), fresh_ = says.filter(x => !seen.includes(x[1])); // 최근 3번 한 얘기는 되풀이하지 않음
-  const [k, t] = pick(fresh_.length ? fresh_ : says);
-  (m.talk ??= []).push({ d: S.day, k, t }); if (m.talk.length > 20) m.talk.shift();
+  const [k, t, q] = pick(fresh_.length ? fresh_ : says), id = ++S.seq;
+  (m.talk ??= []).push({ id, d: S.day, k, t }); if (m.talk.length > 20) m.talk.shift();
+  if (q && rnd() < tp) later(rr(14, 49), { ev: 'talkReal', tid: id, who: m.name, ...q });
   return ` 식사 자리에서 이런 얘기를 들었습니다. "${t}"`;
 }
-const talkHTML = m => `<h3 style="margin-top:14px">대화 내역</h3>${m.talk?.length ? `<ul class="log">${[...m.talk].reverse().map(x => `<li><time>${fdate(x.d)}</time><span><span class="pill">${x.k}</span> ${esc(x.t)}</span></li>`).join('')}</ul>` : '<p class="small muted">친분 쌓기 자리에서 들은 이야기가 여기에 모입니다.</p>'}`;
+const talkHTML = m => `<h3 style="margin-top:14px">대화 내역</h3><p class="tip">친분이 두터운 사람의 말일수록 들어맞습니다. 루머·의혹·예정 활동은 몇 주 뒤 실제로 벌어지기도 합니다(지금 친분이면 ${Math.round(talkTrue(m) * 100)}%).</p>${m.talk?.length ? `<ul class="log">${[...m.talk].reverse().map(x => `<li><time>${fdate(x.d)}</time><span><span class="pill">${x.k}</span> ${esc(x.t)}${x.hit ? ' <span class="pill ok">현실이 됨</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">친분 쌓기 자리에서 들은 이야기가 여기에 모입니다.</p>'}`;
 // 교섭 인물 정보: m12 원내 의원 · o5 원외 인사
 function personInfo(key) {
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
@@ -2592,6 +2597,16 @@ const XEV = {
     wire(`여론조사: '${a.t}' 가장 공감받은 입장은 "${a.ops[best].t.replace(/"/g, '')}"(${v(best)}%)`);
     S.agenda = null;
     info(`여론 판정: ${a.t}`, `${a.ops.map((o, i) => `"${o.t.replace(/"/g, '')}" 공감 ${v(i)}%`).join(', ')}. ${['A', 'B', 'C'].map(id => `${pn(id)}은 ${g.pops[g.pos[id]] >= 0.5 ? '점수를 땄습니다' : '역풍을 맞았습니다'}`).join(', ')}. ${g.mine >= 0 ? `우리 당 입장은 ${d >= 0 ? '여론과 맞아떨어졌습니다' : '여론과 엇갈렸습니다'}` : '우리 당은 끝내 입장을 내지 않아 "침묵했다"는 비판을 받았습니다'} (신뢰 ${d >= 0 ? '+' : ''}${d.toFixed(1)}).`, d < 0);
+  },
+  // 교섭 자리에서 들은 얘기가 현실로: 다른 당 스캔들(지지 −1.5) · 그 당 법안 표 단속(찬성↑) · 선거 지역 집중 공략(그 당 지지 +0.5)
+  talkReal: q => {
+    let t;
+    if (q.kind === 'scandal') { S.rw[q.id] -= 1.5; t = `[단독] ${pn(q.id)}, ${q.r}는 의혹 보도… 당은 "사실무근"`; }
+    else if (q.kind === 'whip') { const b = S.bills.find(x => x.id === q.bid); if (!b) return; b.lobby += 0.08; t = `${pn(q.id)}, '${b.t}' 통과 위해 표 단속 돌입`; }
+    else { S.rw[q.id] += 0.5; t = `${pn(q.id)} 지도부 ${RK[q.k].n} 총출동… 집중 공략 나서`; }
+    wire(t);
+    const x = [...S.mps, ...S.outs].flatMap(p => p.talk || []).find(x => x.id === q.tid); if (x) x.hit = 1;
+    const msg = `${q.who}에게 들었던 얘기가 현실이 됐습니다. ${t}`; addLog(msg); toast(msg);
   },
   // 역점사업 후속 보도: 지지도·당원이 조금 움직이고, 새 현안·악재가 생기기도 함
   admFollow: q => {
