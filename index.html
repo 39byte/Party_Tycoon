@@ -2528,10 +2528,17 @@ function nomAuto(key) {
   const d = c.draft, ss = nomSlots(c), sc = p => L.candScore(p);
   let ps = nomPool(c).sort((a, b) => sc(b) - sc(a));
   if (c.type === 'nat') {
+    // 총선은 출마 지역구 수도 정함: 비례 몫을 뺀 인재 전부를, 우리 지지 높은 지역부터 의석 수만큼 채워 나감
     const prN = clamp(+d.prN || 0, 0, LAW.prSeats), F = ps.filter(p => p.gender === 'F'), needF = Math.min(F.length, Math.ceil(prN / 2));
-    const resF = F.slice(F.length - needF), rest = ps.filter(p => !resF.includes(p));
-    d.prIds = [...resF, ...rest.slice(ss.length, ss.length + prN - needF)].map(p => p.id);
-    ps = rest.slice(0, ss.length);
+    const resF = F.slice(F.length - needF), rest = ps.filter(p => !resF.includes(p)), cut = Math.max(0, rest.length - Math.max(0, prN - needF));
+    d.prIds = [...resF, ...rest.slice(cut)].map(p => p.id);
+    const seats = [...R].sort((a, b) => regSupport(b.k) - regSupport(a.k)).flatMap(r => Array(r.seats).fill(d.reg[r.k])), dist = rest.slice(0, Math.min(cut, seats.length));
+    for (const r of R) d.reg[r.k].ids = [];
+    dist.forEach((p, i) => seats[i].ids.push(p.id));
+    for (const r of R) d.reg[r.k].n = d.reg[r.k].ids.length;
+    // 돈이 모자라면 지지 낮은 지역의 점수 낮은 후보부터 뺌. ponytail: 가망 없는 지역도 돈만 되면 냄(기탁금 반환선 미반영)
+    for (let i = dist.length - 1; i >= 0 && buildReg(c).out.cost > S.money; i--) { seats[i].ids.pop(); seats[i].n--; }
+    nomFill(c); Snd.sfx('click'); return renderPanel();
   }
   const order = c.type === 'pres' ? ss : [...ss].sort((a, b) => regSupport(b[2]) - regSupport(a[2]));
   order.forEach(([o, f], i) => o[f] = ps[i]?.id ?? '');
@@ -3776,12 +3783,12 @@ function campCard(c) {
 }
 // 후보 선택지: 후보 점수 높은 순. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀜
 const candPts = p => { const v = L.candScore(p); return `${v >= 0 ? '+' : ''}${v.toFixed(2)}`; };
-const personOpts = (sel, kind) => (sel === '' ? '<option value="" selected>인재 부족</option>' : '') + S.pool.filter(p => eligible(p, kind)).sort((a, b) => L.candScore(b) - L.candScore(a)).map(p => `<option value="${p.id}" ${+sel === p.id && sel !== '' ? 'selected' : ''}>${esc(p.name)} (점수 ${candPts(p)}, 역량 ${p.skill}, 인지도 ${Math.round(p.fame)}, ${p.age}세)</option>`).join('');
+const personOpts = (sel, kind) => (sel === '' ? '<option value="" selected>인재 부족</option>' : '') + S.pool.filter(p => eligible(p, kind)).sort((a, b) => L.candScore(b) - L.candScore(a)).map(p => `<option value="${p.id}" ${+sel === p.id && sel !== '' ? 'selected' : ''}>${esc(p.name)} (${candPts(p)})</option>`).join('');
 function nomForm(c) {
   nomFill(c);
   const d = c.draft, a = `data-camp="${c.key}"`, ss = nomSlots(c);
   const slot = (i, label) => `<select ${a} data-f="slot" data-s="${i}" aria-label="${label}">${personOpts(ss[i][0][ss[i][1]], nomKind(c))}</select>`;
-  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button><span class="small muted">후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 우리 지지가 높은 지역부터 배치합니다.</span></div>`;
+  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button><span class="small muted">후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 우리 지지가 높은 지역부터 배치합니다.${c.type === 'nat' ? ' 출마 지역구 수도 정합니다(비례 후보 수는 그대로, 보유 자금 안에서).' : ''}</span></div>`;
   let si = 0;
   if (c.type === 'nat') {
     return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th></tr></thead><tbody>
