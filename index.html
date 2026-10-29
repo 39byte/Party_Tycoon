@@ -2821,7 +2821,7 @@ const EVENTS = [
 
   // --- 당 운영 ---
   { id: 'celeb', w: 2, cond: () => S.pool.length < POOL_MAX, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
-    body: () => { const p = ET.p; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. ${recOpen(p) ? `청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.` : '청렴도와 전과는 영입한 뒤에 알 수 있습니다.'}`; },
+    body: () => { const p = ET.p; return `${p.job} 출신 <b>${esc(p.name)}</b>(${p.age}세, 인지도 ${p.fame})가 입당 의사를 밝혔습니다. 청렴도 ${p.integ}, 전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}.`; },
     ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); lateRec(ET.p, ET.p.job); S.fame += 2; return `${ET.p.name} 영입!`; } },
       { t: '정중히 사양', run: () => '입당을 보류했습니다.' }] },
   { id: 'faction', w: 2, cond: () => totalMembers() > 20000, title: '당내 계파 갈등',
