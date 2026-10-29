@@ -1139,7 +1139,7 @@ const campStart = c => c.day - (LAW.campaignDays[c.type] - 1);
 const inCampaign = c => S.day >= campStart(c) && S.day < c.day;
 const pollBanned = () => Object.values(S.camps).some(c => S.day >= c.day - LAW.pollBan);
 const activeCamps = () => Object.values(S.camps).filter(c => c.reg && inCampaign(c));
-function nextElection() { return SCHED.find(e => e.day >= S.day); }
+function nextElection() { return SCHED.find(e => e.day >= S.day && !S.done[e.key]); }
 
 function timeline() {
   for (const e of SCHED) {
@@ -3570,7 +3570,7 @@ function pHome() {
       ${S.day - S.lastPart > 3 * 365 ? `<tr><th>등록취소 경고</th><td colspan="3" class="bad">최근 4년간 선거 미참여: ${fdate(S.lastPart + 4 * 365)}까지 국회의원선거나 지방선거에 후보를 내야 합니다 (정당법 제44조)</td></tr>` : ''}
       </tbody></table></div>`;
   }
-  const ups = SCHED.filter(e => e.day >= S.day).slice(0, 4);
+  const ups = SCHED.filter(e => e.day >= S.day && !S.done[e.key]).slice(0, 4);
   // 좌우 두 칸에 카드를 각자 높이대로 쌓음(옆 카드 높이에 늘어나 빈 여백이 생기지 않게). 좁은 화면에선 order대로 한 줄
   return `<div class="grid home">
     <div class="span-2 stack">
@@ -3718,7 +3718,7 @@ function fire(id) {
 }
 function pElec() {
   const camps = Object.values(S.camps).sort((a, b) => a.day - b.day);
-  const ups = SCHED.filter(e => e.day >= S.day).slice(0, 3);
+  const ups = SCHED.filter(e => e.day >= S.day && !S.done[e.key]).slice(0, 3);
   let html = '';
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
@@ -3875,7 +3875,7 @@ function pOffice() {
 }
 // 청와대: 지금은 대통령 정보만
 function pPres() {
-  const P = S.president, me = P.pid != null && person(P.pid), ne = SCHED.find(e => e.type === 'pres' && e.day >= S.day), days = S.day - P.since;
+  const P = S.president, me = P.pid != null && person(P.pid), ne = SCHED.find(e => e.type === 'pres' && e.day >= S.day && !S.done[e.key]), days = S.day - P.since;
   return `<div class="card"><h2>대통령</h2><div class="presbox">${face(me || { name: P.name, age: 62 }, pc(P.party), 112)}
     <div class="presinfo"><div class="small muted">${P.acting ? '대통령 권한대행' : '대한민국 대통령'}</div><div class="presname">${esc(P.name)}</div>
       <div class="btns" style="gap:6px"><span class="pill" style="border-color:${pc(P.party)};color:${pc(P.party)}">${esc(pn(P.party))}</span>${ruling() ? '<span class="pill ok">우리 당 집권</span>' : ''}${P.acting ? '<span class="pill warn">조기 대선 국면</span>' : ''}</div>
