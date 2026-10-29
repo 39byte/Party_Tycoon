@@ -1830,7 +1830,7 @@ function gossip(m) {
   if (q && rnd() < tp) later(rr(14, 49), { ev: 'talkReal', tid: id, who: m.name, ...q });
   return ` 식사 자리에서 이런 얘기를 들었습니다. "${t}"`;
 }
-const talkHTML = m => `<h3 style="margin-top:14px">대화 내역</h3><p class="tip">친분이 두터운 사람의 말일수록 들어맞습니다. 루머·의혹·예정 활동은 몇 주 뒤 실제로 벌어지기도 합니다(지금 친분이면 ${Math.round(talkTrue(m) * 100)}%).</p>${m.talk?.length ? `<ul class="log">${[...m.talk].reverse().map(x => `<li><time>${fdate(x.d)}</time><span><span class="pill">${x.k}</span> ${esc(x.t)}${x.hit ? ' <span class="pill ok">현실이 됨</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">친분 쌓기 자리에서 들은 이야기가 여기에 모입니다.</p>'}`;
+const talkHTML = m => `<h3 style="margin-top:14px">대화 내역 ${infoTip(`<p class="tip">친분이 두터운 사람의 말일수록 들어맞습니다. 루머·의혹·예정 활동은 몇 주 뒤 실제로 벌어지기도 합니다(지금 친분이면 ${Math.round(talkTrue(m) * 100)}%).</p>`)}</h3>${m.talk?.length ? `<ul class="log">${[...m.talk].reverse().map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <span class="pill">${x.k}</span>${x.hit ? ' <span class="pill ok">현실이 됨</span>' : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">친분 쌓기 자리에서 들은 이야기가 여기에 모입니다.</p>'}`;
 // 교섭 인물 정보: m12 원내 의원 · o5 원외 인사
 function personInfo(key) {
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
