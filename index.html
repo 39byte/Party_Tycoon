@@ -1052,6 +1052,7 @@ const gapHit = id => clamp(1 - tGap(id) / 100, 0.7, 1.3); // 상대가 우리를
 const atkMul = id => 2 - gapHit(id); // 우리가 상대를 칠 때 파장
 const gapNote = id => { const g = tGap(id); return Math.abs(g) < 5 ? '' : ` 우리 당 신뢰도(${S.trust.toFixed(0)})가 ${pn(id)}(${trAvg(id).toFixed(0)})보다 ${g > 0 ? '높아 공세가 덜 먹히고 해명이 통하기 쉽습니다' : '낮아 공세가 더 먹히고 해명이 잘 안 통합니다'}.`; };
 function migrate(o) {
+  for (const k in o.members) o.members[k] = Math.round(o.members[k]); // 옛 저장 파일의 소수점 당원 수 정리
   if ('autoGov' in o) { if (o.autoGov) o.autoK = Object.fromEntries(Object.keys(o.ops || {}).map(k => [k, 1])); delete o.autoGov; } // 옛 저장: 전체 자동화 → 지사별
   if (!o.rtrust) { const t = o.trust ?? 50; delete o.trust; o.rtrust = Object.fromEntries(R.map(r => [r.k, t])); }
   defTrust(o); o.rsup ??= {};
@@ -2611,7 +2612,7 @@ function negOutModal(oid) {
       win: () => { m.rel = clamp(m.rel + 12, -100, 100); return `${who}과(와) 가까워졌습니다.${gossip(m)}`; },
       lose: () => { m.rel -= 3; return `${who}이(가) 일정을 이유로 만남을 미뤘습니다.`; } },
     { k: 'outBack', t: '지지 선언 요청', d: `이름값만큼 인지도가 오르고 ${RK[m.k].n} 당원이 늡니다.${m.party ? ` ${RIV[m.party].name}은 불쾌해합니다.` : ''}`, c: 1e7,
-      win: () => { S.fame += m.fame / 15; S.members[m.k] += m.fame * 15; S.trust += 0.5; m.rel += 5; if (m.party) relAdd(m.party, -3, `${m.name} ${m.role} 지지 선언`); rnews(m.k, `${m.name} ${m.role}, ${S.party.name} 지지 선언`); return `${who}이(가) 우리 당 지지를 선언했습니다.`; },
+      win: () => { S.fame += m.fame / 15; S.members[m.k] += Math.round(m.fame * 15); S.trust += 0.5; m.rel += 5; if (m.party) relAdd(m.party, -3, `${m.name} ${m.role} 지지 선언`); rnews(m.k, `${m.name} ${m.role}, ${S.party.name} 지지 선언`); return `${who}이(가) 우리 당 지지를 선언했습니다.`; },
       lose: () => { m.rel -= 3; return `${who}이(가) "아직은 때가 아니다"라며 거절했습니다.`; } },
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
