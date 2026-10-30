@@ -4468,7 +4468,7 @@ function govMapCard() {
   const col = k => S.gov[k] ? (S.gov[k] === 'O' ? '#64748B' : pc(S.gov[k])) : 'var(--land)', name = k => S.gov[k] ? pn(S.gov[k]) : '공석';
   const legend = ['P', 'A', 'B', 'C', 'D', 'O'].filter(id => govCount(id)).map(id => `<span><i style="background:${id === 'O' ? '#64748B' : pc(id)}"></i>${esc(pn(id))} <b class="num">${govCount(id)}</b>곳</span>`).join('');
   // 토글을 펼쳤을 때만 지도를 그림(접혀 있으면 빈 칸)
-  return `<details class="card seatd" data-gmapd style="margin-bottom:14px" ${gmapOpen ? 'open' : ''}><summary><h2>광역단체장 지도</h2></summary>${gmapOpen ? `<div class="gmap">${ART.map({ fill: col, label: name, aria: k => `${RK[k].n}: ${name(k)}` })}</div><div class="legend" style="justify-content:center;margin-top:10px">${legend}</div>` : ''}</details>`;
+  return `<details class="card seatd" data-gmapd style="margin-bottom:14px" ${gmapOpen ? 'open' : ''}><summary><h2>광역단체장 지도</h2></summary>${gmapOpen ? `<div class="gmap">${ART.map({ fill: col, aria: k => `${RK[k].n}: ${name(k)}` })}</div><div class="legend" style="justify-content:center;margin-top:10px">${legend}</div>` : ''}</details>`;
 }
 function pAdmin() {
   const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
