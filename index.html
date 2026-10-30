@@ -460,6 +460,9 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
 .pstat b{text-align:right;color:var(--fg)}
 /* 교섭 인물 사진: 누르면 능력치 팝업 */
+.rrace{margin-bottom:12px}.rrace h3{font-size:14px;margin:0 0 6px}.rcands{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:6px}
+.rcand{min-width:0;border:1px solid var(--border);border-radius:10px;padding:6px 8px}.rcand summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}.rcand summary::-webkit-details-marker{display:none}
+.rcand[open]{background:var(--surface2)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
@@ -1130,8 +1133,9 @@ function simGeneral(c) {
 }
 function applySeats(g) { for (const id in g.seatsD) S.seats[id] = { d: g.seatsD[id], pr: g.pr[id] || 0 }; }
 
-// 지난 선거 팝업용: 한 선거구의 후보별 [정당, 이름, 득표율]
-const raceRow = (ids, v, slot, cand) => ids.map(id => [id, id === 'P' ? cand?.name || '' : fig(slot?.[id]?.fid)?.name || '', Math.round(v[id] * 1000) / 1000]).sort((a, b) => b[2] - a[2]);
+// 지난 선거 팝업용: 한 선거구의 후보별 [정당, 이름, 득표율, 그때 프로필]. 낙선자는 명부에서 빠지므로 프로필을 같이 남김
+const raceProf = p => p && { g: p.gender, a: p.age, j: p.job || S.pool.find(x => x.id === p.id)?.job, fa: Math.round(p.fame), sk: Math.round(p.skill), ig: Math.round(p.integ), rec: p.rec?.length ? [...p.rec] : undefined };
+const raceRow = (ids, v, slot, cand) => ids.map(id => { const p = id === 'P' ? cand : fig(slot?.[id]?.fid); return [id, p?.name || '', Math.round(v[id] * 1000) / 1000, raceProf(p)]; }).sort((a, b) => b[2] - a[2]);
 function simGov(c) {
   const win = {}, mine = [], wins = [], races = [];
   for (const r of R) {
@@ -1262,7 +1266,7 @@ function resolveElection(c) {
   } else {
     const g = simPres(c);
     const winName = g.win === 'P' ? c.reg.cand.name : c.rivals[g.win].name;
-    races = [{ n: '전국', c: g.ids.map(id => [id, id === 'P' ? c.reg.cand.name : c.rivals[id].name, Math.round(g.v[id] * 1000) / 1000]).sort((a, b) => b[2] - a[2]) }];
+    races = [{ n: '전국', c: g.ids.map(id => { const p = id === 'P' ? c.reg.cand : fig(c.rivals[id].fid) || c.rivals[id]; return [id, p.name, Math.round(g.v[id] * 1000) / 1000, raceProf(p)]; }).sort((a, b) => b[2] - a[2]) }];
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
     S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null };
     S.pool.forEach(p => { if (p.role === '대통령') { p.role = '전직 대통령'; p.exPres = true; } });
@@ -3853,7 +3857,7 @@ function pElec() {
   let html = '';
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
-  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span>${r.races ? `<button class="lnk" data-res="${i}" title="후보별 득표율 보기">${esc(r.t)}</button>` : esc(r.t)}</span></li>`).reverse().join('')}</ul><p class="tip">최근 선거는 결과를 누르면 선거구별 후보와 득표율을 볼 수 있습니다.</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
+  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}</span>${r.races ? `<button class="btn" data-res="${i}">상세 보기</button>` : ''}</li>`).reverse().join('')}</ul><p class="tip">최근 선거는 '상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다.</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
 }
 // 다른 당 공천 현황: 발표된 후보만. 총선은 지역을 골라 당별로, 지방선거는 시·도별로
@@ -3932,8 +3936,11 @@ function nomForm(c) {
 // 지난 선거 결과 상세: 선거구마다 후보·정당·득표율(높은 순, 1위 당선)
 function resultModal(r) {
   if (!r?.races) return;
-  const cand = ([id, n, v], i) => `<span style="white-space:nowrap;margin-right:10px">${byPill(id)} ${i ? '' : '<b>'}${esc(n || '후보')} ${pct(v)}${i ? '' : '</b>'}</span>`;
-  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 굵은 글씨가 당선자</p><div class="tblwrap" style="max-height:60vh;overflow:auto"><table><thead><tr><th>선거구</th><th>후보 · 득표율</th></tr></thead><tbody>${r.races.map(x => `<tr><td style="white-space:nowrap">${esc(x.n)}</td><td>${x.c.map(cand).join('')}</td></tr>`).join('')}</tbody></table></div>`, buttons: [{ t: '닫기' }] });
+  const col = id => id === 'O' ? '#64748B' : pc(id);
+  // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
+  const cand = ([id, n, v, p], i) => `<details class="rcand"><summary>${face({ name: n || '후보', gender: p?.g, age: p?.a }, col(id), 36)}<span class="rcn"><b>${esc(n || '후보')}${i ? '' : ' <span class="pill">당선</span>'}</b><span class="small muted">${byPill(id)}${p?.j ? ` · ${esc(p.j)}` : ''}</span></span><span class="rcv"><b class="num">${pct(v)}</b><span class="bar"><i style="width:${v * 100}%;background:${col(id)}"></i></span></span></summary>
+    ${p ? `<div class="small muted" style="margin:6px 0">${p.g === 'F' ? '여' : '남'} · ${p.a}세${p.j ? ` · 출신: ${esc(p.j)}` : ''}</div>${statBars({ fame: p.fa, skill: p.sk, integ: p.ig })}<p class="small ${p.rec ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec ? esc(p.rec.join(', ')) : '없음'}</p>` : '<p class="small muted">프로필 기록이 없습니다.</p>'}</details>`;
+  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 후보를 누르면 출마 당시 프로필을 볼 수 있습니다.</p><div style="max-height:62vh;overflow:auto">${r.races.map(x => `<section class="rrace"><h3>${esc(x.n)}</h3><div class="rcands">${x.c.map(cand).join('')}</div></section>`).join('')}</div>`, buttons: [{ t: '닫기' }] });
 }
 function nomSummary(c) {
   const { out, err } = buildReg(c);
