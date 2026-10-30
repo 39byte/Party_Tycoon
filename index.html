@@ -264,6 +264,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px;z-index:50;animation:fade .18s ease-out}
 /* 모달: 남색 제목 띠가 달린 게임 대화창 */
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--hud-line);border-radius:16px;max-width:560px;width:100%;max-height:calc(100dvh - 32px);overflow:auto;padding:0 20px 20px;box-shadow:0 0 0 1px rgba(242,179,61,.35),0 24px 60px rgba(0,0,0,.45);animation:pop .2s cubic-bezier(.2,.9,.3,1.2)}
+.dslots{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:8px;max-height:56vh;overflow:auto;margin-top:8px}
+.dslot{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;min-width:0}.dslot>div{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}.dslot select{width:100%}
 .modal.wide{max-width:860px}.modal.xwide{max-width:1240px}
 /* 주간 브리핑: 헤드라인 뉴스 | 정치 뉴스 좌우로, 좁으면 위아래로 */
 .bsplit{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px}
@@ -3764,7 +3766,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelector('[data-seatd]')?.addEventListener('toggle', e => seatOpen = e.target.open);
   m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
-  m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc]));
+  m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc], b.dataset.distk));
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
   m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; renderAll(); });
@@ -4033,9 +4035,9 @@ function nomForm(c) {
   if (c.type === 'nat') {
     return `${top}${twoCol('<th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th>', R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r">${r.seats}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td>
       <td><input type="number" min="0" max="${r.seats}" value="${x.n}" ${a} data-k="${r.k}" data-f="n" aria-label="${r.n} 출마 수"></td>
-      <td><div style="display:flex;flex-wrap:wrap;gap:4px">${x.ids.map((_, i) => slot(si++, `${r.n} 지역구 후보 ${i + 1}`)).join('') || '<span class="muted small">-</span>'}</div></td>
+      <td>${x.ids.length ? `<button class="btn" data-distc="${c.key}" data-distk="${r.k}">${x.ids.length}명 보기·변경</button>` : '<span class="muted small">-</span>'}</td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }))}
-      <p class="tip">후보는 인재풀에서만 나옵니다. 출마 수를 늘리면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, 직접 바꾸거나 '자동 배치'를 누르세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다. 지역구 여성 후보가 30% 이상이면 여성추천보조금(정치자금법 제26조).</p>
+      <p class="tip">후보는 인재풀에서만 나옵니다. 출마 수를 늘리면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, '보기·변경'에서 직접 바꾸거나 '자동 배치'를 누르세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다. 지역구 여성 후보가 30% 이상이면 여성추천보조금(정치자금법 제26조).</p>
       <div class="row" style="margin-top:12px">
         <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원 · ${(r => `추천 ${r.n}명 (지금 여론이면 비례 ${r.exp}석 예상)`)(prRec(c))}</span></label>
       </div>
@@ -4054,13 +4056,32 @@ function nomForm(c) {
     <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${x.fame})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
 }
 // 총선 지역구 후보 목록: 등록했으면 등록 명단, 아니면 지금 배치안. 지역마다 후보 카드(누르면 능력치·전과)
-function distModal(c) {
-  const d = c.reg ? c.reg.dist : buildReg(c).out.dist || {}, rs = R.filter(r => d[r.k]?.length);
+function distModal(c, k) {
+  if (!c.reg) return distEdit(c, k);
+  const d = c.reg.dist, rs = R.filter(r => d[r.k]?.length);
   const cand = x => { const p = S.pool.find(q => q.id === x.id) || x;
     return `<details class="rcand"><summary>${face(p, pc('P'), 36)}<span class="rcn"><b>${esc(p.name)}</b><span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''}</span></span><span class="rcv"><b class="num">${candPts(p)}</b><span class="small muted">후보 점수</span></span></summary>
       ${statBars(p)}<p class="small ${p.rec?.length ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}</p></details>`; };
-  openModal({ title: `${c.name} 지역구 후보 ${sum(rs.map(r => d[r.k].length))}명`, wide: true, html: `<p class="small muted">${c.reg ? '등록한 후보입니다.' : '지금 배치안 기준입니다. 등록 전까지 바뀔 수 있습니다.'} 후보를 누르면 능력치와 전과를 볼 수 있습니다.</p>
+  openModal({ title: `${c.name} 지역구 후보 ${sum(rs.map(r => d[r.k].length))}명`, wide: true, html: `<p class="small muted">등록한 후보입니다. 후보를 누르면 능력치와 전과를 볼 수 있습니다.</p>
     ${rs.length ? `<div style="max-height:62vh;overflow:auto">${rs.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map(cand).join('')}</div></section>`).join('')}</div>` : '<p class="empty">배치된 지역구 후보가 없습니다.</p>'}`, buttons: [{ t: '닫기' }] });
+}
+// 등록 전: 지역 하나씩 골라 후보 자리를 바꿈(자리마다 select를 한꺼번에 그리면 느려서 팝업·지역 단위로)
+function distEdit(c, k) {
+  nomFill(c);
+  const d = c.draft, kind = nomKind(c);
+  const draw = m => {
+    const rs = R.filter(r => d.reg[r.k].ids.length); if (!rs.some(r => r.k === k)) k = rs[0]?.k;
+    let si = 0; for (const r of R) { if (r.k === k) break; si += d.reg[r.k].ids.length; }
+    const pool = S.pool.filter(p => eligible(p, kind)).sort((x, y) => L.candScore(y) - L.candScore(x)), by = new Map(pool.map(p => [p.id, p]));
+    const opts = sel => (sel === '' ? '<option value="" selected>인재 부족</option>' : '') + pool.map(p => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.name)} (${candPts(p)})</option>`).join('');
+    const slot = (v, i) => { const p = by.get(v);
+      return `<div class="dslot">${p ? face(p, pc('P'), 36) : ''}<div><select data-camp="${c.key}" data-f="slot" data-s="${si + i}" aria-label="${RK[k].n} 지역구 후보 ${i + 1}">${opts(v)}</select>${p ? `<span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''}${p.rec?.length ? ' · <span class="bad">전과</span>' : ''}</span>` : ''}</div></div>`; };
+    m.querySelector('[data-dm]').innerHTML = rs.length ? `<div class="filters chips" role="group" aria-label="지역 선택">${rs.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-dk="${r.k}" aria-pressed="${r.k === k}">${r.n} ${d.reg[r.k].ids.length}</button>`).join('')}</div>
+      <div class="dslots">${d.reg[k].ids.map(slot).join('')}</div>` : '<p class="empty">출마 지역구 수를 정하면 후보가 배치됩니다.</p>';
+    m.querySelectorAll('[data-dk]').forEach(b => b.onclick = () => { k = b.dataset.dk; draw(m); });
+    m.querySelectorAll('select[data-camp]').forEach(el => el.onchange = () => { draftChange(el); draw(m); });
+  };
+  openModal({ title: `${c.name} 지역구 후보`, wide: true, html: `<p class="small muted">지역을 고르고 자리마다 후보를 바꾸세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 괄호는 후보 점수입니다.</p><div data-dm></div>`, buttons: [{ t: '닫기' }], onOpen: draw });
 }
 // 지난 선거 결과 상세: 선거구마다 후보·정당·득표율(높은 순, 1위 당선)
 function resultModal(r) {
