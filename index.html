@@ -567,8 +567,8 @@ const SAVE_KEY = 'party-tycoon-save-v1', SET_KEY = 'party-tycoon-settings';
 const RIV = {
   A: { name: '한결당', color: '#D03A3A', ideo: -1, base: 35 },
   B: { name: '새길당', color: '#2563EB', ideo: 1, base: 37 },
-  C: { name: '푸른내일당', color: '#CA8A04', ideo: 0.5, base: 6 },
-  D: { name: '반석당', color: '#0891B2', ideo: -0.6, base: 7, vol: 2.5 }, // 작은 보수 정당: 푸른내일당보다 조금 높지만 출렁임(vol)이 큼
+  C: { name: '푸른내일당', color: '#CA8A04', ideo: 0.5, base: 10 },
+  D: { name: '반석당', color: '#0891B2', ideo: -0.6, base: 10.5, vol: 2.5 }, // 작은 보수 정당: 푸른내일당과 7% 안팎에서 경쟁(조금 높지만 출렁임(vol)이 큼)
   O: { name: '기타·무소속', color: '#94A3B8', ideo: 0, base: 3 },
 };
 const PCOLORS = [['주황', '#EA580C'], ['보라', '#7C3AED'], ['청록', '#0D9488'], ['초록', '#16A34A'], ['분홍', '#DB2777'], ['갈색', '#92400E']];
@@ -947,7 +947,7 @@ function newState(f) {
   S = {
     v: 1, day: 0, diff: f.diff, party: { name: f.name, color: f.color, ideo: +f.ideo, slogan: f.slogan, home: f.home },
     phase: 'prep', regDay: null, money: { easy: 6e8, normal: 3e8, hard: 1.5e8 }[f.diff],
-    fame: 2, support: 0.3, buzz: 0, rw: { A: 35, B: 37, C: 6, D: 7, O: 3 },
+    fame: 2, support: 0.3, buzz: 0, rw: { A: 35, B: 37, C: 8.3, D: 8.6, O: 3 },
     members: Object.fromEntries(R.map(r => [r.k, 0])), chapters: {}, up: {}, cd: {},
     seats: {}, gov: {}, president: { party: 'B', name: '', since: -200 }, lastVotes: { A: 0.36, B: 0.37, C: 0.12, D: 0.1, P: 0 },
     everNat: false, lastPart: null, pool: [], nid: 1, camps: {}, done: {}, results: [], hist: [], log: [], risks: [],
