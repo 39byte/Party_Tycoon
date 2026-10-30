@@ -4094,7 +4094,7 @@ function resultModal(r, keep) {
   // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
   const cand = ([id, n, v, p], i) => `<details class="rcand${i ? '' : ' win'}"><summary>${face({ name: n || '후보', gender: p?.g, age: p?.a }, col(id), 36)}<span class="rcn"><b>${esc(n || '후보')}${i ? '' : ' <span class="pill">당선</span>'}</b><span class="small muted">${byPill(id)}${p?.j ? ` · ${esc(p.j)}` : ''}</span></span><span class="rcv"><b class="num">${pct(v)}</b><span class="bar"><i style="width:${v * 100}%;background:${col(id)}"></i></span></span></summary>
     ${p ? `<div class="small muted" style="margin:6px 0">${p.g === 'F' ? '여' : '남'} · ${p.a}세${p.j ? ` · 출신: ${esc(p.j)}` : ''}</div>${statBars({ fame: p.fa, skill: p.sk, integ: p.ig })}<p class="small ${p.rec ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec ? esc(p.rec.join(', ')) : '없음'}</p>` : '<p class="small muted">프로필 기록이 없습니다.</p>'}</details>`;
-  const kOf = x => x.k ?? R.find(q => x.n === q.n || x.n.startsWith(q.n + ' '))?.k, regs = R.filter(q => r.races.some(x => kOf(x) === q.k));
+  const kOf = x => x.k ?? R.find(q => x.n === q.n || x.n.startsWith(q.n + ' '))?.k, regs = R.filter(q => r.races.some(x => kOf(x) === q.k && (!resMine || x.c.some(c => c[0] === 'P')))); // 토글을 켜면 출마 안 한 시·도 버튼은 숨김
   if (!keep || !regs.some(q => q.k === resReg)) resReg = regs.length > 1 ? regs[0].k : 'all'; // 전체 보기 없음: 처음엔 첫 지역
   const races = r.races.filter(x => (resReg === 'all' || kOf(x) === resReg) && (!resMine || x.c.some(c => c[0] === 'P')));
   const chip = (k, n) => `<button class="btn${resReg === k ? ' pri' : ''}" data-rreg="${k}" aria-pressed="${resReg === k}">${n}</button>`;
