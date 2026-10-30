@@ -489,8 +489,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .rvhead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px;min-height:32px;margin-bottom:6px}.rvhead .pager{margin:0}
 .rvface{flex:none;width:32px;height:32px;border-radius:50%;border:2px dashed var(--border)}
 .rvps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(190px,100%),1fr));gap:6px}.rvregs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:10px;margin-top:12px}
-.rvreg{padding:10px;border:1px solid var(--border);border-radius:10px;min-width:0}.rvline{border-left:4px solid var(--pc);padding-left:6px;margin-top:6px}.rvnone{margin:0}
-.rvp{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.rvp:hover{background:var(--surface2)}.rvp.st{cursor:default}.rvp.st:hover{background:none}.rvp.blank{border-style:dashed}.rvp>span{display:flex;flex-direction:column;min-width:0}.rvp b{font-size:14px}
+.rvreg{padding:10px;border:1px solid var(--border);border-radius:10px;min-width:0}.rvlines{display:grid;grid-template-rows:repeat(var(--rows),66px);grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:6px}.rvline{border-left:4px solid var(--pc);padding-left:6px;min-width:0}.rvline .rvp{height:100%}.rvline .small{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}.rvnone{margin:0}
+.rvp{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.rvp:hover{background:var(--surface2)}.rvp.st{cursor:default}.rvp.st:hover{background:none}.rvp.blank{border-style:dashed}.rvp.ghost,.rvreg.ghost{visibility:hidden}.rvps .rvp{height:56px}.rvps .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rvp>span{display:flex;flex-direction:column;min-width:0}.rvp b{font-size:14px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
@@ -4210,7 +4210,7 @@ function rvCard(c) {
   const xs = Object.values(c.rv).flat().flatMap(s => Object.values(s)), ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
   const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
   // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보)
-  const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
+  const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted" title="${sub ? `${pname(id)} · ` : ''}${esc(f.job)}">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
   const blank = (id, sub) => `<div class="rvp st blank"><span class="rvface" aria-hidden="true"></span><span><b>후보 미정</b><span class="small muted">${sub ? `${pname(id)} · ` : ''}공천 전</span></span></div>`;
   // 한 자리: 발표됐으면 프로필, 아니면 빈 프로필
   const slot = (x, id, sub) => rvOut(x) && fig(x.fid) ? who(x, id, sub) : blank(id, sub);
@@ -4223,13 +4223,14 @@ function rvCard(c) {
     const k = rvReg in c.rv ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
     const secs = ids.map(id => { const all = c.rv[k].map(s => s[id]).filter(Boolean); if (!all.length) return '';
       const got = all.filter(rvOut), rest = all.filter(x => !rvOut(x)), key = `${c.key}:${k}:${id}`, [p, pages] = page(key, all.length);
-      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3>${pg(key, p, pages, `${pname(id)} 후보 쪽 이동`)}</div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}</div></section>`; }).join('');
+      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3>${pg(key, p, pages, `${pname(id)} 후보 쪽 이동`)}</div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}${pages > 1 ? '<div class="rvp ghost" aria-hidden="true"></div>'.repeat((RV_PER - (all.length % RV_PER || RV_PER)) * (p === pages - 1)) : ''}</div></section>`; }).join('');
     body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n} <span class="num">${cnt(r)}</span></button>`).join('')}</div>
       <div class="rvsecs">${secs || '<p class="empty">이 지역은 후보를 낸 당이 없습니다.</p>'}</div>`;
   } else {
     for (const r of R_ADM) { own += !!c.reg?.gov?.[r.k]; ownN += !!mine(r.k); }
     const key = c.key + ':gov', [p, pages] = page(key, R_ADM.length);
-    body = `<div class="rvregs">${R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).map(r => { const s = c.rv[r.k][0], line = (id, h) => h ? `<div class="rvline" style="--pc:${col(id)}">${h}</div>` : ''; return `<section class="rvreg"><h3>${r.n}</h3>${line('P', mine(r.k))}${ids.filter(id => s[id]).map(id => line(id, slot(s[id], id, true))).join('')}</section>`; }).join('')}</div>${pg(key, p, pages, '시·도 쪽 이동')}`;
+    const rows = Math.min(6, Math.max(...R_ADM.map(r => Object.keys(c.rv[r.k][0]).length + !!mine(r.k))));
+    body = `<div class="rvregs" style="--rows:${rows}">${R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).map(r => { const s = c.rv[r.k][0], line = (id, h) => h ? `<div class="rvline" style="--pc:${col(id)}">${h}</div>` : ''; return `<section class="rvreg"><h3>${r.n}</h3><div class="rvlines">${line('P', mine(r.k))}${ids.filter(id => s[id]).map(id => line(id, slot(s[id], id, true))).join('')}</div></section>`; }).join('')}${`<section class="rvreg ghost" aria-hidden="true"><h3>&nbsp;</h3><div class="rvlines"></div></section>`.repeat(RV_PER - (R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).length))}</div>${pg(key, p, pages, '시·도 쪽 이동')}`;
   }
   return `<div class="card" style="margin-bottom:14px"><h2>공천 현황 <span class="pill">발표 ${xs.filter(rvOut).length + own}/${xs.length + ownN}</span></h2>${body}
     <p class="tip">각 당은 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 점선 칸은 출마하지만 아직 공천 전인 자리입니다.${gov ? ' 우리 당은 후보자 등록을 마치면 채워집니다.' : ''} 이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다.</p></div>`;
