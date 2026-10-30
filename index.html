@@ -2163,7 +2163,8 @@ function figDrop(o, f) { if (!f) return; o.figs = o.figs.filter(x => x !== f); o
 // 의석·지사 수에 맞춰 명부를 채우거나 줄임. 교섭 명단 의원은 끝까지 남김
 function figSync(o) {
   o.figs ??= []; o.inc ??= [];
-  for (const m of o.mps || []) if ((o.seats[m.party].d[m.k] || 0) > 0 && !figOf(o, m.fid)) { const f = genFig(o, m.party, m.k, 'd', m); m.fid = f.id; m.job ??= f.job; }
+  // 옛 저장(명부 전)의 교섭 명단 의원만 명부에 새로 넣음. 명부에서 빠진 의원(총선 낙선)을 되살리면 같은 당 진짜 당선인이 밀려남
+  for (const m of o.mps || []) if ((o.seats[m.party].d[m.k] || 0) > 0 && m.fid == null) { const f = genFig(o, m.party, m.k, 'd', m); m.fid = f.id; m.job ??= f.job; }
   const busy = new Set((o.mps || []).map(m => m.fid));
   for (const id of ['A', 'B', 'C', 'D', 'O']) {
     for (const r of R) {
