@@ -1287,7 +1287,7 @@ function resolveElection(c) {
     races = [{ n: '전국', c: g.ids.map(id => { const p = id === 'P' ? c.reg.cand : fig(c.rivals[id].fid) || c.rivals[id]; return [id, p.name, Math.round(g.v[id] * 1000) / 1000, raceProf(p)]; }).sort((a, b) => b[2] - a[2]) }];
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
     S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null };
-    S.pool.forEach(p => { if (p.role === '대통령') { p.role = '전직 대통령'; p.exPres = true; } });
+    S.pool.forEach(p => { if (p.role === '대통령') p.role = '전직 대통령'; });
     if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) p.role = '대통령'; }
     if (c.reg) refund += (c.reg.cand.dep + c.reg.cand.spend) * L.refundRate(g.v.P);
     html = presResultHTML(g, c);
@@ -1356,7 +1356,7 @@ function govResultHTML(g) {
 }
 function presResultHTML(g, c) {
   return g.ids.map(id => { const n = id === 'P' ? c.reg.cand.name : c.rivals[id].name; return `<div class="who" style="margin:10px 0">${face(id === 'P' ? c.reg.cand : { name: n, age: 60 }, pc(id), 48)}<div style="flex:1"><div style="display:flex;justify-content:space-between"><span><b>${esc(n)}</b> <span class="muted">${esc(pn(id))}</span> ${id === g.win ? '<b class="ok">당선</b>' : ''}</span><b class="num">${pct(g.v[id])}</b></div><div class="bar"><i style="width:${(g.v[id] * 100).toFixed(1)}%;background:${pc(id)}"></i></div></div></div>`; }).join('') +
-    `<p class="small muted">대통령은 단순다수 득표자로 당선되며 결선투표는 없습니다(헌법 제67조). 임기 5년 단임(헌법 제70조).</p>`;
+    `<p class="small muted">대통령은 단순다수 득표자로 당선되며 결선투표는 없습니다(헌법 제67조). 임기 5년이며, 연이어 할 수는 없지만 한 차례 쉬면 횟수 제한 없이 다시 출마할 수 있습니다.</p>`;
 }
 
 // ---------- 보조금 ----------
@@ -2702,7 +2702,8 @@ function registerParty() {
 }
 
 // ---------- 공천·후보 등록 ----------
-const eligible = (p, kind) => p && !p.ban && p.age >= LAW.age[kind] && !(kind === 'pres' && p.exPres) && !/대통령$/.test(p.role);
+// 대통령은 연임 불가·횟수 제한 없음(게임 규칙): 현직만 막음. 대선 결과가 나오면 '전직 대통령'이 되어 한 차례 쉰 다음 대선부터 다시 나갈 수 있음
+const eligible = (p, kind) => p && !p.ban && p.age >= LAW.age[kind] && !(kind === 'pres' ? p.role === '대통령' : /대통령$/.test(p.role));
 // 공천에 내보낼 수 있는 인재: 대선은 피선거권만, 총선·지선은 당 대표·대통령·다른 선거 현직 제외
 const nomKind = c => c.type === 'gov' ? 'gov' : c.type === 'pres' ? 'pres' : 'nat';
 const nomPool = c => { const kind = nomKind(c); return S.pool.filter(p => eligible(p, kind) && (kind === 'pres' || !p.leader && !(kind === 'gov' ? /국회의원|대통령/ : /시·도지사|대통령/).test(p.role))); };
@@ -2841,7 +2842,7 @@ function buildReg(c) {
   } else {
     const p = person(d.cand);
     if (!p) err.push('대통령 후보를 고르세요 (당내 경선 결과).');
-    else if (!eligible(p, 'pres')) err.push(`${p.name}: 대통령 피선거권은 만 40세 이상·5년 이상 국내 거주 (헌법 제67조·공직선거법 제16조)${p.exPres ? ', 대통령은 중임 불가(헌법 제70조)' : ''}`);
+    else if (!eligible(p, 'pres')) err.push(`${p.name}: 대통령 피선거권은 만 40세 이상·5년 이상 국내 거주 (헌법 제67조·공직선거법 제16조)${p.role === '대통령' ? ', 현직 대통령은 연이어 출마할 수 없고 한 차례 쉬어야 함' : ''}`);
     else { out.cand = mk(p, 'pres', PRES_SPEND[d.spend].c, PRES_SPEND[d.spend].b); out.cost += 5e7; } // 당내경선 관리비
     out.count = 1;
   }
