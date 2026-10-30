@@ -3898,13 +3898,14 @@ function nomForm(c) {
   const slot = (i, label) => `<select ${a} data-f="slot" data-s="${i}" aria-label="${label}">${personOpts(ss[i][0][ss[i][1]], nomKind(c))}</select>`;
   const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button>${infoTip(`후보 점수(역량 › 전과 › 청렴도 › 인지도) 높은 인재를 ${c.type === 'nat' ? '승산 높은 지역' : c.type === 'gov' ? '우리 지지가 높은 지역' : '대선 후보'}부터 배치합니다.${c.type === 'nat' ? ' 누르면 지역구 배치(가망 없는 지역 포기·최대한 균등하게)와 우선순위(비례·지역구)를 고르고, 비례대표 후보 수와 출마 지역구 수까지 보유 자금 안에서 정합니다.' : ''}`)}</div>`;
   let si = 0;
+  // 지역 행을 반씩 나눠 표 두 개를 좌우로(좁으면 위아래). 행은 R 순서대로 만들어 slot 번호(si)가 어긋나지 않음
+  const twoCol = (head, rows) => { const h = Math.ceil(rows.length / 2), t = rs => `<div class="tblwrap"><table><thead><tr>${head}</tr></thead><tbody>${rs.join('')}</tbody></table></div>`;
+    return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:12px;align-items:start">${t(rows.slice(0, h))}${t(rows.slice(h))}</div>`; };
   if (c.type === 'nat') {
-    return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th></tr></thead><tbody>
-      ${R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r">${r.seats}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td>
+    return `${top}${twoCol('<th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th>', R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r">${r.seats}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td>
       <td><input type="number" min="0" max="${r.seats}" value="${x.n}" ${a} data-k="${r.k}" data-f="n" aria-label="${r.n} 출마 수"></td>
       <td><div style="display:flex;flex-wrap:wrap;gap:4px">${x.ids.map((_, i) => slot(si++, `${r.n} 지역구 후보 ${i + 1}`)).join('') || '<span class="muted small">-</span>'}</div></td>
-      <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }).join('')}
-      </tbody></table></div>
+      <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }))}
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마 수를 늘리면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, 직접 바꾸거나 '자동 배치'를 누르세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다. 지역구 여성 후보가 30% 이상이면 여성추천보조금(정치자금법 제26조).</p>
       <div class="row" style="margin-top:12px">
         <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원 · ${(r => `추천 ${r.n}명 (지금 여론이면 비례 ${r.exp}석 예상)`)(prRec(c))}</span></label>
@@ -3914,11 +3915,9 @@ function nomForm(c) {
       <p class="tip">홀수 순번은 여성으로 자동 배치됩니다(공직선거법 제47조 제3항, 위반 시 등록무효 제52조). 지역구 후보로 정한 인재는 목록에서 빠집니다(중복 입후보 불가). 고르지 않은 순번은 남는 인재로 채웁니다.</p></fieldset>`;
   }
   if (c.type === 'gov') {
-    return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">우리 지지</th><th>출마</th><th>후보</th><th>선거비용</th></tr></thead><tbody>
-      ${R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td><td><input type="checkbox" ${a} data-k="${r.k}" data-f="run" ${x.run ? 'checked' : ''} aria-label="${r.n} 출마"></td>
+    return `${top}${twoCol('<th>지역</th><th class="r">우리 지지</th><th>출마</th><th>후보</th><th>선거비용</th>', R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td><td><input type="checkbox" ${a} data-k="${r.k}" data-f="run" ${x.run ? 'checked' : ''} aria-label="${r.n} 출마"></td>
       <td>${x.run ? slot(si++, `${r.n} 후보`) : '<span class="muted small">-</span>'}</td>
-      <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }).join('')}
-      </tbody></table></div>
+      <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }))}
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마를 고르면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, 직접 바꾸거나 '자동 배치'를 누르세요. 다른 지역에 있는 사람을 고르면 두 지역이 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
   }
   return `${top}<div class="row"><label class="f">대통령 후보 (당내 경선)${slot(0, '대통령 후보')}<span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
