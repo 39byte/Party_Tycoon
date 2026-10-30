@@ -168,6 +168,12 @@ nav .more{display:none}
 .act.row2 .bell{margin-left:2px}
 .act .bell{min-width:30px;height:30px;padding:0;margin-left:auto;border-radius:8px}
 .act .bell .ic{width:16px;height:16px}
+/* 종(알림) 버튼: 윤곽선·배경 없이 아이콘만. 켜짐 = 진한 종, 꺼짐 = 회색 종 + 사선 */
+.ib.bell,.ib.bell[aria-pressed="true"]{position:relative;border:0;background:none;box-shadow:none}
+.ib.bell[aria-pressed="true"]{color:var(--ink)} .ib.bell[aria-pressed="true"] .ic{stroke-width:2.6}
+.ib.bell[aria-pressed="false"]{color:var(--muted);opacity:.7}
+.ib.bell[aria-pressed="false"]::after{content:"";position:absolute;left:50%;top:50%;width:20px;height:2px;border-radius:1px;background:currentColor;transform:translate(-50%,-50%) rotate(-45deg)}
+.ib.bell:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
 .act .meta{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
 .act .why{font-size:12.5px;color:var(--warn)}
 /* 기본 카드: 같은 줄 카드끼리 제목·설명·실행 버튼·비용·사유 줄을 맞춤(subgrid) → 설명 길이가 달라도 실행 버튼 높이가 같음 */
