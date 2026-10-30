@@ -2614,7 +2614,10 @@ function negOutModal(oid) {
   });
 }
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
-let negF = 'all';
+let negF = 'all', mpPage = 0, outPage = 0;
+const NEG_PER = 5; // 교섭 탭 인물 한 쪽에 5명
+// 한 쪽 분량만 잘라 주고 쪽 번호가 범위를 넘으면 마지막 쪽으로
+const negPage = (xs, p) => { const n = Math.max(1, Math.ceil(xs.length / NEG_PER)), q = Math.min(p, n - 1); return [xs.slice(q * NEG_PER, (q + 1) * NEG_PER), q, n]; };
 // 교섭 버튼: 턴 진행 중·행동력 소진·재교섭 대기면 비활성. 대기 중이면 남은 턴을 버튼에 표시
 // 별: 목록 맨 앞으로 올리고, 이 상대와 다시 교섭할 수 있게 되면 주간 브리핑에서 알림
 const freshPill = cdk => fresh.includes(cdk) ? ' <span class="pill ok">다시 가능</span>' : '';
@@ -2643,13 +2646,14 @@ function negCard() {
     ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>
       <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]} · 신뢰 <b class="num">${trAvg(id).toFixed(1)}</b></div>${relBar(S.rel[id])}</div>`).join('')}
     </div></div>`;
+  const [mpShow, mq, mn] = negPage(mps, mpPage), [outShow, oq, on] = negPage(outs, outPage); mpPage = mq; outPage = oq;
   // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임
   return `<div class="stack">${head}${parties}<div class="split">
     <div class="card"><h2>원내 의원 <span class="pill">${mps.length}명</span></h2>
       <div class="filters chips" role="group" aria-label="소속 필터">${ff.map(([k, n]) => `<button class="btn${negF === k ? ' pri' : ''}" data-negf="${k}" aria-pressed="${negF === k}">${esc(n)}</button>`).join('')}</div>
-      ${personTbl(mps.map(mpRow), '해당 소속 의원이 없습니다.')}</div>
+      ${personTbl(mpShow.map(mpRow), '해당 소속 의원이 없습니다.')}${mn > 1 ? pager(mq, mn, 'mppage', '원내 의원 쪽 이동') : ''}</div>
     <div class="card"><h2>원외 인사 <span class="pill">${outs.length}명</span></h2>
-      ${personTbl(outs.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 본부 탭 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}
+      ${personTbl(outShow.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 본부 탭 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}${on > 1 ? pager(oq, on, 'outpage', '원외 인사 쪽 이동') : ''}
       <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다.</p></div>
   </div></div>`;
 }
@@ -3908,7 +3912,9 @@ function bindPanel(m) {
   m.querySelectorAll('[data-dirpar]').forEach(b => b.onclick = () => { dirPar = b.dataset.dirpar; dirPage = 0; renderAll(); });
   m.querySelectorAll('[data-dpage]').forEach(b => b.onclick = () => { dirPage = +b.dataset.dpage; renderAll(); m.querySelector('.dircard')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-negout]').forEach(b => b.onclick = () => negOutModal(+b.dataset.negout));
-  m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; renderPanel(); });
+  m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; mpPage = 0; renderPanel(); });
+  m.querySelectorAll('[data-mppage]').forEach(b => b.onclick = () => { mpPage = +b.dataset.mppage; renderPanel(); });
+  m.querySelectorAll('[data-outpage]').forEach(b => b.onclick = () => { outPage = +b.dataset.outpage; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-visit]').forEach(b => b.onclick = agendaVisit);
   m.querySelectorAll('[data-presp]').forEach(b => b.onclick = () => partyRespond(+b.dataset.presp));
