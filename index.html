@@ -1301,6 +1301,13 @@ function partyOrder() {
   base.splice(pos, 0, 'P');
   return base;
 }
+// 본회의장 자리(의장석에서 본 왼쪽→오른쪽). 국회법 제3조는 의장이 교섭단체와 협의해 정한다고만 하고,
+// 관행은 제1당 가운데 · 제2당 오른쪽 · 비교섭단체(20석 미만)·무소속 왼쪽. 정당 순서는 이념이 아니라 의석 수
+function seatOrder() {
+  const n = id => seatTotal(id), by = (a, b) => n(b) - n(a);
+  const big = ['P', 'A', 'B', 'C', 'D'].filter(id => n(id) >= 20).sort(by), small = ['P', 'A', 'B', 'C', 'D'].filter(id => !big.includes(id)).sort(by);
+  return [...small, 'O', ...big.slice(2), ...big.slice(0, 2)];
+}
 function hemicycle() {
   const total = LAW.totalSeats, rows = 8, R0 = 42, R1 = 100, pts = [];
   const radii = [...Array(rows)].map((_, i) => R0 + (R1 - R0) * i / (rows - 1)), sr = sum(radii);
@@ -1309,11 +1316,11 @@ function hemicycle() {
   radii.forEach((r, i) => { for (let j = 0; j < per[i]; j++) { const a = Math.PI * (1 - j / (per[i] - 1)); pts.push({ x: 110 + r * Math.cos(a), y: 106 - r * Math.sin(a), a }); } });
   pts.sort((p, q) => q.a - p.a);
   const cols = [];
-  partyOrder().forEach(id => { for (let n = seatTotal(id); n > 0; n--) cols.push(pc(id)); });
+  seatOrder().forEach(id => { for (let n = seatTotal(id); n > 0; n--) cols.push(pc(id)); });
   const dots = pts.map((p, i) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.7" fill="${cols[i] || 'none'}" stroke="${cols[i] ? 'none' : 'var(--border)'}"/>`).join('');
-  const label = partyOrder().map(id => `${pn(id)} ${seatTotal(id)}석`).join(', ');
-  return `<svg viewBox="0 0 220 112" role="img" aria-label="국회 의석 분포: ${esc(label)}" style="width:100%;max-width:440px;display:block;margin:0 auto">${dots}<text x="110" y="100" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">${sum(partyOrder().map(seatTotal))}석</text></svg>
-  <div class="legend" style="justify-content:center;margin-top:6px">${partyOrder().map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} <b class="num">${seatTotal(id)}</b></span>`).join('')}</div>`;
+  const label = seatOrder().map(id => `${pn(id)} ${seatTotal(id)}석`).join(', ');
+  return `<svg viewBox="0 0 220 112" role="img" aria-label="국회 의석 분포: ${esc(label)}" style="width:100%;max-width:440px;display:block;margin:0 auto">${dots}<text x="110" y="100" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">${sum(seatOrder().map(seatTotal))}석</text></svg>
+  <div class="legend" style="justify-content:center;margin-top:6px">${seatOrder().map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} <b class="num">${seatTotal(id)}</b></span>`).join('')}</div>`;
 }
 function natResultHTML(g, c) {
   const rows = partyOrder().map(id => { const d = sum(Object.values(S.seats[id].d)); return `<tr><td><span class="legend"><span><i style="background:${pc(id)}"></i>${esc(pn(id))}</span></span></td><td class="r num">${d}</td><td class="r num">${S.seats[id].pr}</td><td class="r num"><b>${d + S.seats[id].pr}</b></td><td class="r num">${pct(g.pv[id] || 0)}</td></tr>`; }).join('');
@@ -4099,7 +4106,7 @@ function pOffice() {
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도 | 사회적 이슈 나란히(좁으면 위아래)
   // 맨 위: 의석 분포(접고 펼치기, 상태는 탭을 다시 그려도 유지)
-  const seatd = `<details class="card seatd" data-seatd ${seatOpen ? 'open' : ''}><summary><h2>국회 의석 분포 (300석)</h2></summary>${hemicycle()}</details>`;
+  const seatd = `<details class="card seatd" data-seatd ${seatOpen ? 'open' : ''}><summary><h2>국회 의석 분포 (300석)</h2></summary>${hemicycle()}<p class="tip">의장석에서 바라본 배치입니다. 의석은 국회의장이 교섭단체와 협의해 정하며(국회법 제3조), 관례대로 원내 제1당은 가운데, 제2당은 오른쪽, 20석 미만 정당과 무소속은 왼쪽에 앉습니다.</p></details>`;
   return `<div class="stack">${seatd}${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}${agendaCard()}</div></div>`;
 }
 // 청와대: 지금은 대통령 정보만
