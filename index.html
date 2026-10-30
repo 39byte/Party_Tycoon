@@ -1417,7 +1417,6 @@ function monthly(dt) {
   if (upm) spend(upm, '시설');
   if (rnd() < 0.5) S.issue = pick(ISSUES).k; // 플레이어에겐 뉴스로만 드러남
   if (dt.getUTCMonth() === 0) S.pool.forEach(p => p.age++);
-  S.hist.push(snapPoll()); if (S.hist.length > 150) S.hist.shift();
   // 숨긴 일: 시간이 지날수록 증거가 흐려지고, 당이 클수록 눈이 많아짐. 평생 적발 확률 대략 20~45%
   const mul = { easy: 0.7, normal: 1, hard: 1.3 }[S.diff];
   S.risks = S.risks.filter(k => {
@@ -1564,6 +1563,7 @@ function runTurn() {
     tick(); left--;
     if (!left) {
       S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep();
+      S.hist.push(snapPoll()); if (S.hist.length > 260) S.hist.shift(); // 지지율 추이: 매주(옛 저장 파일은 그 전까지 월별)
       if (turnNo() % 3 === 0) outFill(S, 1); // 교섭 명단 밖 원외 인사는 3턴마다 새 얼굴로
       turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); renderAll();
@@ -3836,7 +3836,7 @@ function pHome() {
           <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년, 대선은 3년마다 열립니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
       </div>
       <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
-        <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (월별)</h2>${pollChart(ban)}</div>
+        <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (주별)</h2>${pollChart(ban)}</div>
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
           ${['P', 'B', 'A', 'C', 'D', 'O'].filter(id => !ban || id === 'P').sort((a, b) => q[b] - q[a]).map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
           ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
@@ -3870,19 +3870,19 @@ function dirCard() {
     <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원과 원외 인사는 그 창에서 교섭 명단에 넣을 수 있고, 명단에 없는 원외 인사는 3턴마다 새 인물로 바뀝니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
 function pollChart(ban) {
-  const h = S.hist.slice(-13); // 월별 기록이라 13점 = 최근 12개월
-  if (h.length < 2) return '<p class="empty">한 달 이상 지나면 추이가 표시됩니다.</p>';
+  const h = S.hist.filter(x => x.d >= S.day - 365); // 최근 12개월(주별 기록, 옛 기록은 월별이라 가로축은 날짜 기준)
+  if (h.length < 2) return '<p class="empty">한 주 이상 지나면 추이가 표시됩니다.</p>';
   const W = 600, H = 200, pl = 34, pr = 100, pt = 10, pb = 24;
   const ids = ban ? ['P'] : ['B', 'A', 'C', 'D', 'P'];
   const max = Math.max(10, ...h.flatMap(x => ids.map(id => x[id] || 0))) * 1.1;
-  const X = i => pl + (W - pl - pr) * i / (h.length - 1), Y = v => pt + (H - pt - pb) * (1 - v / max);
+  const d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0), X = i => pl + (W - pl - pr) * (h[i].d - d0) / dd, Y = v => pt + (H - pt - pb) * (1 - v / max);
   const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f));
   const grid = ticks.map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--border)"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}%</text>`).join('');
   const xl = [0, h.length - 1].map(i => { const t = L.dayToDate(h[i].d); return `<text x="${X(i)}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${t.getUTCFullYear()}.${t.getUTCMonth() + 1}</text>`; }).join('');
   // 오른쪽 이름표는 값 순으로 13px 이상 띄움(작은 당끼리 겹치지 않게). 옛 기록에 없는 당(반석당)은 그 구간을 건너뜀
   const ly = {}; ids.filter(id => h.at(-1)[id] != null).sort((a, b) => h.at(-1)[b] - h.at(-1)[a]).forEach((id, i, a) => ly[id] = Math.max(Y(h.at(-1)[id]) + 4, i ? ly[a[i - 1]] + 13 : 0));
   const lines = ids.map(id => { const last = h[h.length - 1][id]; return `<polyline fill="none" stroke="${pc(id)}" stroke-width="${id === 'P' ? 3 : 2}" points="${h.map((x, i) => x[id] == null ? '' : `${X(i).toFixed(1)},${Y(x[id]).toFixed(1)}`).filter(Boolean).join(' ')}"/><text x="${W - pr + 6}" y="${ly[id]}" font-size="12" font-weight="700" fill="${pc(id)}">${esc(pn(id).slice(0, 5))} ${last}%</text>`; }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="정당 지지율 월별 추이" style="width:100%;height:auto">${grid}${xl}${lines}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="정당 지지율 주별 추이" style="width:100%;height:auto">${grid}${xl}${lines}</svg>`;
 }
 function pOrg() {
   const r = RK[selReg], cs = activeCamps().length > 0, c = S.party.color;
