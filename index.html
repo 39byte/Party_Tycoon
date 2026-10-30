@@ -1723,7 +1723,9 @@ function accTargets() {
 }
 // 그 사람에 대해 교섭 자리에서 들은 얘기(맞는지는 친분만큼). 그 당 차원 루머는 그 당 의원 몫으로도 보여 줌
 // 대화를 나눈 사람들(교섭 명단에서 뺀 의원 포함)
-const talkers = () => [...S.mps, ...S.outs, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])];
+const talkers = () => [...S.mps, ...S.outs, ...S.pool, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])];
+// 영입해도 친분·대화 내역은 이어짐
+const talkKeep = m => m.talk?.length ? { rel: m.rel, talk: m.talk, talkN: m.talkN ?? m.talk.length } : {};
 // 이미 고발한 얘기(x.acc)는 빼고 보여 줌
 const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && !x.acc && ((
   t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
@@ -2429,7 +2431,7 @@ function negMpModal(mid) {
       win: () => {
         S.seats[m.party].d[m.k]--; S.seats.P.d[m.k] = (S.seats.P.d[m.k] || 0) + 1;
         S.mps = S.mps.filter(x => x !== m); relAdd(m.party, -15, `${m.name} 의원 빼가기`); S.fame += 2;
-        const np = { id: S.nid++, name: m.name, gender: m.gender || 'M', age: fig(m.fid)?.age || Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})` };
+        const np = { id: S.nid++, name: m.name, gender: m.gender || 'M', age: fig(m.fid)?.age || Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})`, ...talkKeep(m) };
         S.pool.push(np); incMove(m.fid, np.id); figDrop(S, fig(m.fid));
         checkAch(); return `${who}이(가) 우리 당에 입당했습니다! 의석이 1석 늘었습니다.`;
       },
@@ -2460,7 +2462,7 @@ function negOutModal(oid) {
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
         S.outs = S.outs.filter(x => x !== m); S.outs.push(genOut(S)); if (m.party) relAdd(m.party, -8, `${m.name} ${m.role} 영입`); // 영입한 만큼 새 인사로 채움 S.fame += 1;
-        const np = { id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: '' };
+        const np = { id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: '', ...talkKeep(m) };
         S.pool.push(np); lateRec(np, m.role);
         return `${who}이(가) 우리 당에 합류했습니다! 인재 탭에서 볼 수 있습니다.`;
       },
@@ -3783,6 +3785,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-autok]').forEach(b => b.onchange = () => { const k = b.dataset.autok; S.autoK ??= {}; if (b.checked) S.autoK[k] = 1; else delete S.autoK[k]; Snd.sfx('click'); save(); renderAll(); });
   m.querySelectorAll('[data-des]').forEach(b => b.onclick = () => toggleDes(+b.dataset.des));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
+  m.querySelectorAll('[data-ptalk]').forEach(b => b.onclick = () => { const p = S.pool.find(x => x.id === +b.dataset.ptalk); if (p) openModal({ title: `${p.name} 대화 내역`, html: `<p class="small muted">영입하기 전에 나눈 대화입니다.</p>${talkHTML(p)}`, buttons: [{ t: '닫기', pri: true }] }); });
   m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; pPage = 0; renderAll(); });
   m.querySelectorAll('[data-ppage]').forEach(b => b.onclick = () => { pPage = +b.dataset.ppage; renderAll(); m.querySelector('.phead')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
@@ -3942,7 +3945,7 @@ function pPeople() {
   const pages = Math.max(1, Math.ceil(S.pool.length / P_PER)); pPage = Math.min(pPage, pages - 1); // 제명 등으로 쪽이 줄면 마지막 쪽으로
   const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).slice(pPage * P_PER, (pPage + 1) * P_PER).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)}</div></div></div>
     ${statBars(p)}
-    <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
+    <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.talk?.length ? `<button class="btn" data-ptalk="${p.id}">대화 ${p.talk.length}</button>` : ''}${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   // 머리: [제목 | (대기 안내문) 인재 영입] / [정렬]
   const w = why('talent'), recruit = `<button class="btn pri" data-act="talent" ${w ? 'disabled' : ''}>${talOpen() ? '이어서 영입' : '인재 영입'}</button>`;
   return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX}) ${infoTip(`<p class="tip">${esc(ACT.talent.d)} 탐색비 ${won(ACT.talent.c())} · 행동력 1 · ${Math.ceil(ACT.talent.cd / TURN)}턴마다 새 후보.</p>`)}</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${talOpen() ? `<span class="small muted">${Math.max(1, Math.ceil((S.tal.until - S.day) / TURN))}턴 후 갱신</span>` : ''}${recruit}<button class="ib bell" style="width:40px;padding:0" data-watch="talent" aria-pressed="${!!S.watch.talent}" aria-label="재영입 알림" title="재영입 알림 ${S.watch.talent ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button></div>
