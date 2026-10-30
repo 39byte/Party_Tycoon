@@ -2578,7 +2578,7 @@ function doAct(key, k) {
   if (key === 'bill') return billModal();
   if (key === 'govern') return govModal(k);
   if (key === 'talent') {
-    if (!talOpen()) { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; S.tal = { until: S.cd.talent, got: [], cands: Array.from({ length: Math.min(25, POOL_MAX - S.pool.length) }, () => genPerson({ fameAdd: rnd() < 0.2 ? 25 : 0 })) }; }
+    if (!talOpen()) { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; S.tal = { until: S.cd.talent, got: [], cands: Array.from({ length: 25 }, () => genPerson({ fameAdd: rnd() < 0.2 ? 25 : 0 })) }; }
     return talentModal();
   }
   spend(a.c(), '활동'); S.ap--;
