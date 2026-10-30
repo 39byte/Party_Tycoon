@@ -310,7 +310,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 @keyframes tout{to{opacity:0;transform:translateX(24px)}}
 @keyframes tbar{to{transform:scaleX(0)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-.sloganrow{display:flex;align-items:center;gap:8px;margin:8px 0}.sloganrow p{margin:0;min-width:0}.sloganrow .ib{margin-left:auto;flex:none}
+.sloganrow{display:flex;align-items:center;gap:8px;margin:8px 0}.sloganrow p{margin:0;min-width:0}.sloganrow .ib{margin-left:auto;flex:none;border:0;background:none;box-shadow:none}.sloganrow .ib:hover{background:var(--surface2)}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
 .swatches label{cursor:pointer}
 .swatches input{position:absolute;opacity:0}
@@ -3988,10 +3988,11 @@ const partyNameErr = name => {
 };
 // 본부 탭 연필 버튼: 당 이름·색 바꾸기
 function partyEdit() {
-  openModal({ title: '당 이름·색 바꾸기', html: `<form id="pe" style="display:flex;flex-direction:column;gap:12px">
+  openModal({ title: '당 정보 변경', html: `<form id="pe" style="display:flex;flex-direction:column;gap:12px">
       <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="${esc(S.party.name)}" autocomplete="off"><span class="h" id="peErr" role="alert"></span></label>
       <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c]) => `<label><input type="radio" name="color" value="${c}" ${c === S.party.color ? 'checked' : ''}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
-      <div class="btns" style="justify-content:flex-end"><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div></form>`,
+      <div class="btns" style="justify-content:flex-end"><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div>
+      <p class="small muted" style="margin:0">지난 로그와 선거 기록의 글에는 예전 당명이 그대로 남습니다.</p></form>`,
     onOpen: m => {
       m.querySelector('[data-pecancel]').onclick = closeModal;
       const f = m.querySelector('#pe');
@@ -4017,7 +4018,7 @@ function pHome() {
   } else {
     const L_ = leader();
     status = `<h2>${esc(S.party.name)} <span class="pill">${IDEO[S.party.ideo]}</span> <span class="pill${ruling() ? ' ok' : ''}">${ruling() ? '여당' : '야당'}</span></h2>
-      <div class="sloganrow">${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}<button class="ib" data-partyedit aria-label="당 이름·색 바꾸기" title="당 이름·색 바꾸기">${icon('i-pencil')}</button></div>
+      <div class="sloganrow">${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}<button class="ib" data-partyedit aria-label="당 정보 변경" title="당 정보 변경">${icon('i-pencil')}</button></div>
       <div class="leader">${face(L_, S.party.color, 72)}<div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 · ${esc(homeTxt(L_))} · 역량 ${L_.skill} · 청렴 ${L_.integ}</div></div></div>
       <div class="tblwrap"><table><tbody>
       <tr><th>당 대표</th><td>${esc(L_.name)} (${L_.age}세)</td><th>등록일</th><td>${fdate(S.regDay)}</td></tr>
