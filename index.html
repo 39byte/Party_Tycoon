@@ -3991,8 +3991,7 @@ function partyEdit() {
   openModal({ title: '당 정보 변경', html: `<form id="pe" style="display:flex;flex-direction:column;gap:12px">
       <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="${esc(S.party.name)}" autocomplete="off"><span class="h" id="peErr" role="alert"></span></label>
       <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c]) => `<label><input type="radio" name="color" value="${c}" ${c === S.party.color ? 'checked' : ''}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
-      <div class="btns" style="justify-content:flex-end"><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div>
-      <p class="small muted" style="margin:0">지난 로그와 선거 기록의 글에는 예전 당명이 그대로 남습니다.</p></form>`,
+      <div class="btns" style="align-items:center"><p class="small muted" style="margin:0 auto 0 0;flex:1 1 200px">지난 로그와 선거 기록의 글에는 예전 당명이 그대로 남습니다.</p><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div></form>`,
     onOpen: m => {
       m.querySelector('[data-pecancel]').onclick = closeModal;
       const f = m.querySelector('#pe');
