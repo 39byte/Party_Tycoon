@@ -533,9 +533,9 @@ const { REGIONS: R, LAW } = L;
 const RK = Object.fromEntries(R.map(r => [r.k, r]));
 const BASE_SCHED = L.schedule(40);
 let SCHED = BASE_SCHED;
-// 선거 템포: 실제 법정 주기(총선·지방선거 4년, 대선 5년)보다 빠르게 — 총선·지방선거 2년, 대선 3년
+// 선거 템포: 총선·지방선거는 실제(4년)보다 빠르게 2년, 대선은 실제대로 5년 단임(헌법 제70조)
 // 총선과 지방선거는 1년씩 엇갈리고, 대선은 총선 반년 뒤. tempoFrom(빠른 일정 시작일, 새 게임은 0) 전에 치른 선거는 실제 일정 그대로 둠
-const GAP = { nat: 730, gov: 730, pres: 1095 };
+const GAP = { nat: 730, gov: 730, pres: 1826 };
 const wedOn = d => L.electionDay(L.dayToDate(d), 0); // 그날 이후 첫 수요일(공휴일 앞뒤면 다음 주, 공직선거법 제34조)
 function rebuildSched(o) {
   const a = o.tempoFrom ?? 0, past = BASE_SCHED.filter(e => e.day < a), cnt = t => past.filter(e => e.type === t).length;
@@ -547,8 +547,15 @@ function rebuildSched(o) {
     ...series('nat', nat1, 23 + cnt('nat'), n => `제${n}대 국회의원선거`),
     ...series('gov', nat1 + 365, 9 + cnt('gov'), n => `제${n}회 전국동시지방선거`),
     ...series('pres', nat1 + 182, 23 + cnt('pres'), n => `제${n}대 대통령선거`)];
-  // 대통령 궐위 → 60일 안에 보궐 대선(헌법 제68조). 새 임기가 시작되므로 이후 대선도 그날부터 3년마다
-  for (const d of o.presEarly || []) {
+  // 이미 치렀거나 공천 중인 대선은 그날 그대로 두고, 다음 대선은 마지막 대선부터 5년 뒤(옛 3년 주기 저장 파일도 이어짐)
+  const fixed = [...new Set([...Object.keys(o.done || {}), ...Object.keys(o.camps || {})].filter(k => k.startsWith('pres')).map(k => +k.slice(4)).filter(d => d >= a))].sort((x, y) => x - y);
+  if (fixed.length) {
+    const n0 = 23 + cnt('pres'), last = fixed.at(-1);
+    out = [...out.filter(e => e.type !== 'pres' || e.day < a), ...[...fixed, ...Array.from({ length: 12 }, (_, i) => wedOn(last + (i + 1) * GAP.pres))]
+      .map((day, i) => ({ type: 'pres', name: `제${n0 + i}대 대통령선거${(o.presEarly || []).includes(day) ? ' (궐위)' : ''}`, day, key: 'pres' + day }))];
+  }
+  // 대통령 궐위 → 60일 안에 보궐 대선(헌법 제68조). 새 임기가 시작되므로 이후 대선도 그날부터 5년마다
+  for (const d of (o.presEarly || []).filter(d => !fixed.includes(d))) {
     const n = 23 + out.filter(e => e.type === 'pres' && e.day < d).length;
     const pres = [{ type: 'pres', name: `제${n}대 대통령선거 (궐위)`, day: d, key: 'pres' + d },
       ...Array.from({ length: 12 }, (_, i) => wedOn(d + (i + 1) * GAP.pres)).map((day, i) => ({ type: 'pres', name: `제${n + i + 1}대 대통령선거`, day, key: 'pres' + day }))];
@@ -1046,6 +1053,7 @@ function migrate(o) {
   // 진행 중이던 옛 저장 파일만: 다음 국회의원선거를 불러온 날부터 140일 뒤로(한 번만). 새 게임은 natv가 이미 있어 정기 일정 그대로
   if (!o.natv) { o.natFrom = o.day; o.natDay = o.day + 140; o.natv = 1; }
   if (!o.tempov) { o.tempoFrom = o.day; o.tempov = 1; } // 옛 저장 파일: 불러온 날부터 빠른 선거 일정
+  for (const p of o.pool) if (/대통령$/.test(p.role)) p.wasPres = 1; // 단임제 전 저장 파일의 현직·전직 대통령
   rebuildSched(o);
   for (const k in o.camps || {}) if (!SCHED.some(e => e.key === k)) delete o.camps[k]; // 옛 날짜로 열린 공천은 취소
   for (const r of o.risks || []) if (r.born == null) { r.born = o.day; r.p /= 5; }
@@ -1301,7 +1309,7 @@ function resolveElection(c) {
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
     S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null };
     S.pool.forEach(p => { if (p.role === '대통령') p.role = '전직 대통령'; });
-    if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) p.role = '대통령'; }
+    if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) { p.role = '대통령'; p.wasPres = 1; } }
     if (c.reg) refund += (c.reg.cand.dep + c.reg.cand.spend) * L.refundRate(g.v.P);
     html = presResultHTML(g, c);
     lines.push(`${c.name} 결과: ${winName}(${pn(g.win)}) 당선` + (c.reg ? ` · ${S.party.name} 후보 ${pct(g.v.P)}` : ''));
@@ -2613,7 +2621,7 @@ function doAct(key, k) {
   } else if (key === 'rally') {
     // 지역 신뢰도에 따라 효과 ×0.5(신뢰 0) ~ ×1(50) ~ ×1.5(100)
     const m = 0.5 + S.rtrust[k] / 100;
-    activeCamps().forEach(c => { c.boost.reg[k] = Math.min(0.2, (c.boost.reg[k] || 0) + 0.06 * m * (1 - (c.boost.reg[k] || 0) / 0.2) + 0.002); });
+    activeCamps().forEach(c => { c.boost.reg[k] = Math.min(0.12, (c.boost.reg[k] || 0) + 0.035 * m * (1 - (c.boost.reg[k] || 0) / 0.12) + 0.001); }); // 밸런스: 지역당 최대 +12%
     S.fame += 0.3; msg = `${RK[k].n} 거리 유세: 지역 득표력 상승 (지역 신뢰도 ${Math.round(S.rtrust[k])}, 효과 ×${m.toFixed(2)}).`;
   } else if (key === 'online') {
     const g = 2.5 * (1 - S.fame / 100) ** 2 * rr(0.7, 1.3) * (S.up.digital ? 1.3 : 1); S.fame = clamp(S.fame + g, 0, 100);
@@ -2626,7 +2634,7 @@ function doAct(key, k) {
     const got = raiseFunds((3e7 + totalMembers() * 2000 + S.fame * S.fame * 3e5) * rr(0.7, 1.3));
     msg = `후원의 밤: ${won(got)} 모금 (올해 ${won(S.fund.raised)} / 한도 ${won(fundCap())})`;
   } else if (key === 'tvad') {
-    activeCamps().forEach(c => { c.boost.nat = Math.min(0.15, c.boost.nat + 0.04 * (1 - c.boost.nat / 0.15) + 0.002); }); msg = '방송 광고 송출: 전국 득표력 상승.';
+    activeCamps().forEach(c => { c.boost.nat = Math.min(0.09, c.boost.nat + 0.025 * (1 - c.boost.nat / 0.09) + 0.001); }); msg = '방송 광고 송출: 전국 득표력 상승.'; // 밸런스: 전국 최대 +9%
   } else if (key === 'question') {
     const ruling = S.president.party === 'P', mp = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill)[0] || leader();
     if (rnd() < mp.skill / 100 * 0.6 + 0.25) {
@@ -2637,8 +2645,8 @@ function doAct(key, k) {
   } else if (key === 'debate') {
     const c = activeCamps().find(c => c.type !== 'nat');
     const cand = c.type === 'pres' ? c.reg.cand : Object.values(c.reg.gov)[0];
-    if (rnd() < cand.skill / 100 * 0.7 + 0.15) { c.boost.nat += 0.06; msg = `TV 토론: ${cand.name} 후보 선전!`; }
-    else { c.boost.nat -= 0.03; msg = `TV 토론: ${cand.name} 후보가 고전했습니다.`; ok = false; }
+    if (rnd() < cand.skill / 100 * 0.7 + 0.15) { c.boost.nat += 0.035; msg = `TV 토론: ${cand.name} 후보 선전!`; }
+    else { c.boost.nat -= 0.02; msg = `TV 토론: ${cand.name} 후보가 고전했습니다.`; ok = false; }
     const cp = cand.id != null && person(cand.id); if (cp) pFame(cp, ok ? 3 : 1); // 토론에 나선 후보 본인 인지도
   }
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? '' : 'bad'); addLog(msg, ok ? '' : 'bad');
@@ -2720,8 +2728,8 @@ function registerParty() {
 }
 
 // ---------- 공천·후보 등록 ----------
-// 대통령은 연임 불가·횟수 제한 없음(게임 규칙): 현직만 막음. 대선 결과가 나오면 '전직 대통령'이 되어 한 차례 쉰 다음 대선부터 다시 나갈 수 있음
-const eligible = (p, kind) => p && !p.ban && p.age >= LAW.age[kind] && !(kind === 'pres' ? p.role === '대통령' : /대통령$/.test(p.role));
+// 대통령은 5년 단임(헌법 제70조): 현직·전직 대통령(wasPres)은 대선에 다시 못 나감
+const eligible = (p, kind) => p && !p.ban && p.age >= LAW.age[kind] && !(kind === 'pres' ? p.wasPres || /대통령$/.test(p.role) : /대통령$/.test(p.role));
 // 공천에 내보낼 수 있는 인재: 대선은 피선거권만, 총선·지선은 당 대표·대통령·다른 선거 현직 제외
 const nomKind = c => c.type === 'gov' ? 'gov' : c.type === 'pres' ? 'pres' : 'nat';
 const nomPool = c => { const kind = nomKind(c); return S.pool.filter(p => eligible(p, kind) && (kind === 'pres' || !p.leader && !(kind === 'gov' ? /국회의원|대통령/ : /시·도지사|대통령/).test(p.role))); };
@@ -2997,7 +3005,7 @@ const EVENTS = [
   { id: 'precamp', w: 4, cond: () => S.phase === 'reg' && !!nearElec(), title: '이른 선거운동 제안',
     body: () => `지역 조직책들이 공식 선거운동기간 전부터 유세차와 명함 배포를 시작하자고 건의합니다. "남들도 다 합니다."`,
     ch: [{ t: '기간을 기다린다', s: '온라인 홍보에 집중', run: () => { S.trust += 1; return '공식 선거운동기간까지 기다리기로 했습니다.'; } },
-      { t: '강행한다', s: '전국 득표력 상승', run: () => { const c = nearElec(); c.boost.nat += 0.05; addRisk('사전선거운동', 0.03, c.day - S.day + 180, { money: -3e7, trust: -6, seat: 1, note: '사전선거운동 유죄, 해당 당선인 당선무효' }); return '유세단이 일찍 움직이기 시작했습니다.'; } }] },
+      { t: '강행한다', s: '전국 득표력 상승', run: () => { const c = nearElec(); c.boost.nat += 0.03; addRisk('사전선거운동', 0.03, c.day - S.day + 180, { money: -3e7, trust: -6, seat: 1, note: '사전선거운동 유죄, 해당 당선인 당선무효' }); return '유세단이 일찍 움직이기 시작했습니다.'; } }] },
   { id: 'meal', w: 3, cond: () => totalMembers() > 500, title: '경로당 식사 대접', pre: () => (ET.k = pick(R).k),
     body: () => `${RK[ET.k].n} 당원협의회장이 경로당 어르신 100명에게 식사를 대접하며 당을 알리자고 합니다. "명절 인사 정도인데요."`,
     ch: [{ t: '거절한다', run: () => '거절했습니다. 대신 봉사활동을 권했습니다.' },
@@ -3862,7 +3870,7 @@ function pHome() {
       <div style="order:1;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0">${status}</div>
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${e.name}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
-          <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년, 대선은 3년마다 열립니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
+          <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년마다 열립니다. 대선은 실제처럼 5년마다(단임)입니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
       </div>
       <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (주별)</h2>${pollChart(ban)}</div>
@@ -4417,7 +4425,7 @@ function pGuide() {
       <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
-    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림), 대통령선거는 3년마다입니다.</li>
+    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림)입니다. 대통령선거는 실제처럼 5년마다이고 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
@@ -4450,7 +4458,7 @@ function pGuide() {
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
     ${sec('탄핵과 조기 대선', `<ul><li>대통령 쪽 지지율이 크게 떨어지면 탄핵소추안이 발의될 수 있습니다. 재적의원 3분의 2 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.</li>
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
-      <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
+      <li>조기 대선 뒤에는 그날부터 다시 5년마다 대선이 열립니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
