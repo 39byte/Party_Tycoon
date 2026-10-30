@@ -257,7 +257,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px;z-index:50;animation:fade .18s ease-out}
 /* 모달: 남색 제목 띠가 달린 게임 대화창 */
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--hud-line);border-radius:16px;max-width:560px;width:100%;max-height:calc(100dvh - 32px);overflow:auto;padding:0 20px 20px;box-shadow:0 0 0 1px rgba(242,179,61,.35),0 24px 60px rgba(0,0,0,.45);animation:pop .2s cubic-bezier(.2,.9,.3,1.2)}
-.modal.wide{max-width:860px}
+.modal.wide{max-width:860px}.modal.xwide{max-width:1240px}
 /* 주간 브리핑: 헤드라인 뉴스 | 정치 뉴스 좌우로, 좁으면 위아래로 */
 .bsplit{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px}
 .bsplit>section+section{border-left:1px solid var(--border);padding-left:20px}
@@ -2527,6 +2527,7 @@ function why(key, k) {
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
   if (key === 'chapter') { if (S.chapters[k]) return '이미 등록된 시·도당'; if (S.members[k] < LAW.chapterMembers) return `당원 ${S.members[k].toLocaleString()} / 1,000명 필요 (정당법 제18조)`; }
+  if (key === 'talent' && talOpen()) return ''; // 이번에 뽑은 후보는 재사용 대기 동안 무료로 이어서 영입
   if (key === 'talent' && S.pool.length >= POOL_MAX) return `인재풀이 가득 찼습니다 (최대 ${POOL_MAX}명)`;
   if (key === 'fund') { const y = L.dayToDate(S.day).getUTCFullYear(); if (S.fund.year === y && S.fund.raised >= fundCap()) return '연간 모금한도 도달 (정치자금법 제12조)'; }
   if ((S.cd[cdk] || 0) > S.day) return `${Math.ceil((S.cd[cdk] - S.day) / TURN)}턴 후 다시 가능`;
@@ -2540,7 +2541,10 @@ function doAct(key, k) {
   if (key === 'accuse') return accuseModal();
   if (key === 'bill') return billModal();
   if (key === 'govern') return govModal(k);
-  if (key === 'talent') { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; return talentModal(); }
+  if (key === 'talent') {
+    if (!talOpen()) { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; S.tal = { until: S.cd.talent, got: [], cands: Array.from({ length: Math.min(25, POOL_MAX - S.pool.length) }, () => genPerson({ fameAdd: rnd() < 0.2 ? 25 : 0 })) }; }
+    return talentModal();
+  }
   spend(a.c(), '활동'); S.ap--;
   S.cd[key + (k ? ':' + k : '')] = S.day + a.cd;
   let msg = '', ok = true;
@@ -2600,12 +2604,14 @@ function policyModal() {
     }),
   });
 }
+// 인재 영입 후보 S.tal = { until 재사용 대기 끝, cands 후보, got 영입한 번호 }. 대기가 끝나기 전엔 창을 닫아도 남은 후보를 이어서 영입
+const talOpen = () => S.tal && S.tal.until > S.day && S.tal.got.length < S.tal.cands.length;
 function talentModal() {
-  const cands = Array.from({ length: Math.min(25, POOL_MAX - S.pool.length) }, () => genPerson({ fameAdd: rnd() < 0.2 ? 25 : 0 }));
+  const { cands } = S.tal, got = { has: i => S.tal.got.includes(i), add: i => S.tal.got.push(i) };
   const fee = p => 5e6 + p.fame * p.fame * 2e4;
   openModal({
-    title: '인재 영입', wide: true,
-    html: `<p class="muted small">영입비는 인지도에 비례합니다.</p><div class="acts tal">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
+    title: '인재 영입', wide: 'x',
+    html: `<p class="muted small">영입비는 인지도에 비례합니다. 재사용 대기가 끝나기 전(${fdate(S.tal.until)})까지는 창을 닫아도 남은 후보를 행동력·탐색비 없이 이어서 영입할 수 있습니다.</p><div class="acts tal">${cands.map((p, i) => `<div class="act"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job}</p>
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
       <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
       <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
@@ -2613,7 +2619,7 @@ function talentModal() {
     // 닫기는 '모두 영입'과 같은 줄에
     // 창을 닫지 않고 여러 명 영입 가능. 영입한 후보는 '영입 완료'로 잠김
     onOpen: m => {
-      const got = new Set(), bs = [...m.querySelectorAll('[data-i]')], all = m.querySelectorAll('[data-all]')[0];
+      const bs = [...m.querySelectorAll('[data-i]')], all = m.querySelectorAll('[data-all]')[0];
       m.querySelector('[data-close]').onclick = () => { Snd.sfx('click'); closeModal(); };
       const rest = () => cands.map((p, i) => i).filter(i => !got.has(i));
       const can = is => S.pool.length + is.length <= POOL_MAX && S.money >= sum(is.map(i => fee(cands[i])));
@@ -3512,7 +3518,7 @@ async function saveToDir() {
 function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpen }) {
   modalOpen = true;
   const root = $('#modalRoot');
-  root.innerHTML = `<div class="scrim"><div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${esc(title)}${tip ? infoTip(tip) : ''}</h2><div>${html}</div>${buttons.length ? `<div class="btns" style="margin-top:16px;justify-content:flex-end">${buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''}" data-b="${i}">${esc(b.t)}</button>`).join('')}</div>` : ''}</div></div>`;
+  root.innerHTML = `<div class="scrim"><div class="modal ${wide ? 'wide' : ''} ${wide === 'x' ? 'xwide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${esc(title)}${tip ? infoTip(tip) : ''}</h2><div>${html}</div>${buttons.length ? `<div class="btns" style="margin-top:16px;justify-content:flex-end">${buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''}" data-b="${i}">${esc(b.t)}</button>`).join('')}</div>` : ''}</div></div>`;
   const m = root.querySelector('.modal');
   root.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const bt = buttons[+b.dataset.b]; Snd.sfx('click'); closeModal(); if (bt.fn) bt.fn(); });
   if (dismiss) root.querySelector('.scrim').onclick = ev => { if (ev.target === ev.currentTarget) closeModal(); };
@@ -3700,7 +3706,7 @@ function bindPanel(m) {
   const zs = m.querySelector('.kmap.zoom'); if (zs) mapZoom(zs, m);
   // 행정 사업은 사업 고르는 창에 비용이 따로 나오므로 확인 창 없이
   m.querySelectorAll('[data-act]').forEach(b => b.onclick = () => { const key = b.dataset.act, k = b.dataset.k;
-    if (key === 'govern') return doAct(key, k);
+    if (key === 'govern' || (key === 'talent' && talOpen())) return doAct(key, k); // 이어서 영입은 비용 없음
     confirmCost(`${k ? RK[k].n + ' ' : ''}${ACT[key].n}`, ACT[key].c(), '행동력', () => doAct(key, k)); });
   m.querySelectorAll('[data-reg]').forEach(b => {
     b.onclick = () => { selReg = b.dataset.reg; Snd.sfx('click'); renderPanel(); };
@@ -3744,7 +3750,7 @@ function bindPanel(m) {
 function actBtn(key, k, watch, wide) {
   const a = ACT[key], w = why(key, k), cost = a.c(), on = !!S.watch[key];
   const bell = watch && a.cd ? `<button class="ib bell" data-watch="${key}" aria-pressed="${on}" aria-label="재사용 알림" title="재사용 알림 ${on ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button>` : '';
-  const run = `<button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>실행</button>`;
+  const run = `<button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>${key === 'talent' && talOpen() ? '이어서 영입' : '실행'}</button>`;
   const meta = `<span>${cost ? won(cost) : '무료'} · 행동력 1</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span>`;
   const h = `<h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}${bell}</h3>`;
   // wide: 활동 탭(가로로 길고 낮게). 왼쪽 제목(+종)·설명, 오른쪽 위 실행 버튼 아래로 비용·행동력, 그 아래 재사용 턴. 사유는 있을 때만
@@ -3893,7 +3899,7 @@ function pPeople() {
     ${statBars(p)}
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   // 머리: [제목 | (대기 안내문) 인재 영입] / [정렬]
-  const w = why('talent'), recruit = `<button class="btn pri" data-act="talent" ${w ? 'disabled' : ''}>인재 영입</button>`;
+  const w = why('talent'), recruit = `<button class="btn pri" data-act="talent" ${w ? 'disabled' : ''}>${talOpen() ? '이어서 영입' : '인재 영입'}</button>`;
   return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${recruit}</div>
     <div class="filters psort chips" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div></div>
     <div class="pcards">${rows}</div>
