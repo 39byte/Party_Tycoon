@@ -1009,7 +1009,7 @@ function migrate(o) {
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= [];
   for (const m of o.outs) if (POL_ROLE.test(m.role)) m.job ??= pick(FIG_JOBS);
@@ -1590,7 +1590,7 @@ const readyWatched = d0 => {
   return Object.keys(S.watch).filter(k => S.watch[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && canNow(k));
 };
 // 다시 할 수 있게 된 알림은 탭 이름 옆 숫자로: 활동(act) · 교섭(neg). 그 탭에 들어가면 사라짐
-const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : k === 'talent' ? 'people' : 'act']; if (!a.includes(k)) a.push(k); } };
+const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : k === 'talent' ? 'people' : k === 'bill' || k === 'question' ? 'office' : 'act']; if (!a.includes(k)) a.push(k); } };
 let shownTab = null, fresh = []; // 이번에 들어온 탭에서 방금 확인한 알림(카드에 '다시 가능' 표시)
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
@@ -3591,9 +3591,9 @@ function renderNav() {
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => !autoOn(r.k) && rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
-  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length, people: S.alerts.people.length }, badgeSr = { people: '다시 영입할 수 있음 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
+  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length, people: S.alerts.people.length, office: S.alerts.office.length }, badgeSr = { people: '다시 영입할 수 있음 ', office: '다시 할 수 있는 의회 활동 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
   nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('')
-    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length || S.alerts.people.length || S.billNew) && !open ? '<span class="badge">!</span>' : ''}</button>`;
+    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length || S.alerts.people.length || S.alerts.office.length || S.billNew) && !open ? '<span class="badge">!</span>' : ''}</button>`;
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
   nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
 }
@@ -3764,12 +3764,13 @@ function actBtn(key, k, watch, wide) {
   const bell = watch && a.cd ? `<button class="ib bell" data-watch="${key}" aria-pressed="${on}" aria-label="재사용 알림" title="재사용 알림 ${on ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button>` : '';
   const run = `<button class="btn pri" data-act="${key}" ${k ? `data-k="${k}"` : ''} ${w ? 'disabled' : ''}>${key === 'talent' && talOpen() ? '이어서 영입' : '실행'}</button>`;
   const meta = `<span>${cost ? won(cost) : '무료'} · 행동력 1</span><span>${a.cd ? `재사용 ${Math.ceil(a.cd / TURN)}턴` : ''}</span>`;
-  const h = `<h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}${bell}</h3>`;
+  const h = `<h3>${a.n}${fresh.includes(key) ? ' <span class="pill ok">다시 가능</span>' : ''}${wide ? bell : ''}</h3>`;
   // wide: 활동 탭(가로로 길고 낮게). 왼쪽 제목(+종)·설명, 오른쪽 위 실행 버튼 아래로 비용·행동력, 그 아래 재사용 턴. 사유는 있을 때만
   if (wide) return `<div class="act row2"><div class="main">${h}<p>${a.d}</p>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>
     <div class="side">${run}<span>${cost ? won(cost) : '무료'} · 행동력 1</span>${a.cd ? `<span>재사용 ${Math.ceil(a.cd / TURN)}턴</span>` : ''}</div></div>`;
   // 기본 카드: 설명 → 실행 → 비용·재사용 → 사유(있을 때만)
-  return `<div class="act">${h}<p>${a.d}</p>${run}<div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>`;
+  // 좁은 카드: 종 버튼은 실행 버튼 오른쪽(실행+종을 한 칸으로 묶어 카드 줄 맞춤 유지)
+  return `<div class="act">${h}<p>${a.d}</p>${bell ? `<div style="display:flex;gap:8px">${run.replace('class="btn pri"', 'class="btn pri" style="flex:1"')}${bell.replace('class="ib bell"', 'class="ib bell" style="width:40px;padding:0;flex:none"')}</div>` : run}<div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>`;
 }
 
 function pHome() {
@@ -4102,7 +4103,7 @@ function pOffice() {
     <h3 style="margin-top:14px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? `우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 3분의 2(${twoThirds()}표) 미만으로 통과되면 대통령이 거부권을 행사합니다.` : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
 </section>
-    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill')}${actBtn('question')}</div>
+    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
       <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
     <h3 style="margin:28px 0 10px">최근 통과 법안${S.laws.length ? ` <span class="pill">우리 당 누적 ${S.laws.length}건</span>` : ''}</h3>${S.passed.length ? voteList([...S.passed].reverse().map(l => [l, voteOf(l.vid) || S.votes?.find(v => v.t === l.t && v.d === l.d)])) : '<p class="small muted">아직 통과된 법안이 없습니다.</p>'}
     ${(fails => fails.length ? `<h3 style="margin:28px 0 10px">최근 부결·폐기 법안</h3>${voteList(fails.map(v => [v, v]))}` : '')((S.votes || []).filter(v => !/가결/.test(v.res)).reverse())}</section></div></div>`;
