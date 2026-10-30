@@ -2195,7 +2195,7 @@ function autoGov() {
   }
   S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
   out.forEach(r => addLog(`[${RK[r.k].n} 행정·자동] ${r.msg}`, r.ok ? 'ok' : 'bad'));
-  if (out.length) toast(`행정 사업 자동 진행 ${out.length}건: 성공 ${out.filter(r => r.ok).length}건`, out.every(r => r.ok) ? 'ok' : '');
+  if (out.length) toast(`${out.length}건 중 ${out.filter(r => r.ok).length}건 성공`, out.every(r => r.ok) ? "ok" : "", "행정 사업 자동 진행 결과");
 }
 
 // ---------- 교섭: 결과 = 대표 역량 + 상대 진영(노선 차이) + 그동안의 관계 ----------
