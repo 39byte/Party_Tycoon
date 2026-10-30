@@ -1421,7 +1421,6 @@ function monthly(dt) {
   // 사회적 사건은 한 번에 하나씩, 몇 달에 한 번꼴
   if (!S.agenda && S.day > 60 && rnd() < 0.3) S.queue.push({ ev: 'agenda' });
   // 원외 인사도 조금씩 바뀜(은퇴·새 인물). 영입으로 줄면 새 인물이 채움
-  outFill(S, 0.15);
   // 국회 일정: 10월 국정감사, 12월 예산안
   if (seatTotal('P') > 0 && dt.getUTCMonth() === 9) S.queue.push({ ev: 'audit' });
   if (seatTotal('P') > 0 && dt.getUTCMonth() === 11) S.queue.push({ ev: 'budget' });
@@ -1548,6 +1547,7 @@ function runTurn() {
     tick(); left--;
     if (!left) {
       S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep();
+      if (turnNo() % 3 === 0) outFill(S, 1); // 교섭 명단 밖 원외 인사는 3턴마다 새 얼굴로
       turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); renderAll();
       // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
@@ -2078,7 +2078,7 @@ function genOut(o) {
     fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ, loyalty: Math.round(rr(20, 80)), rel: 0 };
 }
 const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
-// 원외 인사 명부는 한 쪽(24명)까지. 교섭 명단(neg)에 없는 사람은 다달이 조금씩 새 인물로 바뀜
+// 원외 인사 명부는 한 쪽(24명)까지. 교섭 명단(neg)에 없는 사람은 3턴마다 새 인물로 바뀜
 const OUT_MAX = 24;
 function outFill(o, churn = 0) {
   o.outs = o.outs.filter(m => m.neg || rnd() >= churn);
@@ -2384,7 +2384,7 @@ function personInfo(key) {
       ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
         : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}${talkHTML(m)}`,
     buttons: [...(mp ? [{ t: '교섭 명단에서 빼기', fn: () => { const f = fig(m.fid); if (f) f.mp = m; S.mps = S.mps.filter(x => x !== m); toast(`${m.name} 의원을 교섭 명단에서 뺐습니다. 다시 넣으면 그동안의 친분이 이어집니다.`); renderAll(); } }]
-      : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role}을(를) 교섭 명단에 넣었습니다. 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role}을(를) 교섭 명단에서 뺐습니다. 명단에 없으면 얼마 뒤 명부에서 사라질 수 있습니다.`); renderAll(); } }]), { t: '닫기', pri: true }] });
+      : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role}을(를) 교섭 명단에 넣었습니다. 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role}을(를) 교섭 명단에서 뺐습니다. 명단에 없으면 3턴마다 명부에서 새 인물로 바뀝니다.`); renderAll(); } }]), { t: '닫기', pri: true }] });
 }
 function negMpModal(mid) {
   const m = S.mps.find(x => x.id === mid); if (!m) return;
@@ -3814,7 +3814,7 @@ function dirCard() {
     <div class="filters chips" role="group" aria-label="정당">${chip('dirpar', '', '전체', !dirPar)}${po.map(id => chip('dirpar', id, id === 'O' ? (dirCat === 'out' ? '무소속·무당적' : '무소속') : esc(pn(id)), dirPar === id)).join('')}</div>
     ${xs.length ? `<div class="dirl">${xs.slice(dirPage * DIR_PER, (dirPage + 1) * DIR_PER).map(x => `<button class="dirp" data-pinfo="${x.key}">${face(x.p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.p.name)}${x.neg ? ' <span class="pill">교섭</span>' : ''}</b><span class="small muted">${esc(x.sub)}</span></span></button>`).join('')}</div>
       ${pages > 1 ? pager(dirPage, pages, 'dpage', '명부 쪽 이동') : ''}` : `<p class="empty">${dirCat === 'cand' ? '지금은 공천 기간이 아니거나 아직 발표된 후보가 없습니다.' : '해당하는 인물이 없습니다.'}</p>`}
-    <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원과 원외 인사는 그 창에서 교섭 명단에 넣을 수 있고, 명단에 없는 원외 인사는 다달이 조금씩 새 인물로 바뀝니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
+    <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원과 원외 인사는 그 창에서 교섭 명단에 넣을 수 있고, 명단에 없는 원외 인사는 3턴마다 새 인물로 바뀝니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
 function pollChart(ban) {
   const h = S.hist.slice(-13); // 월별 기록이라 13점 = 최근 12개월
