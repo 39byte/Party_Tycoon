@@ -2340,7 +2340,7 @@ function negMpModal(mid) {
       win: () => { m.rel = clamp(m.rel + 12, -100, 100); relAdd(m.party, 1, `${m.name} 의원과 회동`); return `${who}과(와) 가까워졌습니다.${gossip(m)}`; },
       lose: () => { m.rel -= 3; return `${who}이(가) 바쁘다며 자리를 피했습니다.`; } },
     ...(S.bills.some(b => !b.by) ? [{ k: 'mpBill', t: '법안 협조 요청', d: `계류 중인 우리 법안 전체에 ${pn_} 의원들의 찬성을 끌어옵니다.`, c: 5e6,
-      win: () => { S.bills.filter(b => !b.by).forEach(b => { b.plob ??= {}; b.plob[m.party] = (b.plob[m.party] || 0) + 0.04; }); m.rel += 3; return `${who}이(가) 같은 당 의원들을 설득해 주기로 했습니다.`; },
+      win: () => { S.bills.filter(b => !b.by).forEach(b => { b.plob ??= {}; b.plob[m.party] = (b.plob[m.party] || 0) + 0.06; }); m.rel += 3; return `${who}이(가) 같은 당 의원들을 설득해 주기로 했습니다.`; },
       lose: () => { m.rel -= 2; return `${who}이(가) "당론을 거스를 수 없다"며 거절했습니다.`; } }] : []),
     { k: 'mpJoin', t: '입당(이적) 제안', d: '성공하면 그 지역구 의석이 우리 당으로 넘어옵니다. 실패하면 상대 당이 불쾌해합니다.', c: 3e7,
       win: () => {
