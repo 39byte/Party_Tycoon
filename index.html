@@ -4049,7 +4049,7 @@ function pOrg() {
     <div class="card"><h2>전국 지도</h2><div class="mapbox">${kmap}<div class="mapctl" role="group" aria-label="지도 보기"><button class="ib" data-zoom="in" aria-label="확대" title="확대">+</button><button class="ib" data-zoom="out" aria-label="축소" title="축소">−</button><button class="ib" data-zoom="reset" title="전체 보기">전체</button></div></div><p class="tip mapnote"><span>우리 당 지지 낮음<i class="grad" style="background:linear-gradient(90deg,var(--land),${c})"></i>높음</span></p><p class="tip mapnote"><span><svg width="14" height="16" viewBox="-4 -81 22 28" aria-hidden="true"><path d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/></svg> 시·도당</span><span><span style="color:var(--gold)">★</span> 창당 본거지</span></p><p class="tip">지역을 누르면 오른쪽에 자세히 나옵니다. 휠·버튼으로 확대하고, 확대한 뒤엔 끌어서 옮깁니다(휴대폰은 두 손가락으로도 확대).</p></div>
     <div class="card"><h2>${r.n} <span class="pill">${leanTxt}</span> ${r.k === S.party.home ? '<span class="pill">창당 본거지</span>' : ''}</h2>
       <div class="split2 regkv"><div><table class="kv"><tbody>
-        <tr><th>선거인 수</th><td class="num">약 ${r.voters}백만 명</td></tr>
+        <tr><th>선거인 수</th><td class="num">약 ${nf(Math.round(r.voters * 100))}만 명</td></tr>
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
         <tr><th>우리 당 지지</th><td class="num">${regSupport(r.k).toFixed(1)}%</td></tr>
         <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
