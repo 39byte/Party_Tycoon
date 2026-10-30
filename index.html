@@ -289,6 +289,10 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .split2 h3{font-size:14px;margin:0 0 8px} .split2 .choices{margin-top:0}
 .choices.g2{display:grid;grid-template-columns:1fr 1fr}
 @media (max-width:640px){.split2{grid-template-columns:1fr;gap:14px}.split2>div{padding:0}.split2>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
+/* 정책 발표: 궁합 설명이 줄바꿈되지 않게 창을 넓히고, 좁으면 위아래로, 더 좁으면 선택지 1열 */
+.modal.polm{max-width:980px}
+@media (max-width:1040px){.split2.pol{grid-template-columns:1fr;gap:14px}.split2.pol>div{padding:0}.split2.pol>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
+@media (max-width:540px){.choices.g2{grid-template-columns:1fr}}
 .toasts{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(400px,calc(100vw - 32px))}
 /* 알림: HUD색 판 + 상태 아이콘(종류 제목) + 닫기 + 남은 시간 막대. 마우스를 올리면 멈춤 */
 .toast{--tc:#60A5FA;position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--hud2);color:var(--on-hud);padding:12px 8px 15px 14px;border:1px solid var(--hud-line);border-radius:12px;font-size:15px;line-height:1.5;box-shadow:0 10px 28px rgba(2,6,23,.4);overflow:hidden;animation:tin .22s cubic-bezier(.2,.9,.3,1)}
@@ -2771,9 +2775,9 @@ const POL_OFF_DAYS = 90;
 function policyModal() {
   const fit = i => i.fit[S.party.ideo + 1];
   openModal({
-    title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 민심이 쏠린 쟁점을 짚으면 반응이 뜨겁습니다. 이번 주 뉴스를 참고하세요.</p><div class="split2"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발표할 정책 분야</h3><div class="choices g2">${ISSUES.map(i => `<button class="btn" data-issue="${i.k}">${i.n}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div></div></div>`, wide: true,
+    title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 민심이 쏠린 쟁점을 짚으면 반응이 뜨겁습니다. 이번 주 뉴스를 참고하세요.</p><div class="split2 pol"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발표할 정책 분야</h3><div class="choices g2">${[...ISSUES].sort((x, y) => fit(y) - fit(x)).map(i => `<button class="btn" data-issue="${i.k}">${i.n}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div></div></div>`, wide: true,
     buttons: [{ t: '취소' }],
-    onOpen: m => m.querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
+    onOpen: m => (m.classList.add('polm'), m).querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
       const i = ISSUES.find(x => x.k === b.dataset.issue), mult = fit(i) * (i.k === S.issue ? 2 : 1) * (S.up.inst ? 1.5 : 1);
       spend(ACT.policy.c(), '활동'); S.cd.policy = S.day + ACT.policy.cd; S.ap--;
       // 역풍: 노선 밖 분야를 90일 안에 거듭 발표, 이번 주 헤드라인에 없는 분야
