@@ -3343,7 +3343,7 @@ function agendaCard() {
     <p class="small">${esc(a.body)}</p>
     <h3>각 당 입장</h3><ul class="log">${['P', 'A', 'B', 'C', 'D'].map(id => { const i = id === 'P' ? g.mine : g.pos[id]; return `<li><span><b>${esc(pn(id))}</b> · <span class="small">${i == null ? '입장 정리 중' : i < 0 ? '입장 없음' : esc(a.ops[i].t)}</span></span></li>`; }).join('')}</ul>
     <p class="small muted">여론 판정: ${fdate(g.end)} 무렵</p><p class="tip">${fdate(g.end)} 무렵 사건이 잦아들면 여론이 입장별로 갈립니다. 여론과 맞는 입장을 낸 당은 신뢰를 얻고, 엇갈린 당은 역풍을 맞습니다.</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:4px"><button class="btn pri" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담</button><span class="small muted">500만 원 · 행동력 1</span></div>${w ? `<span class="small warn">${w}</span>` : ''}</div></div>`;
+    <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:4px"><button class="btn pri" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담</button><span class="small muted">500만 원 · 행동력 1</span></div>${w ? `<span class="small warn" style="box-sizing:border-box;height:40px;padding-top:13px;display:flex;align-items:center">${w}</span>` : ''}</div></div>`;
 }
 // 지역 소식(지방 정부 탭)
 // c: 현안 소식이면 1
