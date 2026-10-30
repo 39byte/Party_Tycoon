@@ -1540,7 +1540,7 @@ function rivalWeek() {
 }
 
 // ---------- 턴: 1턴 = 1주. 행동력을 쓰고 '턴 종료'하면 7일이 하루씩 흐름 ----------
-const TURN = 7, AP = 4;
+const TURN = 7, AP = 3;
 const apMax = () => AP + (activeCamps().length ? 1 : 0); // 선거운동기간엔 +1
 // 행정 행동력은 따로: 우리 당 광역단체장 1명이면 1, 2명마다 1씩 더(1→1, 2~3→2, 4~5→3 …)
 const aapMax = () => { const n = govCount('P'); return n ? 1 + Math.floor(n / 2) : 0; };
