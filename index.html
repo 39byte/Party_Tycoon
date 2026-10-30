@@ -3518,7 +3518,8 @@ function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpe
   root.dataset.dismiss = dismiss ? '1' : '';
   sentWrap(m);
   if (onOpen) onOpen(m);
-  (m.querySelector('[autofocus]') || m.querySelector('button:not(.info),input,select'))?.focus(); // (i)는 건너뜀: 포커스되면 설명이 바로 펼쳐짐
+  (m.querySelector('[autofocus]') || m.querySelector('button:not(.info),input,select'))?.focus({ preventScroll: true }); // (i)는 건너뜀: 포커스되면 설명이 바로 펼쳐짐
+  m.scrollTop = 0; m.querySelectorAll('.tblwrap,.log').forEach(e => e.scrollTop = 0); // 팝업은 항상 맨 위부터
 }
 function closeModal() { $('#modalRoot').innerHTML = ''; modalOpen = false; renderAll(); if (left || turnStart) turnTimer = setTimeout(runTurn, 90); }
 document.addEventListener('keydown', e => {
