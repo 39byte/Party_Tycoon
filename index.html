@@ -3838,7 +3838,7 @@ function pHome() {
       <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (월별)</h2>${pollChart(ban)}</div>
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
-          ${['P', 'B', 'A', 'C', 'D', 'O'].filter(id => !ban || id === 'P').map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
+          ${['P', 'B', 'A', 'C', 'D', 'O'].filter(id => !ban || id === 'P').sort((a, b) => q[b] - q[a]).map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
           ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
       </div>
       ${S.figs.length || S.outs.length ? `<div class="card dircard" style="order:7">${dirCard()}</div>` : ''}
