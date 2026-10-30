@@ -1806,9 +1806,10 @@ function billAgree(b, id) {
     return clamp(a, 0.03, 0.95);
   }
   if (id === 'P') return 1;
-  if (id === 'O') return clamp(0.45 + b.appeal + b.lobby, 0.03, 0.95);
+  const lob = b.lobby + (b.plob?.[id] || 0); // plob: 교섭 탭 '법안 협조 요청'으로 그 의원의 당에만 붙는 찬성
+  if (id === 'O') return clamp(0.45 + b.appeal + lob, 0.03, 0.95);
   const ide = RIV[id].ideo, fit = ISSUES.find(i => i.k === b.issue).fit[Math.round(ide) + 1];
-  let a = 0.55 - 0.3 * Math.abs(ide - S.party.ideo) + 0.8 * (fit - 1) + b.appeal + b.lobby + S.rel[id] / 500 + (S.pacts[id] > S.day ? 0.2 : 0);
+  let a = 0.55 - 0.3 * Math.abs(ide - S.party.ideo) + 0.8 * (fit - 1) + b.appeal + lob + S.rel[id] / 500 + (S.pacts[id] > S.day ? 0.2 : 0);
   if (S.president.party === id) a -= 0.12; // 여당은 다른 당 법안에 소극적
   return clamp(a, 0.03, 0.95);
 }
@@ -2338,8 +2339,8 @@ function negMpModal(mid) {
     { k: 'mpMeet', t: '친분 쌓기', d: '식사하며 개인적 신뢰를 쌓고 정치권 이야기를 듣습니다.', c: 3e6,
       win: () => { m.rel = clamp(m.rel + 12, -100, 100); relAdd(m.party, 1, `${m.name} 의원과 회동`); return `${who}과(와) 가까워졌습니다.${gossip(m)}`; },
       lose: () => { m.rel -= 3; return `${who}이(가) 바쁘다며 자리를 피했습니다.`; } },
-    ...(S.bills.length ? [{ k: 'mpBill', t: '법안 협조 요청', d: '계류 중인 우리 법안 전체에 같은 당 의원들의 찬성을 끌어옵니다.', c: 5e6,
-      win: () => { S.bills.forEach(b => (b.lobby += 0.04)); m.rel += 3; return `${who}이(가) 같은 당 의원들을 설득해 주기로 했습니다.`; },
+    ...(S.bills.some(b => !b.by) ? [{ k: 'mpBill', t: '법안 협조 요청', d: `계류 중인 우리 법안 전체에 ${pn_} 의원들의 찬성을 끌어옵니다.`, c: 5e6,
+      win: () => { S.bills.filter(b => !b.by).forEach(b => { b.plob ??= {}; b.plob[m.party] = (b.plob[m.party] || 0) + 0.04; }); m.rel += 3; return `${who}이(가) 같은 당 의원들을 설득해 주기로 했습니다.`; },
       lose: () => { m.rel -= 2; return `${who}이(가) "당론을 거스를 수 없다"며 거절했습니다.`; } }] : []),
     { k: 'mpJoin', t: '입당(이적) 제안', d: '성공하면 그 지역구 의석이 우리 당으로 넘어옵니다. 실패하면 상대 당이 불쾌해합니다.', c: 3e7,
       win: () => {
