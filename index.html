@@ -1645,6 +1645,7 @@ function rivalWeek() {
 // 대선은 초청 토론회 3회(선거일 21·14·8일 전), 지방선거는 시·도마다·총선은 지역구마다 1회(14일 전)
 // 초청 대상: 국회 5석 이상 정당·직전 비례 득표 3% 이상 정당·여론조사 5% 이상(무소속은 초청 외). 초청 외 후보는 첫 토론일 '초청 외 토론회'에 한 번(시청자가 적어 효과 절반)
 const DEB_DAYS = { pres: [21, 14, 8], gov: [14], nat: [14] }, DEB_UP = 0.035, DEB_DOWN = -0.02;
+const DEB_OUT = '<p class="tip">우리 후보는 초청 대상(국회 5석·직전 비례 3%·여론조사 5% 중 하나)이 아니라 초청 외 토론회에만 나갔습니다.</p>';
 const debInvited = id => id !== 'O' && (seatTotal(id) >= 5 || (S.lastVotes[id] || 0) >= 0.03 || poll()[id] >= 5);
 // 토론 자리: [자리 키(득표 계산의 race와 같음), [[당, 후보]…]]
 function debRaces(c) {
@@ -1659,20 +1660,29 @@ function debate(c) {
   const days = DEB_DAYS[c.type];
   c.debN ??= 0;
   while (c.debN < days.length && S.day >= c.day - days[c.debN]) {
-    const n = ++c.debN, inv = Object.fromEntries(['P', 'A', 'B', 'C', 'D', 'O'].map(id => [id, debInvited(id)])), out = [], mine = [0, 0];
+    const n = ++c.debN, inv = Object.fromEntries(['P', 'A', 'B', 'C', 'D', 'O'].map(id => [id, debInvited(id)])), out = [], mine = [0, 0], tally = {}, byReg = {};
     for (const [race, cs] of debRaces(c)) for (const [id, p] of cs) {
       if (!inv[id] && n > 1) continue; // 초청 외 후보는 첫 토론일 한 번만
       const ok = rnd() < p.skill / 100 * 0.7 + 0.15, w = inv[id] ? 1 : 0.5, d = ((c.db ??= {})[race] ??= {});
       d[id] = (d[id] || 0) + (ok ? DEB_UP : DEB_DOWN) * w;
       pFame(p, (ok ? 3 : 1) * w);
-      if (c.type === 'pres') out.push({ id, p, ok, inv: inv[id] }); else if (id === 'P') mine[ok ? 0 : 1]++;
+      if (c.type === 'pres') { out.push({ id, p, ok, inv: inv[id] }); continue; }
+      (tally[id] ??= [0, 0])[ok ? 0 : 1]++;
+      if (id === 'P') { mine[ok ? 0 : 1]++; ((byReg[race.split(':')[0]] ??= [[], []])[ok ? 0 : 1]).push(p.name); }
     }
     if (c.type === 'pres') {
       const line = x => `${x.p.name}(${pn(x.id)}) ${x.ok ? '선전' : '고전'}${x.inv ? '' : ' · 초청 외 토론회'}`;
       wire(`${c.name} ${n}차 TV 토론: ${out.map(line).join(', ')}`);
       const me = out.find(x => x.id === 'P');
-      if (me) { const t = `${c.name} ${n}차 TV 토론회가 열렸습니다. ${out.map(line).join(' · ')}`; addLog(t, me.ok ? 'ok' : 'bad'); if (turnStart) (turnStart.pops ??= []).push({ title: `대선 TV 토론 ${n}차`, html: `<p>${esc(t)}</p>${me.inv ? '' : '<p class="tip">우리 후보는 초청 대상(국회 5석·직전 비례 3%·여론조사 5% 중 하나)이 아니라 초청 외 토론회에만 나갔습니다.</p>'}` }); }
-    } else if (mine[0] + mine[1]) addLog(`${c.name} 후보자 TV 토론회: 우리 후보 ${mine[0]}곳 선전 · ${mine[1]}곳 고전`, mine[0] >= mine[1] ? 'ok' : 'bad');
+      if (out.length) { const t = `${c.name} ${n}차 TV 토론회가 열렸습니다. ${out.map(line).join(' · ')}`; addLog(t, !me || me.ok ? 'ok' : 'bad'); if (turnStart) (turnStart.pops ??= []).push({ title: `대선 TV 토론 ${n}차`, html: `<p>${esc(t)}</p>${me && !me.inv ? DEB_OUT : ''}` }); }
+    } else if (Object.keys(tally).length) {
+      if (mine[0] + mine[1]) addLog(`${c.name} 후보자 TV 토론회: 우리 후보 ${mine[0]}곳 선전 · ${mine[1]}곳 고전`, mine[0] >= mine[1] ? 'ok' : 'bad');
+      // 턴 시작 팝업: 당별 선전·고전 수, 우리 후보는 지역별 이름까지
+      const rows = ['P', 'A', 'B', 'C', 'D', 'O'].filter(id => tally[id]).map(id => `<tr><td>${byPill(id)}</td><td class="r num">${tally[id][0]}</td><td class="r num">${tally[id][1]}</td></tr>`).join('');
+      const names = R_ADM.filter(r => byReg[r.k]).map(r => `<li><b style="flex:none;min-width:64px">${r.n}</b><span>${byReg[r.k].map((xs, i) => xs.length ? `<span class="${i ? 'bad' : 'ok'}">${i ? '고전' : '선전'}</span> ${esc(xs.join(', '))}` : '').filter(Boolean).join(' · ')}</span></li>`).join('');
+      if (turnStart) (turnStart.pops ??= []).push({ title: `${c.name} TV 토론회 결과`, wide: true, html: `<div class="tblwrap"><table><thead><tr><th>정당</th><th class="r">선전</th><th class="r">고전</th></tr></thead><tbody>${rows}</tbody></table></div>
+        ${names ? `<h3 style="margin-top:14px">우리 후보</h3><ul class="log" style="max-height:40vh;overflow:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent">${names}</ul>` : '<p class="small muted" style="margin-top:10px">이번 선거에 우리 당 후보는 나가지 않았습니다.</p>'}${mine[0] + mine[1] && !inv.P ? DEB_OUT : ''}` });
+    }
   }
 }
 
