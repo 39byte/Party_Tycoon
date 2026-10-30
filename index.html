@@ -1304,9 +1304,12 @@ function resolveElection(c) {
     const before = seatTotal('P');
     applySeats(g); S.lastVotes = { ...g.pv }; races = g.races;
     figElect(c, 'd', g.wins);
-    const keep = S.mps.filter(m => fig(m.fid)?.pos === 'd' && rnd() < 0.6);
-    // 낙선·불출마한 의원 일부는 원외 인사로 남음
-    S.mps.filter(m => !keep.includes(m) && fig(m.fid)?.pos !== 'd' && m.party !== 'O' && rnd() < 0.5).slice(0, 3).forEach(m => S.outs.push({ ...m, role: '전 국회의원', neg: 1, ideo: RIV[m.party].ideo, act: S.day }));
+    // 재선 의원: 교섭한 사람은 명단에 남기고, 나머지는 60%만. 명단에서 빠진 재선 의원은 보관(다시 명단에 오르면 그대로 이어짐)
+    // 낙선·불출마한 교섭 상대는 figElect(figDrop)에서 이미 원외 '전 국회의원'으로 옮겨짐
+    const keep = S.mps.filter(m => fig(m.fid)?.pos === 'd' && (talked(m) || rnd() < 0.6));
+    S.mps.filter(m => !keep.includes(m) && fig(m.fid)?.pos === 'd').forEach(m => fig(m.fid).mp = m);
+    // 교섭한 적 없는 낙선·불출마 의원도 일부는 원외 인사로 남음
+    S.mps.filter(m => !keep.includes(m) && fig(m.fid)?.pos !== 'd' && m.party !== 'O' && rnd() < 0.5).slice(0, 3).forEach(m => S.outs.push(exOut(S, m, '전 국회의원')));
     outFill(S);
     S.mps = genMPs(S, keep);
     S.pool.forEach(p => { if (/국회의원/.test(p.role)) p.role = ''; });
@@ -1841,7 +1844,11 @@ function accTargets() {
 // 대화를 나눈 사람들(교섭 명단에서 뺀 의원 포함)
 const talkers = () => [...S.mps, ...S.outs, ...S.pool, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])];
 // 영입해도 친분·대화 내역은 이어짐
-const talkKeep = m => m.talk?.length ? { rel: m.rel, talk: m.talk, talkN: m.talkN ?? m.talk.length } : {};
+// 교섭한 사람(교섭을 해 봤거나 대화 내역이 있는 사람)은 어떤 경우에도 친분·대화 내역을 지우거나 처음으로 되돌리지 않음
+const talked = m => !!(m && (m.met || m.talk?.length));
+const talkKeep = m => talked(m) ? { rel: m.rel, talk: m.talk || [], talkN: m.talkN ?? m.talk?.length ?? 0, met: 1 } : {};
+// 직을 잃은 교섭 상대 → 원외 인사('전 ○○', 교섭 명단에). 친분·대화 내역은 그대로
+const exOut = (o, m, role) => ({ ...m, role, neg: 1, party: m.party === 'O' ? null : m.party, ideo: m.party && m.party !== 'O' ? RIV[m.party].ideo : 0, act: o.day });
 // 이미 고발한 얘기(x.acc)는 빼고 보여 줌
 const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && !x.acc && ((
   t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
@@ -2229,8 +2236,8 @@ const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
 // 원외 인사 명부는 한 쪽(24명)까지. 교섭 명단(neg)에 없는 사람은 3턴마다 새 인물로 바뀜
 const OUT_MAX = 24;
 function outFill(o, churn = 0) {
-  o.outs = o.outs.filter(m => m.neg || rnd() >= churn);
-  while (o.outs.length > OUT_MAX) { const i = o.outs.findIndex(m => !m.neg); o.outs.splice(i < 0 ? 0 : i, 1); }
+  o.outs = o.outs.filter(m => m.neg || talked(m) || rnd() >= churn); // 교섭한 사람은 명단에서 빼도 바뀌지 않음
+  while (o.outs.length > OUT_MAX) { const i = o.outs.findIndex(m => !m.neg && !talked(m)); if (i < 0) break; o.outs.splice(i, 1); } // 교섭 명단·교섭한 사람만 남으면 한 쪽을 넘겨도 둠
   while (o.outs.length < OUT_MAX) o.outs.push(genOut(o));
 }
 // 다른 당 광역단체장: { 지역: { p 정당, n 이름, o 행정 지지도 } }. 당이 바뀐 곳만 새 인물
@@ -2273,7 +2280,13 @@ function genFig(o, party, k, pos, x = {}) {
   return f;
 }
 // 명부에서 뺌. 그 사람 사건도 지움(우리 당으로 온 사람 몫은 남김)
-function figDrop(o, f) { if (!f) return; o.figs = o.figs.filter(x => x !== f); o.inc = o.inc.filter(x => x.fid !== f.id || x.pid != null); }
+function figDrop(o, f) {
+  if (!f) return;
+  // 이 사람과 교섭한 적이 있으면(교섭 명단·명단에서 뺀 보관분) 원외 인사로 옮겨 친분·대화 내역을 이어 감
+  const was = { d: '전 국회의원', pr: '전 국회의원', gov: '전 광역단체장' }[f.pos];
+  if (was) for (const m of [...(o.mps || []).filter(m => m.fid === f.id), ...(f.mp ? [f.mp] : [])]) if (talked(m)) { o.mps = o.mps.filter(x => x !== m); o.outs.push(exOut(o, m, was)); }
+  o.figs = o.figs.filter(x => x !== f); o.inc = o.inc.filter(x => x.fid !== f.id || x.pid != null);
+}
 // 의석·지사 수에 맞춰 명부를 채우거나 줄임. 교섭 명단 의원은 끝까지 남김
 function figSync(o) {
   o.figs ??= []; o.inc ??= [];
@@ -2408,8 +2421,9 @@ function negWhy(cdk) {
   return '';
 }
 // 교섭 실행: 비용·행동력 차감 → 판정 → 성공 시 대표 역량 성장
-function negotiate(cdk, cost, odds, win, lose) {
+function negotiate(cdk, cost, odds, win, lose, who) {
   if (negWhy(cdk) || S.money < cost) return;
+  if (who) who.met = 1; // 교섭한 사람: 이후 친분·대화 내역을 지우지 않음
   spend(cost, '교섭'); S.ap--; S.cd[cdk] = S.day + 14;
   const ok = rnd() < odds.p, L_ = leader();
   if (ok && L_.skill < 95 && rnd() < 0.15) L_.skill++; // 협상 경험
@@ -2535,7 +2549,7 @@ function personInfo(key) {
       ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
         : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}${talkHTML(m)}`,
     buttons: [...(mp ? [{ t: '교섭 명단에서 빼기', fn: () => { const f = fig(m.fid); if (f) f.mp = m; S.mps = S.mps.filter(x => x !== m); toast(`${m.name} 의원 · 다시 넣으면 그동안의 친분이 이어집니다.`, '', '교섭 명단 제외'); renderAll(); } }]
-      : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role} · 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role} · 명단에 없으면 3턴마다 명부에서 새 인물로 바뀝니다.`, '', m.neg ? '교섭 명단 추가' : '교섭 명단 제외'); renderAll(); } }]), { t: '닫기', pri: true }] });
+      : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role} · 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role} · ${talked(m) ? '교섭한 적이 있어 명부에 계속 남고 친분·대화 내역도 그대로입니다.' : '명단에 없으면 3턴마다 명부에서 새 인물로 바뀝니다.'}`, '', m.neg ? '교섭 명단 추가' : '교섭 명단 제외'); renderAll(); } }]), { t: '닫기', pri: true }] });
 }
 function negMpModal(mid) {
   const m = S.mps.find(x => x.id === mid); if (!m) return;
@@ -2565,7 +2579,7 @@ function negMpModal(mid) {
       ${w ? `<p class="warn small">${w}</p>` : ''}
       <div class="choices">${deals.map((x, i) => `<button class="btn" data-deal="${i}" ${w || S.money < x.c ? 'disabled' : ''}>${x.t} · ${won(x.c)}<small>${x.d}<br>${oddsHTML(negOdds(x.k, m.party, m))}</small></button>`).join('')}</div>`,
     buttons: [{ t: '닫기' }],
-    onOpen: el => el.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:m' + m.id, x.c, negOdds(x.k, m.party, m), x.win, x.lose); }),
+    onOpen: el => el.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:m' + m.id, x.c, negOdds(x.k, m.party, m), x.win, x.lose, m); }),
   });
 }
 // 원외 인사: 지지 선언·영입. 의석은 없지만 이름값과 지역 기반이 있음
@@ -2596,7 +2610,7 @@ function negOutModal(oid) {
       ${w ? `<p class="warn small">${w}</p>` : ''}
       <div class="choices">${deals.map((x, i) => `<button class="btn" data-deal="${i}" ${w || S.money < x.c ? 'disabled' : ''}>${x.t} · ${won(x.c)}<small>${x.d}<br>${oddsHTML(negOdds(x.k, m.party, m))}</small></button>`).join('')}</div>`,
     buttons: [{ t: '닫기' }],
-    onOpen: el => el.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:o' + m.id, x.c, negOdds(x.k, m.party, m), x.win, x.lose); }),
+    onOpen: el => el.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:o' + m.id, x.c, negOdds(x.k, m.party, m), x.win, x.lose, m); }),
   });
 }
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
@@ -3185,7 +3199,7 @@ const EVENTS = [
       { t: '방역 봉사 캠페인', s: '비용 2천만 · 성패 갈림', run: () => { spend(2e7, '활동'); if (luck(0.7)) { S.trust += 3; return '당원들이 선별진료소 봉사에 나섰습니다.'; } S.trust -= 2; return '봉사에 나선 당원들 사이에서 집단 감염이 나와 거센 비판을 받았습니다.'; } }] },
   { id: 'landspec', w: 1.5, cond: () => S.phase === 'reg', title: '공공기관 땅투기 사태', pre: () => (S.issue = 'house'),
     body: () => '공공기관 직원들이 신도시 발표 전에 예정지 땅을 사들인 사실이 드러났습니다. 정치권도 전수조사 압박을 받습니다.',
-    ch: [{ t: '우리 당 인사부터 전수조사', s: '비용 1천만', run: () => { spend(1e7, '활동'); const p = S.pool.find(x => !x.leader && x.integ < 40); if (p && rnd() < 0.5) { S.pool = S.pool.filter(x => x !== p); if (/국회의원/.test(p.role)) loseSeat(false); S.trust += 1; return `${p.name}의 투기 정황이 나와 출당시켰습니다. 아프지만 정직한 대응이라는 평가입니다.`; } S.trust += 3; return '문제없음이 확인됐습니다. "깨끗한 정당" 이미지가 생겼습니다.'; } },
+    ch: [{ t: '우리 당 인사부터 전수조사', s: '비용 1천만', run: () => { spend(1e7, '활동'); const p = S.pool.find(x => !x.leader && x.integ < 40); if (p && rnd() < 0.5) { leaveParty(p); S.trust += 1; return `${p.name}의 투기 정황이 나와 출당시켰습니다. 아프지만 정직한 대응이라는 평가입니다.`; } S.trust += 3; return '문제없음이 확인됐습니다. "깨끗한 정당" 이미지가 생겼습니다.'; } },
       { t: '정부 책임 공세', s: '인지도↑', run: () => { if (ruling()) { S.trust -= 2; return '여당이 남 탓을 한다는 비판을 받았습니다.'; } S.fame += 2; hitPres(2); return '정부 관리 책임을 강하게 따졌습니다.'; } }] },
   { id: 'admission', w: 1.5, cond: () => !ruling(), title: '고위 공직자 자녀 입시 의혹', pre: () => (S.issue = 'youth'),
     body: () => `${presN()}이 지명한 고위 공직자 자녀의 입시 특혜 의혹이 불거졌습니다. 청년들의 분노가 커집니다.`,
@@ -3441,7 +3455,7 @@ function agendaPick(a, i) {
   let x = '';
   if (o.self) {
     const p = S.pool.find(q => !q.leader && q.integ < 35);
-    if (p && rnd() < 0.6) { S.pool = S.pool.filter(q => q !== p); if (/국회의원/.test(p.role)) loseSeat(false); x = ` 조사 과정에서 ${p.name} 관련 제보가 들어와 즉시 제명했습니다.`; }
+    if (p && rnd() < 0.6) { leaveParty(p); x = ` 조사 과정에서 ${p.name} 관련 제보가 들어와 즉시 제명했습니다.`; }
   }
   if (o.bill && seatTotal('P') && !S.bills.some(b => b.t === o.bill)) {
     S.bills.push({ id: ++S.seq, t: o.bill, issue: a.issue, stage: 0, tries: 0, next: S.day + 21, appeal: 0.2 });
@@ -3590,7 +3604,7 @@ function scandalEv(pid) {
     html: () => `<div class="pcard" style="margin-top:12px"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)} · ${esc(homeTxt(p))}</div></div></div>
       ${statBars(p)}<div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span></div></div>`, // 제명할지 판단하도록 그 사람 프로필
     note: /비례/.test(p.role) ? '비례대표 의원을 제명하면 무소속으로 의원직을 유지해 당은 의석을 잃습니다.' : '',
-    ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { if (/국회의원/.test(p.role)) loseSeat(false); S.pool = S.pool.filter(x => x !== p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
+    ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { leaveParty(p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
       { t: '사과하고 당직 정지', s: '신뢰 소폭 하락', run: () => { S.trust -= 2; p.integ = clamp(p.integ + 15, 0, 100); return '공개 사과했습니다.'; } },
       { t: '감싼다', s: '신뢰 크게 하락', run: () => { S.trust -= 6; return '"정치 공작"이라며 감쌌지만 여론이 싸늘합니다.'; } }] });
 }
@@ -4073,6 +4087,21 @@ function pPeople() {
 }
 // 제명돼도 공직은 그대로(무소속). 공직선거법 제192조 제4항은 비례대표 의원도 '제명'은 퇴직 사유에서 뺌. 단체장은 당적과 무관
 // 그래서 그 의석·단체장 자리가 우리 당에서 무소속으로 넘어감
+// 인재가 당을 떠남(제명·출당). 국회의원·지사는 무소속으로 직을 지킨 같은 사람으로 명부에 남음
+// 교섭한 적이 있는 사람은 친분·대화 내역을 이어 감: 지역구 의원은 교섭 명단에, 비례·지사는 보관(직을 잃으면 원외 인사로), 직이 없으면 원외 인사로
+function leaveParty(p) {
+  const dk = (R.find(r => p.role === `국회의원(${r.n})`) || {}).k, pr = /비례/.test(p.role), gk = (R.find(r => p.role === `${r.n} 시·도지사`) || {}).k;
+  const x = { name: p.name, gender: p.gender, age: p.age, job: p.job, fame: p.fame, skill: p.skill, integ: p.integ, rec: [...p.rec], ban: p.ban };
+  let f = null;
+  if (dk && S.seats.P.d[dk] > 0) { S.seats.P.d[dk]--; S.seats.O.d[dk] = (S.seats.O.d[dk] || 0) + 1; f = genFig(S, 'O', dk, 'd', x); }
+  else if (pr && S.seats.P.pr > 0) { S.seats.P.pr--; S.seats.O.pr++; f = genFig(S, 'O', p.home || figHome('O'), 'pr', x); }
+  else if (dk || pr) loseSeat(false);
+  if (gk && S.gov[gk] === 'P') { S.gov[gk] = 'O'; f = genFig(S, 'O', gk, 'gov', x); S.rgov[gk] = { p: 'O', n: p.name, fid: f.id, o: S.ops[gk] ?? 50 }; delete S.ops[gk]; S.aap = Math.min(S.aap, aapMax()); }
+  S.pool = S.pool.filter(q => q !== p); pgovSync(S);
+  if (!talked(p)) return;
+  if (f) { const m = { ...mpOf(S, f), ...talkKeep(p) }; if (f.pos === 'd') S.mps.push(m); else f.mp = m; }
+  else S.outs.push({ ...x, id: ++S.seq, role: `전 ${S.party.name} 인사`, party: null, ideo: S.party.ideo, k: p.home || S.party.home, loyalty: 50, neg: 1, act: S.day, ...talkKeep(p) });
+}
 function fire(id) {
   const p = person(id); if (!p) return;
   const dk = (R.find(r => p.role === `국회의원(${r.n})`) || {}).k, pr = /비례/.test(p.role), gk = (R.find(r => p.role === `${r.n} 시·도지사`) || {}).k;
@@ -4089,11 +4118,7 @@ function fire(id) {
         if (yes < need) { S.trust -= 1; addLog(`${p.name} 의원 제명안 부결 (찬성 ${yes}/${n}, 필요 ${need})`, 'bad'); toast(`${p.name} 의원 제명안이 부결됐습니다 (찬성 ${yes}/${n}명, 필요 ${need}명). 당 내홍으로 신뢰가 조금 떨어졌습니다.`, 'bad', '의원총회 제명안 부결'); renderAll(); return; }
         toast(`의원총회 가결: 찬성 ${yes}/${n}명 (필요 ${need}명)`, 'ok');
       }
-      if (dk && S.seats.P.d[dk] > 0) { S.seats.P.d[dk]--; S.seats.O.d[dk] = (S.seats.O.d[dk] || 0) + 1; }
-      else if (pr && S.seats.P.pr > 0) { S.seats.P.pr--; S.seats.O.pr++; }
-      else if (dk || pr) loseSeat(false);
-      if (gk && S.gov[gk] === 'P') { S.gov[gk] = 'O'; S.rgov[gk] = { p: 'O', n: p.name, o: S.ops[gk] ?? 50 }; delete S.ops[gk]; S.aap = Math.min(S.aap, aapMax()); }
-      S.pool = S.pool.filter(x => x !== p); pgovSync(S); addLog(`${p.name} 제명${warn ? ' (무소속으로 직 유지)' : ''}`); renderAll(); } }] });
+      leaveParty(p); addLog(`${p.name} 제명${warn ? ' (무소속으로 직 유지)' : ''}`); renderAll(); } }] });
 }
 function pElec() {
   const camps = Object.values(S.camps).sort((a, b) => a.day - b.day);
@@ -4540,6 +4565,7 @@ function pGuide() {
     ${sec('교섭', `<ul><li>정식 정당이 되면 교섭 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
       <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적)을 맺을 수 있습니다.</li>
       <li>원내 의원(각 당·무소속)과는 친분 쌓기, 법안 협조 요청, 입당(이적) 제안을 할 수 있습니다. 지역구 의원이 넘어오면 그 의석이 우리 당 것이 됩니다.</li>
+      <li>한 번이라도 교섭한 사람은 낙선·임기 만료·제명·탈당 등 어떤 일이 있어도 친분과 대화 내역이 지워지지 않습니다. 직을 잃으면 원외 인사('전 국회의원' 등)로 교섭 명단에 남고, 우리 당에서 제명한 의원은 무소속 의원으로 남습니다.</li>
       <li>개인 친분은 자주 만나지 않으면 시간이 지나며 옅어지고, 그 사람이 속한 당과 우리 당의 관계를 따라갑니다. 당끼리 사이가 좋으면 그 당 사람들과도 가까워지고, 나쁘면 쌓아 둔 친분도 식습니다.</li>
       <li>인물 인지도는 대통령·광역단체장·국회의원·당 대표·선거 후보처럼 정계에서 활동하는 동안 매달 오릅니다(낮을수록 빨리). 대정부 질문·TV 토론에 나선 본인도 이름이 알려집니다. 반년 넘게 활동이 없으면 조금씩 잊힙니다.</li>
       <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다.</li>
