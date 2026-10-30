@@ -2609,11 +2609,12 @@ function talentModal() {
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
       <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
       <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
-      <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button></div>`,
-    buttons: [{ t: '닫기' }],
+      <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button><span class="push"></span><button class="btn" data-close>닫기</button></div>`,
+    // 닫기는 '모두 영입'과 같은 줄에
     // 창을 닫지 않고 여러 명 영입 가능. 영입한 후보는 '영입 완료'로 잠김
     onOpen: m => {
       const got = new Set(), bs = [...m.querySelectorAll('[data-i]')], all = m.querySelectorAll('[data-all]')[0];
+      m.querySelector('[data-close]').onclick = () => { Snd.sfx('click'); closeModal(); };
       const rest = () => cands.map((p, i) => i).filter(i => !got.has(i));
       const can = is => S.pool.length + is.length <= POOL_MAX && S.money >= sum(is.map(i => fee(cands[i])));
       const sync = () => {
