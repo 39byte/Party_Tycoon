@@ -1110,7 +1110,6 @@ function simGeneral(c) {
       for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88; // 최근 의혹 보도된 후보
       for (const id of ids) mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
       if (cand) { ids.push('P'); mods.P = candMul(cand) * campBoost(c, r.k) * (1 + cand.spendB); }
-      if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
       const { v, win } = shareRace(r.k, ids, mods);
       seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ n: `${RK[r.k].n} ${i + 1}선거구`, c: raceRow(ids, v, slot, cand) });
       if (win !== 'P') wins.push({ k: r.k, fid: slot?.[win]?.fid });
@@ -1145,7 +1144,6 @@ function simGov(c) {
     if (!slot) { if (rnd() < 0.3) ids.push('C'); if (rnd() < 0.3) ids.push('D'); if (rnd() < 0.3) ids.push('O'); }
     const cand = c && c.reg && c.reg.gov[r.k], mods = {};
     if (cand) { ids.push('P'); mods.P = candMul(cand) * campBoost(c, r.k) * (1 + cand.spendB) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? opsBase('P', r.k)) - opsBase('P', r.k)) / 100 : 1); }
-    if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
     for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
     for (const id of ids) if (id !== 'P') mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
     const res = shareRace(r.k, ids, mods);
@@ -1156,10 +1154,11 @@ function simGov(c) {
 }
 const VOTERS = sum(R.map(r => r.voters));
 const byVoters = b => b ? sum(R.map(r => (b[r.k] || 0) * r.voters)) / VOTERS : 0;
+// 대선 후보 단일화한 당(푸른내일당·반석당). 옛 저장의 true는 푸른내일당
+const uniId = c => c.unified === true ? 'C' : c.unified || null;
 function simPres(c) {
-  const ns = natShares(), ids = ['A', 'B'], v = {};
-  if (c.rivals.C && !c.unified) ids.push('C');
-  if (c.rivals.D) ids.push('D');
+  const ns = natShares(), ids = ['A', 'B'], v = {}, u = uniId(c);
+  for (const id of ['C', 'D']) if (c.rivals[id] && u !== id) ids.push(id);
   const cand = c.reg && c.reg.cand;
   if (cand) ids.push('P');
   let tot = 0;
@@ -1167,7 +1166,7 @@ function simPres(c) {
     const cf = (id === 'P' ? candMul(cand) * campBoost(c, '') * (1 + cand.spendB) : candMul(fig(c.rivals[id].fid) || c.rivals[id]))
       * (1 + byVoters(id === 'P' ? c.boost.reg : c.rb?.[id])); // 지역 거리 유세는 선거인 수 비중만큼 전국에 반영
     let x = ns[id] * cf * Math.exp(gauss() * 0.07);
-    if (id === 'P' && c.unified) x += ns.C * 0.6;
+    if (id === 'P' && u) x += ns[u] * 0.6;
     v[id] = x; tot += x;
   }
   let win = ids[0];
@@ -1682,10 +1681,10 @@ function accTargets() {
   for (const c of Object.values(S.camps)) {
     if (S.day <= c.day - LAW.regDeadline[c.type] || S.day >= c.day) continue; // 후보자 등록 마감 뒤 ~ 선거일 전
     for (const k in c.rv || {}) c.rv[k].forEach((s, i) => { for (const id in s) {
-      if (!rvOut(s[id]) || (c.ally === id && (c.type === 'nat' ? c.reg?.dist[k]?.[i] : c.reg?.gov[k]))) continue; // 선거 연대로 양보한 자리
+      if (!rvOut(s[id])) continue;
       candF.set(s[id].fid, `${c.name} ${RK[k].n} 후보`);
     } });
-    for (const id in c.rivals || {}) if (c.rivals[id].fid && !(id === 'C' && c.unified)) candF.set(c.rivals[id].fid, `${c.name} 후보`);
+    for (const id in c.rivals || {}) if (c.rivals[id].fid && id !== uniId(c)) candF.set(c.rivals[id].fid, `${c.name} 후보`);
     if (c.reg) for (const x of [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand].filter(Boolean)) candP.set(x.id, `${c.name} 후보`);
   }
   for (const f of S.figs) {
@@ -2172,8 +2171,7 @@ function rvFill(c) {
   for (const k in c.rv) for (const s of c.rv[k]) for (const id in s) if (!s[id].fid && S.day >= s[id].at) s[id].fid = rvPick(c, k, id, used).id;
 }
 const rvOut = x => x.fid && S.day >= x.at; // 발표된 자리(교섭 자리에서 미리 정해진 사람도 발표일 전엔 안 보임)
-const allyCamp = () => Object.values(S.camps).find(c => c.type !== 'pres' && !c.ally && S.day <= c.day - LAW.regDeadline[c.type]);
-const NEG_BASE = { meet: 0.7, pact: 0.4, ally: 0.3, mpMeet: 0.75, mpBill: 0.55, mpJoin: 0.12, outMeet: 0.8, outBack: 0.45, outJoin: 0.3 };
+const NEG_BASE = { meet: 0.7, pact: 0.4, mpMeet: 0.75, mpBill: 0.55, mpJoin: 0.12, outMeet: 0.8, outBack: 0.45, outJoin: 0.3 };
 // 성공 확률과 근거(근거는 부호만 보여 줌)
 // id: 상대 당(무당적 원외 인사면 null), mp: 상대 인물(의원·원외 인사)
 function negOdds(kind, id, mp) {
@@ -2181,7 +2179,7 @@ function negOdds(kind, id, mp) {
   const dist = Math.abs((mp && mp.ideo != null ? mp.ideo : RIV[id].ideo) - S.party.ideo);
   let p = NEG_BASE[kind];
   p += add('대표 역량', (leader().skill - 55) / 150);
-  p += add('노선 차이', -dist * (kind === 'ally' || join ? 0.2 : 0.12));
+  p += add('노선 차이', -dist * (join ? 0.2 : 0.12));
   if (id in S.rel) p += add('당 관계', S.rel[id] / (mp ? 400 : 250));
   if (mp) {
     p += add('개인 친분', mp.rel / 200);
@@ -2211,7 +2209,7 @@ function negotiate(cdk, cost, odds, win, lose) {
 }
 const ctxHTML = id => { const l = S.relLog.filter(x => x.id === id).slice(-5).reverse(); return l.length ? `<ul class="log">${l.map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <b class="${x.v >= 0 ? 'ok' : 'bad'} num">${x.v > 0 ? '+' : ''}${x.v}</b></span></li>`).join('')}</ul>` : '<p class="small muted">아직 주고받은 일이 없습니다.</p>'; };
 function negModal(id) {
-  const n = RIV[id].name, ac = allyCamp(), far = Math.abs(RIV[id].ideo - S.party.ideo) >= 1;
+  const n = RIV[id].name;
   const deals = [
     { k: 'meet', t: '대표 회동', d: '관계를 다집니다.', c: 5e6,
       win: () => { relAdd(id, 8, '대표 회동'); S.fame += 0.5; return `${n} 대표와 회동했습니다. 분위기가 좋았습니다.`; },
@@ -2219,9 +2217,6 @@ function negModal(id) {
     ...(seatTotal('P') && !(S.pacts[id] > S.day) ? [{ k: 'pact', t: '법안 공조 협약 (6개월)', d: `${n} 의원들이 우리 법안에 훨씬 우호적이 됩니다.`, c: 1e7,
       win: () => { S.pacts[id] = S.day + 182; relAdd(id, 5, '법안 공조 협약'); return `${n}과(와) 법안 공조 협약을 맺었습니다. ${fdate(S.pacts[id])}까지 유효합니다.`; },
       lose: () => { relAdd(id, -3, '공조 협상 결렬'); return `${n}이(가) 공조 제안을 거절했습니다.`; } }] : []),
-    ...(ac ? [{ k: 'ally', t: `선거 연대 (${ac.name})`, d: `우리 후보가 나간 곳엔 ${n}이(가) 후보를 내지 않습니다.${far ? ' 노선이 먼 당이라 "야합" 비판을 각오해야 합니다.' : ''}`, c: 2e7,
-      win: () => { ac.ally = id; relAdd(id, 6, `${ac.name} 선거 연대`); if (far) S.trust -= 3; return `${n}과(와) ${ac.name} 선거 연대에 합의했습니다.${far ? ' "선거용 야합"이라는 비판이 나옵니다.' : ''}`; },
-      lose: () => { relAdd(id, -4, '연대 협상 결렬'); return `${n}이(가) 연대 제안을 거절했습니다.`; } }] : []),
   ];
   const w = negWhy('neg:' + id);
   openModal({
@@ -3204,10 +3199,10 @@ const XEV = {
   inst: () => openModal({ title: '정책연구소 설치 안내', html: `<p>국고보조금 배분 대상 정당이 되었습니다. 보조금을 받는 정당은 정책연구소를 두어야 하고, 경상보조금의 30% 이상을 정책연구소에 배분해야 합니다. 활동 탭에서 정책연구소를 설립하세요.</p>`, buttons: [{ t: '확인', pri: true }] }),
   grace: () => { Snd.sfx('bad'); openModal({ title: '정당 등록요건 미달', html: `<p>법정 요건(시·도당 5개, 각 당원 1,000명 이상)을 충족하지 못하고 있습니다. <b>${fdate(S.grace)}</b>까지 회복하지 못하면 등록이 취소됩니다.</p>`, buttons: [{ t: '확인', pri: true }] }); },
   unify: q => {
-    const c = S.camps[q.key]; if (!c || !c.reg) return;
-    showEvent({ title: '후보 단일화 제안', body: () => `${RIV.C.name} ${esc(c.rivals.C.name)} 후보 측이 여론조사 방식의 후보 단일화를 제안했습니다. 현재 우리 후보가 앞서 있습니다.`,
-      ch: [{ t: '단일화한다', s: '상대 지지층 상당수 흡수', run: () => { c.unified = true; S.trust -= 1; relAdd('C', 15, '대선 후보 단일화'); return '단일화 합의! 상대 후보가 사퇴했습니다.'; } },
-        { t: '완주한다', run: () => { relAdd('C', -5, '단일화 제안 거절'); return '독자 완주를 선언했습니다.'; } }] });
+    const c = S.camps[q.key], id = q.id || 'C'; if (!c || !c.reg || uniId(c) || !c.rivals[id]) return; // 그 사이 다른 당과 단일화했으면 없던 일로
+    showEvent({ title: '후보 단일화 제안', body: () => `${RIV[id].name} ${esc(c.rivals[id].name)} 후보 측이 여론조사 방식의 후보 단일화를 제안했습니다. 현재 우리 후보가 앞서 있습니다.`,
+      ch: [{ t: '단일화한다', s: '상대 지지층 상당수 흡수', run: () => { c.unified = id; S.trust -= 1; relAdd(id, 15, '대선 후보 단일화'); return '단일화 합의! 상대 후보가 사퇴했습니다.'; } },
+        { t: '완주한다', run: () => { relAdd(id, -5, '단일화 제안 거절'); return '독자 완주를 선언했습니다.'; } }] });
   },
 };
 // 사회적 이슈에 우리 입장 표명. 법안형 입장은 의석이 있으면 바로 발의
@@ -3904,7 +3899,7 @@ function campCard(c) {
       body += `<div class="regsplit"><div><h3>지역구 ${r.count - r.pr.length}명</h3>${dist ? `<ul>${dist}</ul>` : none}</div><div><h3>비례대표 ${r.pr.length}명</h3>${pr ? `<ol style="margin:0;padding-left:22px;max-height:240px;overflow-y:auto">${pr}</ol>` : none}</div></div>`;
     }
     if (c.type === 'gov') body += `<div class="regsplit" style="grid-template-columns:1fr"><div><h3>시·도지사 ${r.count}명</h3><ul>${R.filter(x => r.gov[x.k]).map(x => `<li>${x.n}: ${who(r.gov[x.k])}</li>`).join('')}</ul></div></div>`;
-    if (c.type === 'pres') body += `<p>후보: <b>${esc(r.cand.name)}</b> (${r.cand.age}세) vs ${Object.entries(c.rivals).filter(([id]) => !(id === 'C' && c.unified)).map(([id, x]) => `${figBtn(x.fid, x.name)}(${esc(pn(id))})`).join(', ')}${c.unified ? ' · <b>단일화 성사</b>' : ''}</p>`;
+    if (c.type === 'pres') body += `<p>후보: <b>${esc(r.cand.name)}</b> (${r.cand.age}세) vs ${Object.entries(c.rivals).filter(([id]) => id !== uniId(c)).map(([id, x]) => `${figBtn(x.fid, x.name)}(${esc(pn(id))})`).join(', ')}${uniId(c) ? ` · <b>${esc(pn(uniId(c)))}과(와) 단일화 성사</b>` : ''}</p>`;
     body += `<p class="small">${inCampaign(c) ? '<b class="ok">공식 선거운동 중</b> — 조직·지역 탭의 거리 유세, 활동 탭의 방송 광고·TV 토론을 활용하세요.' : `공식 선거운동은 ${fdate(cs)}부터입니다. 그 전엔 온라인 홍보·정책 발표로 지지를 다지세요.`} 현재 캠페인 보정: 전국 +${pct(c.boost.nat, 0)}</p>`;
     return `<div class="card" style="margin-bottom:14px">${head}${body}</div>`;
   }
@@ -4203,8 +4198,6 @@ function nextSteps() {
   const gv = Object.keys(S.ops).filter(k => !why('govern', k));
   const ni = S.rdes.filter(x => S.gov[x.k] === 'P').length;
   if (gv.length) out.push([ni ? `우리 당 지사 지역에 지정한 현안이 ${ni}건 있습니다. 제대로 짚었다면 맞는 역점사업으로 대응할 때 효과가 큽니다.` : `${gv.map(k => RK[k].n).join('·')} 행정 역점사업을 펼칠 수 있습니다.`, 'admin']);
-  const ac = allyCamp();
-  if (S.phase === 'reg' && ac) out.push([`${ac.name}을 앞두고 다른 정당과 선거 연대를 교섭할 수 있습니다.`, 'neg']);
   if (activeCamps().length) out.push(['공식 선거운동기간입니다. 거리 유세(조직·지역)와 방송 광고(활동)로 득표력을 올리세요.', 'act']);
   if (S.phase === 'reg' && subsidyFrac() > 0 && !S.up.inst) out.push(['보조금을 받는 정당은 정책연구소를 두어야 합니다. 활동 탭에서 설립하세요.', 'act']);
   if (!out.length && S.phase === 'reg') {
@@ -4263,7 +4256,7 @@ function pGuide() {
       <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
       <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li></ul>`)}
     ${sec('교섭', `<ul><li>정식 정당이 되면 교섭 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
-      <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적), 선거 연대(우리 후보가 나간 곳엔 후보를 내지 않음)를 맺을 수 있습니다.</li>
+      <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적)을 맺을 수 있습니다.</li>
       <li>원내 의원(각 당·무소속)과는 친분 쌓기, 법안 협조 요청, 입당(이적) 제안을 할 수 있습니다. 지역구 의원이 넘어오면 그 의석이 우리 당 것이 됩니다.</li>
       <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다.</li>
       <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당은 정당 목록 맨 왼쪽, 의원·원외 인사는 각 목록 맨 위로 올라옵니다.</li>
@@ -4386,7 +4379,11 @@ function newGameModal() {
 // 대선 단일화 제안 트리거(선거운동기간, 우리 후보가 앞설 때 한 번)
 setInterval(() => {
   if (!S || modalOpen) return;
-  for (const c of activeCamps()) if (c.type === 'pres' && c.rivals.C && !c.unified && !c.unifyAsked && S.support > poll().C) { c.unifyAsked = true; S.queue.push({ ev: 'unify', key: c.key }); }
+  // 대선 선거운동기간에 우리가 앞서면 작은 당(푸른내일당·반석당)이 단일화를 제안. 당마다 한 번, 한 번에 하나씩
+  for (const c of activeCamps()) if (c.type === 'pres' && !uniId(c)) {
+    const asked = c.uniAsk ??= c.unifyAsked ? ['C'] : [], id = ['C', 'D'].find(x => c.rivals[x] && !asked.includes(x) && S.support > poll()[x]);
+    if (id) { asked.push(id); S.queue.push({ ev: 'unify', key: c.key, id }); }
+  }
 }, 1000);
 </script>
 </body>
