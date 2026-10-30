@@ -1944,7 +1944,11 @@ function rollModal(vid) {
     return `<tr><th style="color:${pc(id)}">${esc(pn(id))}</th><td>${LINE_N(l)}</td>${[1, 0, -1].map(s => `<td class="num r">${tally(xs, s)}</td>`).join('')}<td class="num r">${l == null ? '-' : xs.filter(x => off(x, l)).length}</td></tr>`; }).join('');
   const names = ids.map(id => { const xs = of(id), l = v.lines[id], grp = s => { const g = xs.filter(x => x[3] === s); return g.length ? `<p class="small"><b>${VOTE_N[s]} ${g.length}</b> ${g.map(x => off(x, l) ? `<b class="bad">${nm(x)}</b>` : nm(x)).join(', ')}</p>` : ''; };
     return `<h3 style="margin-top:14px;color:${pc(id)}">${esc(pn(id))} <span class="pill">${xs.length}명</span></h3>${grp(1)}${grp(0)}${grp(-1)}`; }).join('');
-  openModal({ title: `본회의 표결: ${v.t}`, html: `<p>${fdate(v.d)} · ${byPill(v.by)} · <b class="${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</b> · ${voteSum(v)} <span class="small muted">(재적 ${v.roll.length}명, 필요 ${v.need}표)</span></p>
+  openModal({ title: `본회의 표결: ${v.t}`, html: `<div class="tblwrap" style="margin-bottom:12px"><table style="table-layout:fixed"><tbody>${[
+      [['결과', `<b class="${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</b>`], ['날짜', fdate(v.d)], ['발의한 당', byPill(v.by)]],
+      [['총 찬성', `<span class="num">${tally(v.roll, 1)}</span>`], ['총 반대', `<span class="num">${tally(v.roll, 0)}</span>`], ['총 기권', `<span class="num">${tally(v.roll, -1)}</span>`]],
+      [['재적 인원', `<span class="num">${v.roll.length}명</span>`], ['필요 표', `<span class="num">${v.need}표</span>`], null]
+    ].map(r => `<tr>${r.map(c => `<td>${c ? `<div class="small muted">${c[0]}</div>${c[1]}` : ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="tblwrap"><table><thead><tr><th>정당</th><th>당론</th><th class="r">찬성</th><th class="r">반대</th><th class="r">기권</th><th class="r">이탈</th></tr></thead><tbody>${rows}</tbody></table></div>
     ${names}<p class="tip">빨간 이름은 당론과 다르게 표결한 의원(이탈표)입니다. 기권도 출석으로 쳐서 가결엔 재적 과반의 찬성이 필요합니다. 무소속과 자유투표한 당은 이탈이 없습니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
 }
