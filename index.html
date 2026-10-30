@@ -1009,7 +1009,7 @@ function migrate(o) {
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
+  o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= [];
   for (const m of o.outs) if (POL_ROLE.test(m.role)) m.job ??= pick(FIG_JOBS);
@@ -1590,7 +1590,7 @@ const readyWatched = d0 => {
   return Object.keys(S.watch).filter(k => S.watch[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && canNow(k));
 };
 // 다시 할 수 있게 된 알림은 탭 이름 옆 숫자로: 활동(act) · 교섭(neg). 그 탭에 들어가면 사라짐
-const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : 'act']; if (!a.includes(k)) a.push(k); } };
+const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : k === 'talent' ? 'people' : 'act']; if (!a.includes(k)) a.push(k); } };
 let shownTab = null, fresh = []; // 이번에 들어온 탭에서 방금 확인한 알림(카드에 '다시 가능' 표시)
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
@@ -3591,9 +3591,9 @@ function renderNav() {
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => !autoOn(r.k) && rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
-  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length }, badgeSr = { admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
+  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length, people: S.alerts.people.length }, badgeSr = { people: '다시 영입할 수 있음 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
   nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('')
-    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length || S.billNew) && !open ? '<span class="badge">!</span>' : ''}</button>`;
+    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length || S.alerts.people.length || S.billNew) && !open ? '<span class="badge">!</span>' : ''}</button>`;
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
   nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
 }
@@ -3886,7 +3886,7 @@ function pOrg() {
     </div></div>`;
 }
 function pAct() {
-  return `<div class="card"><h2>전국 활동</h2><div class="acts wide">${['online', 'policy', 'media', 'talent', 'fund', 'tvad', 'debate'].map(k => actBtn(k, undefined, true, true)).join('')}</div>
+  return `<div class="card"><h2>전국 활동</h2><div class="acts wide">${['online', 'policy', 'media', 'fund', 'tvad', 'debate'].map(k => actBtn(k, undefined, true, true)).join('')}</div>
     <p class="tip">종 버튼으로 재사용 알림을 켜 둔 활동은 재사용 대기가 끝나면 메뉴의 '활동' 옆에 숫자로 알려 줍니다. 지역별 활동(당원 모집·봉사·유세)은 '조직·지역' 탭에 있습니다.</p></div>
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts ups">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
@@ -3911,7 +3911,7 @@ function pPeople() {
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   // 머리: [제목 | (대기 안내문) 인재 영입] / [정렬]
   const w = why('talent'), recruit = `<button class="btn pri" data-act="talent" ${w ? 'disabled' : ''}>${talOpen() ? '이어서 영입' : '인재 영입'}</button>`;
-  return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${talOpen() ? `<span class="small muted">${Math.max(1, Math.ceil((S.tal.until - S.day) / TURN))}턴 후 갱신</span>` : ''}${recruit}</div>
+  return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX}) ${infoTip(`<p class="tip">${esc(ACT.talent.d)} 탐색비 ${won(ACT.talent.c())} · 행동력 1 · ${Math.ceil(ACT.talent.cd / TURN)}턴마다 새 후보.</p>`)}</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${talOpen() ? `<span class="small muted">${Math.max(1, Math.ceil((S.tal.until - S.day) / TURN))}턴 후 갱신</span>` : ''}${recruit}<button class="ib bell" style="width:40px;padding:0" data-watch="talent" aria-pressed="${!!S.watch.talent}" aria-label="재영입 알림" title="재영입 알림 ${S.watch.talent ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button></div>
     <div class="filters psort chips" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div></div>
     <div class="pcards">${rows}</div>
     ${pages > 1 ? pager(pPage, pages) : ''}
