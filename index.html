@@ -2465,7 +2465,9 @@ function negCard() {
   // 별(관심)을 켠 정당은 맨 왼쪽, 인물은 맨 위로. 같은 묶음 안에선 원래 순서
   const live = liveMPs(), star = k => S.watch[k] ? 0 : 1, byStar = (a, key) => [...a].sort((x, y) => star(key(x)) - star(key(y)));
   const parts = byStar(['A', 'B', 'C', 'D'], id => 'neg:' + id);
-  const mps = byStar(live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), m => 'neg:m' + m.id), outs = byStar(S.outs.filter(m => m.neg), m => 'neg:o' + m.id);
+  // 인물: 별 켠 사람 먼저(원래 순서), 나머지는 친분 높은 순 → 대화 많은 순
+  const tn = m => m.talkN ?? m.talk?.length ?? 0, byStarP = (a, key) => [...a].sort((x, y) => star(key(x)) - star(key(y)) || (star(key(x)) && (y.rel - x.rel || tn(y) - tn(x))));
+  const mps = byStarP(live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), m => 'neg:m' + m.id), outs = byStarP(S.outs.filter(m => m.neg), m => 'neg:o' + m.id);
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['D', RIV.D.name], ['O', '무소속']];
   // 맨 위: (i) 설명 · 교섭 불가 사유 한 줄(별도 카드 없이 그림 띠 바로 아래)
   const head = `<div class="negbar"><span class="small muted">교섭 안내</span>
