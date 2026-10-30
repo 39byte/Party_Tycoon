@@ -2909,11 +2909,16 @@ function nomAuto(key) {
     d.prN = pr.length; d.prIds = pr.map(p => p.id);
     // 돈이 모자라면 나중에 배치한(승산 낮은) 지역구 후보부터 뺌
     for (let i = dist.length - 1; i >= 0 && buildReg(c).out.cost > S.money; i--) { const x = d.reg[dist[i][0].k]; x.ids.splice(x.ids.indexOf(dist[i][1].id), 1); x.n--; }
-    nomFill(c); Snd.sfx('click'); return renderPanel();
+    nomFill(c); Snd.sfx('click'); renderPanel(); return nomAutoToast(c);
   }
   const order = c.type === 'pres' ? ss : [...ss].sort((a, b) => regSupport(b[2]) - regSupport(a[2]));
   order.forEach(([o, f, k]) => { const p = ps.length ? bestAt(ps, k) : null; o[f] = p?.id ?? ''; if (p) ps.splice(ps.indexOf(p), 1); });
-  nomFill(c); Snd.sfx('click'); renderPanel();
+  nomFill(c); Snd.sfx('click'); renderPanel(); nomAutoToast(c);
+}
+// 자동 배치 결과를 우상단 알림으로
+function nomAutoToast(c) {
+  const o = buildReg(c).out, pr = o.pr?.length || 0;
+  toast(c.type === 'nat' ? `지역구 ${o.count - pr}명 · 비례 ${pr}명을 배치했습니다. 예상 비용 ${won(o.cost)}.` : c.type === 'gov' ? (o.count ? `시·도지사 후보 ${o.count}명을 배치했습니다. 예상 비용 ${won(o.cost)}.` : '출마할 지역에 먼저 체크하세요. 체크한 지역에만 후보를 배치합니다.') : `대통령 후보로 ${S.pool.find(p => p.id === c.draft.cand)?.name || '(인재 부족)'}을(를) 배치했습니다.`, 'ok', `${c.name} 자동 배치`);
 }
 function buildReg(c) {
   nomFill(c);
