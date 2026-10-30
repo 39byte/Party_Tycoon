@@ -474,7 +474,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .seatd>summary{cursor:pointer;list-style:none}.seatd>summary::-webkit-details-marker{display:none}.seatd>summary h2{margin:0;display:flex;align-items:center;gap:8px}.seatd>summary h2::before{content:"";width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 2px rgba(242,179,61,.25)}.seatd>summary h2::after{content:'펼치기 ▾';margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}.seatd[open]>summary h2::after{content:'접기 ▴'}.seatd[open]>summary{margin-bottom:10px}
 .rrace{margin-bottom:12px}.rrace h3{font-size:14px;margin:0 0 6px}.rcands{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:6px}
 .rcand{min-width:0;border:1px solid var(--border);border-radius:10px;padding:6px 8px}.rcand summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}.rcand summary::-webkit-details-marker{display:none}
-.rcand[open]{background:var(--surface2)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
+.rcand[open]{background:var(--surface2)}.rcand.win{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
@@ -1123,7 +1123,7 @@ function simGeneral(c) {
       for (const id of ids) mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
       if (cand) { ids.push('P'); mods.P = candMul(cand) * campBoost(c, r.k) * (1 + cand.spendB); }
       const { v, win } = shareRace(r.k, ids, mods);
-      seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ n: `${RK[r.k].n} ${i + 1}선거구`, c: raceRow(ids, v, slot, cand) });
+      seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ k: r.k, n: `${RK[r.k].n} ${i + 1}선거구`, c: raceRow(ids, v, slot, cand) });
       if (win !== 'P') wins.push({ k: r.k, fid: slot?.[win]?.fid });
       if (cand) pDist.push({ k: r.k, name: cand.name, pid: cand.id, share: v.P, win: win === 'P', winner: win, cost: cand.dep + cand.spend });
     }
@@ -1159,7 +1159,7 @@ function simGov(c) {
     for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
     for (const id of ids) if (id !== 'P') mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
     const res = shareRace(r.k, ids, mods);
-    win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid }); races.push({ n: RK[r.k].n, c: raceRow(ids, res.v, slot, cand) });
+    win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid }); races.push({ k: r.k, n: RK[r.k].n, c: raceRow(ids, res.v, slot, cand) });
     if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, sk: cand.skill, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
   }
   return { win, mine, wins, races };
@@ -4086,14 +4086,24 @@ function distEdit(c, k) {
   openModal({ title: `${c.name} 지역구 후보`, wide: true, html: `<p class="small muted">지역을 고르고 자리마다 후보를 바꾸세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 괄호는 후보 점수입니다.</p><div data-dm></div>`, buttons: [{ t: '닫기' }], onOpen: draw });
 }
 // 지난 선거 결과 상세: 선거구마다 후보·정당·득표율(높은 순, 1위 당선)
-function resultModal(r) {
+let resReg = 'all', resMine = false; // 선거 결과 팝업: 지역 필터 · 우리 당 출마 지역만
+function resultModal(r, keep) {
   if (!r) return;
+  if (!keep) resReg = 'all';
   if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">이 선거는 출마자 기록이 남아 있지 않습니다. 상세 기록 기능이 생기기 전에 치렀거나, 최근 8번보다 오래된 선거입니다. 다음 선거부터는 출마자 프로필과 득표율이 기록됩니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
   const col = id => id === 'O' ? '#64748B' : pc(id);
   // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
-  const cand = ([id, n, v, p], i) => `<details class="rcand"><summary>${face({ name: n || '후보', gender: p?.g, age: p?.a }, col(id), 36)}<span class="rcn"><b>${esc(n || '후보')}${i ? '' : ' <span class="pill">당선</span>'}</b><span class="small muted">${byPill(id)}${p?.j ? ` · ${esc(p.j)}` : ''}</span></span><span class="rcv"><b class="num">${pct(v)}</b><span class="bar"><i style="width:${v * 100}%;background:${col(id)}"></i></span></span></summary>
+  const cand = ([id, n, v, p], i) => `<details class="rcand${i ? '' : ' win'}"><summary>${face({ name: n || '후보', gender: p?.g, age: p?.a }, col(id), 36)}<span class="rcn"><b>${esc(n || '후보')}${i ? '' : ' <span class="pill">당선</span>'}</b><span class="small muted">${byPill(id)}${p?.j ? ` · ${esc(p.j)}` : ''}</span></span><span class="rcv"><b class="num">${pct(v)}</b><span class="bar"><i style="width:${v * 100}%;background:${col(id)}"></i></span></span></summary>
     ${p ? `<div class="small muted" style="margin:6px 0">${p.g === 'F' ? '여' : '남'} · ${p.a}세${p.j ? ` · 출신: ${esc(p.j)}` : ''}</div>${statBars({ fame: p.fa, skill: p.sk, integ: p.ig })}<p class="small ${p.rec ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec ? esc(p.rec.join(', ')) : '없음'}</p>` : '<p class="small muted">프로필 기록이 없습니다.</p>'}</details>`;
-  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 후보를 누르면 출마 당시 프로필을 볼 수 있습니다.</p><div style="max-height:62vh;overflow:auto">${r.races.map(x => `<section class="rrace"><h3>${esc(x.n)}</h3><div class="rcands">${x.c.map(cand).join('')}</div></section>`).join('')}</div>`, buttons: [{ t: '닫기' }] });
+  const kOf = x => x.k ?? R.find(q => x.n === q.n || x.n.startsWith(q.n + ' '))?.k, regs = R.filter(q => r.races.some(x => kOf(x) === q.k));
+  const races = r.races.filter(x => (resReg === 'all' || kOf(x) === resReg) && (!resMine || x.c.some(c => c[0] === 'P')));
+  const chip = (k, n) => `<button class="btn${resReg === k ? ' pri' : ''}" data-rreg="${k}" aria-pressed="${resReg === k}">${n}</button>`;
+  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 후보를 누르면 출마 당시 프로필을 볼 수 있습니다.</p>
+    ${regs.length > 1 ? `<div class="filters chips" role="group" aria-label="지역 선택">${chip('all', '전체')}${regs.map(q => chip(q.k, q.n)).join('')}</div>` : ''}
+    <label class="small" style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><input type="checkbox" data-rmine ${resMine ? 'checked' : ''}> 우리 당이 출마한 곳만 보기</label>
+    <div style="max-height:56vh;overflow:auto">${races.length ? races.map(x => `<section class="rrace"><h3>${esc(x.n)}</h3><div class="rcands">${x.c.map(cand).join('')}</div></section>`).join('') : '<p class="empty">조건에 맞는 선거구가 없습니다.</p>'}</div>`, buttons: [{ t: '닫기' }],
+    onOpen: m => { m.querySelectorAll('[data-rreg]').forEach(b => b.onclick = () => { resReg = b.dataset.rreg; resultModal(r, 1); });
+      m.querySelector('[data-rmine]').onchange = e => { resMine = e.target.checked; resultModal(r, 1); }; } });
 }
 function nomSummary(c) {
   const { out, err } = buildReg(c);
