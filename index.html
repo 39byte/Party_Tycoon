@@ -264,6 +264,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px;z-index:50;animation:fade .18s ease-out}
 /* 모달: 남색 제목 띠가 달린 게임 대화창 */
 .modal{background:var(--surface);color:var(--fg);border:1px solid var(--hud-line);border-radius:16px;max-width:560px;width:100%;max-height:calc(100dvh - 32px);overflow:auto;padding:0 20px 20px;box-shadow:0 0 0 1px rgba(242,179,61,.35),0 24px 60px rgba(0,0,0,.45);animation:pop .2s cubic-bezier(.2,.9,.3,1.2)}
+.btn.nomb{min-height:0;padding:3px 10px;font-size:12.5px;white-space:nowrap}
 input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-color:var(--primary)}
 .dslots{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(250px,100%),1fr));gap:8px;max-height:56vh;overflow:auto;margin-top:8px}
 .dslot{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--border);border-radius:10px;min-width:0}.dslot>div{display:flex;flex-direction:column;gap:4px;min-width:0;flex:1}.dslot select{width:100%}
@@ -4191,7 +4192,7 @@ function nomForm(c) {
   if (c.type === 'nat') {
     return `${top}${twoCol('<th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th>', R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r">${r.seats}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td>
       <td><input type="number" min="0" max="${r.seats}" value="${x.n}" ${a} data-k="${r.k}" data-f="n" aria-label="${r.n} 출마 수"></td>
-      <td>${x.ids.length ? `<button class="btn" data-distc="${c.key}" data-distk="${r.k}">${x.ids.length}명 보기·변경</button>` : '<span class="muted small">-</span>'}</td>
+      <td>${x.ids.length ? `<button class="btn nomb" data-distc="${c.key}" data-distk="${r.k}">${x.ids.length}명 보기·변경</button>` : '<span class="muted small">-</span>'}</td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }))}
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마 수를 늘리면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, '보기·변경'에서 직접 바꾸거나 '자동 배치'를 누르세요. 다른 자리에 있는 사람을 고르면 두 자리가 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다. 지역구 여성 후보가 30% 이상이면 여성추천보조금(정치자금법 제26조).</p>
       <div class="row" style="margin-top:12px">
@@ -4203,13 +4204,13 @@ function nomForm(c) {
   }
   if (c.type === 'gov') {
     return `${top}${twoCol('<th>지역</th><th class="r">우리 지지</th><th>출마</th><th>후보</th><th>선거비용</th>', R.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td><td><input type="checkbox" ${a} data-k="${r.k}" data-f="run" ${x.run ? 'checked' : ''} aria-label="${r.n} 출마"></td>
-      <td>${x.run ? `<button class="btn" data-distc="${c.key}" data-distk="${r.k}">보기·변경</button>` : '<span class="muted small">-</span>'}</td>
+      <td>${x.run ? `<button class="btn nomb" data-distc="${c.key}" data-distk="${r.k}">보기·변경</button>` : '<span class="muted small">-</span>'}</td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }))}
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마를 고르면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, '보기·변경'에서 직접 바꾸거나 '자동 배치'를 누르세요. 다른 지역에 있는 사람을 고르면 두 지역이 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p>`;
   }
   const pc0 = S.pool.find(p => p.id === d.cand);
   return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">우리 지지</th><th>후보 (당내 경선)</th><th>선거비용</th></tr></thead><tbody><tr><td>전국</td><td class="r num">${S.support.toFixed(1)}%</td>
-      <td><button class="btn" data-distc="${c.key}">${pc0 ? `${esc(pc0.name)} · ` : ''}보기·변경</button></td>
+      <td><button class="btn nomb" data-distc="${c.key}">${pc0 ? `${esc(pc0.name)} · ` : ''}보기·변경</button></td>
       <td><select ${a} data-f="spend" aria-label="선거비용">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr></tbody></table></div>
     <p class="tip">대통령 후보는 만 40세 이상(헌법 제67조)이고, 경선 탈락자는 같은 선거에 출마할 수 없습니다(공직선거법 제57조의2). 5년 단임이라 현직·전직 대통령은 나갈 수 없습니다(헌법 제70조). 선거비용은 선거비용제한액(약 588억) 이내입니다.</p>
     <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${Math.round(x.fame)})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
