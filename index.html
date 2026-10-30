@@ -1945,8 +1945,9 @@ function rollModal(vid) {
   const names = ids.map(id => { const xs = of(id), l = v.lines[id], grp = s => { const g = xs.filter(x => x[3] === s); return g.length ? `<p class="small"><b>${VOTE_N[s]} ${g.length}</b><br>${g.map(x => off(x, l) ? `<b class="bad">${nm(x)}</b>` : nm(x)).join(', ')}</p>` : ''; };
     return `<h3 style="margin-top:14px;color:${pc(id)}">${esc(pn(id))} <span class="pill">${xs.length}명</span></h3>${grp(1)}${grp(0)}${grp(-1)}`; }).join('');
   openModal({ title: `본회의 표결: ${v.t}`, html: `<div class="tblwrap" style="margin-bottom:12px"><table style="table-layout:fixed"><tbody>${[
-      [['결과', `<b class="${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</b>`], ['날짜', fdate(v.d)], ['발의한 당', byPill(v.by)]],
-      [['재적 인원', `<span class="num">${v.roll.length}명</span>`], ['필요 표', `<span class="num">${v.need}표</span>`], null]
+      [['결과', `<b class="${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</b>`], ['재적 인원', `<span class="num">${v.roll.length}명</span>`]],
+      [['날짜', fdate(v.d)], ['필요 표', `<span class="num">${v.need}표</span>`]],
+      [['발의한 당', byPill(v.by)], null]
     ].map(r => `<tr>${r.map(c => `<td>${c ? `<span class="small muted" style="display:inline-block;width:5em">${c[0]}</span>${c[1]}` : ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="tblwrap"><table><thead><tr><th>정당</th><th>당론</th><th class="r">찬성</th><th class="r">반대</th><th class="r">기권</th><th class="r">이탈</th></tr></thead><tbody>${rows}</tbody>
       <tfoot><tr><th>합계</th><td></td>${[1, 0, -1].map(s => `<th class="num r">${tally(v.roll, s)}</th>`).join('')}<td></td></tr></tfoot></table></div>
