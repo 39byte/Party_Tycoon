@@ -3857,7 +3857,7 @@ function pElec() {
   let html = '';
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
-  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}</span>${r.races ? `<button class="btn" data-res="${i}">상세 보기</button>` : ''}</li>`).reverse().join('')}</ul><p class="tip">최근 선거는 '상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다.</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
+  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
 }
 // 다른 당 공천 현황: 발표된 후보만. 총선은 지역을 골라 당별로, 지방선거는 시·도별로
@@ -3935,7 +3935,8 @@ function nomForm(c) {
 }
 // 지난 선거 결과 상세: 선거구마다 후보·정당·득표율(높은 순, 1위 당선)
 function resultModal(r) {
-  if (!r?.races) return;
+  if (!r) return;
+  if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">이 선거는 출마자 기록이 남아 있지 않습니다. 상세 기록 기능이 생기기 전에 치렀거나, 최근 8번보다 오래된 선거입니다. 다음 선거부터는 출마자 프로필과 득표율이 기록됩니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
   const col = id => id === 'O' ? '#64748B' : pc(id);
   // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
   const cand = ([id, n, v, p], i) => `<details class="rcand"><summary>${face({ name: n || '후보', gender: p?.g, age: p?.a }, col(id), 36)}<span class="rcn"><b>${esc(n || '후보')}${i ? '' : ' <span class="pill">당선</span>'}</b><span class="small muted">${byPill(id)}${p?.j ? ` · ${esc(p.j)}` : ''}</span></span><span class="rcv"><b class="num">${pct(v)}</b><span class="bar"><i style="width:${v * 100}%;background:${col(id)}"></i></span></span></summary>
