@@ -1461,8 +1461,7 @@ function daily() {
   S.fame = clamp(Math.max(S.fame - S.fame * 0.003, floor), 0, 100);
   for (const r of R) { S.rtrust[r.k] += (50 - S.rtrust[r.k]) * 0.002; for (const id of TR_IDS) S.rtr[id][r.k] += (50 - S.rtr[id][r.k]) * 0.002; }
   S.buzz *= 0.97;
-  const honey = S.president.party === 'P' ? Math.max(0, 6 - (S.day - S.president.since) / 120) : 0;
-  const target = (S.fame / 100) * (0.25 + 0.75 * S.trust / 100) * 40 + seats / 300 * 8 + S.buzz + honey + Math.min(3, S.laws.length * 0.3);
+  const target = (S.fame / 100) * (0.25 + 0.75 * S.trust / 100) * 40 + seats / 300 * 8 + S.buzz + Math.min(3, S.laws.length * 0.3);
   // 밸런스: 목표치로 따라가는 속도를 오를 땐 SUP_UP배, 내릴 땐 SUP_DOWN배. 화제성(buzz)은 매일 식으므로 일시적 호재는 덜 오르고 악재는 더 깊게 반영됨
   const SUP_UP = 0.6, SUP_DOWN = 1.5;
   S.support = clamp(S.support + (target - S.support) * 0.03 * (target > S.support ? SUP_UP : SUP_DOWN), 0.1, 70);
