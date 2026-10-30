@@ -1094,7 +1094,7 @@ function campBoost(c, k) { return c ? 1 + c.boost.nat + (c.boost.reg[k] || 0) : 
 // 비례 득표 가중(운 빼고). 비례 후보 수 추천에도 씀
 const prWeight = (c, id, ns) => id === 'P' ? ns.P * 1.15 * campBoost(c, '') * (c?.sat ? 1.3 : 1) : ns[id] * (id === 'C' ? 1.3 : id === 'O' ? 0.8 : 1);
 function simGeneral(c) {
-  const reg = c && c.reg, seatsD = { P: {}, A: {}, B: {}, C: {}, O: {} }, pDist = [], wins = [];
+  const reg = c && c.reg, seatsD = { P: {}, A: {}, B: {}, C: {}, O: {} }, pDist = [], wins = [], races = [];
   for (const r of R) {
     const mine = reg ? reg.dist[r.k] || [] : [];
     for (let i = 0; i < r.seats; i++) {
@@ -1107,7 +1107,7 @@ function simGeneral(c) {
       if (cand) { ids.push('P'); mods.P = candMul(cand) * campBoost(c, r.k) * (1 + cand.spendB); }
       if (cand && c.ally && ids.includes(c.ally)) { ids.splice(ids.indexOf(c.ally), 1); mods.P *= 1.12; }
       const { v, win } = shareRace(r.k, ids, mods);
-      seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1;
+      seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ n: `${RK[r.k].n} ${i + 1}선거구`, c: raceRow(ids, v, slot, cand) });
       if (win !== 'P') wins.push({ k: r.k, fid: slot?.[win]?.fid });
       if (cand) pDist.push({ k: r.k, name: cand.name, pid: cand.id, share: v.P, win: win === 'P', winner: win, cost: cand.dep + cand.spend });
     }
@@ -1126,12 +1126,14 @@ function simGeneral(c) {
     const ids = Object.keys(pr).filter(id => id !== 'P' && pr[id] > 0);
     if (ids.length) L.hare(lostPR, ids.map(id => pv[id])).forEach((n, i) => pr[ids[i]] += n);
   }
-  return { seatsD, pr, pv, pDist, lostPR, wins };
+  return { seatsD, pr, pv, pDist, lostPR, wins, races };
 }
 function applySeats(g) { for (const id in g.seatsD) S.seats[id] = { d: g.seatsD[id], pr: g.pr[id] || 0 }; }
 
+// 지난 선거 팝업용: 한 선거구의 후보별 [정당, 이름, 득표율]
+const raceRow = (ids, v, slot, cand) => ids.map(id => [id, id === 'P' ? cand?.name || '' : fig(slot?.[id]?.fid)?.name || '', Math.round(v[id] * 1000) / 1000]).sort((a, b) => b[2] - a[2]);
 function simGov(c) {
-  const win = {}, mine = [], wins = [];
+  const win = {}, mine = [], wins = [], races = [];
   for (const r of R) {
     const slot = c?.rv?.[r.k]?.[0], ids = slot ? Object.keys(slot) : ['A', 'B'];
     if (!slot) { if (rnd() < 0.3) ids.push('C'); if (rnd() < 0.3) ids.push('O'); }
@@ -1141,10 +1143,10 @@ function simGov(c) {
     for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
     for (const id of ids) if (id !== 'P') mods[id] = (mods[id] || 1) * (1 + (c?.rb?.[id]?.[r.k] || 0)) * candMul(fig(slot?.[id]?.fid)); // 다른 당 거리 유세 · 후보 개인
     const res = shareRace(r.k, ids, mods);
-    win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid });
+    win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid }); races.push({ n: RK[r.k].n, c: raceRow(ids, res.v, slot, cand) });
     if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, sk: cand.skill, share: res.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
   }
-  return { win, mine, wins };
+  return { win, mine, wins, races };
 }
 const VOTERS = sum(R.map(r => r.voters));
 const byVoters = b => b ? sum(R.map(r => (b[r.k] || 0) * r.voters)) / VOTERS : 0;
@@ -1217,11 +1219,11 @@ function regDeadline(c) {
 }
 function resolveElection(c) {
   const e = c, lines = [];
-  let refund = 0, html = '';
+  let refund = 0, html = '', races = [];
   if (c.type === 'nat') {
     const g = simGeneral(c);
     const before = seatTotal('P');
-    applySeats(g); S.lastVotes = { ...g.pv };
+    applySeats(g); S.lastVotes = { ...g.pv }; races = g.races;
     figElect(c, 'd', g.wins);
     const keep = S.mps.filter(m => fig(m.fid)?.pos === 'd' && rnd() < 0.6);
     // 낙선·불출마한 의원 일부는 원외 인사로 남음
@@ -1241,7 +1243,7 @@ function resolveElection(c) {
     html = natResultHTML(g, c);
     lines.push(`${c.name} 결과: ${S.party.name} ${now}석 (지역구 ${now - S.seats.P.pr}, 비례 ${S.seats.P.pr}) · 비례 득표 ${pct(g.pv.P)}`);
   } else if (c.type === 'gov') {
-    const g = simGov(c);
+    const g = simGov(c); races = g.races;
     S.gov = g.win;
     // 당선자가 새 지사(같은 사람이 다시 되면 행정 지지도 유지)
     for (const w of g.wins) if (w.id !== 'P') { const f = fig(w.fid), old = S.rgov[w.k]; S.rgov[w.k] = { p: w.id, n: f ? f.name : genName('M'), fid: f?.id, o: old && f && old.fid === f.id ? old.o : opsBase(w.id, w.k) }; }
@@ -1260,6 +1262,7 @@ function resolveElection(c) {
   } else {
     const g = simPres(c);
     const winName = g.win === 'P' ? c.reg.cand.name : c.rivals[g.win].name;
+    races = [{ n: '전국', c: g.ids.map(id => [id, id === 'P' ? c.reg.cand.name : c.rivals[id].name, Math.round(g.v[id] * 1000) / 1000]).sort((a, b) => b[2] - a[2]) }];
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
     S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null };
     S.pool.forEach(p => { if (p.role === '대통령') { p.role = '전직 대통령'; p.exPres = true; } });
@@ -1273,7 +1276,8 @@ function resolveElection(c) {
     html += `<p class="ok"><b>기탁금 반환·선거비용 보전 예정: ${won(refund)}</b> (30일 후 지급, 득표율 15% 이상 전액·10% 이상 절반 — 공직선거법 제57조·제122조의2)</p>`;
   } else if (c.reg) html += `<p class="muted">득표율 10% 미만 지역은 기탁금이 국고에 귀속되고 선거비용도 보전되지 않습니다.</p>`;
   lines.forEach(t => addLog(t, 'ok'));
-  S.results.push({ d: S.day, name: c.name, t: lines.join(' ') });
+  S.results.push({ d: S.day, name: c.name, t: lines.join(' '), races });
+  S.results.slice(0, -8).forEach(r => delete r.races); // 저장 용량: 상세는 최근 8번만
   S.done[c.key] = true; delete S.camps[c.key];
   checkAch();
   Snd.sfx('win');
@@ -3638,6 +3642,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-stance]').forEach(b => b.onclick = () => { const [id, s] = b.dataset.stance.split('|'); setStance(+id, +s); });
   m.querySelectorAll('[data-neg]').forEach(b => b.onclick = () => negModal(b.dataset.neg));
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
+  m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
   m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; renderAll(); });
@@ -3848,7 +3853,7 @@ function pElec() {
   let html = '';
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
-  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${[...S.results].reverse().map(r => `<li><time>${fdate(r.d)}</time><span>${esc(r.t)}</span></li>`).join('')}</ul>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
+  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span>${r.races ? `<button class="lnk" data-res="${i}" title="후보별 득표율 보기">${esc(r.t)}</button>` : esc(r.t)}</span></li>`).reverse().join('')}</ul><p class="tip">최근 선거는 결과를 누르면 선거구별 후보와 득표율을 볼 수 있습니다.</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
 }
 // 다른 당 공천 현황: 발표된 후보만. 총선은 지역을 골라 당별로, 지방선거는 시·도별로
@@ -3923,6 +3928,12 @@ function nomForm(c) {
   return `${top}<div class="row"><label class="f">대통령 후보 (당내 경선)${slot(0, '대통령 후보')}<span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
     <label class="f">선거비용<select ${a} data-f="spend">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select><span class="h">선거비용제한액(약 588억) 이내</span></label></div>
     <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${x.fame})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
+}
+// 지난 선거 결과 상세: 선거구마다 후보·정당·득표율(높은 순, 1위 당선)
+function resultModal(r) {
+  if (!r?.races) return;
+  const cand = ([id, n, v], i) => `<span style="white-space:nowrap;margin-right:10px">${byPill(id)} ${i ? '' : '<b>'}${esc(n || '후보')} ${pct(v)}${i ? '' : '</b>'}</span>`;
+  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 굵은 글씨가 당선자</p><div class="tblwrap" style="max-height:60vh;overflow:auto"><table><thead><tr><th>선거구</th><th>후보 · 득표율</th></tr></thead><tbody>${r.races.map(x => `<tr><td style="white-space:nowrap">${esc(x.n)}</td><td>${x.c.map(cand).join('')}</td></tr>`).join('')}</tbody></table></div>`, buttons: [{ t: '닫기' }] });
 }
 function nomSummary(c) {
   const { out, err } = buildReg(c);
