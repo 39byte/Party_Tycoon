@@ -3933,7 +3933,7 @@ function pAct() {
     <div class="card" style="margin-top:14px"><h2>당 시설·조직</h2><div class="acts ups">${UPS.map(u => `<div class="act"><h3>${u.n}</h3><p>${u.d}</p><div class="meta"><span>설립 ${won(u.c)}</span><span>월 ${won(u.m)}</span></div><button class="btn ${S.up[u.k] ? '' : 'pri'}" data-up="${u.k}" ${S.up[u.k] || S.money < u.c ? 'disabled' : ''}>${S.up[u.k] ? '운영 중' : S.money < u.c ? '자금 부족' : '설립'}</button></div>`).join('')}</div></div>`;
 }
 const statBars = (p, hide) => `<div class="pstat">${[['인지도', p.fame, 'var(--accent)'], ['역량', p.skill, 'var(--primary2)'], ['청렴', hide ? null : p.integ, 'var(--ok)']].map(([n, v, col]) => `<span>${n}</span><div class="bar">${v == null ? '' : `<i style="width:${clamp(v, 0, 100)}%;background:${col}"></i>`}</div><b class="num">${v == null ? '?' : Math.round(v)}</b>`).join('')}</div>`; // hide: 청렴을 '?'로
-const POOL_MAX = 300;
+const POOL_MAX = 350;
 // 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
 let pSort = 'def', pDir = 1, pPage = 0;
