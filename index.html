@@ -1932,10 +1932,10 @@ const voteOf = id => id != null && S.votes?.find(v => v.id === id);
 const voteSum = v => `찬성 ${tally(v.roll, 1)} · 반대 ${tally(v.roll, 0)} · 기권 ${tally(v.roll, -1)}`;
 // 국회 탭 법안 목록 한 줄: [{t, d, by}, 표결 기록(없으면 옛 기록이라 상세 보기 없음)]
 const voteList = xs => `<ul class="log">${xs.map(([l, v]) => `<li><time>${fdate(l.d)}</time><span style="flex:1;display:flex;align-items:center;flex-wrap:wrap;gap:4px">${resPill(l.res || v?.res || '가결')}${byPill(l.by)} ${esc(l.t)}${v ? `<button class="btn" style="min-height:0;padding:1px 8px;font-size:12px;margin-left:auto" data-roll="${v.id}">상세 보기</button>` : ''}</span></li>`).join('')}</ul>`;
-// 최근 법안 20건: 결과 기록(S.passed) + 옛 저장 파일의 부결·폐기 표결 기록(S.votes)을 합쳐 최신순
+// 최근 법안 10건: 결과 기록(S.passed) + 옛 저장 파일의 부결·폐기 표결 기록(S.votes)을 합쳐 최신순
 const recentBills = () => { const ps = S.passed || [], seen = new Set(ps.map(l => l.vid).filter(x => x != null));
   const old = (S.votes || []).filter(v => !/가결/.test(v.res) && !seen.has(v.id)).map(v => ({ ...v, vid: v.id }));
-  return [...ps, ...old].sort((a, b) => b.d - a.d).slice(0, 20).map(l => [l, voteOf(l.vid) || S.votes?.find(v => v.t === l.t && v.d === l.d)]); };
+  return [...ps, ...old].sort((a, b) => b.d - a.d).slice(0, 10).map(l => [l, voteOf(l.vid) || S.votes?.find(v => v.t === l.t && v.d === l.d)]); };
 function rollModal(vid) {
   const v = voteOf(vid); if (!v) return;
   const ids = ['P', 'A', 'B', 'C', 'D', 'O'].filter(id => v.roll.some(x => x[2] === id)), of = id => v.roll.filter(x => x[2] === id);
