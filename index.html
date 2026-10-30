@@ -1218,7 +1218,7 @@ function timeline() {
     if (!c) continue;
     rvPlan(c); rvFill(c);
     if (!c.settled && dd <= LAW.regDeadline[e.type] - 1) { c.settled = true; regDeadline(c); } // 마감일 다음 날 정산
-    if (c.reg && S.day === campStart(c)) { addLog(`${c.name} 공식 선거운동 시작 (선거기간 ${LAW.campaignDays[c.type]}일).`, 'ok'); toast('거리 유세·방송 광고가 가능합니다.', '', '공식 선거운동 시작'); }
+    if (c.reg && S.day === campStart(c)) { addLog(`${c.name} 공식 선거운동 시작 (선거기간 ${LAW.campaignDays[c.type]}일).`, 'ok'); if (turnStart) (turnStart.pops ??= []).push({ title: '공식 선거운동 시작', html: `<p><b>${esc(c.name)}</b> 공식 선거운동이 시작되었습니다(선거기간 ${LAW.campaignDays[c.type]}일, 투표일 ${fdate(c.day)}). 거리 유세·방송 광고·TV 토론을 할 수 있고, 이 기간엔 매 턴 행동력을 1 더 받습니다.</p>` }); else toast('거리 유세·방송 광고가 가능합니다.', '', '공식 선거운동 시작'); }
     if (dd === 0) resolveElection(c);
   }
 }
@@ -1573,11 +1573,13 @@ function runTurn() {
     return (turnTimer = setTimeout(runTurn, 90));
   }
   if (turnStart) {
-    const t = turnStart; turnStart = null;
-    if (!t.pactEnd?.length) return brief(t);
-    // 법안 공조 협약 만료: 확인하면 주간 브리핑으로
-    const ns = t.pactEnd.map(pn).join('·'); addLog(`${ns}과(와)의 법안 공조 협약이 끝났습니다.`);
-    openModal({ title: '법안 공조 협약 종료', html: `<p>${esc(ns)}과(와)의 법안 공조 협약 기간이 끝났습니다. 이제 그 당 의원들은 우리 법안에 예전처럼 판단합니다. 교섭 탭에서 협약을 다시 맺을 수 있습니다.</p>`, dismiss: false, buttons: [{ t: '확인', pri: true, fn: () => brief(t) }] });
+    const t = turnStart, pops = t.pops || []; turnStart = null;
+    // 법안 공조 협약 만료
+    if (t.pactEnd?.length) { const ns = t.pactEnd.map(pn).join('·'); addLog(`${ns}과(와)의 법안 공조 협약이 끝났습니다.`);
+      pops.push({ title: '법안 공조 협약 종료', html: `<p>${esc(ns)}과(와)의 법안 공조 협약 기간이 끝났습니다. 이제 그 당 의원들은 우리 법안에 예전처럼 판단합니다. 교섭 탭에서 협약을 다시 맺을 수 있습니다.</p>` }); }
+    // 턴 시작 팝업을 차례로 띄우고, 마지막 확인 뒤 주간 브리핑
+    const next = () => { const x = pops.shift(); if (!x) return brief(t); openModal({ ...x, dismiss: false, buttons: [{ t: '확인', pri: true, fn: next }] }); };
+    next();
   }
 }
 const briefPills = r => { const d = (n, f) => (n >= 0 ? '+' : '') + f(n); return `<div class="legend"><span class="pill">자금 ${d(r.dm, won)}</span><span class="pill">당원 ${d(r.dmem, n => n.toLocaleString())}</span><span class="pill">지지율 ${d(r.dsup, n => n.toFixed(1) + '%p')}</span></div>`; };
