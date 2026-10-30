@@ -3343,7 +3343,7 @@ function agendaCard() {
     <p class="small">${esc(a.body)}</p>
     <h3>각 당 입장</h3><ul class="log">${['P', 'A', 'B', 'C', 'D'].map(id => { const i = id === 'P' ? g.mine : g.pos[id]; return `<li><span><b>${esc(pn(id))}</b> · <span class="small">${i == null ? '입장 정리 중' : i < 0 ? '입장 없음' : esc(a.ops[i].t)}</span></span></li>`; }).join('')}</ul>
     <p class="small muted">여론 판정: ${fdate(g.end)} 무렵</p><p class="tip">${fdate(g.end)} 무렵 사건이 잦아들면 여론이 입장별로 갈립니다. 여론과 맞는 입장을 낸 당은 신뢰를 얻고, 엇갈린 당은 역풍을 맞습니다.</p>
-    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담 (5백만·행동력 1)</button>${w ? `<span class="small warn">${w}</span>` : ''}</div></div>`;
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><div style="display:flex;flex-direction:column;gap:4px"><button class="btn pri" data-visit ${w ? 'disabled' : ''}>현장 방문·유가족 면담</button><span class="small muted">500만 원 · 행동력 1</span></div>${w ? `<span class="small warn">${w}</span>` : ''}</div></div>`;
 }
 // 지역 소식(지방 정부 탭)
 // c: 현안 소식이면 1
@@ -4191,7 +4191,7 @@ function bannerItems() {
   for (const c of camps) if (inCampaign(c)) out.push(['선거', `${c.name} 공식 선거운동기간 · 투표일 D-${c.day - S.day}`, 'elec', 'hot']);
   if (ne && !out.length && ne.day - S.day <= 30) out.push(['선거', `${ne.name} D-${ne.day - S.day}`, 'elec', 'hot']);
   if (S.phase === 'reg') for (const c of camps) { const dl = c.day - LAW.regDeadline[c.type] - S.day; if (!c.reg && dl >= 0 && dl <= 14) out.push(['공천', `${c.name} 후보 등록 마감 D-${dl}`, 'elec', 'warn']); }
-  if (S.agenda) out.push(['이슈', `${AGENDA.find(a => a.k === S.agenda.k).t} · 각 당 입장 표명 중`, 'office', '']);
+  if (S.agenda) out.push(['이슈', `${AGENDA.find(a => a.k === S.agenda.k).t} · 각 당 입장 표명 중`, 'office', '', '[data-visit]']);
   if (S.later.some(x => x.q.ev === 'court')) out.push(['탄핵', '헌법재판소 대통령 탄핵심판 진행 중', 'office', 'warn']);
   else if (S.president.acting) out.push(['정국', `${presT()} 체제 · 조기 대선 국면`, 'elec', 'warn']);
   if (seatTotal('P') && L.dayToDate(S.day).getUTCMonth() === 9) out.push(['국회', '국정감사 기간', 'office', '']);
@@ -4200,10 +4200,11 @@ function bannerItems() {
 }
 let lastBn = null;
 function renderBanner() {
-  const h = bannerItems().map(([tag, t, go, cls]) => `<button class="bn ${cls}" data-bgo="${go}"><b>${tag}</b><span>${esc(t)}</span></button>`).join('');
+  const h = bannerItems().map(([tag, t, go, cls, fo]) => `<button class="bn ${cls}" data-bgo="${go}"${fo ? ` data-bfo="${fo}"` : ''}><b>${tag}</b><span>${esc(t)}</span></button>`).join('');
   if (h === lastBn) return; // 매 틱 다시 그리지 않음(클릭 씹힘 방지)
   const el = $('#banner'); lastBn = h; el.innerHTML = h; el.hidden = !h;
-  el.querySelectorAll('[data-bgo]').forEach(b => b.onclick = () => { tab = b.dataset.bgo; Snd.sfx('click'); renderAll(); });
+  el.querySelectorAll('[data-bgo]').forEach(b => b.onclick = () => { tab = b.dataset.bgo; Snd.sfx('click'); renderAll();
+    const f = b.dataset.bfo && $(`main ${b.dataset.bfo}`); if (f) { f.scrollIntoView({ block: 'center' }); f.focus({ preventScroll: true }); } }); // 이슈 배너: 현장 방문 버튼으로
 }
 const LAWS = [
   ['헌법 제49조', '국회는 헌법 또는 법률에 특별한 규정이 없는 한 재적의원 과반수의 출석과 출석의원 과반수의 찬성으로 의결한다.'],
