@@ -1253,6 +1253,7 @@ function resolveElection(c) {
     S.bills = [];
     // 새 국회 개원: 의석 있는 당마다 2~3건씩 1호 법안을 몰아서 발의
     const open = []; for (const id of ['A', 'B', 'C', 'D']) if (seatTotal(id)) for (let i = 2 + (rnd() < 0.5); i--;) rivalBill(open, id);
+    S.bills.filter(b => b.by).sort(() => rnd() - 0.5).forEach((b, i) => b.next = S.day + 21 + 7 * i); // 상임위 심사는 한 턴에 한 건씩 차례로
     if (open.length) { addLog(`새 국회 개원, 각 당이 법안 ${open.length}건을 몰아서 발의했습니다.`, 'ok'); open.forEach(t => addLog(t)); }
     if (c.reg) {
       S.everNat = true; S.lastPart = S.day;
