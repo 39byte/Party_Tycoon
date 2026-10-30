@@ -477,7 +477,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .seatd>summary{cursor:pointer;list-style:none}.seatd>summary::-webkit-details-marker{display:none}.seatd>summary h2{margin:0;display:flex;align-items:center;gap:8px}.seatd>summary h2::before{content:"";width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 2px rgba(242,179,61,.25)}.seatd>summary h2::after{content:'펼치기 ▾';margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}.seatd[open]>summary h2::after{content:'접기 ▴'}.seatd[open]>summary{margin-bottom:10px}
 .rrace{margin-bottom:12px}.rrace h3{font-size:14px;margin:0 0 6px}.rcands{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:6px}
 .rcand{min-width:0;border:1px solid var(--border);border-radius:10px;padding:6px 8px}.rcand summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}.rcand summary::-webkit-details-marker{display:none}
-.rcand[open]{background:var(--surface2)}.rcand.win{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
+.rcand[open]{background:var(--surface2)}.rcands.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.rcand.fixed summary{cursor:default}
+@media (max-width:760px){.rcands.g3{grid-template-columns:minmax(0,1fr)}}.rcand.win{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
@@ -4227,11 +4228,13 @@ const distRs = (c, has) => (c.type === 'pres' ? [{ k: '', n: '전국' }] : R_ADM
 function distModal(c, k) {
   if (!c.reg) return distEdit(c, k);
   const d = c.type === 'pres' ? { '': [c.reg.cand] } : c.type === 'gov' ? Object.fromEntries(R_ADM.filter(r => c.reg.gov[r.k]).map(r => [r.k, [c.reg.gov[r.k]]])) : c.reg.dist, rs = distRs(c, k => d[k]?.length);
-  const cand = x => { const p = S.pool.find(q => q.id === x.id) || x;
-    return `<details class="rcand"><summary>${face(p, pc('P'), 36)}<span class="rcn"><b>${esc(p.name)}</b><span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''} · ${esc(homeTxt(p))}</span></span><span class="rcv"><b class="num">${candPts(p)}</b><span class="small muted">후보 점수</span></span></summary>
+  // 지방선거는 지역마다 한 명이라 지역 이름을 카드에 달고 3열로 늘 펼쳐 보임
+  const gov = c.type === 'gov', cand = (x, reg) => { const p = S.pool.find(q => q.id === x.id) || x;
+    return `<details class="rcand${gov ? ' fixed' : ''}" ${gov ? 'open' : ''}><summary>${face(p, pc('P'), 36)}<span class="rcn"><b>${reg ? `<span class="pill">${reg}</span> ` : ''}${esc(p.name)}</b><span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''} · ${esc(homeTxt(p))}</span></span><span class="rcv"><b class="num">${candPts(p)}</b><span class="small muted">후보 점수</span></span></summary>
       ${statBars(p)}<p class="small ${p.rec?.length ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}</p></details>`; };
-  openModal({ title: `${c.name} ${distWho(c)} ${sum(rs.map(r => d[r.k].length))}명`, wide: true, html: `<p class="small muted">등록한 후보입니다. 후보를 누르면 능력치와 전과를 볼 수 있습니다.</p>
-    ${rs.length ? `<div style="max-height:62vh;overflow:auto">${rs.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map(cand).join('')}</div></section>`).join('')}</div>` : `<p class="empty">배치된 ${distWho(c)}가 없습니다.</p>`}`, buttons: [{ t: '닫기' }] });
+  openModal({ title: `${c.name} ${distWho(c)} ${sum(rs.map(r => d[r.k].length))}명`, wide: true, html: `<p class="small muted">등록한 후보입니다.${gov ? '' : ' 후보를 누르면 능력치와 전과를 볼 수 있습니다.'}</p>
+    ${rs.length ? `<div style="max-height:62vh;overflow:auto">${gov ? `<div class="rcands g3">${rs.map(r => cand(d[r.k][0], r.n)).join('')}</div>` : rs.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map(cand).join('')}</div></section>`).join('')}</div>` : `<p class="empty">배치된 ${distWho(c)}가 없습니다.</p>`}`, buttons: [{ t: '닫기' }],
+    onOpen: m => m.querySelectorAll('.rcand.fixed summary').forEach(x => x.onclick = e => e.preventDefault()) });
 }
 // 등록 전: 지역 하나씩 골라 후보 자리를 바꿈(자리마다 select를 한꺼번에 그리면 느려서 팝업·지역 단위로)
 function distEdit(c, k) {
