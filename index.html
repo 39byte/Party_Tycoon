@@ -4131,7 +4131,7 @@ function pOrg() {
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
       </tbody></table></div></div>
       ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${Math.min(S.members[r.k], 1000).toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
-      <div class="acts n${2 + !S.chapters[r.k] + cs}" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
+      <div class="acts n${cs ? 2 : 2 + !S.chapters[r.k]}" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}${cs ? actBtn('rally', r.k) : ''}</div>
     </div></div>`;
 }
 function pAct() {
