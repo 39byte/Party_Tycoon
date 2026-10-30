@@ -480,6 +480,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
 .pstat b{text-align:right;color:var(--fg)}
 /* 교섭 인물 사진: 누르면 능력치 팝업 */
+.gmap .kmap{display:block;margin:0 auto;width:100%;max-width:420px;max-height:min(620px,75vh)}
 .seatd>summary{cursor:pointer;list-style:none}.seatd>summary::-webkit-details-marker{display:none}.seatd>summary h2{margin:0;display:flex;align-items:center;gap:8px}.seatd>summary h2::before{content:"";width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 2px rgba(242,179,61,.25)}.seatd>summary h2::after{content:'펼치기 ▾';margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}.seatd[open]>summary h2::after{content:'접기 ▴'}.seatd[open]>summary{margin-bottom:10px}
 .rrace{margin-bottom:12px}.rrace h3{font-size:14px;margin:0 0 6px}.rcands{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:6px}
 .rcand{min-width:0;border:1px solid var(--border);border-radius:10px;padding:6px 8px}.rcand summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}.rcand summary::-webkit-details-marker{display:none}
@@ -3963,6 +3964,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-neg]').forEach(b => b.onclick = () => negModal(b.dataset.neg));
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelector('[data-seatd]')?.addEventListener('toggle', e => seatOpen = e.target.open);
+  m.querySelector('[data-gmapd]')?.addEventListener('toggle', e => { if (gmapOpen !== e.target.open) { gmapOpen = e.target.open; renderPanel(); } });
   m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
   m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc], b.dataset.distk));
   m.querySelector('[data-partyedit]')?.addEventListener('click', partyEdit);
@@ -4460,6 +4462,14 @@ function pPres() {
 let admReg = 'all';
 // 교섭: 정당 · 원내 의원 · 원외 인사
 const pNeg = () => negCard();
+// 지방 정부 탭 맨 위 토글: 시·도마다 단체장 당 색으로 칠한 지도
+let gmapOpen = false;
+function govMapCard() {
+  const col = k => S.gov[k] ? (S.gov[k] === 'O' ? '#64748B' : pc(S.gov[k])) : 'var(--land)', name = k => S.gov[k] ? pn(S.gov[k]) : '공석';
+  const legend = ['P', 'A', 'B', 'C', 'D', 'O'].filter(id => govCount(id)).map(id => `<span><i style="background:${id === 'O' ? '#64748B' : pc(id)}"></i>${esc(pn(id))} <b class="num">${govCount(id)}</b>곳</span>`).join('');
+  // 토글을 펼쳤을 때만 지도를 그림(접혀 있으면 빈 칸)
+  return `<details class="card seatd" data-gmapd style="margin-bottom:14px" ${gmapOpen ? 'open' : ''}><summary><h2>광역단체장 지도</h2></summary>${gmapOpen ? `<div class="gmap">${ART.map({ fill: col, label: name, aria: k => `${RK[k].n}: ${name(k)}` })}</div><div class="legend" style="justify-content:center;margin-top:10px">${legend}</div>` : ''}</details>`;
+}
 function pAdmin() {
   const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
@@ -4484,7 +4494,7 @@ function pAdmin() {
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
   const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 좌: 지역 현안·행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
-  return `<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
+  return `${govMapCard()}<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters chips" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
     ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${rNew(x) ? '<span class="pill ok">NEW</span> ' : ''}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
