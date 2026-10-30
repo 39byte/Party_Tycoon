@@ -4381,7 +4381,7 @@ setInterval(() => {
   if (!S || modalOpen) return;
   // 대선 선거운동기간에 우리가 앞서면 작은 당(푸른내일당·반석당)이 단일화를 제안. 당마다 한 번, 한 번에 하나씩
   for (const c of activeCamps()) if (c.type === 'pres' && !uniId(c)) {
-    const asked = c.uniAsk ??= c.unifyAsked ? ['C'] : [], id = ['C', 'D'].find(x => c.rivals[x] && !asked.includes(x) && S.support > poll()[x]);
+    const asked = c.uniAsk ??= c.unifyAsked ? ['C'] : [], id = ['C', 'D'].find(x => c.rivals[x] && !asked.includes(x) && !(x === 'D' && S.party.ideo > 0) && S.support > poll()[x]); // 반석당(보수)은 진보 정당과 단일화하지 않음
     if (id) { asked.push(id); S.queue.push({ ev: 'unify', key: c.key, id }); }
   }
 }, 1000);
