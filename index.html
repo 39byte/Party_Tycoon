@@ -310,6 +310,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 @keyframes tout{to{opacity:0;transform:translateX(24px)}}
 @keyframes tbar{to{transform:scaleX(0)}}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.sloganrow{display:flex;align-items:center;gap:8px;margin:8px 0}.sloganrow p{margin:0;min-width:0}.sloganrow .ib{margin-left:auto;flex:none}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
 .swatches label{cursor:pointer}
 .swatches input{position:absolute;opacity:0}
@@ -518,6 +519,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
   <symbol id="i-music" viewBox="0 0 24 24"><path d="M9 18V5l11-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="17" cy="16" r="3"/></symbol>
   <symbol id="i-bh" viewBox="0 0 24 24"><path d="M2 10q10-5 20 0l-2-3q-8-4-16 0zM5 10v9M19 10v9M9 13h6v6H9zM3 19h18"/></symbol>
   <symbol id="i-turn" viewBox="0 0 24 24"><path d="M6 3h12M6 21h12M7 3v3a5 5 0 0 0 10 0V3M7 21v-3a5 5 0 0 1 10 0v3"/></symbol>
+  <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19zM14.5 6.5l3 3"/></symbol>
   <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
   <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
   <symbol id="i-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></symbol>
@@ -3938,6 +3940,7 @@ function bindPanel(m) {
   m.querySelector('[data-seatd]')?.addEventListener('toggle', e => seatOpen = e.target.open);
   m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
   m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc], b.dataset.distk));
+  m.querySelector('[data-partyedit]')?.addEventListener('click', partyEdit);
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
   m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; renderAll(); });
@@ -3979,6 +3982,29 @@ function actBtn(key, k, watch, wide) {
   return `<div class="act">${h}<p>${a.d}</p>${bell ? `<div style="display:flex;gap:8px">${run.replace('class="btn pri"', 'class="btn pri" style="flex:1"')}${bell.replace('class="ib bell"', 'class="ib bell" style="width:40px;height:auto;margin:0;padding:0;flex:none;align-self:stretch"')}</div>` : run}<div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>`;
 }
 
+const partyNameErr = name => {
+  const clash = Object.values(RIV).find(x => name.replace(/당$/, '') && (x.name.includes(name.replace(/당$/, '')) || name.includes(x.name.replace(/당$/, ''))));
+  return !name ? '정당 이름을 입력하세요.' : clash ? `기존 등록 정당 '${clash.name}'과(와) 뚜렷이 구별되지 않습니다 (정당법 제41조).` : '';
+};
+// 본부 탭 연필 버튼: 당 이름·색 바꾸기
+function partyEdit() {
+  openModal({ title: '당 이름·색 바꾸기', html: `<form id="pe" style="display:flex;flex-direction:column;gap:12px">
+      <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="${esc(S.party.name)}" autocomplete="off"><span class="h" id="peErr" role="alert"></span></label>
+      <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c]) => `<label><input type="radio" name="color" value="${c}" ${c === S.party.color ? 'checked' : ''}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
+      <div class="btns" style="justify-content:flex-end"><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div></form>`,
+    onOpen: m => {
+      m.querySelector('[data-pecancel]').onclick = closeModal;
+      const f = m.querySelector('#pe');
+      f.onsubmit = e => {
+        e.preventDefault();
+        const v = Object.fromEntries(new FormData(f)), name = v.name.trim(), err = partyNameErr(name);
+        if (err) { const x = m.querySelector('#peErr'); x.textContent = err; x.className = 'h bad'; Snd.sfx('bad'); return; }
+        const old = S.party.name; S.party.name = name; if (v.color) S.party.color = v.color;
+        if (name !== old) addLog(`당명을 '${old}'에서 '${name}'(으)로 바꿨습니다.`, 'ok');
+        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} · 당 이름과 색을 저장했습니다.`, 'ok', '당 정보 변경');
+      };
+    } });
+}
 function pHome() {
   const q = poll(), ban = pollBanned();
   let status;
@@ -3991,7 +4017,7 @@ function pHome() {
   } else {
     const L_ = leader();
     status = `<h2>${esc(S.party.name)} <span class="pill">${IDEO[S.party.ideo]}</span> <span class="pill${ruling() ? ' ok' : ''}">${ruling() ? '여당' : '야당'}</span></h2>
-      ${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}
+      <div class="sloganrow">${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}<button class="ib" data-partyedit aria-label="당 이름·색 바꾸기" title="당 이름·색 바꾸기">${icon('i-pencil')}</button></div>
       <div class="leader">${face(L_, S.party.color, 72)}<div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 · ${esc(homeTxt(L_))} · 역량 ${L_.skill} · 청렴 ${L_.integ}</div></div></div>
       <div class="tblwrap"><table><tbody>
       <tr><th>당 대표</th><td>${esc(L_.name)} (${L_.age}세)</td><th>등록일</th><td>${fdate(S.regDay)}</td></tr>
@@ -4712,8 +4738,7 @@ function newGameModal() {
         e.preventDefault();
         const v = Object.fromEntries(new FormData(f));
         v.name = v.name.trim(); v.leader = v.leader.trim();
-        const clash = Object.values(RIV).find(x => v.name.replace(/당$/, '') && (x.name.includes(v.name.replace(/당$/, '')) || v.name.includes(x.name.replace(/당$/, ''))));
-        const err = !v.name ? '정당 이름을 입력하세요.' : clash ? `기존 등록 정당 '${clash.name}'과(와) 뚜렷이 구별되지 않습니다 (정당법 제41조).` : !v.leader ? '대표 이름을 입력하세요.' : '';
+        const err = partyNameErr(v.name) || (!v.leader ? '대표 이름을 입력하세요.' : '');
         if (err) { m.querySelector('#ngErr').textContent = err; m.querySelector('#ngErr').className = 'h bad'; Snd.sfx('bad'); return; }
         v.age = clamp(+v.age || 45, 18, 85);
         newState(v); save(); closeModal(); tab = 'guide'; renderAll(); Snd.sfx('ok');
