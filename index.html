@@ -151,7 +151,7 @@ nav .more{display:none}
 /* 당 시설·조직: 1행 4열(좁으면 2열·1열) */
 .acts.ups{grid-template-columns:repeat(4,minmax(0,1fr))}
 .acts.tal{grid-template-columns:repeat(5,minmax(0,1fr));max-height:62vh;overflow:auto;padding-right:4px} /* 인재 영입 후보 5열, 스크롤 */
-.acts.tal .act{padding:10px}.acts.tal .who{flex-direction:column;align-items:flex-start;gap:6px}
+.acts.tal .act{padding:10px}.acts.tal .who{flex-direction:column;align-items:flex-start;gap:6px}.acts.tal .who>div{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.acts.tal .who h3{margin:0}
 @media (max-width:760px){.acts.tal{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:640px){.acts.tal{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:1180px){.acts.ups{grid-template-columns:repeat(2,minmax(0,1fr))}}
