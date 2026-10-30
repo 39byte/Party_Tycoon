@@ -1251,6 +1251,9 @@ function resolveElection(c) {
     S.pool.forEach(p => { if (/국회의원/.test(p.role)) p.role = ''; });
     if (S.bills.length) addLog(`국회 임기 만료로 계류 법안 ${S.bills.length}건이 자동 폐기되었습니다.`);
     S.bills = [];
+    // 새 국회 개원: 의석 있는 당마다 2~3건씩 1호 법안을 몰아서 발의
+    const open = []; for (const id of ['A', 'B', 'C', 'D']) if (seatTotal(id)) for (let i = 2 + (rnd() < 0.5); i--;) rivalBill(open, id);
+    if (open.length) { addLog(`새 국회 개원, 각 당이 법안 ${open.length}건을 몰아서 발의했습니다.`, 'ok'); open.forEach(t => addLog(t)); }
     if (c.reg) {
       S.everNat = true; S.lastPart = S.day;
       g.pDist.forEach(d => { refund += d.cost * L.refundRate(d.share); if (d.win && d.pid != null) { const p = person(d.pid); if (p) p.role = `국회의원(${RK[d.k].n})`; } });
@@ -1898,11 +1901,12 @@ function billStep() {
   return notes;
 }
 // 다른 당 의원·정부도 법안을 낸다
-function rivalBill(notes) {
-  if (S.bills.filter(b => b.by).length >= 4 || rnd() > 0.3) return;
-  const gov = !ruling() && rnd() < 0.3, ids = ['A', 'B', 'C', 'D'], w = ids.map(id => seatTotal(id) + 2);
+// who를 주면(개원 직후 몰아서 발의) 확률·상한 없이 그 당이 냄
+function rivalBill(notes, who) {
+  if (!who && (S.bills.filter(b => b.by).length >= 4 || rnd() > 0.45)) return;
+  const gov = !who && !ruling() && rnd() < 0.3, ids = ['A', 'B', 'C', 'D'], w = ids.map(id => seatTotal(id) + 2);
   let x = rnd() * sum(w);
-  const by = gov ? S.president.party : ids.find((id, i) => (x -= w[i]) < 0);
+  const by = who || (gov ? S.president.party : ids.find((id, i) => (x -= w[i]) < 0));
   const pool = RBILLS.filter(r => Math.abs(r.side - RIV[by].ideo) <= 1 && !(r.big && seatTotal(by) < 20) && !S.bills.some(b => b.t === r.t) && !S.rdone.some(x => x.t === r.t && S.day - x.d < RB_AGAIN));
   if (!pool.length) return;
   const r = pick(pool), mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
