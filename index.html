@@ -485,10 +485,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .rcand{min-width:0;border:1px solid var(--border);border-radius:10px;padding:6px 8px}.rcand summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}.rcand summary::-webkit-details-marker{display:none}
 .rcand[open]{background:var(--surface2)}.rcands.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.rcand.fixed summary{cursor:default}
 @media (max-width:760px){.rcands.g3{grid-template-columns:minmax(0,1fr)}}.rcand.win{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
-.rvsecs{display:flex;flex-direction:column;gap:14px;margin-top:12px}.rvsec{border-left:4px solid var(--pc);padding-left:12px}.rvsec h3,.rvreg h3{font-size:15px;margin:0 0 8px}
-.rvps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(190px,100%),1fr));gap:6px}.rvregs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:10px;margin-top:12px}
+.rvsecs{display:flex;flex-direction:column;gap:14px;margin-top:12px}.rvsec{border-left:4px solid var(--pc);padding-left:12px}.rvsec h3,.rvreg h3{font-size:15px;margin:0}.rvreg h3{margin-bottom:8px}
+.rvhead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:4px 12px;min-height:32px;margin-bottom:6px}.rvhead .pager{margin:0}
+.rvface{flex:none;width:32px;height:32px;border-radius:50%;border:2px dashed var(--border)}
+.rvps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(190px,100%),1fr));gap:6px}.rvregs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(180px,100%),1fr));gap:10px;margin-top:12px}
 .rvreg{padding:10px;border:1px solid var(--border);border-radius:10px;min-width:0}.rvline{border-left:4px solid var(--pc);padding-left:6px;margin-top:6px}.rvnone{margin:0}
-.rvp{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.rvp:hover{background:var(--surface2)}.rvp>span{display:flex;flex-direction:column;min-width:0}.rvp b{font-size:14px}
+.rvp{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.rvp:hover{background:var(--surface2)}.rvp.st{cursor:default}.rvp.st:hover{background:none}.rvp.blank{border-style:dashed}.rvp>span{display:flex;flex-direction:column;min-width:0}.rvp b{font-size:14px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
@@ -3948,6 +3950,7 @@ function bindPanel(m) {
   m.querySelector('[data-partyedit]')?.addEventListener('click', partyEdit);
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
+  m.querySelectorAll('[data-rvpg]').forEach(b => b.onclick = () => { rvPg[b.closest('[data-rvpgk]').dataset.rvpgk] = +b.dataset.rvpg; renderAll(); });
   m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; renderAll(); });
   m.querySelectorAll('[data-dirpar]').forEach(b => b.onclick = () => { dirPar = b.dataset.dirpar; dirPage = 0; renderAll(); });
   m.querySelectorAll('[data-dpage]').forEach(b => b.onclick = () => { dirPage = +b.dataset.dpage; renderAll(); m.querySelector('.dircard')?.scrollIntoView({ block: 'nearest' }); });
@@ -4199,25 +4202,37 @@ function pElec() {
   html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
 }
-// 다른 당 공천 현황: 발표된 후보만. 총선은 지역을 골라 당별로, 지방선거는 시·도별로
+// 공천 현황: 출마는 하지만 아직 공천 전인 자리는 빈 프로필. 총선은 지역을 골라 당별로, 지방선거는 시·도별로(우리 당 포함). 5칸씩 쪽 넘김
 let rvReg = 'seoul';
+const rvPg = {}, RV_PER = 5; // 쪽 번호: 선거·지역·당별로 기억(저장 안 함)
 function rvCard(c) {
   if (!c.rv || c.type === 'pres') return '';
-  const xs = Object.values(c.rv).flat().flatMap(s => Object.values(s)), n = xs.filter(rvOut).length, ids = ['A', 'B', 'C', 'D', 'O'];
+  const xs = Object.values(c.rv).flat().flatMap(s => Object.values(s)), ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
   const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
-  // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보). sub는 지방선거에서 소속 당을 함께 적을 때
+  // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보)
   const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
-  const none = '<p class="small muted rvnone">아직 발표 없음</p>';
-  let body;
-  if (c.type === 'nat') {
+  const blank = (id, sub) => `<div class="rvp st blank"><span class="rvface" aria-hidden="true"></span><span><b>후보 미정</b><span class="small muted">${sub ? `${pname(id)} · ` : ''}공천 전</span></span></div>`;
+  // 한 자리: 발표됐으면 프로필, 아니면 빈 프로필
+  const slot = (x, id, sub) => rvOut(x) && fig(x.fid) ? who(x, id, sub) : blank(id, sub);
+  // 우리 당(지방선거): 등록한 후보, 출마 체크만 했으면 빈 프로필
+  const mine = k => { const x = c.reg?.gov?.[k]; if (x) { const p = S.pool.find(q => q.id === x.id) || x; return `<div class="rvp st">${face(p, col('P'), 32)}<span><b>${esc(p.name)}</b><span class="small muted">${pname('P')}${p.job ? ` · ${esc(p.job)}` : ''}</span></span></div>`; } return !c.reg && S.phase === 'reg' && c.draft?.reg?.[k]?.run ? blank('P', true) : ''; };
+  const page = (key, n) => { const pages = Math.max(1, Math.ceil(n / RV_PER)), p = rvPg[key] = Math.min(rvPg[key] || 0, pages - 1); return [p, pages]; };
+  const pg = (key, p, pages, aria) => pages > 1 ? `<div data-rvpgk="${key}">${pager(p, pages, 'rvpg', aria)}</div>` : '';
+  let body, own = 0, ownN = 0;
+  if (!gov) {
     const k = rvReg in c.rv ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
-    const secs = ids.map(id => { const all = c.rv[k].map(s => s[id]).filter(Boolean), got = all.filter(rvOut); return all.length ? `<section class="rvsec" style="--pc:${col(id)}"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3>${got.length ? `<div class="rvps">${got.map(x => who(x, id)).join('')}</div>` : none}</section>` : ''; }).join('');
+    const secs = ids.map(id => { const all = c.rv[k].map(s => s[id]).filter(Boolean); if (!all.length) return '';
+      const got = all.filter(rvOut), rest = all.filter(x => !rvOut(x)), key = `${c.key}:${k}:${id}`, [p, pages] = page(key, all.length);
+      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3>${pg(key, p, pages, `${pname(id)} 후보 쪽 이동`)}</div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}</div></section>`; }).join('');
     body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n} <span class="num">${cnt(r)}</span></button>`).join('')}</div>
       <div class="rvsecs">${secs || '<p class="empty">이 지역은 후보를 낸 당이 없습니다.</p>'}</div>`;
-  } else body = `<div class="rvregs">${R_ADM.map(r => { const s = c.rv[r.k][0], got = ids.filter(id => s[id] && rvOut(s[id])); return `<section class="rvreg"><h3>${r.n}</h3>${got.length ? got.map(id => `<div class="rvline" style="--pc:${col(id)}">${who(s[id], id, true)}</div>`).join('') : none}</section>`; }).join('')}</div>`;
-  return `<div class="card" style="margin-bottom:14px"><h2>다른 당 공천 현황 <span class="pill">발표 ${n}/${xs.length}</span></h2>
-    <div class="bar" role="img" aria-label="후보 ${xs.length}명 중 ${n}명 발표"><i style="width:${xs.length ? n / xs.length * 100 : 0}%"></i></div>${body}
-    <p class="tip">다른 당도 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다.</p></div>`;
+  } else {
+    for (const r of R_ADM) { own += !!c.reg?.gov?.[r.k]; ownN += !!mine(r.k); }
+    const key = c.key + ':gov', [p, pages] = page(key, R_ADM.length);
+    body = `<div class="rvregs">${R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).map(r => { const s = c.rv[r.k][0], line = (id, h) => h ? `<div class="rvline" style="--pc:${col(id)}">${h}</div>` : ''; return `<section class="rvreg"><h3>${r.n}</h3>${line('P', mine(r.k))}${ids.filter(id => s[id]).map(id => line(id, slot(s[id], id, true))).join('')}</section>`; }).join('')}</div>${pg(key, p, pages, '시·도 쪽 이동')}`;
+  }
+  return `<div class="card" style="margin-bottom:14px"><h2>공천 현황 <span class="pill">발표 ${xs.filter(rvOut).length + own}/${xs.length + ownN}</span></h2>${body}
+    <p class="tip">각 당은 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 점선 칸은 출마하지만 아직 공천 전인 자리입니다.${gov ? ' 우리 당은 후보자 등록을 마치면 채워집니다.' : ''} 이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다.</p></div>`;
 }
 function campCard(c) {
   const dd = c.day - S.day, dl = c.day - LAW.regDeadline[c.type], cs = campStart(c);
@@ -4459,7 +4474,10 @@ function bannerItems() {
   const out = [], ne = nextElection(), camps = Object.values(S.camps);
   for (const c of camps) if (inCampaign(c)) out.push(['선거', `${c.name} 공식 선거운동기간 · 투표일 D-${c.day - S.day}`, 'elec', 'hot']);
   if (ne && !out.length && ne.day - S.day <= 30) out.push(['선거', `${ne.name} D-${ne.day - S.day}`, 'elec', 'hot']);
-  if (S.phase === 'reg') for (const c of camps) { const dl = c.day - LAW.regDeadline[c.type] - S.day; if (!c.reg && dl >= 0 && dl <= 14) out.push(['공천', `${c.name} 후보 등록 마감 D-${dl}`, 'elec', 'warn']); }
+  if (S.phase === 'reg') {
+    for (const c of camps) { const dl = c.day - LAW.regDeadline[c.type] - S.day; if (!c.reg && dl >= 0) out.push(['공천', `${c.name} 공천 기간 · 후보 등록 마감 D-${dl}`, 'elec', dl <= 14 ? 'warn' : '']); }
+    for (const e of SCHED) { const st = e.day - LAW.nomDays - S.day; if (st > 0 && st <= 14 && !S.done[e.key]) out.push(['공천', `${e.name} 공천 시작 D-${st}`, 'elec', '']); }
+  }
   if (S.agenda) out.push(['이슈', `${AGENDA.find(a => a.k === S.agenda.k).t} · 각 당 입장 표명 중`, 'office', '', '[data-visit]']);
   if (S.later.some(x => x.q.ev === 'court')) out.push(['탄핵', '헌법재판소 대통령 탄핵심판 진행 중', 'office', 'warn']);
   else if (S.president.acting) out.push(['정국', `${presT()} 체제 · 조기 대선 국면`, 'elec', 'warn']);
