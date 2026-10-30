@@ -289,7 +289,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .toasts{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(400px,calc(100vw - 32px))}
 /* 알림: HUD색 판 + 상태 아이콘(종류 제목) + 닫기 + 남은 시간 막대. 마우스를 올리면 멈춤 */
 .toast{--tc:#60A5FA;position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--hud2);color:var(--on-hud);padding:12px 8px 15px 14px;border:1px solid var(--hud-line);border-radius:12px;font-size:15px;line-height:1.5;box-shadow:0 10px 28px rgba(2,6,23,.4);overflow:hidden;animation:tin .22s cubic-bezier(.2,.9,.3,1)}
-.toast.bad{--tc:#F87171} .toast.ok{--tc:#4ADE80}
+.toast.bad{--tc:#F87171} .toast.ok{--tc:#4ADE80} .toast.sys{--tc:#9CA3AF}
 .toast .tico{display:grid;place-items:center;width:30px;height:30px;margin-top:2px;border-radius:8px;color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,transparent)}
 .toast .tico .ic{width:16px;height:16px}
 .toast b{display:block;font-size:13px;font-weight:800;color:var(--tc);line-height:1.3;margin-bottom:3px}
@@ -3641,7 +3641,7 @@ const ACHS = [
 function checkAch() { for (const [k, n, f] of ACHS) if (!S.ach[k] && f()) { S.ach[k] = S.day; addLog(`업적 달성: ${n}`, 'ok'); toast(`업적 달성: ${n}`, 'ok'); } }
 
 // ---------- 저장 ----------
-function save() { if (!S) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { toast('자동 저장 실패: 브라우저 저장소를 쓸 수 없습니다. 설정에서 파일로 내보내세요.', 'bad'); } }
+function save() { if (!S) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) { toast('브라우저 저장소를 쓸 수 없습니다. 설정에서 파일로 내보내세요.', 'sys', '자동 저장 실패'); } }
 function loadSave() { try { const t = localStorage.getItem(SAVE_KEY); const o = t && JSON.parse(t); if (!(o && o.v === 1 && o.party)) return null; return migrate(o); } catch (e) { return null; } }
 function exportSave() {
   save();
@@ -3654,8 +3654,8 @@ $('#importFile').onchange = ev => {
   const f = ev.target.files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try { const o = JSON.parse(rd.result); if (!(o && o.v === 1 && o.party)) throw 0; S = migrate(o); left = 0; turnStart = null; save(); closeModal(); renderAll(); toast('저장 파일을 불러왔습니다.', 'ok', '불러오기'); }
-    catch (e) { toast('올바른 저장 파일이 아닙니다.', 'bad', '불러오기 실패'); }
+    try { const o = JSON.parse(rd.result); if (!(o && o.v === 1 && o.party)) throw 0; S = migrate(o); left = 0; turnStart = null; save(); closeModal(); renderAll(); toast('저장 파일을 불러왔습니다.', 'sys', '불러오기'); }
+    catch (e) { toast('올바른 저장 파일이 아닙니다.', 'sys', '불러오기 실패'); }
   };
   rd.readAsText(f); ev.target.value = '';
 };
@@ -3675,8 +3675,8 @@ async function pickSaveDir() {
     let d = await showDirectoryPicker({ id: 'save', mode: 'readwrite' });
     if (d.name !== 'save') d = await d.getDirectoryHandle('save', { create: true });
     saveDir = d; await kv('readwrite', s => s.put(d, 'saveDir')); await saveToDir();
-    toast(`'${d.name}' 폴더에 매 턴 자동 저장합니다.`, 'ok', '저장 폴더 지정'); settingsModal();
-  } catch (e) { if (e.name !== 'AbortError') toast('그 폴더에는 저장할 수 없습니다.', 'bad', '저장 폴더 실패'); }
+    toast(`'${d.name}' 폴더에 매 턴 자동 저장합니다.`, 'sys', '저장 폴더 지정'); settingsModal();
+  } catch (e) { if (e.name !== 'AbortError') toast('그 폴더에는 저장할 수 없습니다.', 'sys', '저장 폴더 실패'); }
 }
 async function saveToDir() {
   if (!saveDir || !S) return;
@@ -3691,7 +3691,7 @@ async function saveToDir() {
     for await (const [n, h] of saveDir.entries()) if (h.kind === 'file' && n.startsWith('정당키우기_') && n.endsWith('.json')) files.push({ n, t: (await h.getFile()).lastModified });
     files.sort((a, b) => a.t - b.t);
     for (const f of files.slice(0, Math.max(0, files.length - SAVE_MAX))) await saveDir.removeEntry(f.n);
-  } catch (e) { toast('설정에서 폴더를 다시 고르세요.', 'bad', '폴더 자동 저장 실패'); }
+  } catch (e) { toast('설정에서 폴더를 다시 고르세요.', 'sys', '폴더 자동 저장 실패'); }
 }
 
 // ---------- 모달·토스트 ----------
@@ -3716,7 +3716,7 @@ document.addEventListener('keydown', e => {
 });
 // 알림: 굵은 제목(무슨 일인지) + 아랫줄 설명. 제목을 안 주면 '제목: 설명' 꼴에서 떼고, 그것도 없으면 종류 이름
 function toast(msg, type = '', head) {
-  const [ico, dh] = { ok: ['i-star', '완료'], bad: ['i-bolt', '경고'] }[type] || ['i-bell', '알림'];
+  const [ico, dh] = { ok: ['i-star', '완료'], bad: ['i-bolt', '경고'], sys: ['i-bell', '시스템'] }[type] || ['i-bell', '알림'];
   if (!head) { const m = /^([^:.]{2,24}): (.+)$/s.exec(msg); if (m) [, head, msg] = m; else head = dh; }
   const el = document.createElement('div'); el.className = 'toast ' + type; el.setAttribute('role', type === 'bad' ? 'alert' : 'status');
   el.style.setProperty('--d', clamp(msg.length * 70, 4000, 9000) + 1000 + 'ms'); // 긴 알림은 오래 띄움
@@ -4682,7 +4682,7 @@ function newGameModal() {
         if (err) { m.querySelector('#ngErr').textContent = err; m.querySelector('#ngErr').className = 'h bad'; Snd.sfx('bad'); return; }
         v.age = clamp(+v.age || 45, 18, 85);
         newState(v); save(); closeModal(); tab = 'guide'; renderAll(); Snd.sfx('ok');
-        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`, '', '게임 시작');
+        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작');
       };
     },
   });
