@@ -1948,7 +1948,7 @@ function rollModal(vid) {
       [['결과', `<b class="${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</b>`], ['날짜', fdate(v.d)], ['발의한 당', byPill(v.by)]],
       [['총 찬성', `<span class="num">${tally(v.roll, 1)}</span>`], ['총 반대', `<span class="num">${tally(v.roll, 0)}</span>`], ['총 기권', `<span class="num">${tally(v.roll, -1)}</span>`]],
       [['재적 인원', `<span class="num">${v.roll.length}명</span>`], ['필요 표', `<span class="num">${v.need}표</span>`], null]
-    ].map(r => `<tr>${r.map(c => `<td>${c ? `<span class="small muted">${c[0]}</span> ${c[1]}` : ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
+    ].map(r => `<tr>${r.map(c => `<td>${c ? `<span class="small muted" style="display:inline-block;width:5em">${c[0]}</span>${c[1]}` : ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="tblwrap"><table><thead><tr><th>정당</th><th>당론</th><th class="r">찬성</th><th class="r">반대</th><th class="r">기권</th><th class="r">이탈</th></tr></thead><tbody>${rows}</tbody></table></div>
     <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">의원별 표결 명단</summary>${names}</details><p class="tip">빨간 이름은 당론과 다르게 표결한 의원(이탈표)입니다. 기권도 출석으로 쳐서 가결엔 재적 과반의 찬성이 필요합니다. 무소속과 자유투표한 당은 이탈이 없습니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
 }
