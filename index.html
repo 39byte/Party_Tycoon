@@ -460,6 +460,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 /* 인재 카드 */
 .lnk{background:none;border:0;padding:0;font:inherit;color:var(--primary2);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
 .pcards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+.negl{min-height:312px}.negl tbody tr{height:56px}.negl .who>div{min-width:0}.negl .who .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .pager{justify-content:center;margin:14px 0 0}.pager .btn{min-width:32px}.pager .btn[aria-label]{font-size:16px;line-height:1}
 .pager .btn{border-color:transparent;box-shadow:none}.pager .btn:not(.pri){background:none}.pager .btn:not(.pri):not(:disabled):hover{background:var(--surface2)} /* 쪽 버튼은 윤곽선 없이 */
 .psort{margin:0;grid-column:1}
@@ -2614,7 +2615,7 @@ function negOutModal(oid) {
   });
 }
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
-let negF = 'all', mpPage = 0, outPage = 0;
+let negF = 'all', outF = 'all', mpPage = 0, outPage = 0;
 const NEG_PER = 5; // 교섭 탭 인물 한 쪽에 5명
 // 한 쪽 분량만 잘라 주고 쪽 번호가 범위를 넘으면 마지막 쪽으로
 const negPage = (xs, p) => { const n = Math.max(1, Math.ceil(xs.length / NEG_PER)), q = Math.min(p, n - 1); return [xs.slice(q * NEG_PER, (q + 1) * NEG_PER), q, n]; };
@@ -2626,7 +2627,7 @@ const negBtn = (attr, cdk, who, pillOut) => { const w = negWhy(cdk), on = !!S.wa
 const faceBtn = (key, m, c) => `<button class="facebtn" data-pinfo="${key}" aria-label="${esc(m.name)} 정보 보기" title="인물 정보">${face(m, c, 40)}</button>`;
 const talkCnt = m => { const n = m.talkN ?? m.talk?.length ?? 0; return n ? `<span class="tcnt" title="나눈 대화 ${n}번">${n}</span>` : ''; };
 const mpRow = m => `<tr><td><div class="who">${faceBtn('m' + m.id, m, pc(m.party))}<div><b>${esc(m.name)}</b>${talkCnt(m)}${freshPill('neg:m' + m.id)}<div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원', true)}</td></tr>`;
-const outRow = m => `<tr><td><div class="who">${faceBtn('o' + m.id, m, m.party ? pc(m.party) : '#64748B')}<div><b>${esc(m.name)}</b>${talkCnt(m)}${freshPill('neg:o' + m.id)}<div class="small muted">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</div><div class="small muted">${esc(m.role)} · <span style="white-space:nowrap">인지도 ${Math.round(m.fame)}</span></div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
+const outRow = m => `<tr><td><div class="who">${faceBtn('o' + m.id, m, m.party ? pc(m.party) : '#64748B')}<div><b>${esc(m.name)}</b>${talkCnt(m)}${freshPill('neg:o' + m.id)}<div class="small muted" title="인지도 ${Math.round(m.fame)}">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${esc(m.role)} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
 const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap ppl"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
@@ -2635,7 +2636,7 @@ function negCard() {
   const parts = byStar(['A', 'B', 'C', 'D'], id => 'neg:' + id);
   // 인물: 별 켠 사람 먼저(원래 순서), 나머지는 친분 높은 순 → 대화 많은 순
   const tn = m => m.talkN ?? m.talk?.length ?? 0, byStarP = (a, key) => [...a].sort((x, y) => star(key(x)) - star(key(y)) || y.rel - x.rel || tn(y) - tn(x));
-  const mps = byStarP(live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), m => 'neg:m' + m.id), outs = byStarP(S.outs.filter(m => m.neg), m => 'neg:o' + m.id);
+  const mps = byStarP(live.filter(m => negF === 'all' || m.party === negF).sort((a, b) => a.party.localeCompare(b.party)), m => 'neg:m' + m.id), outs = byStarP(S.outs.filter(m => m.neg && (outF === 'all' || (m.party || 'O') === outF)), m => 'neg:o' + m.id);
   const ff = [['all', '전체'], ['A', RIV.A.name], ['B', RIV.B.name], ['C', RIV.C.name], ['D', RIV.D.name], ['O', '무소속']];
   // 맨 위: (i) 설명 · 교섭 불가 사유 한 줄(별도 카드 없이 그림 띠 바로 아래)
   const head = `<div class="negbar"><span class="small muted">교섭 안내</span>
@@ -2647,14 +2648,16 @@ function negCard() {
       <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]} · 신뢰 <b class="num">${trAvg(id).toFixed(1)}</b></div>${relBar(S.rel[id])}</div>`).join('')}
     </div></div>`;
   const [mpShow, mq, mn] = negPage(mps, mpPage), [outShow, oq, on] = negPage(outs, outPage); mpPage = mq; outPage = oq;
-  // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임
+  const chips = (at, cur, xs) => `<div class="filters chips" role="group" aria-label="소속 필터">${xs.map(([k, n]) => `<button class="btn${cur === k ? ' pri' : ''}" data-${at}="${k}" aria-pressed="${cur === k}">${esc(n)}</button>`).join('')}</div>`;
+  // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임. 같은 틀(필터·5줄 표·쪽 넘김)이라 인원과 상관없이 높이가 같음
   return `<div class="stack">${head}${parties}<div class="split">
     <div class="card"><h2>원내 의원 <span class="pill">${mps.length}명</span></h2>
-      <div class="filters chips" role="group" aria-label="소속 필터">${ff.map(([k, n]) => `<button class="btn${negF === k ? ' pri' : ''}" data-negf="${k}" aria-pressed="${negF === k}">${esc(n)}</button>`).join('')}</div>
-      ${personTbl(mpShow.map(mpRow), '해당 소속 의원이 없습니다.')}${mn > 1 ? pager(mq, mn, 'mppage', '원내 의원 쪽 이동') : ''}</div>
+      ${chips('negf', negF, ff)}
+      <div class="negl">${personTbl(mpShow.map(mpRow), '해당 소속 의원이 없습니다.')}</div>${pager(mq, mn, 'mppage', '원내 의원 쪽 이동')}</div>
     <div class="card"><h2>원외 인사 <span class="pill">${outs.length}명</span></h2>
-      ${personTbl(outShow.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 본부 탭 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}${on > 1 ? pager(oq, on, 'outpage', '원외 인사 쪽 이동') : ''}
-      <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다.</p></div>
+      ${chips('outf', outF, [...ff.slice(0, -1), ['O', '무당적']])}
+      <div class="negl">${personTbl(outShow.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 본부 탭 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}</div>${pager(oq, on, 'outpage', '원외 인사 쪽 이동')}
+      <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다. 본부 탭 인물 명부에서 원외 인사를 눌러 교섭 명단에 넣을 수 있습니다.</p></div>
   </div></div>`;
 }
 
@@ -3913,6 +3916,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-dpage]').forEach(b => b.onclick = () => { dirPage = +b.dataset.dpage; renderAll(); m.querySelector('.dircard')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-negout]').forEach(b => b.onclick = () => negOutModal(+b.dataset.negout));
   m.querySelectorAll('[data-negf]').forEach(b => b.onclick = () => { negF = b.dataset.negf; mpPage = 0; renderPanel(); });
+  m.querySelectorAll('[data-outf]').forEach(b => b.onclick = () => { outF = b.dataset.outf; outPage = 0; renderPanel(); });
   m.querySelectorAll('[data-mppage]').forEach(b => b.onclick = () => { mpPage = +b.dataset.mppage; renderPanel(); });
   m.querySelectorAll('[data-outpage]').forEach(b => b.onclick = () => { outPage = +b.dataset.outpage; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
