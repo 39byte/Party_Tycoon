@@ -3776,7 +3776,7 @@ function actBtn(key, k, watch, wide) {
     <div class="side">${run}<span>${cost ? won(cost) : '무료'} · 행동력 1</span>${a.cd ? `<span>재사용 ${Math.ceil(a.cd / TURN)}턴</span>` : ''}</div></div>`;
   // 기본 카드: 설명 → 실행 → 비용·재사용 → 사유(있을 때만)
   // 좁은 카드: 종 버튼은 실행 버튼 오른쪽(실행+종을 한 칸으로 묶어 카드 줄 맞춤 유지)
-  return `<div class="act">${h}<p>${a.d}</p>${bell ? `<div style="display:flex;gap:8px">${run.replace('class="btn pri"', 'class="btn pri" style="flex:1"')}${bell.replace('class="ib bell"', 'class="ib bell" style="width:40px;padding:0;flex:none"')}</div>` : run}<div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>`;
+  return `<div class="act">${h}<p>${a.d}</p>${bell ? `<div style="display:flex;gap:8px">${run.replace('class="btn pri"', 'class="btn pri" style="flex:1"')}${bell.replace('class="ib bell"', 'class="ib bell" style="width:40px;height:auto;margin:0;padding:0;flex:none;align-self:stretch"')}</div>` : run}<div class="meta">${meta}</div>${w ? `<div class="why">${esc(w)}</div>` : ''}</div>`;
 }
 
 function pHome() {
