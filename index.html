@@ -2100,7 +2100,7 @@ function relAdd(id, v, t) {
 // 교섭할 수 있는 다른 당 원내 의원 명단. keep(남은 인물)을 두고 당별 정원까지 채움
 const MP_N = { A: 6, B: 6, C: 3, D: 3, O: 2 };
 // 명단에서 뺐던 의원을 다시 넣으면 그때 친분·대화 내역(f.mp)을 그대로 되살림
-const mpOf = (o, f) => f.mp ? (m => (delete f.mp, m))(f.mp) : ({ id: ++o.seq, fid: f.id, name: f.name, gender: f.gender, party: f.party, k: f.k, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, loyalty: Math.round(rr(30, 90)), rel: 0 });
+const mpOf = (o, f) => f.mp ? (m => (delete f.mp, m))(f.mp) : ({ id: ++o.seq, fid: f.id, name: f.name, gender: f.gender, party: f.party, k: f.k, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, loyalty: Math.round(rr(30, 90)), rel: o.rel?.[f.party] ?? 0 }); // 처음 친분은 그 사람 소속 당과 우리 당의 관계(무소속은 0)
 function genMPs(o, keep = []) {
   const out = [...keep];
   for (const id in MP_N) {
@@ -2114,7 +2114,7 @@ function genMPs(o, keep = []) {
 function genOut(o) {
   const [role, f] = pick(OUT_ROLES), party = /시민|노동|유튜버|원외정당/.test(role) ? null : pick(['A', 'A', 'B', 'B', 'C', 'D']), integ = Math.round(clamp(gauss() * 18 + 62, 10, 95));
   return { ...genRec(integ, PUBLIC_RX.test(role)), id: ++o.seq, name: genName(rnd() < 0.3 ? 'F' : 'M'), role, ...(POL_ROLE.test(role) ? { job: pick(FIG_JOBS) } : {}), party, ideo: party ? RIV[party].ideo : pick([-1, -0.5, 0, 0.5, 1]), k: pick(R).k,
-    fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ, loyalty: Math.round(rr(20, 80)), rel: 0 };
+    fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ, loyalty: Math.round(rr(20, 80)), rel: o.rel?.[party] ?? 0 }; // 처음 친분은 소속 당과 우리 당의 관계(무당적은 0)
 }
 const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
 // 원외 인사 명부는 한 쪽(24명)까지. 교섭 명단(neg)에 없는 사람은 3턴마다 새 인물로 바뀜
