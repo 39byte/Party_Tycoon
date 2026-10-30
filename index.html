@@ -3910,7 +3910,7 @@ function pPeople() {
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   // 머리: [제목 | (대기 안내문) 인재 영입] / [정렬]
   const w = why('talent'), recruit = `<button class="btn pri" data-act="talent" ${w ? 'disabled' : ''}>${talOpen() ? '이어서 영입' : '인재 영입'}</button>`;
-  return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${recruit}</div>
+  return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${talOpen() ? `<span class="small muted">${Math.max(1, Math.ceil((S.tal.until - S.day) / TURN))}턴 후 갱신</span>` : ''}${recruit}</div>
     <div class="filters psort chips" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div></div>
     <div class="pcards">${rows}</div>
     ${pages > 1 ? pager(pPage, pages) : ''}
