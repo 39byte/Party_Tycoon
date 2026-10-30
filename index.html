@@ -1903,14 +1903,13 @@ function billModal() {
     }),
   });
 }
-// 여야 협상(우리 법안)은 법안마다 3턴에 한 번, 표 단속(다른 당 법안)은 한 번만
-const LOBBY_CD = 3 * TURN;
-const lobbyOk = b => !left && S.ap >= 1 && S.money >= 1e7 && (b.by ? b.stance && !b.lobbied : !(b.lobbyCd > S.day));
+// 표 단속(다른 당 법안)은 당론을 정한 뒤 법안마다 한 번만
+const lobbyOk = b => b.by && b.stance && !b.lobbied && !left && S.ap >= 1 && S.money >= 1e7;
 function lobbyBill(id) {
   const b = S.bills.find(x => x.id === id);
   if (!b || !lobbyOk(b)) return;
-  spend(1e7, '활동'); S.ap--; b.lobbied++; if (!b.by) b.lobbyCd = S.day + LOBBY_CD; b.lobby += 0.08 * (b.by ? b.stance : 1);
-  const msg = `'${b.t}' ${b.by ? '표 단속: 다른 당 의원들을 상대로 ' + (b.stance > 0 ? '찬성' : '반대') + '표를 모았습니다' : '여야 협상: 다른 당 의원들을 설득했습니다'}. (예상 찬성 ${Math.round(billYes(b))}표)`;
+  spend(1e7, '활동'); S.ap--; b.lobbied++; b.lobby += 0.08 * b.stance;
+  const msg = `'${b.t}' 표 단속: 다른 당 의원들을 상대로 ${b.stance > 0 ? '찬성' : '반대'}표를 모았습니다. (예상 찬성 ${Math.round(billYes(b))}표)`;
   toast(msg); addLog(msg); Snd.sfx('ok'); renderAll();
 }
 
@@ -4010,9 +4009,9 @@ function pOffice() {
   const seats = seatTotal('P');
   // 법안 한 건: 제목·정보 / 예상 찬성 막대 / 당론·협상 버튼을 위아래로(반쪽 폭에도 들어가게)
   const bill = b => { const y = billYes(b), st = (s, t) => `<button class="btn${b.stance === s ? ' pri' : ''}" data-stance="${b.id}|${s}" aria-pressed="${b.stance === s}" ${left || b.lobbied ? 'disabled' : ''}>${t}</button>`;
-    // 우리 법안: 여야 협상 버튼은 법안명 줄 오른쪽 / 다른 당 법안: 당론 버튼 왼쪽, 표 단속은 오른쪽 끝
-    const lob = seats ? `<button class="btn" data-lobby="${b.id}" ${lobbyOk(b) ? '' : 'disabled'} data-n="${b.by ? '표 단속' : '여야 협상'}">${b.by ? `표 단속${b.lobbied ? ' 완료' : ''}` : `여야 협상${b.lobbyCd > S.day ? ` (${Math.ceil((b.lobbyCd - S.day) / TURN)}턴 뒤)` : ''}`}</button>` : '';
-    return `<li><div class="billh"><div>${byPill(b.gov ? 'G' : b.by || 'P')} <b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></div>${b.by ? '' : lob}</div>
+    // 다른 당 법안: 당론 버튼 왼쪽, 표 단속은 오른쪽 끝
+    const lob = `<button class="btn" data-lobby="${b.id}" ${lobbyOk(b) ? '' : 'disabled'} data-n="표 단속">표 단속${b.lobbied ? ' 완료' : ''}</button>`;
+    return `<li><div class="billh"><div>${byPill(b.gov ? 'G' : b.by || 'P')} <b>${esc(b.t)}</b><div class="small muted">${b.by ? `${b.gov ? '정부 제출' : `${esc(pn(b.by))} ${esc(b.mp)} 의원`} · 여론 찬성 ${b.poll}% · ` : ''}${ISSUES.find(i => i.k === b.issue).n} · ${STAGE_N[b.stage]}${b.tries ? ` (계류 ${b.tries}회)` : ''}${b.fx ? ` · <b>통과 시 ${esc(b.fx.n)}</b>` : ''}</div></div></div>
     <div class="meter"><span class="small muted">예상 찬성</span><div class="bar"><i style="width:${Math.min(100, y / seatsNow() * 100)}%;background:${y >= passNeed() ? 'var(--ok)' : 'var(--warn)'}"></i></div><span class="small num">${Math.round(y)} / ${passNeed()}표</span></div>
     ${seats && b.by ? `<div class="btns">${st(1, '찬성') + st(-1, '반대') + st(0, '자유투표')}<span class="push"></span>${lob}</div>` : ''}</li>`; };
   const list = bs => `<ul class="bills">${bs.map(bill).join('')}</ul>`;
@@ -4020,7 +4019,7 @@ function pOffice() {
   // 맨 위: 법안 한 영역, 왼쪽 우리 법안·다른 당·정부 법안(위아래) / 오른쪽 의회 활동·최근 통과 법안(좁으면 위아래)
   const bills = `<div class="card"><h2>법안 <span class="pill">계류 ${S.bills.length}건</span></h2><div class="split billsplit">
     <section><h3>우리 법안</h3>${!seats ? '<p class="empty">국회의원을 배출하면 법안을 발의할 수 있습니다.</p>' : mine.length ? `${list(mine)}
-      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. 여야 협상은 법안마다 3턴에 한 번씩 할 수 있습니다. ${ruling() ? '' : `대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).`}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. ${ruling() ? '' : `대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).`}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
 
     <h3 style="margin-top:14px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속(법안마다 한 번)으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 3분의 2(${twoThirds()}표) 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
