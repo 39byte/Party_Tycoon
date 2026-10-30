@@ -123,7 +123,7 @@ nav .more{display:none}
   .stat{display:flex;flex-direction:column;padding:3px 8px} .stat .ic{display:none}
   .stat b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
-  .toasts{bottom:calc(76px + env(safe-area-inset-bottom))}
+  .toasts{top:calc(8px + env(safe-area-inset-top))}
 }
 
 /* buttons */
@@ -277,7 +277,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .split2{display:grid;grid-template-columns:1fr 1fr;margin-top:12px} .split2>div{min-width:0;padding:0 14px} .split2>div:first-child{padding-left:0} .split2>div+div{border-left:1px solid var(--border);padding-right:0}
 .split2 h3{font-size:14px;margin:0 0 8px} .split2 .choices{margin-top:0}
 @media (max-width:640px){.split2{grid-template-columns:1fr;gap:14px}.split2>div{padding:0}.split2>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
-.toasts{position:fixed;right:16px;bottom:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(400px,calc(100vw - 32px))}
+.toasts{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(400px,calc(100vw - 32px))}
 /* 알림: HUD색 판 + 상태 아이콘(종류 제목) + 닫기 + 남은 시간 막대. 마우스를 올리면 멈춤 */
 .toast{--tc:var(--gold);position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--hud2);color:var(--on-hud);padding:12px 8px 15px 14px;border:1px solid var(--hud-line);border-radius:12px;font-size:15px;line-height:1.5;box-shadow:0 10px 28px rgba(2,6,23,.4);overflow:hidden;animation:tin .22s cubic-bezier(.2,.9,.3,1)}
 .toast.bad{--tc:#F87171} .toast.ok{--tc:#4ADE80}
@@ -1203,13 +1203,13 @@ function timeline() {
     if (!S.camps[e.key] && !S.done[e.key]) {
       S.camps[e.key] = newCamp(e);
       addLog(`${e.name}(${fdate(e.day)}) 공천 일정이 시작되었습니다. 후보자 등록 마감: 선거일 ${LAW.regDeadline[e.type]}일 전.`, 'ok');
-      toast(`${e.name} D-${dd}: 선거 탭에서 공천을 준비하세요.`);
+      toast(`${e.name} D-${dd} · 선거 탭에서 공천을 준비하세요.`, '', '공천 시작');
     }
     const c = S.camps[e.key];
     if (!c) continue;
     rvPlan(c); rvFill(c);
     if (!c.settled && dd <= LAW.regDeadline[e.type] - 1) { c.settled = true; regDeadline(c); } // 마감일 다음 날 정산
-    if (c.reg && S.day === campStart(c)) { addLog(`${c.name} 공식 선거운동 시작 (선거기간 ${LAW.campaignDays[c.type]}일).`, 'ok'); toast('공식 선거운동이 시작되었습니다. 거리 유세·방송 광고가 가능합니다.'); }
+    if (c.reg && S.day === campStart(c)) { addLog(`${c.name} 공식 선거운동 시작 (선거기간 ${LAW.campaignDays[c.type]}일).`, 'ok'); toast('거리 유세·방송 광고가 가능합니다.', '', '공식 선거운동 시작'); }
     if (dd === 0) resolveElection(c);
   }
 }
@@ -1463,7 +1463,7 @@ function checkGameOver() {
     if (S.day - S.lastPart > 4 * 365) return gameOver('정당 등록취소', '최근 4년간 임기만료에 의한 국회의원선거·지방선거에 참여하지 않아 등록이 취소되었습니다. (정당법 제44조 제1항 제2호)');
   }
   S.negDays = S.money < 0 ? S.negDays + 1 : 0;
-  if (S.negDays === 30) toast('자금이 바닥났습니다. 120일 안에 회복하지 못하면 당이 해산합니다.', 'bad');
+  if (S.negDays === 30) toast('120일 안에 회복하지 못하면 당이 해산합니다.', 'bad', '자금 고갈');
   if (S.negDays > 120) gameOver('재정 파탄', '부채를 감당하지 못해 당 운영이 중단되었습니다.');
 }
 function tick() {
@@ -1559,7 +1559,7 @@ function runTurn() {
       turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); renderAll();
       // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
-      if (ready.length) toast(`다시 할 수 있음: ${ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', ')}`, 'ok');
+      if (ready.length) toast(ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', '), 'ok', '턴 회복');
     }
     return (turnTimer = setTimeout(runTurn, 90));
   }
@@ -2380,7 +2380,7 @@ function figInfo(id) {
       <p class="small ${f.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${f.rec.length ? esc(f.rec.join(', ')) : '없음'}</p><p class="tip">공직선거 후보와 당선인은 전과 기록이 공개됩니다(공직선거법 제49조).</p>
       ${f.news?.length ? `<h3 style="margin-top:14px">보도된 의혹</h3><ul class="log">${[...f.news].reverse().map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)}</span></li>`).join('')}</ul>` : ''}
       ${f.pos === 'd' ? '' : '<p class="tip">교섭 명단에는 지역구 국회의원만 넣을 수 있습니다.</p>'}`,
-    buttons: [...(f.pos === 'd' ? [{ t: '교섭 명단에 추가', fn: () => { const m = mpOf(S, f); S.mps.push(m); toast(`${f.name} 의원(${figParty(f)}·${RK[f.k].n})을 교섭 명단에 넣었습니다. 교섭 탭에서 만날 수 있습니다.`); renderAll(); } }] : []), { t: '닫기', pri: true }] });
+    buttons: [...(f.pos === 'd' ? [{ t: '교섭 명단에 추가', fn: () => { const m = mpOf(S, f); S.mps.push(m); toast(`${f.name} 의원(${figParty(f)}·${RK[f.k].n}) · 교섭 탭에서 만날 수 있습니다.`, '', '교섭 명단 추가'); renderAll(); } }] : []), { t: '닫기', pri: true }] });
 }
 function personInfo(key) {
   if (key[0] === 'f') return figInfo(+key.slice(1));
@@ -2391,8 +2391,8 @@ function personInfo(key) {
   openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div>${mp || POL_ROLE.test(m.role) ? `<div class="small muted">출신: ${esc(talkJob(m))}</div>` : ''}<div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
       ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
         : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}${talkHTML(m)}`,
-    buttons: [...(mp ? [{ t: '교섭 명단에서 빼기', fn: () => { const f = fig(m.fid); if (f) f.mp = m; S.mps = S.mps.filter(x => x !== m); toast(`${m.name} 의원을 교섭 명단에서 뺐습니다. 다시 넣으면 그동안의 친분이 이어집니다.`); renderAll(); } }]
-      : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role}을(를) 교섭 명단에 넣었습니다. 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role}을(를) 교섭 명단에서 뺐습니다. 명단에 없으면 3턴마다 명부에서 새 인물로 바뀝니다.`); renderAll(); } }]), { t: '닫기', pri: true }] });
+    buttons: [...(mp ? [{ t: '교섭 명단에서 빼기', fn: () => { const f = fig(m.fid); if (f) f.mp = m; S.mps = S.mps.filter(x => x !== m); toast(`${m.name} 의원 · 다시 넣으면 그동안의 친분이 이어집니다.`, '', '교섭 명단 제외'); renderAll(); } }]
+      : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role} · 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role} · 명단에 없으면 3턴마다 명부에서 새 인물로 바뀝니다.`, '', m.neg ? '교섭 명단 추가' : '교섭 명단 제외'); renderAll(); } }]), { t: '닫기', pri: true }] });
 }
 function negMpModal(mid) {
   const m = S.mps.find(x => x.id === mid); if (!m) return;
@@ -2642,7 +2642,7 @@ function talentModal() {
           const p = cands[i]; got.add(i); spend(fee(p), '활동'); S.pool.push(p); lateRec(p, p.job);
           S.fame = clamp(S.fame + p.fame / 20, 0, 100); addLog(`${p.name}(${p.job}) 영입 완료`, 'ok');
         }
-        toast(`${is.map(i => cands[i].name).join(', ')} 영입 완료`, 'ok'); Snd.sfx('ok'); sync(); renderAll();
+        toast(is.map(i => cands[i].name).join(', '), 'ok', '인재 영입'); Snd.sfx('ok'); sync(); renderAll();
       };
       bs.forEach(b => b.onclick = () => hire([+b.dataset.i]));
       all.onclick = () => hire(rest());
@@ -2653,7 +2653,7 @@ function talentModal() {
 function buyUp(k) {
   const u = UPS.find(x => x.k === k);
   if (S.up[k] || S.money < u.c) return;
-  spend(u.c, '시설'); S.up[k] = true; addLog(`${u.n} 설립`, 'ok'); toast(`${u.n} 설립 완료`, 'ok'); Snd.sfx('ok'); renderAll();
+  spend(u.c, '시설'); S.up[k] = true; addLog(`${u.n} 설립`, 'ok'); toast(u.n, 'ok', '시설 설립'); Snd.sfx('ok'); renderAll();
 }
 function registerParty() {
   if (S.phase !== 'prep' || chaptersOk() < LAW.minChapters) return;
@@ -2821,7 +2821,7 @@ function registerCands(key) {
   c.reg = out;
   if (out.recs) S.trust = clamp(S.trust - out.recs * 0.7, 0, 100);
   addLog(`${c.name} 후보자 ${out.count}명 등록 (기탁금 ${won(out.deposits)}, 총 ${won(out.cost)})${out.recs ? ` · 전과 ${out.recs}건 공개로 신뢰 하락` : ''}`, 'ok');
-  Snd.sfx('ok'); toast('후보자 등록 완료', 'ok'); renderAll();
+  Snd.sfx('ok'); toast('선관위에 후보자 등록을 마쳤습니다.', 'ok', '후보자 등록'); renderAll();
 }
 
 // ---------- 이벤트 ----------
@@ -2893,7 +2893,7 @@ function selfAct() {
     S.buzz += g.b; S.fame += g.f || 0.5; if (k) trustAt(k, g.tr || 0); else S.trust += g.tr || 0; if (g.ops && k) S.ops[k] = clamp(S.ops[k] + g.ops, 5, 95);
     wire(t, k ? 'gov' : 'hall');
     // 호재는 결정할 게 없으니 창을 띄우지 않고 알림·기록만
-    addLog(`[소속 정치인 소식] ${t}. 우리 당 지지율에 호재입니다.`, 'ok'); toast(`${t} — 지지율 호재`, 'ok'); return;
+    addLog(`[소속 정치인 소식] ${t}. 우리 당 지지율에 호재입니다.`, 'ok'); toast(t, 'ok', '지지율 호재'); return;
   }
   const t = pick(SELF_BAD[kind]).replace('{p}', who), att = attacker(), hit = rr(2.5, 5.5) * gapHit(att);
   S.buzz -= hit; if (k) trustAt(k, -hit * 0.3); else S.trust -= hit * 0.3; S.rw[att] += 0.8; relAdd(att, -3, `${p.name} 논란 공세`); if (k) S.ops[k] = clamp(S.ops[k] - 3, 5, 95);
@@ -3482,8 +3482,8 @@ $('#importFile').onchange = ev => {
   const f = ev.target.files[0]; if (!f) return;
   const rd = new FileReader();
   rd.onload = () => {
-    try { const o = JSON.parse(rd.result); if (!(o && o.v === 1 && o.party)) throw 0; S = migrate(o); left = 0; turnStart = null; save(); closeModal(); renderAll(); toast('저장 파일을 불러왔습니다.', 'ok'); }
-    catch (e) { toast('올바른 저장 파일이 아닙니다.', 'bad'); }
+    try { const o = JSON.parse(rd.result); if (!(o && o.v === 1 && o.party)) throw 0; S = migrate(o); left = 0; turnStart = null; save(); closeModal(); renderAll(); toast('저장 파일을 불러왔습니다.', 'ok', '불러오기'); }
+    catch (e) { toast('올바른 저장 파일이 아닙니다.', 'bad', '불러오기 실패'); }
   };
   rd.readAsText(f); ev.target.value = '';
 };
@@ -3503,8 +3503,8 @@ async function pickSaveDir() {
     let d = await showDirectoryPicker({ id: 'save', mode: 'readwrite' });
     if (d.name !== 'save') d = await d.getDirectoryHandle('save', { create: true });
     saveDir = d; await kv('readwrite', s => s.put(d, 'saveDir')); await saveToDir();
-    toast(`'${d.name}' 폴더에 매 턴 자동 저장합니다.`, 'ok'); settingsModal();
-  } catch (e) { if (e.name !== 'AbortError') toast('그 폴더에는 저장할 수 없습니다.', 'bad'); }
+    toast(`'${d.name}' 폴더에 매 턴 자동 저장합니다.`, 'ok', '저장 폴더 지정'); settingsModal();
+  } catch (e) { if (e.name !== 'AbortError') toast('그 폴더에는 저장할 수 없습니다.', 'bad', '저장 폴더 실패'); }
 }
 async function saveToDir() {
   if (!saveDir || !S) return;
@@ -3519,7 +3519,7 @@ async function saveToDir() {
     for await (const [n, h] of saveDir.entries()) if (h.kind === 'file' && n.startsWith('정당키우기_') && n.endsWith('.json')) files.push({ n, t: (await h.getFile()).lastModified });
     files.sort((a, b) => a.t - b.t);
     for (const f of files.slice(0, Math.max(0, files.length - SAVE_MAX))) await saveDir.removeEntry(f.n);
-  } catch (e) { toast('폴더 자동 저장 실패. 설정에서 폴더를 다시 고르세요.', 'bad'); }
+  } catch (e) { toast('설정에서 폴더를 다시 고르세요.', 'bad', '폴더 자동 저장 실패'); }
 }
 
 // ---------- 모달·토스트 ----------
@@ -3542,14 +3542,16 @@ document.addEventListener('keydown', e => {
   if (modalOpen || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || !S) return;
   if (e.key === ' ' && !/BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); endTurn(); }
 });
-function toast(msg, type = '') {
-  const [ico, head] = { ok: ['i-star', '완료'], bad: ['i-bolt', '경고'] }[type] || ['i-bell', '알림'];
+// 알림: 굵은 제목(무슨 일인지) + 아랫줄 설명. 제목을 안 주면 '제목: 설명' 꼴에서 떼고, 그것도 없으면 종류 이름
+function toast(msg, type = '', head) {
+  const [ico, dh] = { ok: ['i-star', '완료'], bad: ['i-bolt', '경고'] }[type] || ['i-bell', '알림'];
+  if (!head) { const m = /^([^:.]{2,24}): (.+)$/s.exec(msg); if (m) [, head, msg] = m; else head = dh; }
   const el = document.createElement('div'); el.className = 'toast ' + type; el.setAttribute('role', type === 'bad' ? 'alert' : 'status');
-  el.style.setProperty('--d', clamp(msg.length * 70, 4000, 9000) + 'ms'); // 긴 알림은 오래 띄움
-  el.innerHTML = `<span class="tico">${icon(ico)}</span><div><b>${head}</b><p>${esc(msg)}</p></div><button class="tx" aria-label="알림 닫기">×</button><i class="tbar"></i>`;
+  el.style.setProperty('--d', clamp(msg.length * 70, 4000, 9000) + 2000 + 'ms'); // 긴 알림은 오래 띄움
+  el.innerHTML = `<span class="tico">${icon(ico)}</span><div><b>${esc(head)}</b><p>${esc(msg)}</p></div><button class="tx" aria-label="알림 닫기">×</button><i class="tbar"></i>`;
   const close = () => { if (el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 160); };
   sentWrap(el); el.querySelector('.tx').onclick = close; el.querySelector('.tbar').onanimationend = close;
-  if (matchMedia('(prefers-reduced-motion:reduce)').matches) setTimeout(() => el.remove(), 6000); // 애니메이션이 꺼지면 막대 종료 신호가 없음
+  if (matchMedia('(prefers-reduced-motion:reduce)').matches) setTimeout(() => el.remove(), 8000); // 애니메이션이 꺼지면 막대 종료 신호가 없음
   $('#toasts').appendChild(el);
   while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
 }
@@ -3929,7 +3931,7 @@ function fire(id) {
       if (mp) {
         const pYes = clamp(0.55 + (leader().skill - 50) / 150 + (p.rec.length ? 0.2 : 0) - (p.fame - 20) / 200, 0.1, 0.95);
         const yes = ayes(n - 1, pYes);
-        if (yes < need) { S.trust -= 1; addLog(`${p.name} 의원 제명안 부결 (찬성 ${yes}/${n}, 필요 ${need})`, 'bad'); toast(`의원총회에서 ${p.name} 의원 제명안이 부결됐습니다 (찬성 ${yes}/${n}명, 필요 ${need}명). 당 내홍으로 신뢰가 조금 떨어졌습니다.`, 'bad'); renderAll(); return; }
+        if (yes < need) { S.trust -= 1; addLog(`${p.name} 의원 제명안 부결 (찬성 ${yes}/${n}, 필요 ${need})`, 'bad'); toast(`${p.name} 의원 제명안이 부결됐습니다 (찬성 ${yes}/${n}명, 필요 ${need}명). 당 내홍으로 신뢰가 조금 떨어졌습니다.`, 'bad', '의원총회 제명안 부결'); renderAll(); return; }
         toast(`의원총회 가결: 찬성 ${yes}/${n}명 (필요 ${need}명)`, 'ok');
       }
       if (dk && S.seats.P.d[dk] > 0) { S.seats.P.d[dk]--; S.seats.O.d[dk] = (S.seats.O.d[dk] || 0) + 1; }
@@ -4443,7 +4445,7 @@ function newGameModal() {
         if (err) { m.querySelector('#ngErr').textContent = err; m.querySelector('#ngErr').className = 'h bad'; Snd.sfx('bad'); return; }
         v.age = clamp(+v.age || 45, 18, 85);
         newState(v); save(); closeModal(); tab = 'guide'; renderAll(); Snd.sfx('ok');
-        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`);
+        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`, '', '게임 시작');
       };
     },
   });
