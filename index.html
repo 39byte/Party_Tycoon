@@ -485,6 +485,10 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .rcand{min-width:0;border:1px solid var(--border);border-radius:10px;padding:6px 8px}.rcand summary{display:flex;align-items:center;gap:10px;cursor:pointer;list-style:none;min-height:44px}.rcand summary::-webkit-details-marker{display:none}
 .rcand[open]{background:var(--surface2)}.rcands.g3{grid-template-columns:repeat(3,minmax(0,1fr))}.rcand.fixed summary{cursor:default}
 @media (max-width:760px){.rcands.g3{grid-template-columns:minmax(0,1fr)}}.rcand.win{border-color:var(--ok);box-shadow:inset 0 0 0 1px var(--ok)}.rcn{display:flex;flex-direction:column;flex:1;min-width:0}.rcv{display:flex;flex-direction:column;align-items:flex-end;width:64px}.rcv .bar{width:100%;height:4px}
+.rvsecs{display:flex;flex-direction:column;gap:14px;margin-top:12px}.rvsec{border-left:4px solid var(--pc);padding-left:12px}.rvsec h3,.rvreg h3{font-size:15px;margin:0 0 8px}
+.rvps{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(190px,100%),1fr));gap:6px}.rvregs{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(230px,100%),1fr));gap:10px;margin-top:12px}
+.rvreg{padding:10px;border:1px solid var(--border);border-radius:10px;min-width:0}.rvline{border-left:4px solid var(--pc);padding-left:6px;margin-top:6px}.rvnone{margin:0}
+.rvp{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.rvp:hover{background:var(--surface2)}.rvp>span{display:flex;flex-direction:column;min-width:0}.rvp b{font-size:14px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
 .dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
@@ -4199,17 +4203,20 @@ function pElec() {
 let rvReg = 'seoul';
 function rvCard(c) {
   if (!c.rv || c.type === 'pres') return '';
-  const xs = Object.values(c.rv).flat().flatMap(s => Object.values(s)), n = xs.filter(rvOut).length;
-  const nm = x => { const f = fig(x.fid); return f ? `${figBtn(f.id, f.name)}${f.pos === 'cand' ? '' : ' <span class="small muted">(현역)</span>'}` : ''; };
-  const tag = id => `<span class="legend"><span><i style="background:${id === 'O' ? '#64748B' : pc(id)}"></i>${id === 'O' ? '무소속' : esc(pn(id))}</span></span>`;
+  const xs = Object.values(c.rv).flat().flatMap(s => Object.values(s)), n = xs.filter(rvOut).length, ids = ['A', 'B', 'C', 'D', 'O'];
+  const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
+  // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보). sub는 지방선거에서 소속 당을 함께 적을 때
+  const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
+  const none = '<p class="small muted rvnone">아직 발표 없음</p>';
   let body;
   if (c.type === 'nat') {
-    const k = rvReg in c.rv ? rvReg : 'seoul';
-    const rows = ['A', 'B', 'C', 'D', 'O'].map(id => { const got = c.rv[k].map(s => s[id]).filter(x => x && rvOut(x)); return got.length ? `<li><span style="flex:1">${tag(id)} <b>${got.length}명</b> · ${got.map(nm).join(', ')}</span></li>` : ''; }).join('');
-    body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n}</button>`).join('')}</div>
-      ${rows ? `<ul class="log">${rows}</ul>` : '<p class="empty">이 지역은 아직 발표된 후보가 없습니다.</p>'}`;
-  } else body = `<ul class="log">${R_ADM.map(r => { const s = c.rv[r.k][0], got = ['A', 'B', 'C', 'D', 'O'].filter(id => s[id] && rvOut(s[id])); return `<li><span style="flex:1"><b>${r.n}</b> ${got.length ? got.map(id => `${tag(id)} ${nm(s[id])}`).join(' · ') : '<span class="small muted">아직 발표 없음</span>'}</span></li>`; }).join('')}</ul>`;
-  return `<div class="card" style="margin-bottom:14px"><h2>다른 당 공천 현황 <span class="pill">발표 ${n}/${xs.length}</span></h2>${body}
+    const k = rvReg in c.rv ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
+    const secs = ids.map(id => { const all = c.rv[k].map(s => s[id]).filter(Boolean), got = all.filter(rvOut); return all.length ? `<section class="rvsec" style="--pc:${col(id)}"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3>${got.length ? `<div class="rvps">${got.map(x => who(x, id)).join('')}</div>` : none}</section>` : ''; }).join('');
+    body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n} <span class="num">${cnt(r)}</span></button>`).join('')}</div>
+      <div class="rvsecs">${secs || '<p class="empty">이 지역은 후보를 낸 당이 없습니다.</p>'}</div>`;
+  } else body = `<div class="rvregs">${R_ADM.map(r => { const s = c.rv[r.k][0], got = ids.filter(id => s[id] && rvOut(s[id])); return `<section class="rvreg"><h3>${r.n}</h3>${got.length ? got.map(id => `<div class="rvline" style="--pc:${col(id)}">${who(s[id], id, true)}</div>`).join('') : none}</section>`; }).join('')}</div>`;
+  return `<div class="card" style="margin-bottom:14px"><h2>다른 당 공천 현황 <span class="pill">발표 ${n}/${xs.length}</span></h2>
+    <div class="bar" role="img" aria-label="후보 ${xs.length}명 중 ${n}명 발표"><i style="width:${xs.length ? n / xs.length * 100 : 0}%"></i></div>${body}
     <p class="tip">다른 당도 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다.</p></div>`;
 }
 function campCard(c) {
