@@ -15,15 +15,6 @@ assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2026, 5, 30)), 30)), '202
 assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2024, 4, 29)), 50)), '2024-04-10');
 
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
-// 선거구 이름: 시·도마다 의석 수만큼, 겹치지 않고, 기본 이름은 구·시·군으로 끝남(세종만 빈 이름)
-for (const r of L.REGIONS) {
-  const ds = L.DISTRICTS[r.k];
-  assert.strictEqual(ds.length, r.seats, r.k);
-  assert.strictEqual(new Set(ds).size, ds.length, r.k);
-  for (const d of ds) { const [b, s] = L.distParts(d); assert.ok(r.k === 'sejong' ? !b && s : /[구시군]$/.test(b), d); }
-}
-assert.deepStrictEqual(L.distParts('송파구갑'), ['송파구', '갑']);
-assert.deepStrictEqual(L.distParts('종로구'), ['종로구', '']);
 
 assert.deepStrictEqual(L.hare(5, [1, 1, 1]), [2, 2, 1]);
 
