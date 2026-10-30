@@ -910,8 +910,21 @@ const person = id => S.pool.find(p => p.id === +id);
 const leader = () => S.pool.find(p => p.leader);
 // 무난해 보이는 대안도 늘 통하진 않음. 대표 역량이 높을수록 잘 풀림
 const luck = p => rnd() < clamp(p + (leader().skill - 55) / 200, 0.1, 0.92);
-// 당 대표가 직접 나선 활동: 대표 개인 인지도도 오름(높을수록 덜 오름)
-const leadFame = g => { const L_ = leader(); L_.fame = clamp(L_.fame + g * (1 - L_.fame / 100), 0, 100); };
+// 정계 활동으로 개인 인지도가 오름(높을수록 덜 오름). act = 마지막 활동일(반년 넘게 없으면 fameDrift가 깎음)
+const pFame = (p, g) => { p.fame = clamp(p.fame + g * (1 - p.fame / 100), 0, 100); p.act = S.day; };
+// 당 대표가 직접 나선 활동: 대표 개인 인지도도 오름
+const leadFame = g => pFame(leader(), g);
+// 매달: 직책·출마 중인 사람은 g만큼 오르고, 활동 없이 180일이 지나면 매달 3%씩 잊힘(최저 1)
+const FAME_ROLE = [[/^대통령$/, 4], [/시·도지사/, 1.5], [/국회의원/, 1], [/당협위원장|원외정당/, 0.5]], FAME_POS = { gov: 1.5, d: 1, pr: 1, cand: 2 };
+const roleG = r => FAME_ROLE.find(([rx]) => rx.test(r || ''))?.[1] || 0;
+function fameDrift() {
+  const cand = new Set(Object.values(S.camps).flatMap(c => c.reg ? [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand] : []).filter(Boolean).map(x => x.id));
+  const step = (p, g) => { if (g) pFame(p, g); else if (S.day - (p.act ??= S.day) > 180) p.fame = Math.max(1, p.fame * 0.97); };
+  for (const p of S.pool) step(p, Math.max(roleG(p.role), p.leader ? 1 : 0, cand.has(p.id) ? 2 : 0));
+  for (const f of S.figs) step(f, FAME_POS[f.pos] || 0);
+  for (const m of [...S.mps, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])]) { const f = fig(m.fid); if (f) m.fame = f.fame; } // 교섭 명단 의원은 명부 인물을 따름
+  for (const m of S.outs) if (/^전 |당협위원장|원외정당/.test(m.role)) step(m, /^전 /.test(m.role) ? 0 : roleG(m.role)); // '전 ○○'은 물러난 사람. 시민사회·노동계·유튜버는 정계 밖 이름값이라 그대로
+}
 
 // ---------- state ----------
 function newState(f) {
@@ -1245,7 +1258,7 @@ function resolveElection(c) {
     figElect(c, 'd', g.wins);
     const keep = S.mps.filter(m => fig(m.fid)?.pos === 'd' && rnd() < 0.6);
     // 낙선·불출마한 의원 일부는 원외 인사로 남음
-    S.mps.filter(m => !keep.includes(m) && fig(m.fid)?.pos !== 'd' && m.party !== 'O' && rnd() < 0.5).slice(0, 3).forEach(m => S.outs.push({ ...m, role: '전 국회의원', neg: 1, ideo: RIV[m.party].ideo, fame: Math.round(rr(20, 40)) }));
+    S.mps.filter(m => !keep.includes(m) && fig(m.fid)?.pos !== 'd' && m.party !== 'O' && rnd() < 0.5).slice(0, 3).forEach(m => S.outs.push({ ...m, role: '전 국회의원', neg: 1, ideo: RIV[m.party].ideo, act: S.day }));
     outFill(S);
     S.mps = genMPs(S, keep);
     S.pool.forEach(p => { if (/국회의원/.test(p.role)) p.role = ''; });
@@ -1433,6 +1446,7 @@ function monthly(dt) {
   // 개인 친분(교섭 명단·원외 인사·명단에서 뺀 의원): 매달 '그 사람 소속 당과 우리 당 관계의 절반' 쪽으로 10%씩 다가감
   // 안 만나면 옅어지고, 당끼리 사이가 좋으면 개인 사이도 따뜻해지고 나쁘면 식음. 무소속·무당적은 0 쪽으로
   for (const m of talkers()) m.rel += ((S.rel[m.party] ?? 0) * 0.5 - m.rel) * 0.1;
+  fameDrift();
   // 행정 지지도는 가만두면 그 지역 소속 정당 지지율로 수렴
   for (const k in S.ops) S.ops[k] += (opsBase('P', k) - S.ops[k]) * 0.05;
   rgovSync(S);
@@ -2480,7 +2494,7 @@ function negOutModal(oid) {
   const w = negWhy('neg:o' + m.id);
   openModal({
     title: `${m.name} ${m.role}과(와) 교섭`, wide: true,
-    html: `<p class="small">${aff} · ${RK[m.k].n} 기반 · 인지도 ${m.fame} · 역량 ${m.skill} · 개인 친분 <b>${REL_N(m.rel)} (${Math.round(m.rel)})</b></p>
+    html: `<p class="small">${aff} · ${RK[m.k].n} 기반 · 인지도 ${Math.round(m.fame)} · 역량 ${m.skill} · 개인 친분 <b>${REL_N(m.rel)} (${Math.round(m.rel)})</b></p>
       <p class="small muted">협상가: ${esc(leader().name)} 대표 (역량 ${leader().skill})</p>
       ${w ? `<p class="warn small">${w}</p>` : ''}
       <div class="choices">${deals.map((x, i) => `<button class="btn" data-deal="${i}" ${w || S.money < x.c ? 'disabled' : ''}>${x.t} · ${won(x.c)}<small>${x.d}<br>${oddsHTML(negOdds(x.k, m.party, m))}</small></button>`).join('')}</div>`,
@@ -2498,7 +2512,7 @@ const negBtn = (attr, cdk, who, pillOut) => { const w = negWhy(cdk), on = !!S.wa
 const faceBtn = (key, m, c) => `<button class="facebtn" data-pinfo="${key}" aria-label="${esc(m.name)} 정보 보기" title="인물 정보">${face(m, c, 40)}</button>`;
 const talkCnt = m => { const n = m.talkN ?? m.talk?.length ?? 0; return n ? `<span class="tcnt" title="나눈 대화 ${n}번">${n}</span>` : ''; };
 const mpRow = m => `<tr><td><div class="who">${faceBtn('m' + m.id, m, pc(m.party))}<div><b>${esc(m.name)}</b>${talkCnt(m)}${freshPill('neg:m' + m.id)}<div class="small muted">${m.party === 'O' ? '무소속' : esc(pn(m.party))} · ${RK[m.k].n}</div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negmp="${m.id}"`, 'neg:m' + m.id, m.name + ' 의원', true)}</td></tr>`;
-const outRow = m => `<tr><td><div class="who">${faceBtn('o' + m.id, m, m.party ? pc(m.party) : '#64748B')}<div><b>${esc(m.name)}</b>${talkCnt(m)}${freshPill('neg:o' + m.id)}<div class="small muted">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</div><div class="small muted">${esc(m.role)} · <span style="white-space:nowrap">인지도 ${m.fame}</span></div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
+const outRow = m => `<tr><td><div class="who">${faceBtn('o' + m.id, m, m.party ? pc(m.party) : '#64748B')}<div><b>${esc(m.name)}</b>${talkCnt(m)}${freshPill('neg:o' + m.id)}<div class="small muted">${m.party ? esc(RIV[m.party].name) : '무당적'} · ${RK[m.k].n}</div><div class="small muted">${esc(m.role)} · <span style="white-space:nowrap">인지도 ${Math.round(m.fame)}</span></div></div></div></td><td class="rel">${relBar(m.rel)}</td><td>${negBtn(`data-negout="${m.id}"`, 'neg:o' + m.id, m.name + ' ' + m.role, true)}</td></tr>`;
 const personTbl = (rows, empty) => rows.length ? `<div class="tblwrap ppl"><table><thead><tr><th>인물</th><th>개인 친분</th><th></th></tr></thead><tbody>${rows.join('')}</tbody></table></div>` : `<p class="empty">${empty}</p>`;
 function negCard() {
   if (S.phase !== 'reg') return `<div class="card"><h2>교섭</h2><p class="small muted">정식 정당으로 등록하면 다른 정당·의원·원외 인사와 교섭할 수 있습니다.</p></div>`;
@@ -2616,16 +2630,16 @@ function doAct(key, k) {
   } else if (key === 'question') {
     const ruling = S.president.party === 'P', mp = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill)[0] || leader();
     if (rnd() < mp.skill / 100 * 0.6 + 0.25) {
-      S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100); if (mp.leader) leadFame(2);
+      S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100); pFame(mp, 2);
       if (!ruling) S.rw[S.president.party] -= 1.5;
       msg = ruling ? `${mp.name} 의원이 정부 정책을 날카롭게 점검해 "건강한 여당"이라는 평을 들었습니다.` : `${mp.name} 의원의 송곳 질문에 장관이 진땀을 뺐습니다. 영상이 화제입니다.`;
-    } else { S.trust = clamp(S.trust - 1, 0, 100); ok = false; msg = `${mp.name} 의원이 준비 부족으로 장관에게 역공을 당했습니다.`; }
+    } else { S.trust = clamp(S.trust - 1, 0, 100); pFame(mp, 0.5); ok = false; msg = `${mp.name} 의원이 준비 부족으로 장관에게 역공을 당했습니다.`; }
   } else if (key === 'debate') {
     const c = activeCamps().find(c => c.type !== 'nat');
     const cand = c.type === 'pres' ? c.reg.cand : Object.values(c.reg.gov)[0];
     if (rnd() < cand.skill / 100 * 0.7 + 0.15) { c.boost.nat += 0.06; msg = `TV 토론: ${cand.name} 후보 선전!`; }
     else { c.boost.nat -= 0.03; msg = `TV 토론: ${cand.name} 후보가 고전했습니다.`; ok = false; }
-    if (cand.id === 0) leadFame(ok ? 3 : 1); // 대표가 후보로 나선 토론
+    const cp = cand.id != null && person(cand.id); if (cp) pFame(cp, ok ? 3 : 1); // 토론에 나선 후보 본인 인지도
   }
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? '' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
@@ -4068,7 +4082,7 @@ function nomForm(c) {
   }
   return `${top}<div class="row"><label class="f">대통령 후보 (당내 경선)${slot(0, '대통령 후보')}<span class="h">만 40세 이상 (헌법 제67조), 경선 탈락자는 같은 선거에 출마 불가(공직선거법 제57조의2)</span></label>
     <label class="f">선거비용<select ${a} data-f="spend">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select><span class="h">선거비용제한액(약 588억) 이내</span></label></div>
-    <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${x.fame})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
+    <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${Math.round(x.fame)})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
 }
 // 총선 지역구 후보 목록: 등록했으면 등록 명단, 아니면 지금 배치안. 지역마다 후보 카드(누르면 능력치·전과)
 function distModal(c, k) {
@@ -4429,6 +4443,7 @@ function pGuide() {
       <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적)을 맺을 수 있습니다.</li>
       <li>원내 의원(각 당·무소속)과는 친분 쌓기, 법안 협조 요청, 입당(이적) 제안을 할 수 있습니다. 지역구 의원이 넘어오면 그 의석이 우리 당 것이 됩니다.</li>
       <li>개인 친분은 자주 만나지 않으면 시간이 지나며 옅어지고, 그 사람이 속한 당과 우리 당의 관계를 따라갑니다. 당끼리 사이가 좋으면 그 당 사람들과도 가까워지고, 나쁘면 쌓아 둔 친분도 식습니다.</li>
+      <li>인물 인지도는 대통령·광역단체장·국회의원·당 대표·선거 후보처럼 정계에서 활동하는 동안 매달 오릅니다(낮을수록 빨리). 대정부 질문·TV 토론에 나선 본인도 이름이 알려집니다. 반년 넘게 활동이 없으면 조금씩 잊힙니다.</li>
       <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다.</li>
       <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당은 정당 목록 맨 왼쪽, 의원·원외 인사는 각 목록 맨 위로 올라옵니다.</li>
       <li>원외 인사(전직 의원·장관·단체장, 당협위원장, 시민사회·노동계 인사, 정치 유튜버 등)에게는 지지 선언을 요청하거나 영입을 제안할 수 있습니다. 이름값이 클수록 효과도 크지만 설득하기 어렵습니다. 총선에서 물러난 의원 일부는 원외 인사로 남습니다.</li>
