@@ -1949,7 +1949,7 @@ function rollModal(vid) {
       [['재적 인원', `<span class="num">${v.roll.length}명</span>`], ['필요 표', `<span class="num">${v.need}표</span>`], null]
     ].map(r => `<tr>${r.map(c => `<td>${c ? `<span class="small muted" style="display:inline-block;width:5em">${c[0]}</span>${c[1]}` : ''}</td>`).join('')}</tr>`).join('')}</tbody></table></div>
     <div class="tblwrap"><table><thead><tr><th>정당</th><th>당론</th><th class="r">찬성</th><th class="r">반대</th><th class="r">기권</th><th class="r">이탈</th></tr></thead><tbody>${rows}</tbody>
-      <tfoot><tr><th>합계</th><td></td>${[1, 0, -1].map(s => `<th class="num r">${tally(v.roll, s)}</th>`).join('')}<th class="num r">${sum(ids.map(id => v.lines[id] == null ? 0 : of(id).filter(x => off(x, v.lines[id])).length))}</th></tr></tfoot></table></div>
+      <tfoot><tr><th>합계</th><td></td>${[1, 0, -1].map(s => `<th class="num r">${tally(v.roll, s)}</th>`).join('')}<td></td></tr></tfoot></table></div>
     <details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">의원별 표결 명단</summary>${names}</details><p class="tip">빨간 이름은 당론과 다르게 표결한 의원(이탈표)입니다. 기권도 출석으로 쳐서 가결엔 재적 과반의 찬성이 필요합니다. 무소속과 자유투표한 당은 이탈이 없습니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
 }
 function setStance(id, s) {
