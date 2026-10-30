@@ -1798,9 +1798,10 @@ function accuseModal() {
 const fxMul = k => S.fx.filter(f => f.k === k && f.until > S.day).reduce((m, f) => m * f.m, 1);
 // 의원 한 명의 찬성 확률. 당론이 있으면 90%는 당론을 따르고 나머지는 자기 판단(billLean)대로 = 이탈표. 표 단속(b.whip)이 따르는 비율을 올림
 // 당론: 발의 당은 찬성 · 우리 당은 stance · 다른 당은 본회의 상정 때 정한 b.lines(없으면 자유투표) · 우리 법안엔 우리 당 전원 찬성
+const billLine = (b, id) => id === 'P' ? (!b.by ? 1 : b.stance ? +(b.stance > 0) : null) : id === b.by ? 1 : b.lines?.[id] ?? null; // 1 찬성 · 0 반대 · null 자유투표
 function billAgree(b, id) {
   if (!b.by && id === 'P') return 1;
-  const a = billLean(b, id), line = id === b.by ? 1 : id === 'P' ? (b.stance ? +(b.stance > 0) : null) : b.lines?.[id] ?? null;
+  const a = billLean(b, id), line = billLine(b, id);
   if (line == null) return a;
   const loyal = Math.min(1, 0.9 + (b.whip?.[id] || 0));
   return loyal * line + (1 - loyal) * a;
@@ -1831,24 +1832,35 @@ const passNeed = () => Math.floor(seatsNow() / 2) + 1, twoThirds = () => Math.ce
 const ayes = (n, p) => { let k = 0; for (let i = 0; i < n; i++) if (rnd() < p) k++; return k; };
 const billYes = b => sum(['P', 'A', 'B', 'C', 'D', 'O'].map(id => seatTotal(id) * billAgree(b, id)));
 const billVote = b => sum(['P', 'A', 'B', 'C', 'D', 'O'].map(id => ayes(seatTotal(id), billAgree(b, id))));
+// 본회의 기명 표결: [이름, 지역(비례), 당, 찬성 1·반대 0]. 우리 당은 인재 중 현직 의원, 다른 당은 인물 명부. 명부가 의석보다 적으면 '이름 미상'으로 채움
+const mpArea = x => x.pos ? (x.pos === 'pr' ? '비례' : RK[x.k].n) : x.role.match(/\((.+)\)/)?.[1] || '비례';
+const rollCall = b => ['P', 'A', 'B', 'C', 'D', 'O'].flatMap(id => {
+  const n = seatTotal(id), p = billAgree(b, id);
+  const ms = (id === 'P' ? S.pool.filter(x => /국회의원/.test(x.role)) : S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr'))).slice(0, n);
+  return Array.from({ length: n }, (_, i) => [ms[i]?.name || '이름 미상', ms[i] ? mpArea(ms[i]) : '', id, rnd() < p ? 1 : 0]);
+});
+// 국회 탭 '본회의 표결 기록'용: 최근 10건. 이름은 표결 당시 그대로 저장
+const voteLog = (b, roll, res) => { (S.votes ??= []).push({ t: b.t, d: S.day, by: b.gov ? 'G' : b.by || 'P', res, need: passNeed(), lines: Object.fromEntries(['P', 'A', 'B', 'C', 'D', 'O'].map(id => [id, billLine(b, id)])), roll }); if (S.votes.length > 10) S.votes.shift(); };
 const STAGE_N = ['상임위 심사 중', '본회의 상정 대기'];
 function billStep() {
   const notes = [];
   S.bills = S.bills.filter(b => {
     if (S.day < b.next) return true;
-    const y = billVote(b);
+    const roll = b.stage === 1 && rollCall(b), y = roll ? roll.filter(v => v[3]).length : billVote(b);
     if (b.stage === 0) {
       if (rnd() < clamp((y / seatsNow() * 300 - 110) / 100, 0.05, 0.9)) { b.stage = 1; b.next = S.day + 14; b.lines = partyLines(b); notes.push(`'${b.t}' 상임위원회 통과${b.by && seatTotal('P') ? ' · 2주 뒤 본회의, 당론을 정하세요' : ''}`); return true; }
       if (++b.tries >= 3) { notes.push(`'${b.t}' 상임위에서 끝내 계류, 사실상 폐기`); return false; }
       b.next = S.day + 28; notes.push(`'${b.t}' 상임위 계류, 다음 달 재논의`); return true;
     }
-    if (b.by) return rivalVote(b, y, notes), false;
-    if (y < passNeed()) { S.trust -= 0.5; notes.push(`'${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); return false; }
+    if (b.by) return rivalVote(b, y, notes, roll), false;
+    if (y < passNeed()) { S.trust -= 0.5; voteLog(b, roll, '부결'); notes.push(`'${b.t}' 본회의 부결 (찬성 ${y}표)`); return false; }
     const pr = S.president.party;
+    let res = '가결';
     if (pr !== 'P' && billAgree(b, pr) < 0.45 && rnd() < clamp(0.7 - S.rel[pr] / 250, 0.2, 0.9)) {
-      if (y < twoThirds()) { S.fame += 1; notes.push(`'${b.t}' 본회의 통과했으나 대통령 재의요구(거부권)로 폐기`); return false; }
-      notes.push(`'${b.t}' 대통령 거부권 행사 → 국회 재의결 성립`);
+      if (y < twoThirds()) { S.fame += 1; voteLog(b, roll, '거부권 폐기'); notes.push(`'${b.t}' 본회의 통과했으나 대통령 재의요구(거부권)로 폐기`); return false; }
+      res = '재의결 가결'; notes.push(`'${b.t}' 대통령 거부권 행사 → 국회 재의결 성립`);
     }
+    voteLog(b, roll, res);
     const hot = b.issue === S.issue ? 1.6 : 1;
     S.laws.push({ t: b.t, d: S.day }); passLog(b); S.trust += 1.5 * hot; S.fame += 1 * hot; S.buzz += 0.8 * hot;
     notes.push(`'${b.t}' 본회의 통과, 법률 공포 (찬성 ${Math.round(y)}표)`); addLog(`'${b.t}' 국회 통과`, 'ok');
@@ -1877,12 +1889,13 @@ function rivalBill(notes) {
 // 국회 탭 '최근 통과 법안'용: 어느 당이든 최근 20건
 const passLog = b => { (S.passed ??= []).push({ t: b.t, d: S.day, by: b.gov ? 'G' : b.by || 'P' }); if (S.passed.length > 20) S.passed.shift(); };
 const byPill = by => `<span class="pill" style="border-color:${by === 'G' ? 'var(--muted)' : pc(by)};color:${by === 'G' ? 'var(--muted)' : pc(by)}">${by === 'G' ? '정부' : esc(pn(by))}</span>`;
-function rivalVote(b, y, notes) {
+function rivalVote(b, y, notes, roll) {
   const seats = seatTotal('P'), s = seats ? b.stance : 0, who = b.gov ? '정부' : pn(b.by), pr = S.president.party;
   let pass = y >= passNeed();
   if (pass && !b.gov && y < twoThirds() && (pr === 'P' ? s < 0 : pr !== b.by && billAgree(b, pr) < 0.45 && rnd() < 0.6)) {
     pass = false; notes.push(`${who} '${b.t}' 본회의 통과했으나 ${pr === 'P' ? '우리 당 대통령이' : '대통령이'} 거부권 행사로 폐기`);
   }
+  voteLog(b, roll, pass ? '가결' : y >= passNeed() ? '거부권 폐기' : '부결');
   if (pass) {
     S.rw[b.by] += 0.5 + (b.pop - 0.5) * 4; S.rdone = [...S.rdone.filter(x => x.t !== b.t), { t: b.t, d: S.day }]; passLog(b);
     if (b.fx && !S.fx.some(f => f.t === b.t)) S.fx.push({ ...b.fx, t: b.t, until: 1e9 });
@@ -1892,6 +1905,19 @@ function rivalVote(b, y, notes) {
   S.trust += s * (b.pop - 0.5) * 6;
   relAdd(b.by, s * 6, `'${b.t}' ${s > 0 ? '찬성' : '반대'} 당론`);
   if (Math.abs(y - passNeed()) < seats) { S.fame += 1; notes.push(`우리 당 ${seats}석이 '${b.t}' 표결의 캐스팅보트였습니다`); }
+}
+// 본회의 표결 기록 한 건: 당별 찬반·이탈 집계와 의원별 표결(당론과 다르게 던진 표는 빨간 글씨)
+function rollModal(i) {
+  const v = S.votes?.[i]; if (!v) return;
+  const ids = ['P', 'A', 'B', 'C', 'D', 'O'].filter(id => v.roll.some(x => x[2] === id)), of = id => v.roll.filter(x => x[2] === id), yes = v.roll.filter(x => x[3]).length;
+  const off = (x, l) => l != null && x[3] !== l, nm = x => `${esc(x[0])}${x[1] ? `<span class="muted">·${esc(x[1])}</span>` : ''}`;
+  const rows = ids.map(id => { const xs = of(id), l = v.lines[id], y = xs.filter(x => x[3]).length;
+    return `<tr><th style="color:${pc(id)}">${esc(pn(id))}</th><td>${LINE_N(l)}</td><td class="num r">${y}</td><td class="num r">${xs.length - y}</td><td class="num r">${l == null ? '-' : xs.filter(x => off(x, l)).length}</td></tr>`; }).join('');
+  const names = ids.map(id => { const xs = of(id), l = v.lines[id], grp = (s, n) => { const g = xs.filter(x => x[3] === s); return g.length ? `<p class="small"><b>${n} ${g.length}</b> ${g.map(x => off(x, l) ? `<b class="bad">${nm(x)}</b>` : nm(x)).join(', ')}</p>` : ''; };
+    return `<h3 style="margin-top:14px;color:${pc(id)}">${esc(pn(id))} <span class="pill">${xs.length}명</span></h3>${grp(1, '찬성')}${grp(0, '반대')}`; }).join('');
+  openModal({ title: `본회의 표결: ${v.t}`, html: `<p>${fdate(v.d)} · ${byPill(v.by)} · <b class="${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</b> · 찬성 <b class="num">${yes}</b> · 반대 <b class="num">${v.roll.length - yes}</b> <span class="small muted">(재적 ${v.roll.length}명, 필요 ${v.need}표)</span></p>
+    <div class="tblwrap"><table><thead><tr><th>정당</th><th>당론</th><th class="r">찬성</th><th class="r">반대</th><th class="r">이탈</th></tr></thead><tbody>${rows}</tbody></table></div>
+    ${names}<p class="tip">빨간 이름은 당론과 다르게 표결한 의원(이탈표)입니다. 무소속과 자유투표한 당은 이탈이 없습니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
 }
 function setStance(id, s) {
   const b = S.bills.find(x => x.id === id);
@@ -3666,6 +3692,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => confirmCost(b.dataset.n, 1e7, '행동력', () => lobbyBill(+b.dataset.lobby)));
   m.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { feedF = b.dataset.feed; feedN = 12; renderAll(); });
   m.querySelectorAll('[data-feedmore]').forEach(b => b.onclick = () => { feedN += 12; renderAll(); });
+  m.querySelectorAll('[data-roll]').forEach(b => b.onclick = () => rollModal(+b.dataset.roll));
   m.querySelectorAll('[data-stance]').forEach(b => b.onclick = () => { const [id, s] = b.dataset.stance.split('|'); setStance(+id, +s); });
   m.querySelectorAll('[data-neg]').forEach(b => b.onclick = () => negModal(b.dataset.neg));
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
@@ -4034,11 +4061,13 @@ function pOffice() {
       <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 다른 당은 상임위를 통과해 본회의에 오를 때 당론을 정하니, 법안 협조 요청은 그 전에 해 두는 게 좋습니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. ${ruling() ? '' : `대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).`}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
 
     <h3 style="margin-top:14px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
-      <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 3분의 2(${twoThirds()}표) 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
+      <p class="tip">${ruling() ? `우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 3분의 2(${twoThirds()}표) 미만으로 통과되면 대통령이 거부권을 행사합니다.` : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
 </section>
     <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill')}${actBtn('question')}</div>
       <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
-    <h3 style="margin:28px 0 10px">최근 통과 법안${S.laws.length ? ` <span class="pill">우리 당 누적 ${S.laws.length}건</span>` : ''}</h3>${S.passed.length ? `<ul class="log">${[...S.passed].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${byPill(l.by)} ${esc(l.t)}</span></li>`).join('')}</ul>` : '<p class="small muted">아직 통과된 법안이 없습니다.</p>'}</section></div></div>`;
+    <h3 style="margin:28px 0 10px">최근 통과 법안${S.laws.length ? ` <span class="pill">우리 당 누적 ${S.laws.length}건</span>` : ''}</h3>${S.passed.length ? `<ul class="log">${[...S.passed].reverse().map(l => `<li><time>${fdate(l.d)}</time><span>${byPill(l.by)} ${esc(l.t)}</span></li>`).join('')}</ul>` : '<p class="small muted">아직 통과된 법안이 없습니다.</p>'}
+    <h3 style="margin:28px 0 10px">본회의 표결 기록</h3>${S.votes?.length ? `<ul class="log">${S.votes.map((v, i) => [v, i]).reverse().map(([v, i]) => { const y = v.roll.filter(x => x[3]).length;
+      return `<li><time>${fdate(v.d)}</time><span>${byPill(v.by)} ${esc(v.t)} <span class="pill ${/가결/.test(v.res) ? 'ok' : 'bad'}">${v.res}</span><div class="small muted">찬성 ${y} · 반대 ${v.roll.length - y} (필요 ${v.need}표) <button class="btn" data-roll="${i}">의원별 표결</button></div></span></li>`; }).join('')}</ul>` : '<p class="small muted">아직 본회의 표결이 없습니다.</p>'}</section></div></div>`;
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도 | 사회적 이슈 나란히(좁으면 위아래)
   return `<div class="stack">${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}${agendaCard()}</div></div>`;
