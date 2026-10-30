@@ -1816,13 +1816,16 @@ function billAgree(b, id) {
 // 일반 의결: 재적 과반 출석·출석 과반 찬성(헌법 제49조) · 거부권 재의결: 출석 3분의 2 이상(제53조④) · 대통령 탄핵소추: 재적 3분의 2 이상(제65조②)
 const seatsNow = () => sum(Object.keys(S.seats).map(seatTotal));
 const passNeed = () => Math.floor(seatsNow() / 2) + 1, twoThirds = () => Math.ceil(seatsNow() * 2 / 3);
+// 표결은 의원 한 명씩 찬반을 정해 더함(같은 당 의원은 노선·여론·관계·로비 등 같은 요인으로 찬성 확률이 정해짐). billYes는 화면용 기댓값
+const ayes = (n, p) => { let k = 0; for (let i = 0; i < n; i++) if (rnd() < p) k++; return k; };
 const billYes = b => sum(['P', 'A', 'B', 'C', 'D', 'O'].map(id => seatTotal(id) * billAgree(b, id)));
+const billVote = b => sum(['P', 'A', 'B', 'C', 'D', 'O'].map(id => ayes(seatTotal(id), billAgree(b, id))));
 const STAGE_N = ['상임위 심사 중', '본회의 상정 대기'];
 function billStep() {
   const notes = [];
   S.bills = S.bills.filter(b => {
     if (S.day < b.next) return true;
-    const y = billYes(b) + gauss() * 12;
+    const y = billVote(b);
     if (b.stage === 0) {
       if (rnd() < clamp((y / seatsNow() * 300 - 110) / 100, 0.05, 0.9)) { b.stage = 1; b.next = S.day + 14; notes.push(`'${b.t}' 상임위원회 통과${b.by && seatTotal('P') ? ' · 2주 뒤 본회의, 당론을 정하세요' : ''}`); return true; }
       if (++b.tries >= 3) { notes.push(`'${b.t}' 상임위에서 끝내 계류, 사실상 폐기`); return false; }
@@ -3041,8 +3044,8 @@ const EVENTS = [
 const accuseOpen = () => ET.real ? exposeRisk(ET.real) : openCase({ t: ET.t, guilty: false, pen: { money: -3e7, trust: -6, note: '벌금형' } });
 function impeachVote(yes) {
   const pr = S.president.party, mine = seatTotal('P');
-  const others = sum(['A', 'B', 'C', 'D', 'O'].map(id => seatTotal(id) * (id === pr ? 0.08 : 0.85)));
-  const v = Math.round(others + (yes ? mine : 0));
+  const others = sum(['A', 'B', 'C', 'D', 'O'].map(id => ayes(seatTotal(id), id === pr ? 0.08 : 0.85)));
+  const v = others + (yes ? mine : 0);
   ET.vote = yes;
   if (yes) { relAdd(pr, -25, '대통령 탄핵소추 찬성'); ['A', 'B', 'C', 'D'].filter(id => id !== pr).forEach(id => relAdd(id, 4, '탄핵 공조')); }
   else if (yes === false) relAdd(pr, 12, '대통령 탄핵소추 반대');
@@ -3852,7 +3855,7 @@ function fire(id) {
     buttons: [{ t: '취소' }, { t: mp ? '의원총회 표결' : '제명', pri: true, fn: () => {
       if (mp) {
         const pYes = clamp(0.55 + (leader().skill - 50) / 150 + (p.rec.length ? 0.2 : 0) - (p.fame - 20) / 200, 0.1, 0.95);
-        let yes = 0; for (let i = 1; i < n; i++) if (rnd() < pYes) yes++;
+        const yes = ayes(n - 1, pYes);
         if (yes < need) { S.trust -= 1; addLog(`${p.name} 의원 제명안 부결 (찬성 ${yes}/${n}, 필요 ${need})`, 'bad'); toast(`의원총회에서 ${p.name} 의원 제명안이 부결됐습니다 (찬성 ${yes}/${n}명, 필요 ${need}명). 당 내홍으로 신뢰가 조금 떨어졌습니다.`, 'bad'); renderAll(); return; }
         toast(`의원총회 가결: 찬성 ${yes}/${n}명 (필요 ${need}명)`, 'ok');
       }
@@ -4017,7 +4020,7 @@ function pOffice() {
   // 맨 위: 법안 한 영역, 왼쪽 우리 법안·다른 당·정부 법안(위아래) / 오른쪽 의회 활동·최근 통과 법안(좁으면 위아래)
   const bills = `<div class="card"><h2>법안 <span class="pill">계류 ${S.bills.length}건</span></h2><div class="split billsplit">
     <section><h3>우리 법안</h3>${!seats ? '<p class="empty">국회의원을 배출하면 법안을 발의할 수 있습니다.</p>' : mine.length ? `${list(mine)}
-      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. 여야 협상은 법안마다 3턴에 한 번씩 할 수 있습니다. ${ruling() ? '' : '대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+      <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. 여야 협상은 법안마다 3턴에 한 번씩 할 수 있습니다. ${ruling() ? '' : `대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).`}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
 
     <h3 style="margin-top:14px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정한 뒤 표 단속(법안마다 한 번)으로 다른 당 표를 움직일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? '우리 당이 집권 중입니다. 우리가 반대 당론을 정한 법안이 3분의 2(${twoThirds()}표) 미만으로 통과되면 대통령이 거부권을 행사합니다.' : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
