@@ -1689,7 +1689,7 @@ function runTurn() {
       turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); renderAll();
       // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
-      if (ready.length) toast(ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', '), 'ok', '턴 회복');
+      if (ready.length) toast(ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', '), '', '턴 회복');
     }
     return (turnTimer = setTimeout(runTurn, 90));
   }
