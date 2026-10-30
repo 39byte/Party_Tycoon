@@ -3559,6 +3559,8 @@ function toast(msg, type = '', head) {
   const close = () => { if (el.classList.contains('out')) return; el.classList.add('out'); setTimeout(() => el.remove(), 160); };
   sentWrap(el); el.querySelector('.tx').onclick = close; el.querySelector('.tbar').onanimationend = close;
   if (matchMedia('(prefers-reduced-motion:reduce)').matches) setTimeout(() => el.remove(), 7000); // 애니메이션이 꺼지면 막대 종료 신호가 없음
+  // 위쪽 끝을 사이드 메뉴 '본부' 버튼 위쪽 끝에 맞춤(휴대폰처럼 메뉴가 아래 탭바면 CSS 기본값)
+  const nb = $('nav button')?.getBoundingClientRect(); $('#toasts').style.top = nb && nb.top > 0 && nb.top < innerHeight / 2 ? nb.top + 'px' : '';
   $('#toasts').appendChild(el);
   while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
 }
