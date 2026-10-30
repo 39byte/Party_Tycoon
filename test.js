@@ -15,6 +15,7 @@ assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2026, 5, 30)), 30)), '202
 assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2024, 4, 29)), 50)), '2024-04-10');
 
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
+assert.strictEqual(Math.round(L.REGIONS.reduce((a, r) => a + r.voters * 1e6, 0)), L.LAW.voters);
 
 assert.deepStrictEqual(L.hare(5, [1, 1, 1]), [2, 2, 1]);
 
