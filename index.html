@@ -288,7 +288,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 @media (max-width:640px){.split2{grid-template-columns:1fr;gap:14px}.split2>div{padding:0}.split2>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
 .toasts{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(400px,calc(100vw - 32px))}
 /* 알림: HUD색 판 + 상태 아이콘(종류 제목) + 닫기 + 남은 시간 막대. 마우스를 올리면 멈춤 */
-.toast{--tc:var(--gold);position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--hud2);color:var(--on-hud);padding:12px 8px 15px 14px;border:1px solid var(--hud-line);border-radius:12px;font-size:15px;line-height:1.5;box-shadow:0 10px 28px rgba(2,6,23,.4);overflow:hidden;animation:tin .22s cubic-bezier(.2,.9,.3,1)}
+.toast{--tc:#60A5FA;position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;background:var(--hud2);color:var(--on-hud);padding:12px 8px 15px 14px;border:1px solid var(--hud-line);border-radius:12px;font-size:15px;line-height:1.5;box-shadow:0 10px 28px rgba(2,6,23,.4);overflow:hidden;animation:tin .22s cubic-bezier(.2,.9,.3,1)}
 .toast.bad{--tc:#F87171} .toast.ok{--tc:#4ADE80}
 .toast .tico{display:grid;place-items:center;width:30px;height:30px;margin-top:2px;border-radius:8px;color:var(--tc);background:color-mix(in srgb,var(--tc) 16%,transparent)}
 .toast .tico .ic{width:16px;height:16px}
@@ -2202,7 +2202,7 @@ function autoGov() {
   }
   S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
   out.forEach(r => addLog(`[${RK[r.k].n} 행정·자동] ${r.msg}`, r.ok ? 'ok' : 'bad'));
-  if (out.length) toast(`${out.length}건 중 ${out.filter(r => r.ok).length}건 성공`, out.every(r => r.ok) ? "ok" : "", "행정 사업 자동 진행 결과");
+  if (out.length) toast(`${out.length}건 중 ${out.filter(r => r.ok).length}건 성공`, out.every(r => r.ok) ? 'ok' : out.some(r => r.ok) ? '' : 'bad', "행정 사업 자동 진행 결과");
 }
 
 // ---------- 교섭: 결과 = 대표 역량 + 상대 진영(노선 차이) + 그동안의 관계 ----------
@@ -2744,7 +2744,7 @@ function doAct(key, k) {
       msg = ruling ? `${mp.name} 의원이 정부 정책을 날카롭게 점검해 "건강한 여당"이라는 평을 들었습니다.` : `${mp.name} 의원의 송곳 질문에 장관이 진땀을 뺐습니다. 영상이 화제입니다.`;
     } else { S.trust = clamp(S.trust - 1, 0, 100); pFame(mp, 0.5); ok = false; msg = `${mp.name} 의원이 준비 부족으로 장관에게 역공을 당했습니다.`; }
   }
-  Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? '' : 'bad'); addLog(msg, ok ? '' : 'bad');
+  Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
 }
 function policyModal() {
