@@ -4089,17 +4089,17 @@ function distEdit(c, k) {
 let resReg = 'all', resMine = false; // 선거 결과 팝업: 지역 필터 · 우리 당 출마 지역만
 function resultModal(r, keep) {
   if (!r) return;
-  if (!keep) resReg = 'all';
   if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">이 선거는 출마자 기록이 남아 있지 않습니다. 상세 기록 기능이 생기기 전에 치렀거나, 최근 8번보다 오래된 선거입니다. 다음 선거부터는 출마자 프로필과 득표율이 기록됩니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
   const col = id => id === 'O' ? '#64748B' : pc(id);
   // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
   const cand = ([id, n, v, p], i) => `<details class="rcand${i ? '' : ' win'}"><summary>${face({ name: n || '후보', gender: p?.g, age: p?.a }, col(id), 36)}<span class="rcn"><b>${esc(n || '후보')}${i ? '' : ' <span class="pill">당선</span>'}</b><span class="small muted">${byPill(id)}${p?.j ? ` · ${esc(p.j)}` : ''}</span></span><span class="rcv"><b class="num">${pct(v)}</b><span class="bar"><i style="width:${v * 100}%;background:${col(id)}"></i></span></span></summary>
     ${p ? `<div class="small muted" style="margin:6px 0">${p.g === 'F' ? '여' : '남'} · ${p.a}세${p.j ? ` · 출신: ${esc(p.j)}` : ''}</div>${statBars({ fame: p.fa, skill: p.sk, integ: p.ig })}<p class="small ${p.rec ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec ? esc(p.rec.join(', ')) : '없음'}</p>` : '<p class="small muted">프로필 기록이 없습니다.</p>'}</details>`;
   const kOf = x => x.k ?? R.find(q => x.n === q.n || x.n.startsWith(q.n + ' '))?.k, regs = R.filter(q => r.races.some(x => kOf(x) === q.k));
+  if (!keep || !regs.some(q => q.k === resReg)) resReg = regs.length > 1 ? regs[0].k : 'all'; // 전체 보기 없음: 처음엔 첫 지역
   const races = r.races.filter(x => (resReg === 'all' || kOf(x) === resReg) && (!resMine || x.c.some(c => c[0] === 'P')));
   const chip = (k, n) => `<button class="btn${resReg === k ? ' pri' : ''}" data-rreg="${k}" aria-pressed="${resReg === k}">${n}</button>`;
   openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 후보를 누르면 출마 당시 프로필을 볼 수 있습니다.</p>
-    ${regs.length > 1 ? `<div class="filters chips" role="group" aria-label="지역 선택">${chip('all', '전체')}${regs.map(q => chip(q.k, q.n)).join('')}</div>` : ''}
+    ${regs.length > 1 ? `<div class="filters chips" role="group" aria-label="지역 선택">${regs.map(q => chip(q.k, q.n)).join('')}</div>` : ''}
     <label class="small" style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><input type="checkbox" data-rmine ${resMine ? 'checked' : ''}> 우리 당이 출마한 곳만 보기</label>
     <div style="max-height:56vh;overflow:auto">${races.length ? races.map(x => `<section class="rrace"><h3>${esc(x.n)}</h3><div class="rcands">${x.c.map(cand).join('')}</div></section>`).join('') : '<p class="empty">조건에 맞는 선거구가 없습니다.</p>'}</div>`, buttons: [{ t: '닫기' }],
     onOpen: m => { m.querySelectorAll('[data-rreg]').forEach(b => b.onclick = () => { resReg = b.dataset.rreg; resultModal(r, 1); });
