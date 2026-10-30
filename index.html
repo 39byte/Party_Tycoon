@@ -550,9 +550,9 @@ const { REGIONS: R, LAW } = L;
 const RK = Object.fromEntries(R.map(r => [r.k, r]));
 const BASE_SCHED = L.schedule(40);
 let SCHED = BASE_SCHED;
-// 선거 템포: 총선·지방선거는 실제(4년)보다 빠르게 2년, 대선은 실제대로 5년 단임(헌법 제70조)
+// 선거 템포: 실제 법정 주기(총선·지방선거 4년, 대선 5년)보다 빠르게 — 총선·지방선거 2년, 대선 3년. 대선은 단임(헌법 제70조)
 // 총선과 지방선거는 1년씩 엇갈리고, 대선은 총선 반년 뒤. tempoFrom(빠른 일정 시작일, 새 게임은 0) 전에 치른 선거는 실제 일정 그대로 둠
-const GAP = { nat: 730, gov: 730, pres: 1826 };
+const GAP = { nat: 730, gov: 730, pres: 1095 };
 const wedOn = d => L.electionDay(L.dayToDate(d), 0); // 그날 이후 첫 수요일(공휴일 앞뒤면 다음 주, 공직선거법 제34조)
 function rebuildSched(o) {
   const a = o.tempoFrom ?? 0, past = BASE_SCHED.filter(e => e.day < a), cnt = t => past.filter(e => e.type === t).length;
@@ -564,14 +564,14 @@ function rebuildSched(o) {
     ...series('nat', nat1, 23 + cnt('nat'), n => `제${n}대 국회의원선거`),
     ...series('gov', nat1 + 365, 9 + cnt('gov'), n => `제${n}회 전국동시지방선거`),
     ...series('pres', nat1 + 182, 23 + cnt('pres'), n => `제${n}대 대통령선거`)];
-  // 이미 치렀거나 공천 중인 대선은 그날 그대로 두고, 다음 대선은 마지막 대선부터 5년 뒤(옛 3년 주기 저장 파일도 이어짐)
+  // 이미 치렀거나 공천 중인 대선은 그날 그대로 두고, 다음 대선은 마지막 대선부터 3년 뒤(5년 주기로 치른 저장 파일도 이어짐)
   const fixed = [...new Set([...Object.keys(o.done || {}), ...Object.keys(o.camps || {})].filter(k => k.startsWith('pres')).map(k => +k.slice(4)).filter(d => d >= a))].sort((x, y) => x - y);
   if (fixed.length) {
     const n0 = 23 + cnt('pres'), last = fixed.at(-1);
     out = [...out.filter(e => e.type !== 'pres' || e.day < a), ...[...fixed, ...Array.from({ length: 12 }, (_, i) => wedOn(last + (i + 1) * GAP.pres))]
       .map((day, i) => ({ type: 'pres', name: `제${n0 + i}대 대통령선거${(o.presEarly || []).includes(day) ? ' (궐위)' : ''}`, day, key: 'pres' + day }))];
   }
-  // 대통령 궐위 → 60일 안에 보궐 대선(헌법 제68조). 새 임기가 시작되므로 이후 대선도 그날부터 5년마다
+  // 대통령 궐위 → 60일 안에 보궐 대선(헌법 제68조). 새 임기가 시작되므로 이후 대선도 그날부터 3년마다
   for (const d of (o.presEarly || []).filter(d => !fixed.includes(d))) {
     const n = 23 + out.filter(e => e.type === 'pres' && e.day < d).length;
     const pres = [{ type: 'pres', name: `제${n}대 대통령선거 (궐위)`, day: d, key: 'pres' + d },
@@ -1455,7 +1455,7 @@ function presResultHTML(g, c) {
   return `<div class="mapwrap"><div>${ART.map({ fill: k => pc(top(k)), label: k => pn(top(k)), aria: k => `${RK[k].n}: ${pn(top(k))} 1위` })}</div><div>` +
     [...g.ids].sort((a, b) => g.votes[b] - g.votes[a]).map(id => { const n = id === 'P' ? c.reg.cand.name : c.rivals[id].name; return `<div class="who" style="margin:10px 0">${face(id === 'P' ? c.reg.cand : { name: n, age: 60 }, pc(id), 48)}<div style="flex:1"><div style="display:flex;justify-content:space-between;gap:8px"><span><b>${esc(n)}</b> <span class="muted">${esc(pn(id))}</span> ${id === g.win ? '<b class="ok">당선</b>' : ''}</span><span class="num"><span class="small muted">${nf(g.votes[id])}표</span> <b>${pct(g.v[id])}</b></span></div><div class="bar"><i style="width:${(g.v[id] * 100).toFixed(1)}%;background:${pc(id)}"></i></div></div></div>`; }).join('') +
     `<p class="small muted">선거인 ${nf(LAW.voters)}명 · 투표율 ${pct(g.to)} · 무효 ${nf(g.bad)}표</p>
-    <p class="small muted">대통령은 단순다수 득표자로 당선되며 결선투표는 없습니다(헌법 제67조). 임기 5년이며, 연이어 할 수는 없지만 한 차례 쉬면 횟수 제한 없이 다시 출마할 수 있습니다.</p>${RES_TIP}</div></div>`;
+    <p class="small muted">대통령은 단순다수 득표자로 당선되며 결선투표는 없습니다(헌법 제67조). 게임에서는 3년마다 선거를 치르며, 단임이라 한 번 대통령을 지낸 사람은 다시 출마할 수 없습니다.</p>${RES_TIP}</div></div>`;
 }
 
 // ---------- 보조금 ----------
@@ -3030,7 +3030,7 @@ function buildReg(c) {
   } else {
     const p = person(d.cand);
     if (!p) err.push('대통령 후보를 고르세요 (당내 경선 결과).');
-    else if (!eligible(p, 'pres')) err.push(`${p.name}: 대통령 피선거권은 만 40세 이상·5년 이상 국내 거주 (헌법 제67조·공직선거법 제16조)${p.role === '대통령' ? ', 현직 대통령은 연이어 출마할 수 없고 한 차례 쉬어야 함' : ''}`);
+    else if (!eligible(p, 'pres')) err.push(`${p.name}: 대통령 피선거권은 만 40세 이상·5년 이상 국내 거주 (헌법 제67조·공직선거법 제16조)${p.wasPres || /대통령$/.test(p.role) ? ', 대통령은 단임이라 현직·전직은 다시 출마할 수 없음' : ''}`);
     else { out.cand = mk(p, 'pres', PRES_SPEND[d.spend].c, PRES_SPEND[d.spend].b); out.cost += 5e7; } // 당내경선 관리비
     out.count = 1;
   }
@@ -4060,7 +4060,7 @@ function pHome() {
       <div style="order:1;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0">${status}</div>
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${e.name}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
-          <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년마다 열립니다. 대선은 실제처럼 5년마다(단임)입니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
+          <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년마다 열립니다. 대선은 3년마다(단임)입니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
       </div>
       <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (주별)</h2>${pollChart(ban)}</div>
@@ -4306,7 +4306,7 @@ function nomForm(c) {
   return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">우리 지지</th><th>후보 (당내 경선)</th><th>선거비용</th></tr></thead><tbody><tr><td>전국</td><td class="r num">${S.support.toFixed(1)}%</td>
       <td><button class="btn nomb" data-distc="${c.key}">${pc0 ? `${esc(pc0.name)} · ` : ''}보기·변경</button></td>
       <td><select ${a} data-f="spend" aria-label="선거비용">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr></tbody></table></div>
-    <p class="tip">대통령 후보는 만 40세 이상(헌법 제67조)이고, 경선 탈락자는 같은 선거에 출마할 수 없습니다(공직선거법 제57조의2). 5년 단임이라 현직·전직 대통령은 나갈 수 없습니다(헌법 제70조). 선거비용은 선거비용제한액(약 588억) 이내입니다.</p>
+    <p class="tip">대통령 후보는 만 40세 이상(헌법 제67조)이고, 경선 탈락자는 같은 선거에 출마할 수 없습니다(공직선거법 제57조의2). 단임이라 현직·전직 대통령은 나갈 수 없습니다(헌법 제70조). 선거비용은 선거비용제한액(약 588억) 이내입니다.</p>
     <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${Math.round(x.fame)})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
 }
 // 총선 지역구·지방선거 시·도지사 후보 목록: 등록했으면 등록 명단, 아니면 지금 배치안. 지역마다 후보 카드(누르면 능력치·전과)
@@ -4654,7 +4654,7 @@ function pGuide() {
       <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
-    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림)입니다. 대통령선거는 실제처럼 5년마다이고 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
+    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림)입니다. 대통령선거는 3년마다이고 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
@@ -4691,7 +4691,7 @@ function pGuide() {
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
     ${sec('탄핵과 조기 대선', `<ul><li>대통령 쪽 지지율이 크게 떨어지면 탄핵소추안이 발의될 수 있습니다. 재적의원 3분의 2 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.</li>
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
-      <li>조기 대선 뒤에는 그날부터 다시 5년마다 대선이 열립니다.</li></ul>`)}
+      <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
