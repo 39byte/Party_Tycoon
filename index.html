@@ -2557,6 +2557,13 @@ function govInfo(k) {
   openModal({ title: p.name, html: `<div class="who" style="margin-bottom:12px">${face(p, S.party.color, 64)}<div><div class="small">${esc(S.party.name)} · ${GOVT[k]}</div><div class="small muted">${p.gender === 'F' ? '여' : '남'}${p.age ? ` · ${p.age}세` : ''}${p.job ? ` · ${esc(p.job)}` : ''}</div><div class="small muted">행정 지지도 ${Math.round(S.ops[k] ?? 50)}</div></div></div>${statBars({ fame: p.fame ?? 0, skill: p.skill ?? 50, integ: p.integ }, p.integ == null)}
       ${p.rec ? `<p class="small ${p.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</p>` : ''}`, buttons: [{ t: '닫기' }] });
 }
+// 우리 당 인재 프로필
+function poolInfo(id) {
+  const p = S.pool.find(x => x.id === id); if (!p) return;
+  openModal({ title: p.name, html: `<div class="who" style="margin-bottom:12px">${face(p, S.party.color, 64)}<div><div class="small">${esc(S.party.name)}${p.leader ? ' · 당 대표' : p.role ? ` · ${esc(roleLabel(p.role))}` : ''}</div><div class="small muted">${[p.gender === 'F' ? '여' : '남', `${p.age}세`, homeTxt(p), p.job && `출신 직업: ${p.job}`].filter(Boolean).map(esc).join(' · ')}</div></div></div>${statBars(p)}
+      <p class="small ${p.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</p>${p.talk?.length ? talkHTML(p) : ''}`,
+    buttons: [{ t: '닫기', pri: true }] });
+}
 function figInfo(id) {
   const f = fig(id); if (!f) return;
   const pos = { d: `${RK[f.k].n} 지역구 국회의원`, pr: '비례대표 국회의원', gov: GOVT[f.k], cand: `${RK[f.k].n} 후보` }[f.pos];
@@ -2568,6 +2575,7 @@ function figInfo(id) {
 }
 function personInfo(key) {
   if (key[0] === 'f') return figInfo(+key.slice(1));
+  if (key[0] === 'p') return poolInfo(+key.slice(1));
   if (key[0] === 'g') return govInfo(key.slice(1));
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
   const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B', open = recOpen(m, mp);
@@ -4215,7 +4223,7 @@ function rvCard(c) {
   // 한 자리: 발표됐으면 프로필, 아니면 빈 프로필
   const slot = (x, id, sub) => rvOut(x) && fig(x.fid) ? who(x, id, sub) : blank(id, sub);
   // 우리 당(지방선거): 등록한 후보, 출마 체크만 했으면 빈 프로필
-  const mine = k => { const x = c.reg?.gov?.[k]; if (x) { const p = S.pool.find(q => q.id === x.id) || x; return `<div class="rvp st">${face(p, col('P'), 32)}<span><b>${esc(p.name)}</b><span class="small muted">${pname('P')}${p.job ? ` · ${esc(p.job)}` : ''}</span></span></div>`; } return !c.reg && S.phase === 'reg' && c.draft?.reg?.[k]?.run ? blank('P', true) : ''; };
+  const mine = k => { const x = c.reg?.gov?.[k]; if (x) { const q = S.pool.find(q => q.id === x.id), p = q || x, in_ = `${face(p, col('P'), 32)}<span><b>${esc(p.name)}</b><span class="small muted" title="${pname('P')}${p.job ? ` · ${esc(p.job)}` : ''}">${pname('P')}${p.job ? ` · ${esc(p.job)}` : ''}</span></span>`; return q ? `<button class="rvp" data-pinfo="p${q.id}">${in_}</button>` : `<div class="rvp st">${in_}</div>`; } return !c.reg && S.phase === 'reg' && c.draft?.reg?.[k]?.run ? blank('P', true) : ''; };
   const page = (key, n) => { const pages = Math.max(1, Math.ceil(n / RV_PER)), p = rvPg[key] = Math.min(rvPg[key] || 0, pages - 1); return [p, pages]; };
   const pg = (key, p, pages, aria) => pages > 1 ? `<div data-rvpgk="${key}">${pager(p, pages, 'rvpg', aria)}</div>` : '';
   let body, own = 0, ownN = 0;
@@ -4233,7 +4241,7 @@ function rvCard(c) {
     body = `<div class="rvregs" style="--rows:${rows}">${R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).map(r => { const s = c.rv[r.k][0], line = (id, h) => h ? `<div class="rvline" style="--pc:${col(id)}">${h}</div>` : ''; return `<section class="rvreg"><h3>${r.n}</h3><div class="rvlines">${line('P', mine(r.k))}${ids.filter(id => s[id]).map(id => line(id, slot(s[id], id, true))).join('')}</div></section>`; }).join('')}${`<section class="rvreg ghost" aria-hidden="true"><h3>&nbsp;</h3><div class="rvlines"></div></section>`.repeat(RV_PER - (R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).length))}</div>${pg(key, p, pages, '시·도 쪽 이동')}`;
   }
   return `<div class="card" style="margin-bottom:14px"><h2>공천 현황 <span class="pill">발표 ${xs.filter(rvOut).length + own}/${xs.length + ownN}</span></h2>${body}
-    <p class="tip">각 당은 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 점선 칸은 출마하지만 아직 공천 전인 자리입니다.${gov ? ' 우리 당은 후보자 등록을 마치면 채워집니다.' : ''} 이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다.</p></div>`;
+    <p class="tip">각 당은 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 점선 칸은 출마하지만 아직 공천 전인 자리입니다.${gov ? ' 우리 당은 후보자 등록을 마치면 채워집니다.' : ''} 이름을 누르면 출신·능력치·전과${gov ? '(다른 당은 보도된 의혹까지)' : '·보도된 의혹'}를 볼 수 있습니다.</p></div>`;
 }
 function campCard(c) {
   const dd = c.day - S.day, dl = c.day - LAW.regDeadline[c.type], cs = campStart(c);
