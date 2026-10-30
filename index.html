@@ -1513,7 +1513,6 @@ function monthly(dt) {
   if (nch) spend(nch * 3e6, '시·도당');
   const upm = sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
   if (upm) spend(upm, '시설');
-  if (rnd() < 0.5) S.issue = pick(ISSUES).k; // 플레이어에겐 뉴스로만 드러남
   if (dt.getUTCMonth() === 0) S.pool.forEach(p => p.age++);
   // 숨긴 일: 시간이 지날수록 증거가 흐려지고, 당이 클수록 눈이 많아짐. 평생 적발 확률 대략 20~45%
   const mul = { easy: 0.7, normal: 1, hard: 1.3 }[S.diff];
@@ -1704,6 +1703,7 @@ function runTurn() {
       S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep();
       S.hist.push(snapPoll()); if (S.hist.length > 260) S.hist.shift(); // 지지율 추이: 매주(옛 저장 파일은 그 전까지 월별)
       if (turnNo() % 3 === 0) outFill(S, 1); // 교섭 명단 밖 원외 인사는 3턴마다 새 얼굴로
+      if (turnNo() % 2 === 0) S.issue = pick(ISSUES.filter(i => i.k !== S.issue)).k; // 쟁점은 2턴마다 반드시 다른 분야로. 플레이어에겐 뉴스로만 드러남
       turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); renderAll();
       // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
@@ -4604,7 +4604,7 @@ function pGuide() {
       <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 90일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
-      <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 한 달쯤마다 바뀔 수 있습니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
+      <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
       <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
     ${sec('자금', `<ul><li>수입: 매달 당비·후원금, 후원의 밤(연간 모금한도 있음), 정식 정당이 의석이나 득표를 얻으면 분기별 경상보조금과 선거보조금이 들어옵니다.</li>
       <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
