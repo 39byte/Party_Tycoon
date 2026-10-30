@@ -454,10 +454,10 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .pcards{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
 .pager{justify-content:center;margin:14px 0 0}.pager .btn{min-width:32px}.pager .btn[aria-label]{font-size:16px;line-height:1}
 .pager .btn{border-color:transparent;box-shadow:none}.pager .btn:not(.pri){background:none}.pager .btn:not(.pri):not(:disabled):hover{background:var(--surface2)} /* 쪽 버튼은 윤곽선 없이 */
-.psort{margin:0;grid-column:1/-1}
+.psort{margin:0;grid-column:1}
 /* 작은 필터 버튼(인재 정렬·지역 소식 지역·원내 의원 소속): 같은 크기·간격 */
 .chips{gap:4px}.chips:not(.psort){margin-bottom:14px}.follow .chips{margin-bottom:22px}.chips .btn{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
-.phead{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center;margin-bottom:14px}.phead h2{margin:0}.pact{display:flex;align-items:center;gap:10px}.pact p{margin:0;max-width:280px;text-align:right}
+.phead{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center;margin-bottom:14px}.phead h2{margin:0}.pact{display:flex;align-items:center;gap:10px;grid-column:2;grid-row:1/3;align-self:end} /* 영입 버튼 아래끝을 정렬 버튼과 맞춤 */.pact p{margin:0;max-width:280px;text-align:right}
 .pcard{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
 .pcard .who h3{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
