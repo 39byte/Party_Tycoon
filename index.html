@@ -1165,11 +1165,14 @@ const regSupport = k => S.rsup[k] ?? S.support * regFactor(k);
 
 // ---------- 선거 시뮬레이션 ----------
 // ponytail: 지역 성향×전국 지지율×로그정규 잡음의 단순 모델. 세대·이슈별 유권자 모델은 필요해지면 추가
+// 정당 득표력: (전국 몫 × 지역 배율)^PARTY_W. 1보다 크면 강한 당이 지지율 격차보다 더 벌림
+const PARTY_W = 1.2;
+const partyPow = (ns, id, k) => (ns[id] * pf(id, k)) ** PARTY_W;
 function shareRace(k, ids, mods) {
   const ns = natShares(), v = {};
   let tot = 0;
   for (const id of ids) {
-    let x = ns[id] * pf(id, k) * Math.exp(gauss() * 0.22) * (mods[id] || 1);
+    let x = partyPow(ns, id, k) * Math.exp(gauss() * 0.22) * (mods[id] || 1);
     if (id === 'O' && rnd() < 0.03) x *= 6; // 유력 무소속
     v[id] = x; tot += x;
   }
@@ -1272,8 +1275,8 @@ function simPres(c) {
     const x = {};
     for (const id of ids) {
       const p = who(id);
-      x[id] = ns[id] * pf(id, r.k) * candMul(p) * campMul(c, id, r.k, 'pres') * (id === 'P' ? 1 + cand.spendB : 1) * homeMul(p, r.k) * luck[id] * Math.exp(gauss() * 0.05);
-      if (id === 'P' && u) x[id] += ns[u] * pf(u, r.k) * 0.6; // 단일화: 사퇴한 후보 지지층 일부 흡수
+      x[id] = partyPow(ns, id, r.k) * candMul(p) * campMul(c, id, r.k, 'pres') * (id === 'P' ? 1 + cand.spendB : 1) * homeMul(p, r.k) * luck[id] * Math.exp(gauss() * 0.05);
+      if (id === 'P' && u) x[id] += partyPow(ns, u, r.k) * 0.6; // 단일화: 사퇴한 후보 지지층 일부 흡수
     }
     const t = sum(Object.values(x));
     for (const id of ids) x[id] /= t;
@@ -2173,8 +2176,8 @@ function cabSet(k, p) {
 const cabYes = (id, p, flaw) => id === 'P' ? 0.98 : clamp(0.3 - 0.2 * Math.abs((RIV[id]?.ideo ?? 0) - S.party.ideo) + (S.rel[id] || 0) / 200 + (p.skill - 60) / 150 + (S.president.appr - S.president.a0) / 150 - (flaw ? 0.2 : 0), 0.02, 0.95);
 const PIDS = ['P', 'A', 'B', 'C', 'D', 'O'];
 function cabNom(k, pid) {
-  const c = CAB.find(x => x.k === k), p = person(pid); if (!p || S.ap < 1) return;
-  S.ap--; closeModal(); Snd.sfx('click');
+  const c = CAB.find(x => x.k === k), p = person(pid); if (!p) return;
+  closeModal(); Snd.sfx('click');
   const flaw = rnd() < clamp(0.05 + p.rec.length * 0.35 + Math.max(0, 60 - p.integ) / 50, 0.05, 0.95);
   if (k === 'pm') {
     const yes = sum(PIDS.map(id => ayes(seatTotal(id), cabYes(id, p, flaw))));
@@ -2190,7 +2193,7 @@ function cabNom(k, pid) {
 function cabPick(k) {
   const c = CAB.find(x => x.k === k), xs = S.pool.filter(cabFree).sort((a, b) => b.skill - a.skill).slice(0, 30);
   const flawless = { pm: p => `예상 찬성 ${Math.round(sum(PIDS.map(id => seatTotal(id) * cabYes(id, p, false))))}표 / 필요 ${passNeed()}표` }[k];
-  openModal({ title: `${c.n} 지명`, wide: true, html: `<p>행동력 1을 씁니다. ${k === 'pm' ? '국회 임명동의를 받아야 합니다.' : '인사청문회를 거칩니다. 전과가 있거나 청렴이 낮으면 난항을 겪습니다.'}${c.is.length ? ` 담당: ${c.is.map(i => ISSUES.find(x => x.k === i).n).join(', ')}` : ''}</p>
+  openModal({ title: `${c.n} 지명`, wide: true, html: `<p>행동력은 들지 않습니다. ${k === 'pm' ? '국회 임명동의를 받아야 합니다.' : '인사청문회를 거칩니다. 전과가 있거나 청렴이 낮으면 난항을 겪습니다.'}${c.is.length ? ` 담당: ${c.is.map(i => ISSUES.find(x => x.k === i).n).join(', ')}` : ''}</p>
     ${xs.length ? `<div class="pcards">${xs.map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.age}세 · ${esc(p.job)}</div></div></div>${statBars(p)}<div class="foot"><span class="small ${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</span></div>${flawless ? `<div class="small muted">${flawless(p)}</div>` : ''}<button class="btn pri" data-cabnom="${p.id}">지명</button></div>`).join('')}</div>` : '<p class="empty">지명할 수 있는 인재가 없습니다. 당 대표, 시·도지사, 선거 후보, 피선거권이 없는 사람과 이미 입각한 사람은 빠집니다.</p>'}`,
     buttons: [{ t: '취소' }], onOpen: m => m.querySelectorAll('[data-cabnom]').forEach(b => b.onclick = () => cabNom(k, +b.dataset.cabnom)) });
 }
@@ -2199,7 +2202,7 @@ function cabCard() {
   return `<div class="card"><h2>내각 <span class="pill">${n}/${CAB.length}</span></h2><div class="pcards">${CAB.map(c => { const p = cabP(c.k);
     return `<div class="pcard"><div><b>${c.n}</b><div class="small muted">${c.is.length ? c.is.map(i => ISSUES.find(x => x.k === i).n).join(' · ') : '내각 총괄 · 국회 임명동의'}</div></div>
       ${p ? `<div class="who">${faceBtn('p' + p.id, p, S.party.color)}<div><h3>${esc(p.name)}</h3><div class="small muted">${p.age}세 · ${esc(p.job)}</div></div></div>${statBars(p)}` : '<p class="empty">공석</p>'}
-      <div class="btns" style="gap:6px"><button class="btn" data-cabpick="${c.k}" ${S.ap < 1 ? 'disabled' : ''}>${p ? '교체' : '지명'}</button>${p ? `<button class="btn danger" data-cabfire="${c.k}">해임</button>` : ''}</div></div>`; }).join('')}</div>
+      <div class="btns" style="gap:6px"><button class="btn" data-cabpick="${c.k}">${p ? '교체' : '지명'}</button>${p ? `<button class="btn danger" data-cabfire="${c.k}">해임</button>` : ''}</div></div>`; }).join('')}</div>
     <p class="tip">내각 평균 역량이 국정 지지율에 반영되고, 공석은 낮게 칩니다. 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 입각한 인재는 인지도와 역량이 오릅니다. 선거에 출마하면 물러납니다.</p></div>`;
 }
 function cabFire(k) {
@@ -3077,7 +3080,7 @@ function prRec(c) {
 // 지역구 당선 가능성(대략): 우리 후보 vs 그 지역 A·B 중 강한 쪽(상대 후보 점수는 RV_TYP로 가정). 득표 잡음 σ 0.22 둘의 차 ≈ 0.31, 정규분포를 로지스틱으로 근사
 // ponytail: C·무소속·다른 당 유세는 뺌. 크게 어긋나면 shareRace를 몇 번 돌려 세는 식으로
 const RV_TYP = 0.55, NOM_HOPE = 0.1;
-const distOdds = (c, k, p) => { const ns = natShares(), me = ns.P * pf('P', k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(ns.A * pf('A', k), ns.B * pf('B', k)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
+const distOdds = (c, k, p) => { const ns = natShares(), me = partyPow(ns, 'P', k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(partyPow(ns, 'A', k), partyPow(ns, 'B', k)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
 let nomPref = { spread: 'focus', first: 'pr' }; // 총선 자동 배치 방식(이번 실행 동안 기억)
 function nomAutoAsk(key) {
   const c = S.camps[key]; if (!c || c.reg) return;
@@ -4990,7 +4993,7 @@ function pGuide() {
       <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
       <li>우리 당이 집권하면 반대 당론이거나 노선과 어긋나는 법안이 통과될 때 공포와 거부권 중에서 직접 고릅니다. 청와대 탭에서 자동 처리를 켜면 반대 당론 법안이 3분의 2 미만으로 통과될 때 바로 행사합니다. 거부권은 여론이 원하는 법안일수록 국정 지지율을 깎고, 국회가 3분의 2로 재의결하면 타격이 더 큽니다.</li>
       <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 때 그 당 지지율에서 출발해 임기 말로 갈수록 떨어지며(레임덕), 취임 때보다 낮아지면 여당 지지율도 함께 깎입니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 다른 당 대통령은 15% 아래로 떨어지면 촛불 집회가, 10% 아래로 떨어지면 탄핵소추안이 나올 수 있습니다.</li>
-      <li><b>내각</b>: 집권하면 청와대 탭에서 인재풀 사람을 총리와 장관 네 자리에 지명합니다(행동력 1). 총리는 국회 임명동의를 받아야 해서 여소야대면 부결될 수 있고, 장관은 전과가 있거나 청렴이 낮으면 청문회가 난항을 겪어 강행과 철회 중에서 고릅니다. 내각 평균 역량과 공석이 국정 지지율에 반영되고, 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 당 대표, 시·도지사, 선거 후보는 입각할 수 없습니다.</li>
+      <li><b>내각</b>: 집권하면 청와대 탭에서 인재풀 사람을 총리와 장관 네 자리에 지명합니다(행동력은 들지 않습니다). 총리는 국회 임명동의를 받아야 해서 여소야대면 부결될 수 있고, 장관은 전과가 있거나 청렴이 낮으면 청문회가 난항을 겪어 강행과 철회 중에서 고릅니다. 내각 평균 역량과 공석이 국정 지지율에 반영되고, 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 당 대표, 시·도지사, 선거 후보는 입각할 수 없습니다.</li>
       <li><b>영수회담</b>: 야당일 때 청와대 탭에서 대통령에게 제안합니다(행동력 1, 180일에 한 번, 원내 의석 필요). 관계가 좋고 국정 지지율이 낮을수록 잘 받아들입니다. 의제는 우리 법안 협조, 민생 협치, 국정 쇄신 요구 중에서 고릅니다.</li>
       <li>임기마다 측근 의혹, 순방 말실수, 공약 파기, 대통령실 이전, 대규모 개각 같은 일이 벌어져 국정 지지율이 움직입니다. 야당일 때와 집권했을 때 고를 수 있는 대응이 다릅니다.</li>
       <li>다른 당 광역단체장도 역점사업을 펼칩니다. 협조·견제·관망 중 입장을 고르면 몇 주 뒤 사업 성패에 따라 평가가 갈립니다. 지사 행정 지지도는 그 지역 선거에서 그 당의 득표에 반영됩니다.</li>
