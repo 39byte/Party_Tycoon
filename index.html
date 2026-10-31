@@ -305,6 +305,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* 정책 발표: 궁합 설명이 줄바꿈되지 않게 창을 넓히고, 좁으면 위아래로, 더 좁으면 선택지 1열 */
 .modal.polm{max-width:980px}
 @media (max-width:1040px){.split2.pol{grid-template-columns:1fr;gap:14px}.split2.pol>div{padding:0}.split2.pol>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
+@media (min-width:1041px){.split2.bill>div:first-child{position:sticky;top:0;align-self:start}} /* 법안 발의: 헤드라인이 스크롤을 따라옴 */
 @media (max-width:540px){.choices.g2{grid-template-columns:1fr}}
 .toasts{position:fixed;right:16px;top:16px;display:flex;flex-direction:column;gap:8px;z-index:60;width:min(400px,calc(100vw - 32px))}
 /* 알림: HUD색 판 + 상태 아이콘(종류 제목) + 닫기 + 남은 시간 막대. 마우스를 올리면 멈춤 */
@@ -2278,19 +2279,20 @@ function setStance(id, s) {
   if (!b || left || b.lobbied) return;
   b.stance = s; renderAll();
 }
+const BILL_OFF_DAYS = 45; // 법안은 노선 밖 연속 발의를 보는 기간이 정책 발표(90일)보다 짧음
 const billFit = k => ISSUES.find(x => x.k === k).fit[S.party.ideo + 1];
 function billModal() {
   const fit = i => billFit(i.k);
   openModal({
     title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 재적의원 ${seatsNow()}명의 과반인 찬성 ${passNeed()}표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다. 민심이 쏠린 쟁점의 법안은 반응이 크고, 이번 주 헤드라인에 없는 분야나 노선과 먼 분야를 거듭 발의하면 역풍을 맞습니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
-      <div class="split2 pol"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발의할 법안</h3><div class="choices">${[...ISSUES].sort((x, y) => fit(y) - fit(x)).map(i => BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}<small>${i.n} · 노선 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}${S.bills.some(x => x.t === t) ? ' · 계류 중' : ''}</small></button>`).join('')).join('')}</div></div></div>`, wide: true,
+      <div class="split2 pol bill"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발의할 법안</h3><div class="choices g2">${[...ISSUES].sort((x, y) => fit(y) - fit(x)).map(i => BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}<small>${i.n} · 노선 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}${S.bills.some(x => x.t === t) ? ' · 계류 중' : ''}</small></button>`).join('')).join('')}</div></div></div>`, wide: true,
     buttons: [{ t: '취소' }],
     onOpen: m => (m.classList.add('polm'), m).querySelectorAll('[data-bill]').forEach(b => b.onclick = () => {
       const [issue, t] = b.dataset.bill.split('|'), f = billFit(issue), hotI = issue === S.issue;
       spend(ACT.bill.c(), '활동'); S.cd.bill = S.day + ACT.bill.cd; S.ap--;
       closeModal();
-      // 역풍(정책 발표보다 느슨): 노선 밖 분야는 90일 안에 3번째부터, 헤드라인에 없는 분야는 조금만
-      S.billOff = (S.billOff || []).filter(d => S.day - d < POL_OFF_DAYS);
+      // 역풍(정책 발표보다 느슨): 노선 밖 분야는 45일 안에 3번째부터, 헤드라인에 없는 분야는 조금만
+      S.billOff = (S.billOff || []).filter(d => S.day - d < BILL_OFF_DAYS);
       if (f < 1) S.billOff.push(S.day);
       const nOff = f < 1 ? S.billOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === issue), bad = [];
       if (nOff >= 3) { S.trust = clamp(S.trust - Math.min(4, nOff - 2), 0, 100); bad.push('노선과 동떨어진 법안만 낸다는 지지층 반발이 나왔습니다.'); }
@@ -4922,7 +4924,7 @@ function pGuide() {
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
       <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 신뢰도 20 미만에서는 0.8배, 20~30에서는 0.6배만 오르고, 30을 넘으면 높아질수록 오르기가 점점 어려워집니다(50이면 절반 이하, 70이면 5분의 1). 다른 당은 이 곡선이 40부터 시작됩니다.</li>
-      <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 90일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 90일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
+      <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 90일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 45일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
