@@ -1136,7 +1136,7 @@ function poll() {
   return { P: p, A: rest * w.A / ws, B: rest * w.B / ws, C: rest * w.C / ws, D: rest * w.D / ws, O: rest * w.O / ws, U };
 }
 function natShares() { const q = poll(), s = q.P + q.A + q.B + q.C + q.D + q.O; return { P: q.P / s, A: q.A / s, B: q.B / s, C: q.C / s, D: q.D / s, O: q.O / s }; }
-const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1) }; };
+const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1), pa: S.president.acting ? null : +S.president.appr.toFixed(1) }; };
 // 우리 당 지역 배율(지사 효과 제외): 지역 성향 + 당원 조직 + 시·도당
 function regFactor0(k) {
   const r = RK[k], i = S.party.ideo;
@@ -4695,7 +4695,17 @@ function pPres() {
         ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
-      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div></div></div>${ruling() && !P.acting ? cabCard() : ''}`;
+      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div>
+    ${P.acting ? '' : `<div style="flex:1 1 300px;min-width:0"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3>${apprChart()}</div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
+}
+function apprChart() {
+  const h = S.hist.filter(x => x.d >= S.day - 365 && x.pa != null);
+  if (h.length < 2) return '<p class="empty">한 주 이상 지나면 추이가 표시됩니다.</p>';
+  const W = 400, H = 180, pl = 34, pr = 10, pt = 10, pb = 24, max = Math.max(10, ...h.map(x => x.pa)) * 1.1, d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0);
+  const X = x => pl + (W - pl - pr) * (x.d - d0) / dd, Y = v => pt + (H - pt - pb) * (1 - v / max);
+  const grid = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f)).map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--border)"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}%</text>`).join('');
+  const xl = [0, h.length - 1].map(i => { const t = L.dayToDate(h[i].d); return `<text x="${X(h[i])}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${t.getUTCFullYear()}.${t.getUTCMonth() + 1}</text>`; }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="국정 지지율 주별 추이" style="width:100%;height:auto">${grid}${xl}<polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></svg>`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';
