@@ -1136,7 +1136,7 @@ function poll() {
   return { P: p, A: rest * w.A / ws, B: rest * w.B / ws, C: rest * w.C / ws, D: rest * w.D / ws, O: rest * w.O / ws, U };
 }
 function natShares() { const q = poll(), s = q.P + q.A + q.B + q.C + q.D + q.O; return { P: q.P / s, A: q.A / s, B: q.B / s, C: q.C / s, D: q.D / s, O: q.O / s }; }
-const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1), pa: S.president.acting ? null : +S.president.appr.toFixed(1) }; };
+const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1), pa: S.president.acting ? null : +S.president.appr.toFixed(1), ps: S.president.since }; };
 // 우리 당 지역 배율(지사 효과 제외): 지역 성향 + 당원 조직 + 시·도당
 function regFactor0(k) {
   const r = RK[k], i = S.party.ideo;
@@ -4648,7 +4648,7 @@ function pCourt() {
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;align-items:start"><div class="card" style="margin-top:0"><h2>고발</h2><div class="acts">${actBtn('accuse')}</div>
     <p class="tip">교섭 자리에서 들은 의혹을 근거로 상대 당·우리 당 현직 의원과 단체장, 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다. 후보에서 내려온 사람은 후보로는 고를 수 없습니다. 기소·유죄가 나오면 그 당의 신뢰와 지지율이 떨어지고, 불기소·무죄면 우리 당이 역풍을 맞습니다.</p></div>
     <div class="card" style="margin-top:0"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${caseKind(c)}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>
-    </div><div class="card"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 · ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 1심 판결이 나오면 여기에 남습니다.</p>'}</div>`;
+    </div><div class="card" style="margin-top:14px"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 · ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 1심 판결이 나오면 여기에 남습니다.</p>'}</div>`;
 }
 // 의회: 교섭 · 사회적 이슈 · 법안·대정부 질문 · 다른 당/정부 동향
 let seatOpen = false;
@@ -4696,10 +4696,10 @@ function pPres() {
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
       ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div>
-    ${P.acting ? '' : `<div style="flex:1 1 300px;min-width:0"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3>${apprChart()}</div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
+    ${P.acting ? '' : `<div style="flex:0 1 260px;min-width:0"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3>${apprChart()}</div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
 }
 function apprChart() {
-  const h = S.hist.filter(x => x.d >= S.day - 365 && x.pa != null);
+  const h = S.hist.filter(x => x.d >= S.day - 365 && x.pa != null && x.ps === S.president.since); // 대통령이 바뀌면(since 다름) 그래프를 끊음
   if (h.length < 2) return '<p class="empty">한 주 이상 지나면 추이가 표시됩니다.</p>';
   const W = 400, H = 180, pl = 34, pr = 10, pt = 10, pb = 24, max = Math.max(10, ...h.map(x => x.pa)) * 1.1, d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0);
   const X = x => pl + (W - pl - pr) * (x.d - d0) / dd, Y = v => pt + (H - pt - pb) * (1 - v / max);
