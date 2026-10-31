@@ -437,7 +437,11 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;padding-top:6px}
 .pty .negcell{margin-left:auto;flex:none}
 /* 청와대: 대통령 초상 + 정보 */
-.presbox{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap}
+.presbox{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
+.presbox>.face{align-self:flex-start}
+.apprw{flex:1 1 300px;min-width:0;min-height:200px;display:flex;flex-direction:column;border-left:1px solid var(--border);padding-left:20px;margin-left:4px}
+.apprc{flex:1;position:relative;min-height:150px}
+.apprc>svg{position:absolute;inset:0;width:100%;height:100%}
 .presbox .face{border-radius:22px}
 .presinfo{flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px}
 .presname{font-size:26px;font-weight:900;letter-spacing:-.02em;line-height:1.2}
@@ -4080,7 +4084,7 @@ function renderPanel() {
   shownTab = tab;
   main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, court: pCourt, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y; main.querySelectorAll('.follow').forEach((e, i) => e.scrollTop = fy[i] || 0);
-  tipify(main); sentWrap(main);
+  tipify(main); sentWrap(main); fitAppr();
   markLead();
   bindPanel(main);
 }
@@ -4710,16 +4714,22 @@ function pPres() {
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
       ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div>
-    ${P.acting ? '' : `<div style="flex:0 1 340px;min-width:0"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3>${apprChart()}</div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
+    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc">${apprChart()}</div></div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
 }
-function apprChart() {
+function fitAppr() {
+  const c = document.querySelector('.apprc'); if (!c || !c.clientWidth || !c.clientHeight) return;
+  const h = apprChart(Math.round(c.clientWidth), Math.round(c.clientHeight));
+  if (h.startsWith('<svg')) c.innerHTML = h;
+}
+addEventListener('resize', () => fitAppr());
+function apprChart(W = 400, H = 180) {
   const h = S.hist.filter(x => x.d >= S.day - 365 && x.pa != null && x.ps === S.president.since); // 대통령이 바뀌면(since 다름) 그래프를 끊음
   if (h.length < 2) return '<p class="empty">한 주 이상 지나면 추이가 표시됩니다.</p>';
-  const W = 400, H = 180, pl = 34, pr = 10, pt = 10, pb = 24, max = Math.max(10, ...h.map(x => x.pa)) * 1.1, d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0);
+  const pl = 34, pr = 10, pt = 10, pb = 24, max = Math.max(10, ...h.map(x => x.pa)) * 1.1, d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0);
   const X = x => pl + (W - pl - pr) * (x.d - d0) / dd, Y = v => pt + (H - pt - pb) * (1 - v / max);
   const grid = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f)).map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--border)"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}%</text>`).join('');
   const xl = [0, h.length - 1].map(i => { const t = L.dayToDate(h[i].d); return `<text x="${X(h[i])}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${t.getUTCFullYear()}.${t.getUTCMonth() + 1}</text>`; }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="국정 지지율 주별 추이" style="width:100%;height:auto">${grid}${xl}<polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="국정 지지율 주별 추이">${grid}${xl}<polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></svg>`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';
