@@ -1496,9 +1496,8 @@ function raiseFunds(n) {
 
 // ---------- 대통령 국정 지지율 ----------
 // 취임 때 그 당 지지율(a0)에서 출발해 임기 끝으로 갈수록 떨어짐(레임덕). 사건은 apprAdd로 움직이고, 시간이 지나면 목표치로 돌아옴
-// 지지율이 낮은 당의 대통령이 곧바로 탄핵·심판 대상이 되지 않도록, 효과와 조건은 a0에서 얼마나 떨어졌는지로 따짐
+// 여당 지지·영수회담·총리 인준·개각 요구·퇴임 후 수사는 a0에서 얼마나 떨어졌는지로 따지고, 촛불(15% 미만)·탄핵소추(10% 미만)는 절대값으로 따짐
 const apprStart = id => clamp(poll()[id], 5, 90);
-const apprLow = P => Math.min(35, P.a0 - 12); // 이보다 낮으면 위기(탄핵소추)
 // 내각(우리 당 집권 때). 총리는 국회 임명동의(헌법 제86조), 장관은 인사청문회. is: 담당 분야(핵심 쟁점이면 담당자 역량이 매달 지지율에 반영)
 const CAB = [{ k: 'pm', n: '국무총리', is: [] }, { k: 'econ', n: '경제부총리', is: ['econ', 'house', 'tax'] }, { k: 'soc', n: '사회부총리', is: ['welfare', 'youth', 'climate'] },
   { k: 'sec', n: '외교안보 장관', is: ['security'] }, { k: 'law', n: '법무·행안 장관', is: ['order', 'reform', 'region'] }];
@@ -3419,12 +3418,12 @@ const EVENTS = [
       : [{ t: '송곳 검증을 예고한다', s: `인지도↑ · ${pn(S.president.party)} 관계↓`, run: () => { S.fame += 1; relAdd(S.president.party, -4, '개각 송곳 검증 예고'); return '청문회에서 후보자를 철저히 따지겠다고 했습니다.'; } },
         { t: '협치 내각을 제안한다', s: `신뢰 조금↑ · ${pn(S.president.party)} 관계↑`, run: () => { S.trust += 0.5; relAdd(S.president.party, 4, '협치 내각 제안'); return '야당 인사도 품는 내각을 만들자고 제안했습니다.'; } },
         { t: '논평하지 않는다', run: () => '별다른 입장을 내지 않았습니다.' }] }),
-  { id: 'candle', w: 1, cond: () => !ruling() && S.day - S.president.since > 365 && S.president.appr < Math.min(45, S.president.a0 - 5), title: '광장의 촛불',
+  { id: 'candle', w: 1, cond: () => !ruling() && S.day - S.president.since > 365 && S.president.appr < 15, title: '광장의 촛불',
     pre: () => hitPres(2), body: () => `${presN()} 측근의 국정 개입 의혹으로 광장에 수십만 명이 모였습니다.`,
     ch: [{ t: '당 깃발을 들고 합류', s: '인지도↑ 신뢰↓', run: () => { S.fame += 3; S.buzz += 2; S.trust -= 1; hitPres(2); return '당 깃발이 광장에 나부꼈습니다. "숟가락 얹기"라는 시선도 있습니다.'; } },
       { t: '깃발 없이 시민으로 참여', s: '신뢰↑', run: () => { S.trust += 2; S.fame += 1; hitPres(1); return '당 지도부가 시민들 사이에 조용히 섰습니다.'; } },
       { t: '거리를 둔다', run: () => { S.trust -= 1; return '광장과 거리를 뒀습니다.'; } }] },
-  { id: 'impeach', w: 2, cond: () => !ruling() && !S.president.acting && S.president.appr < apprLow(S.president) && !S.seen['imp' + S.president.since], title: '대통령 탄핵소추안 발의',
+  { id: 'impeach', w: 2, cond: () => !ruling() && !S.president.acting && S.president.appr < 10 && !S.seen['imp' + S.president.since], title: '대통령 탄핵소추안 발의',
     pre: () => (S.seen['imp' + S.president.since] = true),
     body: () => `${presN()}의 직무상 위법 의혹으로 탄핵소추안이 발의됐습니다. 재적의원 3분의 2(${twoThirds()}명) 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.`,
     ch: () => !seatTotal('P') ? [{ t: '표결을 지켜본다', s: '우리 당은 국회 의석이 없습니다', run: () => impeachVote(null) }]
@@ -4690,7 +4689,7 @@ function pPres() {
       <div class="tblwrap"><table class="kv"><tbody>
         ${P.acting ? '' : `<tr><th>취임일</th><td>${fdate(P.since)}</td></tr><tr><th>재임</th><td class="num">${days.toLocaleString()}일</td></tr>`}
         <tr><th>다음 대선</th><td>${ne ? `${esc(ne.name)} · ${fdate(ne.day)} <b class="num">D-${ne.day - S.day}</b>` : '-'}</td></tr>
-        ${P.acting ? '' : `<tr><th>국정 지지율</th><td><div class="meter"><div class="bar"><i style="width:${P.appr}%${P.appr < apprLow(P) ? ';background:var(--danger)' : ''}"></i></div><b class="num">${Math.round(P.appr)}%</b>${P.last != null ? `<span class="small muted num">지난달 대비 ${P.appr >= P.last ? '+' : ''}${(P.appr - P.last).toFixed(1)}</span>` : ''}</div></td></tr>`}
+        ${P.acting ? '' : `<tr><th>국정 지지율</th><td><div class="meter"><div class="bar"><i style="width:${P.appr}%${P.appr < 15 ? ';background:var(--danger)' : ''}"></i></div><b class="num">${Math.round(P.appr)}%</b>${P.last != null ? `<span class="small muted num">지난달 대비 ${P.appr >= P.last ? '+' : ''}${(P.appr - P.last).toFixed(1)}</span>` : ''}</div></td></tr>`}
         ${P.sus?.length ? `<tr><th>확인된 혐의</th><td>${esc(P.sus.join(', '))} <span class="small muted">(재직 중 소추 불가, 퇴임 뒤 수사 대상)</span></td></tr>` : ''}
         <tr><th>여당 의석</th><td class="num">${seatTotal(P.party)}석 / 300</td></tr>
         ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
@@ -4971,7 +4970,7 @@ function pGuide() {
       <li>후원 한도, 보조금 배분, 검찰 수사권처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
       <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
       <li>우리 당이 집권하면 반대 당론이거나 노선과 어긋나는 법안이 통과될 때 공포와 거부권 중에서 직접 고릅니다. 청와대 탭에서 자동 처리를 켜면 반대 당론 법안이 3분의 2 미만으로 통과될 때 바로 행사합니다. 거부권은 여론이 원하는 법안일수록 국정 지지율을 깎고, 국회가 3분의 2로 재의결하면 타격이 더 큽니다.</li>
-      <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 때 그 당 지지율에서 출발해 임기 말로 갈수록 떨어지며(레임덕), 취임 때보다 낮아지면 여당 지지율도 함께 깎입니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 취임 때보다 크게 떨어진 다른 당 대통령은 탄핵소추안이 나올 수 있습니다.</li>
+      <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 때 그 당 지지율에서 출발해 임기 말로 갈수록 떨어지며(레임덕), 취임 때보다 낮아지면 여당 지지율도 함께 깎입니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 다른 당 대통령은 15% 아래로 떨어지면 촛불 집회가, 10% 아래로 떨어지면 탄핵소추안이 나올 수 있습니다.</li>
       <li><b>내각</b>: 집권하면 청와대 탭에서 인재풀 사람을 총리와 장관 네 자리에 지명합니다(행동력 1). 총리는 국회 임명동의를 받아야 해서 여소야대면 부결될 수 있고, 장관은 전과가 있거나 청렴이 낮으면 청문회가 난항을 겪어 강행과 철회 중에서 고릅니다. 내각 평균 역량과 공석이 국정 지지율에 반영되고, 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 당 대표, 시·도지사, 선거 후보는 입각할 수 없습니다.</li>
       <li><b>영수회담</b>: 야당일 때 청와대 탭에서 대통령에게 제안합니다(행동력 1, 180일에 한 번, 원내 의석 필요). 관계가 좋고 국정 지지율이 낮을수록 잘 받아들입니다. 의제는 우리 법안 협조, 민생 협치, 국정 쇄신 요구 중에서 고릅니다.</li>
       <li>임기마다 측근 의혹, 순방 말실수, 공약 파기, 대통령실 이전, 대규모 개각 같은 일이 벌어져 국정 지지율이 움직입니다. 야당일 때와 집권했을 때 고를 수 있는 대응이 다릅니다.</li>
