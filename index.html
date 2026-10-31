@@ -4696,7 +4696,7 @@ function pPres() {
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
       ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div>
-    ${P.acting ? '' : `<div style="flex:0 1 260px;min-width:0"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3>${apprChart()}</div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
+    ${P.acting ? '' : `<div style="flex:0 1 340px;min-width:0"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3>${apprChart()}</div>`}</div></div>${ruling() && !P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
 }
 function apprChart() {
   const h = S.hist.filter(x => x.d >= S.day - 365 && x.pa != null && x.ps === S.president.since); // 대통령이 바뀌면(since 다름) 그래프를 끊음
