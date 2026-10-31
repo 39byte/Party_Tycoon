@@ -645,11 +645,11 @@ const NEWS = {
 };
 const OUTLETS = ['한빛일보', '새아침신문', 'KBC 뉴스', '연합통신', '경제매일', '시사인사이트'];
 const BILLS = {
-  econ: ['소상공인 손실보상 특별법', '중소기업 기술탈취 방지법'], house: ['전세사기 피해자 지원 특별법', '청년·신혼부부 공공주택 확대법'],
-  welfare: ['간병비 건강보험 적용법', '지역 필수의료 지원법'], security: ['국가 사이버안보 기본법', '군 장병 처우개선법'],
-  climate: ['탄소중립 산업전환 지원법', '폭염 취약계층 보호법'], youth: ['학자금 무이자 대출법', '교권 보호법'],
-  region: ['지방소멸 대응 특별법', '농어촌 교통 기본권법'], reform: ['국회의원 불체포특권 폐지법', '정치자금 투명성 강화법'],
-  order: ['스토킹 피해자 보호 강화법', '마약 범죄 처벌 강화법'], tax: ['근로소득세 물가연동제 도입법', '신산업 규제 특례법'],
+  econ: ['소상공인 손실보상 특별법', '중소기업 기술탈취 방지법', '골목상권 상생협력법', '플랫폼 노동자 보호법', '최저임금 구분적용 특례법'], house: ['전세사기 피해자 지원 특별법', '청년·신혼부부 공공주택 확대법', '월세 세액공제 확대법', '재건축 안전진단 완화법', '빈집 활용 촉진법'],
+  welfare: ['간병비 건강보험 적용법', '지역 필수의료 지원법', '아동수당 대상 확대법', '치매 국가책임제 강화법', '돌봄 노동자 처우개선법'], security: ['국가 사이버안보 기본법', '군 장병 처우개선법', '방위산업 육성 특별법', '예비군 훈련 보상 현실화법', '재외국민 안전 보호법'],
+  climate: ['탄소중립 산업전환 지원법', '폭염 취약계층 보호법', '재생에너지 보급 확대법', '일회용품 사용 규제법', '기후위기 적응 기본법'], youth: ['학자금 무이자 대출법', '교권 보호법', '청년 일자리 도약 장려법', '대학 등록금 상한제 강화법', '청년 주거급여 확대법'],
+  region: ['지방소멸 대응 특별법', '농어촌 교통 기본권법', '공공기관 2차 이전 특별법', '지역 거점 대학 육성법', '지방 의료원 지원법'], reform: ['국회의원 불체포특권 폐지법', '정치자금 투명성 강화법', '국회 특수활동비 공개법', '공천 투명화 및 상향식 공천법', '국회의원 겸직 금지 강화법'],
+  order: ['스토킹 피해자 보호 강화법', '마약 범죄 처벌 강화법', '보이스피싱 피해 환급 특별법', '디지털 성범죄 처벌 강화법', '112 출동 체계 개선법'], tax: ['근로소득세 물가연동제 도입법', '신산업 규제 특례법', '상속세 최대주주 할증 폐지법', '법인세 최고세율 인하법', '소상공인 인허가 간소화법'],
 };
 // 다른 당·정부가 내는 법안. side: 노선(-1 보수 ~ 1 진보). fx: 통과되면 바뀌는 제도(k: funds 후원금, subsidy 보조금, probe 정당 수사)
 const RBILLS = [
@@ -1086,7 +1086,7 @@ function migrate(o) {
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
+  o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= [];
   for (const m of o.outs) if (POL_ROLE.test(m.role)) m.job ??= pick(FIG_JOBS);
@@ -2083,11 +2083,11 @@ function billStep() {
     const roll = b.stage === 1 && rollCall(b), y = roll ? tally(roll, 1) : billVote(b);
     if (b.stage === 0) {
       if (rnd() < clamp((y / seatsNow() * 300 - 110) / 100, 0.05, 0.9)) { b.stage = 1; b.next = S.day + 14; b.lines = partyLines(b); notes.push(`'${b.t}' 상임위원회 통과${b.by && seatTotal('P') ? ' · 2주 뒤 본회의, 당론을 정하세요' : ''}`); return true; }
-      if (++b.tries >= 3) { passLog(b, '상임위 폐기'); notes.push(`'${b.t}' 상임위에서 끝내 계류, 사실상 폐기`); return false; }
+      if (++b.tries >= 3) { if (b.issue === S.issue) S.trust -= 1; passLog(b, '상임위 폐기'); notes.push(`'${b.t}' 상임위에서 끝내 계류, 사실상 폐기`); return false; }
       b.next = S.day + 28; notes.push(`'${b.t}' 상임위 계류, 다음 달 재논의`); return true;
     }
     if (b.by) return rivalVote(b, y, notes, roll), false;
-    if (y < passNeed()) { S.trust -= 0.5; voteLog(b, roll, '부결'); passLog(b, '부결'); notes.push(`'${b.t}' 본회의 부결 (찬성 ${y}표)`); return false; }
+    if (y < passNeed()) { S.trust -= 0.5 + (b.issue === S.issue ? 1 : 0); voteLog(b, roll, '부결'); passLog(b, '부결'); notes.push(`'${b.t}' 본회의 부결 (찬성 ${y}표)`); return false; }
     const pr = S.president.party;
     let res = '가결';
     if (pr !== 'P' && billAgree(b, pr) < 0.45 && rnd() < clamp(0.7 - S.rel[pr] / 250, 0.2, 0.9)) {
@@ -2095,7 +2095,7 @@ function billStep() {
       res = '재의결 가결'; notes.push(`'${b.t}' 대통령 거부권 행사 → 국회 재의결 성립`);
     }
     voteLog(b, roll, res);
-    const hot = b.issue === S.issue ? 1.6 : 1;
+    const hot = (b.issue === S.issue ? 1.6 : 1) * billFit(b.issue);
     S.laws.push({ t: b.t, d: S.day }); passLog(b, res); S.trust += 1.5 * hot; S.fame += 1 * hot; S.buzz += 0.8 * hot;
     notes.push(`'${b.t}' 본회의 통과, 법률 공포 (찬성 ${Math.round(y)}표)`); addLog(`'${b.t}' 국회 통과`, 'ok');
     return false;
@@ -2275,19 +2275,28 @@ function setStance(id, s) {
   if (!b || left || b.lobbied) return;
   b.stance = s; renderAll();
 }
+const billFit = k => ISSUES.find(x => x.k === k).fit[S.party.ideo + 1];
 function billModal() {
+  const fit = i => billFit(i.k);
   openModal({
-    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 재적의원 ${seatsNow()}명의 과반인 찬성 ${passNeed()}표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
-      <div class="choices">${ISSUES.map(i => BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}<small>${i.n}${S.bills.some(x => x.t === t) ? ' · 계류 중' : ''}</small></button>`).join('')).join('')}</div>`,
+    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 재적의원 ${seatsNow()}명의 과반인 찬성 ${passNeed()}표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다. 민심이 쏠린 쟁점의 법안은 반응이 크고, 이번 주 헤드라인에 없는 분야나 노선과 먼 분야를 거듭 발의하면 역풍을 맞습니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
+      <div class="split2 pol"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발의할 법안</h3><div class="choices">${[...ISSUES].sort((x, y) => fit(y) - fit(x)).map(i => BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}<small>${i.n} · 노선 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}${S.bills.some(x => x.t === t) ? ' · 계류 중' : ''}</small></button>`).join('')).join('')}</div></div></div>`, wide: true,
     buttons: [{ t: '취소' }],
-    onOpen: m => m.querySelectorAll('[data-bill]').forEach(b => b.onclick = () => {
-      const [issue, t] = b.dataset.bill.split('|');
+    onOpen: m => (m.classList.add('polm'), m).querySelectorAll('[data-bill]').forEach(b => b.onclick = () => {
+      const [issue, t] = b.dataset.bill.split('|'), f = billFit(issue), hotI = issue === S.issue;
       spend(ACT.bill.c(), '활동'); S.cd.bill = S.day + ACT.bill.cd; S.ap--;
       closeModal();
+      // 역풍(정책 발표보다 느슨): 노선 밖 분야는 90일 안에 3번째부터, 헤드라인에 없는 분야는 조금만
+      S.billOff = (S.billOff || []).filter(d => S.day - d < POL_OFF_DAYS);
+      if (f < 1) S.billOff.push(S.day);
+      const nOff = f < 1 ? S.billOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === issue), bad = [];
+      if (nOff >= 3) { S.trust = clamp(S.trust - Math.min(4, nOff - 2), 0, 100); bad.push('노선과 동떨어진 법안만 낸다는 지지층 반발이 나왔습니다.'); }
+      if (stray) { S.trust = clamp(S.trust - 0.75, 0, 100); bad.push('지금 여론과 동떨어진 법안이라는 비판이 나왔습니다.'); }
+      if (!bad.length) { const mult = f * (hotI ? 2 : 1); S.trust = clamp(S.trust + 0.5 * mult, 0, 100); S.buzz += 0.2 * mult; }
       if (seatTotal('P') < 10 && rnd() < 0.3) return info('법안 발의 무산', `공동발의 서명 10명을 채우지 못해 '${t}' 발의가 무산됐습니다.`, true);
-      S.bills.push({ id: ++S.seq, t, issue, stage: 0, tries: 0, next: S.day + 21, appeal: rr(-0.1, 0.25) });
+      S.bills.push({ id: ++S.seq, t, issue, stage: 0, tries: 0, next: S.day + 21, appeal: rr(-0.1, 0.25) + (hotI ? 0.05 : 0) });
       S.fame += 0.5;
-      info('법안 발의', `'${t}'을(를) 대표 발의했습니다. 상임위원회에 회부됩니다.`, false);
+      info('법안 발의', `'${t}'을(를) 대표 발의했습니다. 상임위원회에 회부됩니다.${bad.length ? ' ' + bad.join(' ') : hotI ? ' 민심이 쏠린 쟁점이라 반응이 뜨겁습니다.' : ''}`, !!bad.length);
     }),
   });
 }
@@ -2874,7 +2883,7 @@ const ACT = {
   talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 2 * TURN, d: '후보 최대 25명 중 원하는 만큼 영입합니다. 청렴도·전과도 미리 볼 수 있습니다.' },
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승. 다른 당도 방송 광고를 합니다.' },
-  bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다.' },
+  bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면 역풍을 맞습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관에게 질문합니다. 의원 역량에 따라 성과가 갈립니다.' },
   govern: { n: '행정 역점사업', c: () => 0, cd: 7, // 지역×사업별 재사용 대기
     d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
@@ -4910,7 +4919,7 @@ function pGuide() {
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
       <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 신뢰도 20 미만에서는 0.8배, 20~30에서는 0.6배만 오르고, 30을 넘으면 높아질수록 오르기가 점점 어려워집니다(50이면 절반 이하, 70이면 5분의 1). 다른 당은 이 곡선이 40부터 시작됩니다.</li>
-      <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 90일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
+      <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 90일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 90일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
