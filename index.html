@@ -232,11 +232,24 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .check .st.done{background:var(--ok);border-color:var(--ok);color:#fff;box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
 .check .st.bad{background:var(--danger);border-color:var(--danger);color:#fff}
 .check li>.btn{margin-left:auto;min-height:32px;padding:4px 12px;flex:none}
-.guide details{border-bottom:1px solid var(--border);padding:10px 0}
-.guide summary{cursor:pointer;font-weight:700;padding:4px 0}
-.guide details>:not(summary){font-size:14px;margin:8px 0 0}
-.guide details ul{padding-left:20px}
-.guide details li{margin:3px 0}
+.guide{counter-reset:gs}
+.guide .gh{margin:22px 0 8px;padding-bottom:6px;border-bottom:2px solid var(--primary2);font-size:13px;letter-spacing:.04em;color:var(--primary2);text-transform:none}
+.guide .gh:first-of-type{margin-top:8px}
+.guide details{counter-increment:gs;border:1px solid var(--border);border-left:4px solid var(--primary2);border-radius:10px;padding:2px 14px;margin:8px 0;background:var(--card,transparent)}
+.guide details[open]{box-shadow:0 4px 14px -10px var(--primary2)}
+.guide summary{cursor:pointer;font-weight:700;font-size:15.5px;padding:10px 0;list-style:none;display:flex;align-items:center;gap:10px}
+.guide summary::-webkit-details-marker{display:none}
+.guide summary::before{content:counter(gs);flex:none;width:24px;height:24px;border-radius:50%;background:var(--primary2);color:#fff;font-size:12px;display:grid;place-items:center}
+.guide summary::after{content:"▾";margin-left:auto;color:var(--muted);transition:transform .15s}
+.guide details[open]>summary::after{transform:rotate(180deg)}
+.guide details[open]>summary{border-bottom:1px solid var(--border);margin-bottom:6px}
+.guide details>:not(summary){font-size:14.5px;line-height:1.7;margin:8px 0 10px}
+.guide details ul{padding-left:20px;list-style:none}
+.guide details ul.check{padding-left:0}
+.guide details ul:not(.check)>li{position:relative;margin:7px 0}
+.guide details ul:not(.check)>li::before{content:"";position:absolute;left:-14px;top:.7em;width:5px;height:5px;border-radius:50%;background:var(--primary2)}
+.guide details b{color:var(--primary2)}
+.gtools{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 4px}
 .news{list-style:none;padding:0;margin:6px 0 0}
 .news li{padding:8px 0;border-bottom:1px solid var(--border);font-weight:600;font-size:14.5px}
 .news li span{display:block;font-size:12px;color:var(--muted);font-weight:500}
@@ -3893,6 +3906,7 @@ function placeTip(b) {
   box.style.left = Math.max(8, Math.min(r.left - 12, innerWidth - box.offsetWidth - 8)) + 'px';
   box.style.top = (r.bottom + 8 + box.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - box.offsetHeight - 8) : r.bottom + 8) + 'px';
 }
+document.addEventListener('click', e => { const b = e.target.closest?.('[data-gall]'); if (b) document.querySelectorAll('.guide details').forEach(d => d.open = b.dataset.gall === '1'); });
 document.addEventListener('pointerover', e => { const b = e.target.closest?.('.info'); if (b) placeTip(b); });
 document.addEventListener('focusin', e => { if (e.target.classList?.contains('info')) placeTip(e.target); });
 document.addEventListener('click', e => { const b = e.target.closest?.('.info'); if (b) b.focus(); }); // 사파리는 탭으로 버튼에 포커스가 안 감
@@ -4642,13 +4656,18 @@ function pGuide() {
   const sec = (t, body, open) => `<details ${open ? 'open' : ''}><summary>${t}</summary>${body}</details>`;
   return `<div class="card"><h2>지금 할 일</h2><ul class="check">${nextSteps().map(([t, go, bad], i) => `<li><span class="st ${bad ? 'bad' : ''}">${bad ? '!' : i + 1}</span><div class="small">${esc(t)}</div>${go ? `<button class="btn" data-go="${go}">${T[go]}</button>` : ''}</li>`).join('')}</ul></div>
   <div class="card guide" style="margin-top:14px"><h2>게임 방법</h2>
+    <div class="gtools"><button class="btn" data-gall="1">모두 펼치기</button><button class="btn" data-gall="0">모두 접기</button></div>
+    <h3 class="gh">기본</h3>
     ${sec('목표', `<p>창당준비위원회에서 시작해 정식 정당으로 등록하고, 국회의원선거·지방선거·대통령선거를 거쳐 <b>대통령을 배출</b>하면 집권 엔딩입니다. 엔딩 뒤에도 과반 의석과 재집권에 도전하며 계속할 수 있습니다.</p>`, true)}
     ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
       <li>활동(당원 모집·봉사·유세·홍보·정책 발표·인재 영입 등)은 한 번에 행동력 1과 정해진 비용을 씁니다. 대부분 재사용 대기 턴이 있습니다.</li>
       <li>시설 설립, 정당 등록 신청, 공천처럼 행동력이 들지 않는 일도 있습니다.</li>
       <li>활동 탭의 전국 활동마다 '재사용 알림'을, 교섭 탭의 상대마다 별 버튼(목록 맨 앞으로·교섭 재개 알림)을 켤 수 있습니다. 다시 할 수 있게 되면 메뉴의 그 탭 이름 옆에 숫자로 표시되고, 탭에 들어가면 사라집니다.</li>
       <li>행동력이 남은 채 턴을 끝내면 한 번 더 묻습니다. 설정에서 행동력·행정 행동력별로 끌 수 있습니다.</li>
+      <li>우상단 알림은 색으로 구분됩니다: 초록은 좋은 소식, 빨강은 나쁜 소식, 파랑은 중립(턴 회복 등), 회색은 저장·불러오기 같은 시스템 알림입니다.</li>
+      <li>본부 탭 당 정보 옆 연필 버튼으로 당 이름과 색을 바꿀 수 있습니다(옛 당명은 기록에 남습니다).</li>
       <li>'턴 종료'를 누르면 7일이 하루씩 흐릅니다. 사건이 생기면 멈추고, 선택을 마치면 이어집니다. 턴이 끝나면 자금·당원·지지율 변화가 요약됩니다.</li></ul>`)}
+    <h3 class="gh">성장</h3>
     ${sec('1단계: 창당 (6개월)', `<ul><li>창당 본거지에 발기인 ${LAW.founders}명이 있습니다. 결성신고 후 <b>${LAW.prepDays}일</b> 안에 등록 신청을 하지 못하면 준비위가 소멸합니다(게임 오버).</li>
       <li>조직·지역 탭에서 지역을 골라 당원을 모집하세요. 지역 지지율이 높을수록, 본거지일수록 많이 들어옵니다.</li>
       <li>당원이 ${LAW.chapterMembers.toLocaleString()}명을 넘은 시·도에서 시·도당 창당대회를 엽니다. <b>${LAW.minChapters}곳</b>이 되면 본부 탭에서 등록을 신청합니다.</li>
@@ -4665,14 +4684,16 @@ function pGuide() {
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
     ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림)입니다. 대통령선거는 3년마다이고 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
+      <li>공천 기간에는 화면 맨 위에 D-day 배너가 뜨고, 선거 탭 '공천 현황'에서 다른 당 후보 발표를 5칸씩 쪽을 넘기며 볼 수 있습니다. 우리 당 후보를 누르면 프로필이 열립니다. 공천 표의 '보기·변경'으로 후보를 바꾸고 '자동 배치'로 한꺼번에 정합니다.</li>
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
       <li>등록을 마치면 선거일 전 공식 선거운동기간(대선 ${LAW.campaignDays.pres}일, 총선·지방선거 ${LAW.campaignDays.nat}일)에 거리 유세·방송 광고를 할 수 있습니다. 다른 당도 유세·광고를 합니다.</li>
-      <li>TV 토론은 선거방송토론위원회가 정한 날 모든 후보가 함께 나옵니다(공직선거법 제82조의2). 대선은 선거일 21·14·8일 전 세 번, 지방선거는 시·도마다·총선은 지역구마다 14일 전 한 번입니다. 국회 5석 이상·직전 비례 득표 3% 이상·여론조사 5% 이상인 당의 후보만 초청되고, 나머지는 첫 토론일 초청 외 토론회에 한 번 나갑니다(효과 절반). 역량이 높을수록 선전합니다.</li>
+      <li>TV 토론은 선거방송토론위원회가 정한 날 모든 후보가 함께 나옵니다(공직선거법 제82조의2). 대선은 선거일 21·14·8일 전 세 번, 지방선거는 시·도마다·총선은 지역구마다 14일 전 한 번입니다. 국회 5석 이상·직전 비례 득표 3% 이상·여론조사 5% 이상인 당의 후보만 초청되고, 나머지는 첫 토론일 초청 외 토론회에 한 번 나갑니다(효과 절반). 역량이 높을수록 선전합니다. 총선·지선 토론 결과도 턴 시작 팝업으로 알려 주고, 대선은 우리 후보가 없어도 보여 줍니다.</li>
       <li>득표는 선거구마다 개표한 표를 합칩니다. 선거인 수는 21대 대선 기준이고, 투표율은 지역마다 최근 20년 평균(대선 74.5%·총선 58.3%·지방선거 56.7%)에 지역 편차를 더해 오르내립니다. 전국 투표율은 지역 투표율의 평균이고, 무효표도 나옵니다.</li>
       <li>후보가 출신 지역에서 나서면 득표력이 오릅니다(+3%). 다른 당 지역 후보는 대개 현지 출신이니, 공천할 때 출신 지역을 살피세요(자동 배치도 연고를 따짐). 당 대표는 창당 지역 출신입니다.</li>
       <li>지역구 여성 후보를 30% 이상 내면 여성추천보조금을 받습니다.</li></ul>`)}
+    <h3 class="gh">사건·여론</h3>
     ${sec('사건과 제안', `<ul><li>당장 이득이 되는 달콤한 제안이 들어옵니다. 받을지 말지는 스스로 판단하세요. 받은 일은 재정 탭 '숨긴 일'에 남습니다.</li>
       <li>숨긴 일은 영영 묻힐 수도, 어느 날 드러날 수도 있습니다. 시간이 지날수록 흐려지지만 당이 클수록 보는 눈이 많아지고, 국정감사·경쟁 정당의 고발·탈당자의 제보로 터지기도 합니다.</li>
       <li>영입 인재는 청렴도가 낮을수록 스캔들이 잘 터집니다.</li>
@@ -4689,6 +4710,7 @@ function pGuide() {
       <li>단계마다 대응을 고릅니다. 성실한 조사, 변호인단 선임, "정치 탄압" 프레임, 증거 정리 같은 선택마다 기소·유죄 가능성과 여론이 달라집니다.</li>
       <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
       <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li></ul>`)}
+    <h3 class="gh">정치 활동</h3>
     ${sec('교섭', `<ul><li>정식 정당이 되면 교섭 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
       <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적)을 맺을 수 있습니다.</li>
       <li>원내 의원(각 당·무소속)과는 친분 쌓기, 법안 협조 요청, 입당(이적) 제안을 할 수 있습니다. 지역구 의원이 넘어오면 그 의석이 우리 당 것이 됩니다.</li>
@@ -4704,6 +4726,7 @@ function pGuide() {
       <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
+      <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
       <li>'행정 운영'에서 지사마다 <b>자동화</b>를 켤 수 있습니다(제목 오른쪽 '전체 자동화'는 한꺼번에). 켠 지사는 턴을 끝낼 때 남은 행정 행동력으로 현안 지정과 맞는 역점사업을 알아서 진행합니다. 진짜 지역 문제를 가려내는 정확도는 그 지역 단체장 역량에 달려 있습니다.</li>
@@ -4714,6 +4737,7 @@ function pGuide() {
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>
       <li>우리 시·도당이 있는 지역의 지정 현안에는 '시·도당 대응'(행동력 1·300만)으로 현장에 나설 수 있습니다. 호응을 얻으면 그 지역 당원이 늘고, 실패하면 눈총을 받습니다.</li>
       <li>선거운동기간, 후보 등록 마감, 탄핵심판, 국정감사 같은 큰 일정은 화면 맨 위 배너에 뜹니다. 누르면 관련 탭으로 갑니다.</li></ul>`)}
+    <h3 class="gh">그 밖의 흐름</h3>
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
       <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속(법안마다 한 번)으로 우리 의원의 이탈표를 줄일 수 있습니다. 다른 당 의원 표는 교섭 탭의 법안 협조 요청으로 움직입니다. 다른 당도 법안이 본회의에 오를 때 당론을 정하고, 당론이 있어도 일부 의원은 이탈표를 던집니다. 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
       <li>후원 한도, 보조금 배분, 검찰 수사권처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
@@ -4721,6 +4745,7 @@ function pGuide() {
       <li>우리 당이 집권하면, 반대 당론을 정한 법안이 재적 3분의 2 미만으로 통과될 때 대통령이 거부권을 행사합니다.</li>
       <li>다른 당 광역단체장도 역점사업을 펼칩니다. 협조·견제·관망 중 입장을 고르면 몇 주 뒤 사업 성패에 따라 평가가 갈립니다. 지사 행정 지지도는 그 지역 선거에서 그 당의 득표에 반영됩니다.</li>
       <li>다른 당 지사가 우리 당 지사에게 공동사업을 제안하거나, 측근 비리 의혹이 터져 고발 여부를 정해야 할 때도 있습니다.</li></ul>`)}
+    <h3 class="gh">기록·조작</h3>
     ${sec('게임 오버 조건', `<ul><li>창당준비위원회 결성 후 ${LAW.prepDays}일 안에 정당 등록 실패</li>
       <li>등록 뒤 시·도당 요건(5곳, 각 1,000명)이 깨지고 90일 유예 안에 회복 실패</li>
       <li>4년간 국회의원선거·지방선거에 한 번도 참여하지 않음</li>
