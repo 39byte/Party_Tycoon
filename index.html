@@ -1393,6 +1393,7 @@ function resolveElection(c) {
     const row = b => { const valid = sum(Object.values(b.v)); return g.ids.map(id => [id, who(id).name, Math.round(b.v[id] / valid * 1000) / 1000, raceProf(who(id)), b.v[id]]).sort((x, y) => y[2] - x[2]); };
     races = [{ k: 'nat', n: '전국', e: LAW.voters, t: g.to, bad: g.bad, c: row({ v: g.votes }) }, ...R.map(r => ({ k: r.k, n: r.n, e: g.regs[r.k].e, t: g.regs[r.k].t, bad: g.regs[r.k].bad, c: row(g.regs[r.k]) }))];
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
+    if (!S.president.acting) presEnd(false, g.win); // 파면된 대통령은 파면 때 이미 판단함
     S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null, appr: APPR_START };
     S.pool.forEach(p => { if (p.role === '대통령') p.role = '전직 대통령'; });
     if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) { p.role = '대통령'; p.wasPres = 1; } }
@@ -1883,6 +1884,18 @@ function caseStep(c) {
   return info('1심 판결: 무죄', `법원이 '${c.t}' 혐의에 무죄를 선고했습니다.`, false);
 }
 
+// ---------- 퇴임 후 수사 ----------
+// 퇴임·파면 때 수사 여부를 정하고 몇 달 뒤 착수. 파면, 정권 교체, 재직 중 확인된 혐의(P.sus), 낮은 지지율일수록 잘 일어남
+// 우리 당 대통령은 청렴과 임기 중 숨긴 일도 따짐. 대통령을 낸 당이 그 사람을 잃었으면(제명 등) 우리 일이 아님
+function presEnd(fallen, win) {
+  const P = S.president, me = P.pid != null && person(P.pid), sus = P.sus || [];
+  if (P.party === 'P' && !me) return;
+  const hid = me ? S.risks.filter(k => k.born >= P.since).length : 0, changed = P.party !== win;
+  const p = 0.08 + (fallen ? 0.5 : 0) + (changed ? 0.22 : 0) + sus.length * 0.25 + Math.max(0, 40 - P.appr) / 100 + (me ? Math.max(0, 60 - me.integ) / 100 + hid * 0.1 : 0);
+  if (rnd() >= p) return;
+  const guilty = sus.length > 0 || rnd() < (me ? clamp((80 - me.integ) / 60 + hid * 0.2, 0.1, 0.95) : fallen ? 0.8 : 0.5);
+  later(rr(60, 150), { ev: 'exPres', name: P.name, party: P.party, pid: P.pid, since: P.since, sus, fallen, changed, guilty });
+}
 // ---------- 고발: 누구든지 범죄가 있다고 생각하면 고발할 수 있음(형사소송법 제234조) ----------
 // 대상: 현직 국회의원·광역단체장(모든 당) · 대통령 · 원외 인사 · 등록을 마친 이번 선거 후보(사퇴·단일화로 내려오면 '후보'로는 못 고름)
 // t: { key, name, party, role, grp, fid | pid, integ }
@@ -1956,8 +1969,9 @@ function accEv(c, close) {
     }
     if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: `${a.name}, ${ch.n} 혐의 ${a.pres ? '수사 결과 발표' : '기소'}`, k: ch.inc[0] }); }
     wire(`검찰, ${who} '${ch.n}' 혐의 ${a.pres ? '수사 결과 발표… 재직 중이라 기소는 임기 뒤로' : '기소'}`);
-    if (a.pres) { // 헌법 제84조: 대통령은 내란·외환 말고는 재직 중 형사 소추를 받지 않음 → 수사 결과만 공개되고 끝
+    if (a.pres) { // 헌법 제84조: 대통령은 내란·외환 말고는 재직 중 형사 소추를 받지 않음 → 수사 결과만 공개되고 퇴임 뒤로(presEnd)
       close();
+      if (S.president.name === a.name) (S.president.sus ??= []).push(ch.n);
       if (own) { S.trust -= 3; S.buzz -= 2; } else { hit(-3, -2.5); S.trust += 1; S.buzz += 1; }
       return info('대통령 수사 결과 발표', `검찰이 ${who}의 '${ch.n}' 혐의를 상당 부분 확인했다고 발표했습니다. 대통령은 재직 중 형사 소추를 받지 않아(헌법 제84조) 기소는 임기 뒤로 미뤄졌지만, ${own ? '우리 당 정부에 큰 타격입니다' : `${pn(id)}에 큰 타격입니다`}.`, own);
     }
@@ -3193,6 +3207,7 @@ function applyPen(pen) {
   if (pen.money) spend(Math.abs(pen.money), '벌금·추징');
   if (pen.trust) S.trust = clamp(S.trust + pen.trust, 0, 100);
   if (pen.fame) S.fame = clamp(S.fame + pen.fame, 0, 100);
+  const who = pen.pid != null && person(pen.pid); if (who) { who.rec.push(pen.tag); who.integ = clamp(who.integ - 15, 0, 100); who.ban = true; }
   if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.aap = Math.min(S.aap, aapMax()); S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); pgovSync(S); }
   let lost = 0;
   for (let i = 0; i < (pen.seat || 0); i++) if (loseSeat(false)) lost++;
@@ -3531,6 +3546,29 @@ function impeachVote(yes) {
 }
 // 정해진 날 큐로 들어오는 국회·사법 일정
 const XEV = {
+  exPres: q => {
+    const id = q.party, me = id === 'P' && person(q.pid), n = pn(id), what = q.sus.length ? `재임 때 확인된 ${q.sus.join(', ')} 혐의` : '재임 중 비리 의혹';
+    if (id === 'P' && !me) return;
+    wire(`검찰, ${q.name} 전 대통령 ${what} 수사 착수`, 'pres');
+    if (me) { // 정권이 바뀌면 임기 중 숨긴 일이 함께 드러날 수 있음
+      if (q.changed) S.risks.filter(k => k.born >= q.since && rnd() < 0.35).forEach(k => exposeRisk(k));
+      openCase({ t: `${q.name} 전 대통령 ${what}`, guilty: q.guilty, pen: { money: -3e8, trust: -12, pid: me.id, tag: '전직 대통령 재임 중 비리(1심 유죄)', note: '전직 대통령 유죄, 피선거권 상실' } });
+      return;
+    }
+    S.rw[id] -= 2; trustAll(id, -2);
+    const verdict = st => later(rr(60, 120), { ev: 'exPresEnd', name: q.name, party: id, guilty: q.guilty, st });
+    showEvent({ title: '전직 대통령 수사', body: () => `검찰이 <b>${esc(q.name)} 전 대통령</b>(${esc(n)})의 ${esc(what)}로 수사에 착수했습니다.${q.fallen ? ' 파면된 뒤라 수사의 칼끝이 매섭습니다.' : ''} 1심 판결까지 몇 달이 걸립니다. 어떤 입장을 낼까요?`,
+      ch: [{ t: '엄정 수사를 촉구한다', s: `인지도↑ · ${n} 관계↓ · 유죄면 신뢰↑, 무죄면 역풍${ruling() ? ' · "정치 보복" 논란으로 국정 지지율↓' : ''}`, run: () => { relAdd(id, -8, '전직 대통령 수사 촉구'); S.fame += 1; if (ruling()) apprAdd(-1.5); verdict(1); return '성역 없는 수사를 촉구했습니다.'; } },
+        { t: '사법부 판단을 지켜본다', s: '신뢰 조금↑', run: () => { S.trust += 0.5; verdict(0); return '수사와 재판 결과를 지켜보겠다고 밝혔습니다.'; } },
+        ...(ruling() ? [] : [{ t: '"정치 보복"이라 비판한다', s: `${n} 관계↑ · 무죄면 신뢰↑, 유죄면 역풍`, run: () => { relAdd(id, 6, '전직 대통령 수사 비판'); verdict(-1); return '전임 정권을 겨냥한 표적 수사라고 비판했습니다.'; } }])] });
+  },
+  exPresEnd: q => {
+    const bad = rnd() < (q.guilty ? 0.85 : 0.15), d = q.st * (bad ? 2 : -2);
+    if (bad) { S.rw[q.party] -= 3; trustAll(q.party, -3); } else S.rw[q.party] += 1.5;
+    S.trust += d;
+    wire(`법원, ${q.name} 전 대통령 1심 ${bad ? '유죄' : '무죄'}`, 'pres');
+    info(`전직 대통령 1심 ${bad ? '유죄' : '무죄'}`, `법원이 ${q.name} 전 대통령에게 ${bad ? '유죄' : '무죄'}를 선고했습니다. ${pn(q.party)}${bad ? '에 큰 타격입니다' : '은 한숨 돌렸습니다'}.${q.st ? ` 우리 당 입장은 판결과 ${d > 0 ? '맞아떨어졌습니다' : '엇갈렸습니다'}.` : ''}`, d < 0);
+  },
   cabBad: ({ k }) => {
     const c = CAB.find(x => x.k === k), p = cabP(k); if (!p) return;
     const what = pick(['부동산 투기 의혹', '자녀 특혜 의혹', '업무추진비 유용 의혹', '갑질 폭로', '이해충돌 의혹']);
@@ -3558,6 +3596,7 @@ const XEV = {
     if (q.yes != null) S.trust += (ok === q.yes ? 2 : -2);
     if (!ok) return info('헌법재판소: 탄핵 기각', `헌법재판소가 탄핵소추를 기각했습니다. ${presT()}이 직무에 복귀합니다.`, false);
     const fallen = presT();
+    presEnd(true);
     let day = S.day + 53; while (L.dayToDate(day).getUTCDay() !== 3) day++; // 60일 안의 수요일
     S.presEarly.push(day); rebuildSched(S);
     for (const k in S.camps) if (!SCHED.some(e => e.key === k)) delete S.camps[k]; // 밀려난 정기 대선 공천은 취소
@@ -4650,6 +4689,7 @@ function pPres() {
         ${P.acting ? '' : `<tr><th>취임일</th><td>${fdate(P.since)}</td></tr><tr><th>재임</th><td class="num">${days.toLocaleString()}일</td></tr>`}
         <tr><th>다음 대선</th><td>${ne ? `${esc(ne.name)} · ${fdate(ne.day)} <b class="num">D-${ne.day - S.day}</b>` : '-'}</td></tr>
         ${P.acting ? '' : `<tr><th>국정 지지율</th><td><div class="meter"><div class="bar"><i style="width:${P.appr}%${P.appr < 35 ? ';background:var(--danger)' : ''}"></i></div><b class="num">${Math.round(P.appr)}%</b>${P.last != null ? `<span class="small muted num">지난달 대비 ${P.appr >= P.last ? '+' : ''}${(P.appr - P.last).toFixed(1)}</span>` : ''}</div></td></tr>`}
+        ${P.sus?.length ? `<tr><th>확인된 혐의</th><td>${esc(P.sus.join(', '))} <span class="small muted">(재직 중 소추 불가, 퇴임 뒤 수사 대상)</span></td></tr>` : ''}
         <tr><th>여당 의석</th><td class="num">${seatTotal(P.party)}석 / 300</td></tr>
         ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
       </tbody></table></div>
@@ -4894,7 +4934,8 @@ function pGuide() {
     ${sec('수사와 재판', `<ul><li>법원 탭에서 현직 의원·광역단체장(우리 당 포함), 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다(형사소송법 제234조). 교섭 자리에서 들은 의혹이 근거가 되고, 친분이 두터운 사람의 말일수록 맞습니다. 기소·유죄면 그 당의 신뢰·지지율이, 불기소·무죄면 우리 당 신뢰가 떨어지며, 근거 없는 고발엔 무고 맞고소가 들어올 수 있습니다. 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.</li><li>의혹이 드러나거나 고발당하면 검찰 수사 → 기소 여부 결정 → 1심 판결 순으로 몇 달에 걸쳐 진행됩니다. 결백해도 고발은 당할 수 있습니다.</li>
       <li>단계마다 대응을 고릅니다. 성실한 조사, 변호인단 선임, "정치 탄압" 프레임, 증거 정리 같은 선택마다 기소·유죄 가능성과 여론이 달라집니다.</li>
       <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
-      <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li></ul>`)}
+      <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li>
+      <li><b>퇴임 후 수사</b>: 대통령은 재직 중 소추를 받지 않지만(헌법 제84조) 물러나면 달라집니다. 파면됐거나 정권이 바뀌었거나, 재직 중 고발로 혐의가 확인됐거나, 지지율이 낮게 끝날수록 몇 달 뒤 수사가 시작되기 쉽습니다. 우리 당 대통령이면 청렴이 낮을수록, 임기 중 숨긴 일이 많을수록 위험하고, 정권이 바뀌면 숨긴 일이 함께 드러날 수 있습니다. 유죄면 벌금·추징과 큰 신뢰 하락에 더해 본인이 피선거권을 잃습니다. 다른 당 전직 대통령이면 입장을 고르고, 판결과 맞았는지에 따라 신뢰가 오르내립니다.</li></ul>`)}
     <h3 class="gh">정치 활동</h3>
     ${sec('교섭', `<ul><li>정식 정당이 되면 교섭 탭에서 다른 정당, 원내 의원, 원외 인사와 교섭할 수 있습니다. 한 번에 행동력 1과 경비가 들고, 같은 상대와는 2턴에 한 번입니다.</li>
       <li>정당과는 대표 회동, 법안 공조 협약(6개월간 우리 법안에 우호적)을 맺을 수 있습니다.</li>
