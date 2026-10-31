@@ -1170,14 +1170,11 @@ const regSupport = k => S.rsup[k] ?? S.support * regFactor(k);
 
 // ---------- 선거 시뮬레이션 ----------
 // ponytail: 지역 성향×전국 지지율×로그정규 잡음의 단순 모델. 세대·이슈별 유권자 모델은 필요해지면 추가
-// 정당 득표력: (전국 몫 × 지역 배율)^PARTY_W. 1보다 크면 강한 당이 지지율 격차보다 더 벌림
-const PARTY_W = 1.2;
-const partyPow = (ns, id, k) => (ns[id] * pf(id, k)) ** PARTY_W;
 function shareRace(k, ids, mods) {
   const ns = natShares(), v = {};
   let tot = 0;
   for (const id of ids) {
-    let x = partyPow(ns, id, k) * Math.exp(gauss() * 0.22) * (mods[id] || 1);
+    let x = ns[id] * pf(id, k) * Math.exp(gauss() * 0.22) * (mods[id] || 1);
     if (id === 'O' && rnd() < 0.03) x *= 6; // 유력 무소속
     v[id] = x; tot += x;
   }
@@ -1280,8 +1277,8 @@ function simPres(c) {
     const x = {};
     for (const id of ids) {
       const p = who(id);
-      x[id] = partyPow(ns, id, r.k) * candMul(p) * campMul(c, id, r.k, 'pres') * (id === 'P' ? 1 + cand.spendB : 1) * homeMul(p, r.k) * luck[id] * Math.exp(gauss() * 0.05);
-      if (id === 'P' && u) x[id] += partyPow(ns, u, r.k) * 0.6; // 단일화: 사퇴한 후보 지지층 일부 흡수
+      x[id] = ns[id] * pf(id, r.k) * candMul(p) * campMul(c, id, r.k, 'pres') * (id === 'P' ? 1 + cand.spendB : 1) * homeMul(p, r.k) * luck[id] * Math.exp(gauss() * 0.05);
+      if (id === 'P' && u) x[id] += ns[u] * pf(u, r.k) * 0.6; // 단일화: 사퇴한 후보 지지층 일부 흡수
     }
     const t = sum(Object.values(x));
     for (const id of ids) x[id] /= t;
@@ -2103,7 +2100,7 @@ function billStep() {
       res = '재의결 가결'; notes.push(`'${b.t}' 대통령 거부권 행사 → 국회 재의결 성립`);
     }
     voteLog(b, roll, res);
-    const hot = (b.issue === S.issue ? 1.6 : 1) * billFit(b.issue);
+    const hot = clamp((b.issue === S.issue ? 1.6 : 1) * billFit(b.issue), 1.2, 1.6); // 밸런스: 상한은 궁합 반영 전 쟁점 효과 1.6
     S.laws.push({ t: b.t, d: S.day }); passLog(b, res); S.trust += 1.5 * hot; S.fame += 1 * hot; S.buzz += 0.8 * hot;
     notes.push(`'${b.t}' 본회의 통과, 법률 공포 (찬성 ${Math.round(y)}표)`); addLog(`'${b.t}' 국회 통과`, 'ok');
     return false;
@@ -2301,7 +2298,6 @@ function billModal() {
       const nOff = f < 1 ? S.billOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === issue), bad = [];
       if (nOff >= 3) { S.trust = clamp(S.trust - Math.min(4, nOff - 2), 0, 100); bad.push('노선과 동떨어진 법안만 낸다는 지지층 반발이 나왔습니다.'); }
       if (stray) { S.trust = clamp(S.trust - 0.75, 0, 100); bad.push('지금 여론과 동떨어진 법안이라는 비판이 나왔습니다.'); }
-      if (!bad.length) { const mult = f * (hotI ? 2 : 1); S.trust = clamp(S.trust + 0.5 * mult, 0, 100); S.buzz += 0.2 * mult; }
       if (seatTotal('P') < 10 && rnd() < 0.3) return info('법안 발의 무산', `공동발의 서명 10명을 채우지 못해 '${t}' 발의가 무산됐습니다.`, true);
       S.bills.push({ id: ++S.seq, t, issue, stage: 0, tries: 0, next: S.day + 21, appeal: rr(-0.1, 0.25) + (hotI ? 0.05 : 0) });
       S.fame += 0.5;
@@ -2973,7 +2969,7 @@ function policyModal() {
     title: '정책 발표', html: `<p>어떤 분야의 정책을 발표할까요? 민심이 쏠린 쟁점을 짚으면 반응이 뜨겁습니다. 이번 주 뉴스를 참고하세요.</p><div class="split2 pol"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발표할 정책 분야</h3><div class="choices g2">${[...ISSUES].sort((x, y) => fit(y) - fit(x)).map(i => `<button class="btn" data-issue="${i.k}">${i.n}<small>당 노선(${IDEO[S.party.ideo]})과의 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></button>`).join('')}</div></div></div>`, wide: true,
     buttons: [{ t: '취소' }],
     onOpen: m => (m.classList.add('polm'), m).querySelectorAll('[data-issue]').forEach(b => b.onclick = () => {
-      const i = ISSUES.find(x => x.k === b.dataset.issue), mult = fit(i) * (i.k === S.issue ? 2 : 1) * (S.up.inst ? 1.5 : 1);
+      const i = ISSUES.find(x => x.k === b.dataset.issue), mult = clamp(fit(i) * (i.k === S.issue ? 2 : 1), 1, 1.3) * (S.up.inst ? 1.5 : 1); // 밸런스: 쟁점을 맞혀도 쟁점 보너스 없는 최대치(궁합 1.3)까지
       spend(ACT.policy.c(), '활동'); S.cd.policy = S.day + ACT.policy.cd; S.ap--;
       // 역풍: 노선 밖 분야를 45일 안에 거듭 발표, 이번 주 헤드라인에 없는 분야
       S.polOff = (S.polOff || []).filter(d => S.day - d < POL_OFF_DAYS);
@@ -3086,7 +3082,7 @@ function prRec(c) {
 // 지역구 당선 가능성(대략): 우리 후보 vs 그 지역 A·B 중 강한 쪽(상대 후보 점수는 RV_TYP로 가정). 득표 잡음 σ 0.22 둘의 차 ≈ 0.31, 정규분포를 로지스틱으로 근사
 // ponytail: C·무소속·다른 당 유세는 뺌. 크게 어긋나면 shareRace를 몇 번 돌려 세는 식으로
 const RV_TYP = 0.55, NOM_HOPE = 0.1;
-const distOdds = (c, k, p) => { const ns = natShares(), me = partyPow(ns, 'P', k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(partyPow(ns, 'A', k), partyPow(ns, 'B', k)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
+const distOdds = (c, k, p) => { const ns = natShares(), me = ns.P * pf('P', k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(ns.A * pf('A', k), ns.B * pf('B', k)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
 let nomPref = { spread: 'focus', first: 'pr' }; // 총선 자동 배치 방식(이번 실행 동안 기억)
 function nomAutoAsk(key) {
   const c = S.camps[key]; if (!c || c.reg) return;

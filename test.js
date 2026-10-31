@@ -51,10 +51,10 @@ assert.strictEqual(L.deposit('pres', 28), 300_000_000);
 
 // 후보 점수: 비중 역량 > 정당 지지율 > 전과 > 청렴 > 인지도, 지지율 높아도 후보가 형편없으면 짐
 const swing = (k, lo, hi) => L.candScore({ skill: 60, integ: 60, fame: 30, rec: [], [k]: hi }) - L.candScore({ skill: 60, integ: 60, fame: 30, rec: [], [k]: lo });
-const sw = { skill: swing('skill', 10, 100), party: 1.2 * Math.log(0.4 / 0.05), rec: L.candScore({ skill: 60, integ: 60, fame: 30 }) - L.candScore({ skill: 60, integ: 60, fame: 30, rec: [1, 2, 3, 4] }), integ: swing('integ', 10, 100), fame: swing('fame', 1, 95) };
+const sw = { skill: swing('skill', 10, 100), party: Math.log(0.4 / 0.05), rec: L.candScore({ skill: 60, integ: 60, fame: 30 }) - L.candScore({ skill: 60, integ: 60, fame: 30, rec: [1, 2, 3, 4] }), integ: swing('integ', 10, 100), fame: swing('fame', 1, 95) };
 assert(sw.skill > sw.party && sw.party > sw.rec && sw.rec > sw.integ && sw.integ > sw.fame, JSON.stringify(sw));
 assert.strictEqual(L.candScore({ skill: 60, integ: 60, fame: 30, rec: [] }), 0);
-const bad = 1.2 * Math.log(0.6) + L.candScore({ skill: 25, integ: 20, fame: 5, rec: ['a', 'b'] }), avg = 1.2 * Math.log(0.25);
+const bad = Math.log(0.6) + L.candScore({ skill: 25, integ: 20, fame: 5, rec: ['a', 'b'] }), avg = Math.log(0.25);
 assert(bad < avg, '지지율 60% 당의 형편없는 후보가 25% 당의 평범한 후보에게 져야 함');
 
 console.log('ok');
