@@ -971,10 +971,11 @@ const leadFame = g => pFame(leader(), g);
 // 매달: 직책·출마 중인 사람은 g만큼 오르고, 활동 없이 180일이 지나면 매달 3%씩 잊힘(최저 1)
 const FAME_ROLE = [[/^대통령$/, 4], [/시·도지사/, 1.5], [/국회의원/, 1], [/당협위원장|원외정당/, 0.5]], FAME_POS = { gov: 1.5, d: 1, pr: 1, cand: 2 };
 const roleG = r => FAME_ROLE.find(([rx]) => rx.test(r || ''))?.[1] || 0;
+const candIds = () => new Set(Object.values(S.camps).flatMap(c => c.reg ? [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand] : []).filter(Boolean).map(x => x.id));
 function fameDrift() {
-  const cand = new Set(Object.values(S.camps).flatMap(c => c.reg ? [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand] : []).filter(Boolean).map(x => x.id));
+  const cand = candIds();
   const step = (p, g) => { if (g) pFame(p, g); else if (S.day - (p.act ??= S.day) > 180) p.fame = Math.max(1, p.fame * 0.97); };
-  for (const p of S.pool) step(p, Math.max(roleG(p.role), p.leader ? 1 : 0, cand.has(p.id) ? 2 : 0));
+  for (const p of S.pool) step(p, Math.max(roleG(p.role), p.leader ? 1 : 0, cand.has(p.id) || cabOf(p) ? 2 : 0));
   for (const f of S.figs) step(f, FAME_POS[f.pos] || 0);
   for (const m of [...S.mps, ...S.figs.flatMap(f => f.mp ? [f.mp] : [])]) { const f = fig(m.fid); if (f) m.fame = f.fame; } // 교섭 명단 의원은 명부 인물을 따름
   for (const m of S.outs) if (/^전 |당협위원장|원외정당/.test(m.role)) step(m, /^전 /.test(m.role) ? 0 : roleG(m.role)); // '전 ○○'은 물러난 사람. 시민사회·노동계·유튜버는 정계 밖 이름값이라 그대로
@@ -1495,9 +1496,15 @@ function raiseFunds(n) {
 // ---------- 대통령 국정 지지율 ----------
 // 취임 초 높고 임기 끝으로 갈수록 떨어짐(레임덕). 사건은 apprAdd로 움직이고, 시간이 지나면 목표치로 돌아옴
 const APPR_START = 62;
+// 내각(우리 당 집권 때). 총리는 국회 임명동의(헌법 제86조), 장관은 인사청문회. is: 담당 분야(핵심 쟁점이면 담당자 역량이 매달 지지율에 반영)
+const CAB = [{ k: 'pm', n: '국무총리', is: [] }, { k: 'econ', n: '경제부총리', is: ['econ', 'house', 'tax'] }, { k: 'soc', n: '사회부총리', is: ['welfare', 'youth', 'climate'] },
+  { k: 'sec', n: '외교안보 장관', is: ['security'] }, { k: 'law', n: '법무·행안 장관', is: ['order', 'reform', 'region'] }];
+const cabP = k => person(S.president.cab?.[k]);
+const cabOf = p => ruling() && CAB.find(c => S.president.cab?.[c.k] === p.id);
 function apprTarget() {
   const P = S.president, me = P.pid != null && person(P.pid);
-  return 58 - 26 * Math.min(1, (S.day - P.since) / 1825) + (trAvg(P.party) - 50) * 0.25 + (me ? (me.skill - 60) * 0.2 + (me.integ - 60) * 0.1 : 0);
+  return 58 - 26 * Math.min(1, (S.day - P.since) / 1825) + (trAvg(P.party) - 50) * 0.25 + (me ? (me.skill - 60) * 0.2 + (me.integ - 60) * 0.1 : 0)
+    + (P.party === 'P' ? (sum(CAB.map(c => cabP(c.k)?.skill ?? 45)) / CAB.length - 60) * 0.2 : 0); // 내각 평균 역량(공석은 45로 침)
 }
 const apprAdd = n => { S.president.appr = clamp(S.president.appr + n, 5, 90); };
 
@@ -1563,6 +1570,7 @@ function monthly(dt) {
   for (const k in S.rgov) S.rgov[k].o = clamp(S.rgov[k].o + (opsBase(S.rgov[k].p, k) - S.rgov[k].o) * 0.05, 5, 95);
   if (Object.keys(S.rgov).length && rnd() < 0.5) S.queue.push({ ev: 'rgov' }); // 다른 당 지사도 행정을 편다
   S.fx = S.fx.filter(f => f.until > S.day);
+  if (ruling() && !S.president.acting) cabMonth();
   if (!S.president.acting) { S.president.last = S.president.appr; if (!pollBanned()) wire(`여론조사: ${presT()} 국정 지지율 ${Math.round(S.president.appr)}%`, 'pres'); }
   // 대통령도 정책을 낸다(우리가 집권하면 우리 몫)
   if (!ruling() && rnd() < 0.4) S.queue.push({ ev: 'policy' });
@@ -2102,6 +2110,61 @@ function rivalBill(notes, who) {
 const passLog = (b, res = '가결') => { (S.passed ??= []).push({ t: b.t, d: S.day, by: b.gov ? 'G' : b.by || 'P', vid: b.vid, res }); if (S.passed.length > 20) S.passed.shift(); };
 const resPill = r => { const ok = /가결/.test(r); return `<span class="pill" style="border-color:var(--${ok ? 'ok' : 'danger'});color:var(--${ok ? 'ok' : 'danger'})">${ok ? '통과' : esc(r)}</span>`; };
 const byPill = by => `<span class="pill" style="border-color:${by === 'G' ? 'var(--muted)' : pc(by)};color:${by === 'G' ? 'var(--muted)' : pc(by)}">${by === 'G' ? '정부' : esc(pn(by))}</span>`;
+// ---------- 내각 ----------
+const cabFree = p => !p.leader && !p.ban && !/대통령$|시·도지사/.test(p.role) && !cabOf(p) && !candIds().has(p.id);
+// 매달: 물러날 사람 정리(지사가 됨·피선거권 상실·선거 출마) · 핵심 쟁점 담당 장관 성적 · 경력 · 비위
+function cabMonth() {
+  const cab = S.president.cab ??= {}, cs = candIds();
+  for (const c of CAB) { const id = cab[c.k]; if (id == null) continue; const p = person(id);
+    if (!p || p.ban || /시·도지사/.test(p.role) || cs.has(id)) { delete cab[c.k]; if (p) addLog(`${p.name} ${c.n} 사퇴`); } }
+  const hot = CAB.find(c => c.is.includes(S.issue)), m = hot && cabP(hot.k);
+  if (hot) apprAdd(m ? (m.skill - 60) * 0.04 : -0.5);
+  for (const c of CAB) { const p = cabP(c.k); if (!p) continue;
+    if (p.skill < 95 && rnd() < 0.05) p.skill++;
+    if (rnd() < 0.01 + Math.max(0, 60 - p.integ) / 1500 + p.rec.length * 0.005) { S.queue.push({ ev: 'cabBad', k: c.k }); break; } }
+}
+function cabSet(k, p) {
+  const c = CAB.find(x => x.k === k);
+  (S.president.cab ??= {})[k] = p.id; pFame(p, 3); apprAdd(0.5);
+  wire(`${presT()}, ${p.name} ${c.n} 임명`, 'pres'); addLog(`${p.name} ${c.n} 임명`, 'ok');
+}
+// 총리 임명동의: 우리 당은 찬성, 다른 당은 노선·관계·후보 역량·국정 지지율로 판단
+const cabYes = (id, p, flaw) => id === 'P' ? 0.98 : clamp(0.3 - 0.2 * Math.abs((RIV[id]?.ideo ?? 0) - S.party.ideo) + (S.rel[id] || 0) / 200 + (p.skill - 60) / 150 + (S.president.appr - 50) / 150 - (flaw ? 0.2 : 0), 0.02, 0.95);
+const PIDS = ['P', 'A', 'B', 'C', 'D', 'O'];
+function cabNom(k, pid) {
+  const c = CAB.find(x => x.k === k), p = person(pid); if (!p || S.ap < 1) return;
+  S.ap--; closeModal(); Snd.sfx('click');
+  const flaw = rnd() < clamp(0.05 + p.rec.length * 0.35 + Math.max(0, 60 - p.integ) / 50, 0.05, 0.95);
+  if (k === 'pm') {
+    const yes = sum(PIDS.map(id => ayes(seatTotal(id), cabYes(id, p, flaw))));
+    if (yes < passNeed()) { apprAdd(-3); S.trust -= 1; wire(`${p.name} 국무총리 임명동의안 부결`, 'pres'); info('임명동의안 부결', `${p.name} 총리 후보자 임명동의안이 찬성 ${yes}표로 부결됐습니다(필요 ${passNeed()}표). 정권에 타격입니다.`, true); return renderAll(); }
+    cabSet(k, p); info('임명동의안 가결', `${p.name} 국무총리 임명동의안이 찬성 ${yes}표로 가결됐습니다(필요 ${passNeed()}표).${flaw ? ' 도덕성 공방이 있었지만 넘어섰습니다.' : ''}`, false); return renderAll();
+  }
+  if (!flaw) { cabSet(k, p); info('인사청문회 통과', `${p.name} ${c.n} 후보자가 큰 흠 없이 청문회를 넘었습니다. 임명장을 줬습니다.`, false); return renderAll(); }
+  showEvent({ title: '인사청문회 난항', body: () => `<b>${esc(p.name)}</b> ${c.n} 후보자의 ${p.rec.length ? `전과(${esc(p.rec.join(', '))})` : '도덕성 의혹'}이 도마에 올라 청문보고서 채택이 불발됐습니다. 대통령은 그래도 임명할 수 있습니다.`,
+    ch: [{ t: '임명을 강행한다', s: '국정 지지율↓ 신뢰↓', run: () => { cabSet(k, p); apprAdd(-3.5); S.trust -= 1; return `${p.name} ${c.n} 임명을 강행했습니다. "불통 인사"라는 비판이 나옵니다.`; } },
+      { t: '지명을 철회한다', s: '국정 지지율 조금↓', run: () => { apprAdd(-1); wire(`${p.name} ${c.n} 후보자 지명 철회`, 'pres'); return '지명을 철회했습니다. 인사 검증 부실이라는 지적을 받았습니다.'; } }] });
+  renderAll();
+}
+function cabPick(k) {
+  const c = CAB.find(x => x.k === k), xs = S.pool.filter(cabFree).sort((a, b) => b.skill - a.skill).slice(0, 30);
+  const flawless = { pm: p => `예상 찬성 ${Math.round(sum(PIDS.map(id => seatTotal(id) * cabYes(id, p, false))))}표 / 필요 ${passNeed()}표` }[k];
+  openModal({ title: `${c.n} 지명`, wide: true, html: `<p>행동력 1을 씁니다. ${k === 'pm' ? '국회 임명동의를 받아야 합니다.' : '인사청문회를 거칩니다. 전과가 있거나 청렴이 낮으면 난항을 겪습니다.'}${c.is.length ? ` 담당: ${c.is.map(i => ISSUES.find(x => x.k === i).n).join(', ')}` : ''}</p>
+    ${xs.length ? `<div class="pcards">${xs.map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.age}세 · ${esc(p.job)}</div></div></div>${statBars(p)}<div class="foot"><span class="small ${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</span></div>${flawless ? `<div class="small muted">${flawless(p)}</div>` : ''}<button class="btn pri" data-cabnom="${p.id}">지명</button></div>`).join('')}</div>` : '<p class="empty">지명할 수 있는 인재가 없습니다. 당 대표, 시·도지사, 선거 후보, 피선거권이 없는 사람과 이미 입각한 사람은 빠집니다.</p>'}`,
+    buttons: [{ t: '취소' }], onOpen: m => m.querySelectorAll('[data-cabnom]').forEach(b => b.onclick = () => cabNom(k, +b.dataset.cabnom)) });
+}
+function cabCard() {
+  const n = CAB.filter(c => cabP(c.k)).length;
+  return `<div class="card"><h2>내각 <span class="pill">${n}/${CAB.length}</span></h2><div class="pcards">${CAB.map(c => { const p = cabP(c.k);
+    return `<div class="pcard"><div><b>${c.n}</b><div class="small muted">${c.is.length ? c.is.map(i => ISSUES.find(x => x.k === i).n).join(' · ') : '내각 총괄 · 국회 임명동의'}</div></div>
+      ${p ? `<div class="who">${faceBtn('p' + p.id, p, S.party.color)}<div><h3>${esc(p.name)}</h3><div class="small muted">${p.age}세 · ${esc(p.job)}</div></div></div>${statBars(p)}` : '<p class="empty">공석</p>'}
+      <div class="btns" style="gap:6px"><button class="btn" data-cabpick="${c.k}" ${S.ap < 1 ? 'disabled' : ''}>${p ? '교체' : '지명'}</button>${p ? `<button class="btn danger" data-cabfire="${c.k}">해임</button>` : ''}</div></div>`; }).join('')}</div>
+    <p class="tip">내각 평균 역량이 국정 지지율에 반영되고, 공석은 낮게 칩니다. 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 입각한 인재는 인지도와 역량이 오릅니다. 선거에 출마하면 물러납니다.</p></div>`;
+}
+function cabFire(k) {
+  const c = CAB.find(x => x.k === k), p = cabP(k); if (!p) return;
+  openModal({ title: `${c.n} 해임`, html: `<p>${esc(p.name)} ${c.n}을(를) 해임할까요? 국정 지지율이 조금 떨어집니다.</p>`, buttons: [{ t: '취소' }, { t: '해임', pri: true, fn: () => { delete S.president.cab[k]; apprAdd(-1); wire(`${p.name} ${c.n} 해임`, 'pres'); addLog(`${p.name} ${c.n} 해임`); renderAll(); } }] });
+}
 // 다른 당 법안이 법률이 됨. 알림 문구를 돌려줌
 function rivalLaw(b, y) {
   const who = b.gov ? '정부' : pn(b.by);
@@ -3401,6 +3464,14 @@ function impeachVote(yes) {
 }
 // 정해진 날 큐로 들어오는 국회·사법 일정
 const XEV = {
+  cabBad: ({ k }) => {
+    const c = CAB.find(x => x.k === k), p = cabP(k); if (!p) return;
+    const what = pick(['부동산 투기 의혹', '자녀 특혜 의혹', '업무추진비 유용 의혹', '갑질 폭로', '이해충돌 의혹']);
+    wire(`${p.name} ${c.n} ${what}`, 'pres');
+    showEvent({ title: `${c.n} ${what}`, body: () => `<b>${esc(p.name)}</b> ${c.n}의 ${what} 보도가 나왔습니다. 야당이 경질을 요구합니다.`,
+      ch: [{ t: '경질한다', s: '국정 지지율 조금↓ 신뢰↑ · 자리 공석', run: () => { delete S.president.cab[k]; apprAdd(-1); S.trust += 1; return `${p.name} ${c.n}을(를) 경질했습니다.`; } },
+        { t: '해명을 믿고 유임한다', s: '국정 지지율↓ 신뢰↓', run: () => { apprAdd(-4); S.trust -= 2; return '유임을 결정했습니다. "제 식구 감싸기"라는 비판이 거셉니다.'; } }] });
+  },
   veto: ({ b, y }) => {
     const opp = (b.stance || 0) < 0, need = twoThirds();
     showEvent({ title: '법안 공포 또는 거부권', body: () => `${esc(pn(b.by))}이 낸 <b>${esc(b.t)}</b>이 찬성 ${Math.round(y)}표로 국회를 넘어 정부로 왔습니다.${opp ? ' 우리 당은 반대 당론이었습니다.' : ''} 여론 찬성은 ${b.poll ?? Math.round(b.pop * 100)}%입니다.`,
@@ -4039,6 +4110,8 @@ function bindPanel(m) {
   m.querySelectorAll('[data-autok]').forEach(b => b.onchange = () => { const k = b.dataset.autok; S.autoK ??= {}; if (b.checked) S.autoK[k] = 1; else delete S.autoK[k]; Snd.sfx('click'); save(); renderAll(); });
   m.querySelectorAll('[data-des]').forEach(b => b.onclick = () => toggleDes(+b.dataset.des));
   m.querySelectorAll('[data-fire]').forEach(b => b.onclick = () => fire(+b.dataset.fire));
+  m.querySelectorAll('[data-cabpick]').forEach(b => b.onclick = () => cabPick(b.dataset.cabpick));
+  m.querySelectorAll('[data-cabfire]').forEach(b => b.onclick = () => cabFire(b.dataset.cabfire));
   const va = m.querySelector('[data-vetoauto]'); if (va) va.onchange = () => { S.vetoAuto = va.checked; save(); };
   m.querySelectorAll('[data-ptalk]').forEach(b => b.onclick = () => { const p = S.pool.find(x => x.id === +b.dataset.ptalk); if (p) openModal({ title: `${p.name} 대화 내역`, html: `<p class="small muted">영입하기 전에 나눈 대화입니다.</p>${talkHTML(p)}`, buttons: [{ t: '닫기', pri: true }] }); });
   m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; pPage = 0; renderAll(); });
@@ -4221,7 +4294,7 @@ function pPeople() {
   // 직책 있는 사람 먼저: 당 대표 → 대통령 → 지역구 의원 → 비례 의원 → 시·도지사 → 나머지(원래 순서 유지)
   const rank = p => p.leader ? 0 : p.role === '대통령' ? 1 : /^국회의원\((?!비례)/.test(p.role) ? 2 : /비례/.test(p.role) ? 3 : /시·도지사$/.test(p.role) ? 4 : 5;
   const pages = Math.max(1, Math.ceil(S.pool.length / P_PER)); pPage = Math.min(pPage, pages - 1); // 제명 등으로 쪽이 줄면 마지막 쪽으로
-  const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).slice(pPage * P_PER, (pPage + 1) * P_PER).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)} · ${esc(homeTxt(p))}</div></div></div>
+  const rows = [...S.pool].sort((a, b) => pDir * (pSort === 'def' ? rank(a) - rank(b) : a[pSort] - b[pSort])).slice(pPage * P_PER, (pPage + 1) * P_PER).map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.leader ? ' <span class="pill">대표</span>' : ''}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}${cabOf(p) ? ` <span class="pill ok">${cabOf(p).n}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)} · ${esc(homeTxt(p))}</div></div></div>
     ${statBars(p)}
     <div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span>${p.talk?.length ? `<button class="btn" data-ptalk="${p.id}">대화 ${p.talk.length}</button>` : ''}${p.leader ? '' : `<button class="btn danger" data-fire="${p.id}" aria-label="${esc(p.name)} 제명">제명</button>`}</div></div>`).join('');
   // 머리: [제목 | (대기 안내문) 인재 영입] / [정렬]
@@ -4512,7 +4585,7 @@ function pPres() {
         <tr><th>여당 의석</th><td class="num">${seatTotal(P.party)}석 / 300</td></tr>
         ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
       </tbody></table></div>
-      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div></div></div>`;
+      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div></div></div>${ruling() && !P.acting ? cabCard() : ''}`;
 }
 // 행정: 우리 당 단체장 · 다른 당 단체장 · 지역별 소식
 let admReg = 'all';
@@ -4564,6 +4637,7 @@ function bannerItems() {
     for (const e of SCHED) { const st = e.day - LAW.nomDays - S.day; if (st > 0 && st <= 14 && !S.done[e.key]) out.push(['공천', `${e.name} 공천 시작 D-${st}`, 'elec', '']); }
   }
   if (S.agenda) out.push(['이슈', `${AGENDA.find(a => a.k === S.agenda.k).t} · 각 당 입장 표명 중`, 'office', '', '[data-visit]']);
+  if (ruling() && !S.president.acting && CAB.some(c => !cabP(c.k))) out.push(['내각', `내각 공석 ${CAB.filter(c => !cabP(c.k)).length}자리 · 청와대 탭에서 지명하세요`, 'pres', 'warn']);
   if (S.later.some(x => x.q.ev === 'court')) out.push(['탄핵', '헌법재판소 대통령 탄핵심판 진행 중', 'office', 'warn']);
   else if (S.president.acting) out.push(['정국', `${presT()} 체제 · 조기 대선 국면`, 'elec', 'warn']);
   if (seatTotal('P') && L.dayToDate(S.day).getUTCMonth() === 9) out.push(['국회', '국정감사 기간', 'office', '']);
@@ -4786,6 +4860,7 @@ function pGuide() {
       <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
       <li>우리 당이 집권하면 반대 당론이거나 노선과 어긋나는 법안이 통과될 때 공포와 거부권 중에서 직접 고릅니다. 청와대 탭에서 자동 처리를 켜면 반대 당론 법안이 3분의 2 미만으로 통과될 때 바로 행사합니다. 거부권은 여론이 원하는 법안일수록 국정 지지율을 깎고, 국회가 3분의 2로 재의결하면 타격이 더 큽니다.</li>
       <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 초 높고 임기 말로 갈수록 떨어지며(레임덕), 여당 지지율에 함께 영향을 줍니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 35% 아래로 떨어진 다른 당 대통령은 탄핵소추안이 나올 수 있습니다.</li>
+      <li><b>내각</b>: 집권하면 청와대 탭에서 인재풀 사람을 총리와 장관 네 자리에 지명합니다(행동력 1). 총리는 국회 임명동의를 받아야 해서 여소야대면 부결될 수 있고, 장관은 전과가 있거나 청렴이 낮으면 청문회가 난항을 겪어 강행과 철회 중에서 고릅니다. 내각 평균 역량과 공석이 국정 지지율에 반영되고, 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 당 대표, 시·도지사, 선거 후보는 입각할 수 없습니다.</li>
       <li>다른 당 광역단체장도 역점사업을 펼칩니다. 협조·견제·관망 중 입장을 고르면 몇 주 뒤 사업 성패에 따라 평가가 갈립니다. 지사 행정 지지도는 그 지역 선거에서 그 당의 득표에 반영됩니다.</li>
       <li>다른 당 지사가 우리 당 지사에게 공동사업을 제안하거나, 측근 비리 의혹이 터져 고발 여부를 정해야 할 때도 있습니다.</li></ul>`)}
     <h3 class="gh">기록·조작</h3>
