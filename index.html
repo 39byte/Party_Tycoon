@@ -2511,6 +2511,17 @@ function figSync(o) {
   }
   o.figs.filter(f => f.pos === 'gov' && o.rgov[f.k]?.fid !== f.id).forEach(f => figDrop(o, f));
   for (const k in o.rgov) { const g = o.rgov[k]; if (!figOf(o, g.fid)) g.fid = genFig(o, g.p, k, 'gov', { name: g.n }).id; }
+  poolSync(o);
+}
+// 다른 당 인재풀(o.fpool: { 당: [능력치만 있는 인물] }): 당마다 현직 의원·단체장을 포함해 400명. 비례 공천은 이 풀에서 뽑고, 풀은 늘 400명으로 채움
+const FPOOL = 400;
+function poolSync(o) {
+  o.fpool ??= {};
+  for (const id of ['A', 'B', 'C', 'D']) {
+    const have = o.fpool[id] ??= [], room = Math.max(0, FPOOL - o.figs.filter(f => f.party === id && f.pos !== 'cand').length);
+    have.length = Math.min(have.length, room);
+    while (have.length < room) have.push(figSpec('cand'));
+  }
 }
 const figParty = f => f.party === 'O' ? '무소속' : pn(f.party);
 const figWho = f => f.pos === 'gov' ? `${GOVT[f.k]} ${f.name}(${figParty(f)})` : `${figParty(f)} ${f.name} ${f.pos === 'cand' ? '후보' : '의원'}`;
@@ -2598,7 +2609,9 @@ const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.val
 // 한 자리 사람 정하기: 그 지역 현역(피선거권 있으면)과 새 출마 희망자들 중 후보 점수가 가장 높은 사람. pr: 비례 명부 자리(현역 비례의원 또는 새 희망자)
 function rvPick(c, k, id, used, pr) {
   const cur = S.figs.find(f => f.party === id && (pr ? f.pos === 'pr' : f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov')) && !used.has(f.id) && !f.ban);
-  const b = bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => figSpec('cand'))]);
+  const pl = pr && S.fpool?.[id]; // 비례는 그 당 인재풀에서 희망자를 뽑음
+  const b = bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => pl?.length ? pick(pl) : figSpec('cand'))]);
+  if (pl) { const i = pl.indexOf(b); if (i >= 0) pl.splice(i, 1); }
   const f = b === cur ? cur : genFig(S, id, pr ? figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
 function rvFill(c) {
