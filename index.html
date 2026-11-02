@@ -1939,7 +1939,8 @@ const talkKeep = m => talked(m) ? { rel: m.rel, talk: m.talk || [], talkN: m.tal
 // 직을 잃은 교섭 상대 → 원외 인사('전 ○○', 교섭 명단에). 친분·대화 내역은 그대로
 const exOut = (o, m, role) => ({ ...m, role, neg: 1, party: m.party === 'O' ? null : m.party, ideo: m.party && m.party !== 'O' ? RIV[m.party].ideo : 0, act: o.day });
 // 이미 고발한 얘기(x.acc)는 빼고 보여 줌
-const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && !x.acc && ((
+// 이미 터졌거나(현실이 됨) 처리돼 S.inc에서 사라진 사건 얘기도 뺌
+const accHints = t => talkers().flatMap(m => (m.talk || []).filter(x => x.ref && !x.acc && !x.hit && (x.iid == null || S.inc.some(i => i.id === x.iid)) && ((
   t.fid != null ? x.ref.fid === t.fid : t.pid != null && x.ref.pid === t.pid
 ) || (x.ref.ik === 'party' && x.ref.party === t.party && t.grp === 'mp'))).map(x => ({ ...x, who: m.name, pty: x.ref.ik === 'party' }))); // pty: 그 사람 얘기가 아닌 당 소문
 const accOpen = t => S.cases.some(c => c.acc?.key === t.key);
@@ -2013,12 +2014,14 @@ function accuseModal() {
         const prof = x => { const p = (x.fid != null && fig(x.fid)) || (x.pid != null && person(x.pid)) || S.outs.find(o => 'o' + o.id === x.key) || x; return `<button class="dirp${x.key === st.key ? ' on' : ''}" data-t="${x.key}" aria-pressed="${x.key === st.key}">${face(p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.name)}${x.n ? ` <span class="pill">${x.n}</span>` : ''}</b><span class="small muted">${esc(x.party === 'O' ? '무소속' : pn(x.party))} · ${esc(x.role)}</span></span></button>`; };
         const sec = (title, xs) => xs.length ? `<h3 style="margin:10px 0 6px">${title} <span class="pill">${xs.length}명</span></h3><div class="dirl">${xs.map(prof).join('')}</div>` : '';
         box.innerHTML = `<div class="filters chips" role="group" aria-label="대상 구분">${GR.map(([k, n]) => `<button class="btn${st.g === k ? ' pri' : ''}" data-g="${k}" aria-pressed="${st.g === k}">${n} (${ts.filter(x => x.grp === k).length})</button>`).join('')}</div>
-          <div style="max-height:34vh;overflow:auto">${sec('들은 얘기가 있는 사람', list.filter(x => x.n))}${sec('들은 얘기가 없는 사람', list.filter(x => !x.n))}</div>
+          <div style="max-height:34vh;overflow:auto">${sec('의심 목록', list.filter(x => x.n))}${sec('전체 목록', list.filter(x => !x.n))}</div>
           <div class="f">죄목 <span class="small muted">(여러 개 고를 수 있음)</span><div class="filters chips" role="group" aria-label="죄목">${CHARGES.map(x => `<button class="btn${st.ch.includes(x.k) ? ' pri' : ''}" data-ch="${x.k}" aria-pressed="${st.ch.includes(x.k)}" title="${x.law}">${x.n}</button>`).join('')}</div>
             ${st.ch.length ? `<p class="small muted" style="margin:-8px 0 0">${esc(chMix(st.ch).law)}</p>` : ''}</div>
           ${!t ? '<p class="empty">이 구분에 고발할 수 있는 사람이 없습니다.</p>' : `<h3 style="margin-top:12px">${esc(t.name)}에 대해 들은 얘기</h3>${hs.length ? `<ul class="log">${hs.map(h => `<li><time>${fdate(h.d)}</time><span>${esc(h.t)} <span class="small muted">— ${esc(h.who)}${h.pty ? ' · 당 차원 소문' : ''}</span>${refCharge(h.ref) ? ` <span class="pill">${esc(refCharge(h.ref).n)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">들은 얘기가 없습니다. 근거 없이 고발하면 불기소될 가능성이 높습니다.</p>'}`}
           <p class="tip">친분이 두터운 사람에게 들은 얘기일수록 맞습니다. 불기소·무죄가 나오면 우리 당이 역풍을 맞고, 근거 없는 고발엔 무고 맞고소(형법 제156조)가 들어올 수 있습니다. 상대 당보다 신뢰가 높을수록 기소·유죄의 파장이 그 당에 크게 갑니다.${st.g === 'pres' ? ' 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.' : ''}</p>
-          <div class="btns"><button class="btn pri" data-go ${!t || busy || !st.ch.length ? 'disabled' : ''}>${busy ? '이미 수사 중인 대상' : !st.ch.length ? '죄목을 고르세요' : `고발장 제출 (${won(ACT.accuse.c())} · 행동력 1)`}</button></div>`;
+          <div class="act"><h3>${ACT.accuse.n}</h3><p>${busy ? '이미 수사 중인 대상입니다.' : !st.ch.length ? '죄목을 고르세요.' : ACT.accuse.d}</p>
+            <button class="btn pri" data-go ${!t || busy || !st.ch.length || why('accuse') ? 'disabled' : ''}>실행</button>
+            <div class="meta"><span>${won(ACT.accuse.c())} · 행동력 1</span><span>재사용 ${Math.ceil(ACT.accuse.cd / TURN)}턴</span></div>${why('accuse') ? `<div class="why">${esc(why('accuse'))}</div>` : ''}</div>`;
         box.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { st.g = b.dataset.g; st.key = ''; draw(); });
         box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { st.key = b.dataset.t; st.ch = null; draw(); });
         box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { const k = b.dataset.ch; st.ch = st.ch.includes(k) ? st.ch.filter(x => x !== k) : [...st.ch, k]; draw(); });
