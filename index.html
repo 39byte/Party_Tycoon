@@ -2016,8 +2016,10 @@ function accEv(c, close) {
   return info('1심 판결: 무죄', `법원이 ${who}의 '${ch.n}' 혐의에 무죄를 선고했습니다. ${own ? '당이 제 사람을 무리하게 몰아세웠다는 비판이 나옵니다.' : '고발한 우리 당이 역풍을 맞았습니다.'}`, true);
 }
 // 고발 대상·죄목 고르기. 대상마다 교섭 자리에서 들은 얘기를 보여 주고, 들은 얘기가 가리키는 죄목을 먼저 골라 둠
-function accuseModal() {
-  const ts = accTargets(), GR = [['mp', '국회의원'], ['gov', '광역단체장'], ['pres', '대통령'], ['out', '원외 인사'], ['cand', '등록 후보']], st = { g: 'mp', key: '', ch: null };
+let accSt = null; // 발언자 정보를 보고 돌아와도 고르던 대상·죄목을 이어 감
+const accKey = m => S.mps.includes(m) ? 'm' + m.id : S.outs.includes(m) ? 'o' + m.id : S.pool.includes(m) ? 'p' + m.id : (f => f ? 'f' + f.id : '')(S.figs.find(x => x.mp === m));
+function accuseModal(keep) {
+  const ts = accTargets(), GR = [['mp', '국회의원'], ['gov', '광역단체장'], ['pres', '대통령'], ['out', '원외 인사'], ['cand', '등록 후보']], st = keep && accSt ? accSt : { g: 'mp', key: '', ch: null }; accSt = st;
   openModal({ title: '고발장 제출', wide: true, html: '<div data-acc></div>', buttons: [{ t: '취소' }],
     onOpen: m => {
       const box = m.querySelector('[data-acc]');
@@ -2033,13 +2035,14 @@ function accuseModal() {
           <div style="max-height:34vh;overflow:auto">${sec('의심 목록', list.filter(x => x.n))}${sec('전체 목록', list.filter(x => !x.n))}</div>
           <div class="f">죄목 <span class="small muted">(여러 개 고를 수 있음)</span><div class="filters chips" role="group" aria-label="죄목">${CHARGES.map(x => `<button class="btn${st.ch.includes(x.k) ? ' pri' : ''}" data-ch="${x.k}" aria-pressed="${st.ch.includes(x.k)}" title="${x.law}">${x.n}</button>`).join('')}</div>
             ${st.ch.length ? `<p class="small muted" style="margin:-8px 0 0">${esc(chMix(st.ch).law)}</p>` : ''}</div>
-          ${!t ? '<p class="empty">이 구분에 고발할 수 있는 사람이 없습니다.</p>' : `<h3 style="margin-top:12px">${esc(t.name)}에 대해 들은 얘기</h3>${hs.length ? `<ul class="log">${hs.map(h => `<li style="gap:12px"><div style="display:flex;align-items:center;gap:8px;flex:0 0 150px;min-width:0">${face(h.wm, h.wm.party && h.wm.party !== 'O' ? pc(h.wm.party) : h.wm.party === 'O' ? '#64748B' : S.party.color, 36)}<span style="min-width:0"><b>${esc(h.who)}</b><div class="small muted">${esc(h.wm.party === 'O' ? '무소속' : h.wm.party ? pn(h.wm.party) : S.party.name)} · ${esc(h.wm.k && RK[h.wm.k] ? RK[h.wm.k].n : h.wm.role || '')}</div></span></div><div style="flex:1;min-width:0"><time>${fdate(h.d)}${h.pty ? ' · 당 차원 소문' : ''}</time><div>${esc(h.t)}${refCharge(h.ref) ? ` <span class="pill">${esc(refCharge(h.ref).n)}</span>` : ''}</div></div></li>`).join('')}</ul>` : '<p class="small muted">들은 얘기가 없습니다. 근거 없이 고발하면 불기소될 가능성이 높습니다.</p>'}`}
+          ${!t ? '<p class="empty">이 구분에 고발할 수 있는 사람이 없습니다.</p>' : `<h3 style="margin-top:12px">${esc(t.name)}에 대해 들은 얘기</h3>${hs.length ? `<ul class="log">${hs.map(h => `<li style="gap:12px"><button class="dirp" style="flex:0 0 150px" data-hi="${accKey(h.wm)}" aria-label="${esc(h.who)} 정보 보기">${face(h.wm, h.wm.party && h.wm.party !== 'O' ? pc(h.wm.party) : h.wm.party === 'O' ? '#64748B' : S.party.color, 36)}<span><b>${esc(h.who)}</b><span class="small muted">${esc(h.wm.party === 'O' ? '무소속' : h.wm.party ? pn(h.wm.party) : S.party.name)}</span></span></button><div style="flex:1;min-width:0"><time>${fdate(h.d)}${h.pty ? ' · 당 차원 소문' : ''}</time><div>${esc(h.t)}${refCharge(h.ref) ? ` <span class="pill">${esc(refCharge(h.ref).n)}</span>` : ''}</div></div></li>`).join('')}</ul>` : '<p class="small muted">들은 얘기가 없습니다. 근거 없이 고발하면 불기소될 가능성이 높습니다.</p>'}`}
           <p class="tip">친분이 두터운 사람에게 들은 얘기일수록 맞습니다. 불기소·무죄가 나오면 우리 당이 역풍을 맞고, 근거 없는 고발엔 무고 맞고소(형법 제156조)가 들어올 수 있습니다. 상대 당보다 신뢰가 높을수록 기소·유죄의 파장이 그 당에 크게 갑니다.${st.g === 'pres' ? ' 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.' : ''}</p>
           <div class="btns"><button class="btn pri" data-go ${!t || busy || !st.ch.length || why('accuse') ? 'disabled' : ''}>고발장 제출</button></div>
           <p class="small muted" style="margin:6px 0 0">${won(ACT.accuse.c())} · 행동력 1 · 재사용 ${Math.ceil(ACT.accuse.cd / TURN)}턴</p>${(busy && '이미 수사 중인 대상입니다.') || (!st.ch.length && '죄목을 고르세요.') || why('accuse') ? `<p class="small" style="margin:2px 0 0;color:var(--warn)">${esc((busy && '이미 수사 중인 대상입니다.') || (!st.ch.length && '죄목을 고르세요.') || why('accuse'))}</p>` : ''}`;
         box.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { st.g = b.dataset.g; st.key = ''; draw(); });
         box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { st.key = b.dataset.t; st.ch = null; draw(); });
         box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { const k = b.dataset.ch; st.ch = st.ch.includes(k) ? st.ch.filter(x => x !== k) : [...st.ch, k]; draw(); });
+        box.querySelectorAll('[data-hi]').forEach(b => b.onclick = () => { if (!b.dataset.hi) return; personInfo(b.dataset.hi); const cl = $('#modalRoot .btns .btn:last-child'); if (cl) cl.addEventListener('click', () => setTimeout(() => accuseModal(1))); });
         box.querySelector('[data-go]').onclick = () => { closeModal(); accuseFile(t, st.ch); };
       };
       draw();
