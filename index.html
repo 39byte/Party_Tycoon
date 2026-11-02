@@ -4753,7 +4753,7 @@ const POOL_MAX = 350;
 // 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
 let pSort = 'def', pDir = 1, pPage = 0;
-const P_INC = [['mp', '국회의원', p => /^국회의원/.test(p.role)], ['gov', '지방자치단체장', p => /시·도지사$/.test(p.role)], ['cab', '행정부 내각', p => !!cabOf(p)]], pOff = {}; // 인재 목록에 넣을 직책(꺼진 직책은 목록에서 뺌)
+const P_INC = [['mp', '국회의원', p => /^국회의원/.test(p.role)], ['gov', '지방자치단체장', p => /시·도지사$/.test(p.role)], ['cab', '행정부 내각', p => !!cabOf(p)], ['none', '무직책', p => !p.leader && !p.role && !cabOf(p)]], pOff = {}; // 인재 목록에 넣을 직책(꺼진 직책은 목록에서 뺌)
 const pShown = () => S.pool.filter(p => !P_INC.some(([k, , f]) => pOff[k] && f(p)));
 // 게시판식 쪽 선택: « 처음 ‹ 이전 [10쪽 묶음] 다음 › 마지막 ». p는 0부터
 function pager(p, n, at = 'ppage', aria = '인재 쪽 이동') {
@@ -4773,7 +4773,7 @@ function pPeople() {
   const w = why('talent'), recruit = `<button class="btn pri" data-act="talent" ${w ? 'disabled' : ''}>${talOpen() ? '이어서 영입' : '인재 영입'}</button>`;
   return `<div class="card"><div class="phead"><h2>인재풀 (${S.pool.length}/${POOL_MAX})</h2><div class="pact">${w ? `<p class="small warn">${esc(w)}</p>` : ''}${talOpen() ? `<span class="small muted">${Math.max(1, Math.ceil((S.tal.until - S.day) / TURN))}턴 후 갱신</span>` : ''}${recruit}<button class="ib bell" style="width:40px;padding:0" data-watch="talent" aria-pressed="${!!S.watch.talent}" aria-label="재영입 알림" title="재영입 알림 ${S.watch.talent ? '켜짐' : '꺼짐'}">${icon('i-bell')}</button></div>
     <div style="display:flex;flex-wrap:wrap;gap:10px 40px"><div class="filters psort chips" role="group" aria-label="인재 정렬">${P_SORT.map(([k, n]) => `<button class="btn${pSort === k ? ' pri' : ''}" data-psort="${k}" aria-pressed="${pSort === k}">${n}${pSort === k ? (pDir > 0 ? ' ▲' : ' ▼') : ''}</button>`).join('')}</div>
-    <div class="filters psort chips" role="group" aria-label="직책 포함 여부">${P_INC.map(([k, n]) => `<button class="btn${pOff[k] ? '' : ' pri'}" data-pinc="${k}" aria-pressed="${!pOff[k]}">${n} ${pOff[k] ? '미포함' : '포함'}</button>`).join('')}</div></div></div>
+    <div class="filters psort chips" role="group" aria-label="직책 포함 여부">${P_INC.map(([k, n]) => `<button class="btn${pOff[k] ? '' : ' pri'}" data-pinc="${k}" aria-pressed="${!pOff[k]}">${n}</button>`).join('')}</div></div></div>
     <div class="pcards">${rows}</div>
     ${pages > 1 ? pager(pPage, pages) : ''}
     <p class="tip">피선거권: 국회의원·지방선거 만 18세 이상, 대통령 만 40세 이상(공직선거법 제16조). 선거범죄로 벌금 100만원 이상 확정 후 5년 미경과 시 피선거권 없음(제19조). 영입 인재는 전략공천·비례대표·단체장 후보로 쓸 수 있습니다.</p></div>`;
