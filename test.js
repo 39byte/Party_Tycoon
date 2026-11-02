@@ -14,6 +14,11 @@ assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2018, 5, 30)), 30)), '201
 assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2026, 5, 30)), 30)), '2026-06-03');
 assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2024, 4, 29)), 50)), '2024-04-10');
 
+// 재·보궐선거: 1~3월 사유 → 4월 첫 수요일, 4~9월 → 10월 첫 수요일, 10~12월 → 다음 해 4월. 준비 기간이 모자라면 다음 정기일로
+assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 0, 10))))), '2027-04-07');
+assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 5, 1))))), '2027-10-06');
+assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 10, 20))))), '2028-04-05');
+assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 2, 31))))), '2027-10-06'); // 4/7까지 7일뿐 → 10월로
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
 assert.strictEqual(Math.round(L.REGIONS.reduce((a, r) => a + r.voters * 1e6, 0)), L.LAW.voters);
 

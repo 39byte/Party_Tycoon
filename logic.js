@@ -60,6 +60,13 @@
     if ([-1, 0, 1].some(o => isHoli(new Date(w.getTime() + o * DAY)))) w.setUTCDate(w.getUTCDate() + 7);
     return dateToDay(w);
   }
+  // 재·보궐선거일(제35조): 사유가 생긴 때가 전년 10.1~3.31이면 4월, 4.1~9.30이면 10월의 첫 수요일(공휴일 규칙은 제34조와 같음).
+  // 게임에선 공천·등록할 시간이 있도록 사유일부터 minLead일이 안 남았으면 다음 정기일(6개월 뒤)로 미룸
+  function byeDay(day, minLead = 50) {
+    const dt = dayToDate(day), y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1;
+    let [yy, mm] = m >= 10 ? [y + 1, 4] : m <= 3 ? [y, 4] : [y, 10];
+    for (;;) { const d = electionDay(ymd(yy, mm, 1), 0); if (d - day >= minLead) return d; [yy, mm] = mm === 4 ? [yy, 10] : [yy + 1, 4]; }
+  }
   // 앞으로 `years`년간의 임기만료 선거 일정
   function schedule(years = 30) {
     const out = [];
@@ -148,6 +155,6 @@
   const candScore = p => p ? CW.skill * cl((p.skill - 60) / 40, -1.25, 1) - CW.rec * Math.min(3, p.rec?.length || 0)
     + CW.integ * cl(((p.integ ?? 60) - 60) / 40, -1.25, 1) + CW.fame * cl((p.fame - 30) / 40, -0.75, 1.5) : 0;
 
-  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore };
+  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
