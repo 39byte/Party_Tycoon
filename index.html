@@ -1079,6 +1079,7 @@ function migrate(o) {
   if ('autoGov' in o) { if (o.autoGov) o.autoK = Object.fromEntries(Object.keys(o.ops || {}).map(k => [k, 1])); delete o.autoGov; } // 옛 저장: 전체 자동화 → 지사별
   if (!o.rtrust) { const t = o.trust ?? 50; delete o.trust; o.rtrust = Object.fromEntries(R.map(r => [r.k, t])); }
   defTrust(o); o.rsup ??= {};
+  o.rsr ??= {}; for (const id of TR_IDS) o.rsr[id] ??= {}; // 다른 당 지역 지지율(우리 당 rsup과 같은 방식)
   o.rtr ??= Object.fromEntries(TR_IDS.map(id => [id, Object.fromEntries(R.map(r => [r.k, 50]))]));
   o.rfame ??= Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])); // 옛 저장: 다른 당 인지도
   o.rtr.D ??= Object.fromEntries(R.map(r => [r.k, 50])); if (o.rw) o.rw.D ??= RIV.D.base; if (o.lastVotes) o.lastVotes.D ??= 0; if (o.seats?.A) o.seats.D ??= { d: {}, pr: 0 }; // 옛 저장: 반석당은 원외로 시작
@@ -1162,13 +1163,18 @@ function regFactor(k) {
   if (S.gov[k] === 'P' && !S.gact?.[k]) f += 0.15 + ((S.ops[k] ?? opsBase('P', k)) - opsBase('P', k)) / 200; // 권한대행 중엔 현직 효과 없음
   return f;
 }
-function pf(id, k) {
-  if (id === 'P') return S.rsup[k] != null ? S.rsup[k] / S.support : regFactor(k); // 지역 지지율의 출렁임이 선거에도 반영
-  if (id === 'O') return 1;
+// 다른 당 지역 목표 배율(우리 당 regFactor에 해당)
+function rivFactor(id, k) {
   const g = S.gov[k] === id && !S.gact?.[k] ? 1.05 + (S.rgov[k] ? S.rgov[k].o - opsBase(id, k) : 0) / 200 : 1;
   return pfBase(id, k) * g * trReg(id, k);
 }
-const regSupport = k => S.rsup[k] ?? S.support * regFactor(k);
+function pf(id, k) {
+  if (id === 'O') return 1;
+  // 지역 지지율의 출렁임이 선거에도 반영
+  const nat = id === 'P' ? S.support : poll()[id], cur = id === 'P' ? S.rsup[k] : S.rsr[id]?.[k];
+  return cur != null && nat > 0 ? cur / nat : id === 'P' ? regFactor(k) : rivFactor(id, k);
+}
+const regSupport = (k, id = 'P') => id === 'P' ? S.rsup[k] ?? S.support * regFactor(k) : S.rsr[id]?.[k] ?? poll()[id] * rivFactor(id, k);
 // 행정 지지도 상승 억제: 시작점 = 90 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
 const opsSoft = (id, k) => {
   const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
@@ -1566,6 +1572,12 @@ function daily() {
     let base = RIV[id].base * (id === 'O' ? 1 : (0.25 + 0.75 * trAvg(id) / 100) / 0.625 * S.rfame[id] / RIV[id].fame);
     if (S.president.party === id) base += (S.president.appr - S.president.a0) * 0.4; // 국정 지지율(레임덕 때 여당 지지도 함께 빠짐)
     S.rw[id] = clamp(S.rw[id] + (base - S.rw[id]) * 0.01 + gauss() * 0.12 * (RIV[id].vol || 1), 1, 60);
+  }
+  // 다른 당 지역 지지율도 우리 당과 같은 규칙(그 당 지역 신뢰도로 오르내리는 속도가 달라짐)
+  const q = poll();
+  for (const id of TR_IDS) for (const r of R) {
+    const t = q[id] * rivFactor(id, r.k), cur = S.rsr[id][r.k] ?? t, tr = S.rtr[id][r.k];
+    S.rsr[id][r.k] = cur + (t - cur) * 0.05 * (t > cur ? lowTrust(tr) : trustFall(tr));
   }
 }
 function monthly(dt) {
@@ -4765,7 +4777,7 @@ function pOrg() {
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
         <tr><th>우리 당 지지</th><td class="num">${regSupport(r.k).toFixed(1)}%</td></tr>
         <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
-        <tr><th>다른 당 지지</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${(poll()[id] * pf(id, r.k)).toFixed(1)}%</span>`).join('')}</div></td></tr>
+        <tr><th>다른 당 지지</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${regSupport(r.k, id).toFixed(1)}%</span>`).join('')}</div></td></tr>
       </tbody></table></div><div><table class="kv"><tbody>
         <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
         <tr><th>시·도당</th><td>${S.chapters[r.k] ? '<b class="ok">등록됨</b>' : '미창당'}</td></tr>
