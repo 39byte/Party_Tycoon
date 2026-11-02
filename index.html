@@ -4625,10 +4625,11 @@ const partyNameErr = name => {
   const clash = Object.values(RIV).find(x => name.replace(/당$/, '') && (x.name.includes(name.replace(/당$/, '')) || name.includes(x.name.replace(/당$/, ''))));
   return !name ? '정당 이름을 입력하세요.' : clash ? `기존 등록 정당 '${clash.name}'과(와) 뚜렷이 구별되지 않습니다 (정당법 제41조).` : '';
 };
-// 본부 탭 연필 버튼: 당 이름·색 바꾸기
+// 본부 탭 연필 버튼: 당 이름·슬로건·색 바꾸기
 function partyEdit() {
   openModal({ title: '당 정보 변경', html: `<form id="pe" style="display:flex;flex-direction:column;gap:12px">
       <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="${esc(S.party.name)}" autocomplete="off"><span class="h" id="peErr" role="alert"></span></label>
+      <label class="f">슬로건<input type="text" name="slogan" maxlength="30" placeholder="선택 사항" value="${esc(S.party.slogan||'')}" autocomplete="off"></label>
       <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c]) => `<label><input type="radio" name="color" value="${c}" ${c === S.party.color ? 'checked' : ''}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
       <div class="btns" style="align-items:center"><p class="small muted" style="margin:0 auto 0 0;flex:1 1 200px">지난 로그와 선거 기록의 글에는 예전 당명이 그대로 남습니다.</p><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div></form>`,
     onOpen: m => {
@@ -4638,9 +4639,9 @@ function partyEdit() {
         e.preventDefault();
         const v = Object.fromEntries(new FormData(f)), name = v.name.trim(), err = partyNameErr(name);
         if (err) { const x = m.querySelector('#peErr'); x.textContent = err; x.className = 'h bad'; Snd.sfx('bad'); return; }
-        const old = S.party.name; S.party.name = name; if (v.color) S.party.color = v.color;
+        const old = S.party.name; S.party.name = name; S.party.slogan = v.slogan.trim(); if (v.color) S.party.color = v.color;
         if (name !== old) addLog(`당명을 '${old}'에서 '${name}'(으)로 바꿨습니다.`, 'ok');
-        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} · 당 이름과 색을 저장했습니다.`, 'ok', '당 정보 변경');
+        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} · 당 이름·슬로건·색을 저장했습니다.`, 'ok', '당 정보 변경');
       };
     } });
 }
