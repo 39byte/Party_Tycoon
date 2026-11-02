@@ -1093,7 +1093,7 @@ function migrate(o) {
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
   o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; o.agenda ??= null; o.agUsed ??= []; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
-  o.figs ??= []; o.inc ??= []; o.byes ??= []; o.vacant ??= []; o.prList ??= [];
+  o.figs ??= []; o.inc ??= []; o.byes ??= []; o.vacant ??= []; o.prList ??= []; o.gact ??= {}; o.byes.forEach(b => b.kind ??= 'mp'); o.vacant.forEach(v => v.kind ??= 'mp');
   for (const m of o.outs) if (POL_ROLE.test(m.role)) m.job ??= pick(FIG_JOBS);
   if (o.seats.A) figSync(o);
   if (!o.mps && o.seats.A) o.mps = genMPs(o);
@@ -1377,6 +1377,7 @@ function resolveElection(c) {
     html = natResultHTML(g, c);
     lines.push(`${c.name} 결과: ${S.party.name} ${now}석 (지역구 ${now - S.seats.P.pr}, 비례 ${S.seats.P.pr}) · 비례 득표 ${pct(g.pv.P)}`);
   } else if (c.type === 'gov') {
+    byeClearGov();
     const g = simGov(c); races = g.races;
     S.gov = g.win;
     // 당선자가 새 지사(같은 사람이 다시 되면 행정 지지도 유지)
@@ -1449,7 +1450,7 @@ function hemicycle() {
   const cols = [];
   seatOrder().forEach(id => { for (let n = seatTotal(id); n > 0; n--) cols.push(pc(id)); });
   const dots = pts.map((p, i) => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="2.7" fill="${cols[i] || 'none'}" stroke="${cols[i] ? 'none' : 'var(--border)'}"/>`).join('');
-  const vac = vacN(), label = seatOrder().map(id => `${pn(id)} ${seatTotal(id)}석`).join(', ') + (vac ? `, 공석 ${vac}석` : '');
+  const vac = Math.max(0, vacN()), label = seatOrder().map(id => `${pn(id)} ${seatTotal(id)}석`).join(', ') + (vac ? `, 공석 ${vac}석` : '');
   return `<svg viewBox="0 0 220 112" role="img" aria-label="국회 의석 분포: ${esc(label)}" style="width:100%;max-width:440px;display:block;margin:0 auto">${dots}<text x="110" y="100" text-anchor="middle" font-size="13" font-weight="700" fill="currentColor">${sum(seatOrder().map(seatTotal))}석</text></svg>
   <div class="legend" style="justify-content:center;margin-top:6px">${seatOrder().map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} <b class="num">${seatTotal(id)}</b></span>`).join('')}${vac ? `<span><i style="background:none;border:1px solid var(--border)"></i>공석 <b class="num">${vac}</b></span>` : ''}</div>`;
 }
@@ -2628,23 +2629,25 @@ const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.val
 // 한 자리 사람 정하기(우리 자동 배치와 같은 방식): 그 당 인재풀에서 피선거권 있는 사람 중 그 자리 점수(후보 점수 + 연고)가 가장 높은 사람. 그 자리 현역이 있으면 현역 프리미엄을 얹어 겨룸. 무소속은 풀이 없어 무작위 희망자 RV_HOPE명
 // pr: 비례 명부 자리(현역 비례의원 또는 인재풀) · need: 필요한 성별(비례 홀수 순번은 여성, 공직선거법 제47조)
 const INCUMB = 0.3;
-// 대선 후보 고르기: 인재풀 사람과 현직 국회의원 중 점수가 가장 높은 사람. 현직 의원은 사직 없이 대선에 나올 수 있음(공직선거법 제53조: 의원의 사직 의무는 지방자치단체장 선거 출마에만 있음)
+// 대선 후보 고르기: 인재풀 사람과 현직 국회의원·광역단체장 중 점수가 가장 높은 사람. 현직 의원은 사직 없이 대선에 나올 수 있음(공직선거법 제53조: 의원의 사직 의무는 지방자치단체장 선거 출마에만 있음). 단체장은 사직하고 나옴
 const presBest = id => {
-  const b = poolBest(id, 'pres', null), m = S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr') && !f.ban && f.age >= LAW.age.pres).reduce((a, f) => !a || slotScore(f, null) > slotScore(a, null) ? f : a, null);
+  const b = poolBest(id, 'pres', null), m = S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr' || (f.pos === 'gov' && !S.gact[f.k])) && !f.ban && f.age >= LAW.age.pres).reduce((a, f) => !a || slotScore(f, null) > slotScore(a, null) ? f : a, null);
   return !m ? b : !b || slotScore(m, null) > slotScore(b, null) ? m : b;
 };
-const presMP = (f, fame) => { f.fame = Math.max(f.fame, fame); return { name: f.name, gender: f.gender, age: f.age, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, home: homeOf(f), fid: f.id }; };
+const presMP = (f, fame) => { if (f.pos === 'gov') figRun(f, f.k, '대선 출마 사직'); f.fame = Math.max(f.fame, fame); return { name: f.name, gender: f.gender, age: f.age, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, home: homeOf(f), fid: f.id }; };
 // ---------- 의원직이 비는 경로: 대통령 당선 · 유죄 확정 · 사퇴 · 비례 탈당 ----------
 // 지역구 궐원은 보궐선거(아래 byeNew), 비례대표 궐원은 명부 차순위 승계(공직선거법 제200조 제2항)라 의석은 그 당 몫으로 남음
 // 제명은 퇴직 사유가 아니라 무소속으로 직을 유지함(제192조 제4항). 비례대표가 스스로 탈당하면 퇴직
 const vacN = () => LAW.totalSeats - sum(['P', 'A', 'B', 'C', 'D', 'O'].map(seatTotal)); // 국회 공석(보궐 대기 포함)
 const isMP = p => /^국회의원\(|비례/.test(p.role || '');
+// '~로/~으로' 고르기(끝의 괄호 설명은 무시)
+const ro = w => { const x = w.replace(/\([^)]*\)$/, '').trim(), c = x.charCodeAt(x.length - 1) - 0xAC00; return w + (c >= 0 && c <= 11171 && (c % 28 === 0 || c % 28 === 8) ? '로' : '으로'); };
 // 우리 비례 의원이 물러나면 명부의 다음 순번이 승계. 선거범죄 당선무효(noSucc)는 승계 불가(제200조 제2항 단서, 조문 원문은 확인하지 못함)
 function prSucceed(p, why, noSucc) {
   const n = noSucc ? null : (S.prList || []).map(id => id != null && person(id)).find(q => q && q !== p && !q.ban && !/국회의원|대통령/.test(q.role));
   p.role = '';
-  if (n) { n.role = '비례대표 국회의원'; addLog(`${p.name} 의원이 ${why}로 의원직을 잃었습니다. 비례 명부 차순위 ${n.name}이(가) 의원직을 승계했습니다.`, 'ok'); return n; }
-  if (S.seats.P.pr > 0) { S.seats.P.pr--; S.vacant.push({ id: ++S.seq, pr: 1, from: 'P', why, d0: S.day }); addLog(`${p.name} 의원이 ${why}로 의원직을 잃었습니다. ${noSucc ? '당선무효라 승계할 수 없어' : '승계할 후순위 후보가 없어'} 비례 의석이 비었습니다.`, 'bad'); }
+  if (n) { n.role = '비례대표 국회의원'; addLog(`${p.name} 의원이 ${ro(why)} 의원직을 잃었습니다. 비례 명부 차순위 ${n.name}이(가) 의원직을 승계했습니다.`, 'ok'); return n; }
+  if (S.seats.P.pr > 0) { S.seats.P.pr--; S.vacant.push({ id: ++S.seq, pr: 1, from: 'P', why, d0: S.day }); addLog(`${p.name} 의원이 ${ro(why)} 의원직을 잃었습니다. ${noSucc ? '당선무효라 승계할 수 없어' : '승계할 후순위 후보가 없어'} 비례 의석이 비었습니다.`, 'bad'); }
   return null;
 }
 // 우리 인재 의원이 의원직을 잃음
@@ -2670,119 +2673,167 @@ function figOut(f, why) {
   const d = f.pos === 'd', k = f.k, id = f.party, nm = `${figParty(f)} ${f.name} 의원`;
   figLeave(f);
   if (d) byeNew(k, id, why, nm);
-  else { addLog(`${nm}이(가) ${why}로 의원직을 잃었습니다. 비례 명부 차순위가 승계합니다.`); figSync(S); }
+  else { addLog(`${nm}이(가) ${ro(why)} 의원직을 잃었습니다. 비례 명부 차순위가 승계합니다.`); figSync(S); }
 }
 const figPresSeat = f => figOut(f, '대통령 당선(겸직 금지)');
-// 다른 당 현직 의원이 광역단체장 후보가 됨: 선거일 30일 전까지 사직해야 함(2026년 선관위 안내, 조문 원문 미확인). 그 사람은 후보 명부로 옮기고 의석은 비움
+// 현직이 다른 선거의 후보가 되어 직을 내려놓음. 의원이 지선(단체장)에 나가거나 단체장이 총선·대선에 나가면 선거일 30일·90일 전까지 사직해야 함(2026년 선관위 안내·공직선거법 제53조 — 조문 원문은 확인하지 못함)
+// 게임은 공천 기간이 짧아 후보가 발표(등록)될 때 사직한 것으로 단순화. 그 사람은 후보 명부로 옮기고 직은 비움
 function figRun(f, k, why) {
-  const d = f.pos === 'd', id = f.party, nm = `${figParty(f)} ${f.name} 의원`, hk = f.k;
+  const pos = f.pos, id = f.party, hk = f.k, nm = `${figParty(f)} ${f.name}`;
   f.home ??= f.k; f.pos = 'cand'; f.k = k;
-  if (d) byeNew(hk, id, why, nm);
-  else { addLog(`${nm}이(가) ${why}로 의원직을 잃었습니다. 비례 명부 차순위가 승계합니다.`); figSync(S); }
+  if (pos === 'd') byeNew(hk, id, why, `${nm} 의원`);
+  else if (pos === 'gov') govVacate(hk, id, why, nm);
+  else { addLog(`${nm} 의원이 ${ro(why)} 의원직을 잃었습니다. 비례 명부 차순위가 승계합니다.`); figSync(S); }
+}
+const isGovP = p => /시·도지사$/.test(p?.role || '');
+// 단체장이 물러남: 그 자리는 권한대행 체제가 되고(S.gact) 단체장 보궐선거를 치름(임기 1년 미만이면 다음 지선까지 권한대행)
+function govVacate(k, id, why, who) {
+  const g = S.rgov[k];
+  if (id !== 'P' && g) { g.fid = null; g.n = genName(rnd() < 0.2 ? 'F' : 'M'); } // figSync가 권한대행 인물을 새로 채움(같은 이름의 중복 인물 방지)
+  S.gact[k] = { d0: S.day, why };
+  byeNew(k, id, why, who, 'gov');
+}
+// 우리 당 단체장(인재)이 물러남. p가 없으면 이름 없는 단체장(공모 당선)
+function govOutP(p, why, kk) {
+  const k = kk ?? (R.find(r => p?.role === `${r.n} 시·도지사`) || {}).k;
+  if (!k || S.gov[k] !== 'P') return;
+  if (p) p.role = '';
+  pgovSync(S); // 이름 없는 권한대행
+  govVacate(k, 'P', why, p ? p.name : '');
 }
 // ---------- 재·보궐선거 ----------
-// 의원직이 비면 그 자리는 공석이 되고 그 선거구만 따로 선거를 함. 일정은 L.byeDay(4월 첫 수요일, 지선·대선 후보 등록 전 사유 확정이면 그 선거와 같은 날).
-// 사유가 확정되고 임기 만료까지 1년 미만이면 하지 않음(공직선거법 제201조). 총선이 열리면 남은 보궐·공석은 모두 정리됨(의석 전체를 새로 정함)
-// S.byes: { id, k 지역, from 궐원 정당, why 사유, d0 사유일, day 선거일, with 동시 선거 key, wt 그 유형, on 공천 시작, c: { 당: { at, fid } }, mine: { pid, name, dep, cost, idx } }
-// S.vacant: 보궐을 안 하는 공석 { id, k 지역(비례면 pr:1), from, why, d0 }
-// ponytail: 선거운동은 우리 후보의 지출 단계(최소·보통·최대)로만 반영. 토론·여론조사·지역 유세·후보 단일화는 없음. 다른 당 현직 의원은 후보로 안 냄
+// 국회의원(지역구)·광역단체장 자리가 비면 그 자리만 따로 선거를 함. 일정은 L.byeDay(4월 첫 수요일, 사유가 일찍 확정되면 다른 선거와 같은 날: 의원 보궐은 지선·대선, 단체장 보궐은 총선·대선).
+// 사유가 확정되고 임기 만료까지 1년 미만이면 하지 않음(공직선거법 제201조): 의원은 다음 총선까지 공석, 단체장은 다음 지선까지 권한대행. 총선·지선이 열리면 남은 보궐·공석은 정리됨
+// S.byes: { id, kind('mp'|'gov'), k 지역, from 궐원 정당, why 사유, d0 사유일, day 선거일, with 동시 선거 key, wt 그 유형, on 공천 시작, c: { 당: { at, fid } }, mine: { pid, name, dep, cost, idx, b } }
+// S.vacant: 보궐을 안 하는 공석 { id, kind, k 지역(비례면 pr:1), from, why, d0 } · S.gact: 권한대행 중인 지역 { k: { d0, why } }
+// ponytail: 선거운동은 우리 후보의 지출 단계(최소·보통·최대)로만 반영. 토론·여론조사·지역 유세·후보 단일화는 없음. 보궐선거의 다른 당 후보는 인재풀에서만 나옴(현직 의원·단체장은 안 냄)
 const BYE_NOM = 45, BYE_REG = 20, BYE_TO = 0.65; // 단독 실시: 공천 시작(선거일 전)·후보 등록 마감(선거일 전)·투표율은 총선의 약 65%(최근 재보선 35~45%). 동시 실시는 그 선거의 일정·투표율을 따름
-// 임기 만료일은 총선일 약 50일 뒤(5월 29일)라 그만큼을 더해 1년 미만을 가림
-const byeSkip = day => { const nat = SCHED.find(e => e.type === 'nat' && e.day > S.day); return !!nat && nat.day + 50 - day < 365; };
+const byeGov = b => b.kind === 'gov';
+const byeLabel = b => `${RK[b.k].n}${byeGov(b) ? ' 시·도지사' : ''} 보궐선거`;
+const byeHosts = kind => kind === 'gov' ? ['nat', 'pres'] : ['gov', 'pres'];
+// 임기 만료일은 총선일 약 50일 뒤(5월 29일)·지선일 약 30일 뒤(6월 30일)라 그만큼을 더해 1년 미만을 가림
+function byeSkip(day, kind) {
+  const e = SCHED.find(x => x.type === (kind === 'gov' ? 'gov' : 'nat') && x.day > S.day);
+  return !!e && e.day + (kind === 'gov' ? 30 : 50) - day < 365;
+}
 const byeWith = b => b.with && SCHED.find(e => e.key === b.with);
 const byeNom = b => b.wt ? LAW.nomDays : BYE_NOM, byeRegDay = b => b.day - (b.wt ? LAW.regDeadline[b.wt] : BYE_REG);
 function byeSet(b, r) { b.day = r.day; b.with = r.with; b.wt = r.with ? SCHED.find(e => e.key === r.with)?.type : null; }
-function byeNew(k, from, why, who) {
-  S.seats[from].d[k]--; // 궐원
-  const r = L.byeDay(S.day, SCHED), t = `${RK[k].n} 지역구 ${who ? who + ' ' : ''}${why}로 의석이 비었습니다`;
-  if (byeSkip(r.day)) { S.vacant.push({ id: ++S.seq, k, from, why, d0: S.day }); addLog(`${t}. 임기 만료까지 1년 미만이라 보궐선거를 하지 않습니다(공직선거법 제201조). 총선까지 공석입니다.`, 'bad'); }
-  else { const b = { id: ++S.seq, k, from, why, d0: S.day }; byeSet(b, r); S.byes.push(b); addLog(`${t}. 보궐선거는 ${fdate(b.day)}${b.with ? ` (${byeWith(b).name}와 같은 날)` : ''}입니다. 그때까지 공석입니다.`, 'bad'); }
+function byeNew(k, from, why, who, kind = 'mp') {
+  const gov = kind === 'gov', r = L.byeDay(S.day, SCHED, 50, byeHosts(kind)), post = gov ? GOVT[k] : `${RK[k].n} 지역구`;
+  if (!gov) S.seats[from].d[k]--; // 궐원
+  const t = `${post} ${who ? who + ' ' : ''}${ro(why)} ${gov ? '자리가 비었습니다(권한대행 체제)' : '의석이 비었습니다'}`;
+  if (byeSkip(r.day, kind)) { S.vacant.push({ id: ++S.seq, kind, k, from, why, d0: S.day }); addLog(`${t}. 임기 만료까지 1년 미만이라 보궐선거를 하지 않습니다(공직선거법 제201조). ${gov ? '다음 지방선거까지 권한대행입니다' : '총선까지 공석입니다'}.`, 'bad'); }
+  else { const b = { id: ++S.seq, kind, k, from, why, d0: S.day }; byeSet(b, r); S.byes.push(b); addLog(`${t}. 보궐선거는 ${fdate(b.day)}${b.with ? ` (${byeWith(b).name}와 같은 날)` : ''}입니다.${gov ? '' : ' 그때까지 공석입니다.'}`, 'bad'); }
   figSync(S);
 }
-// 총선이 열리면 잔여 보궐·공석 정리(낙선 후보 명부 포함). prList: 이번 임기 우리 비례 명부(승계용)
+// 총선이 열리면 의원 보궐·공석 정리(낙선 후보 명부 포함). prList: 이번 임기 우리 비례 명부(승계용). 단체장 보궐은 그대로
 function byeClear(c) {
-  for (const b of S.byes) for (const x of Object.values(b.c || {})) { const f = fig(x.fid); if (f?.pos === 'cand') figDrop(S, f); }
-  S.byes = []; S.vacant = [];
+  for (const b of S.byes) if (!byeGov(b)) for (const x of Object.values(b.c || {})) { const f = fig(x.fid); if (f?.pos === 'cand') figDrop(S, f); }
+  S.byes = S.byes.filter(byeGov); S.vacant = S.vacant.filter(byeGov);
   S.prList = c.reg?.pr?.map(x => x.id) || [];
+}
+// 지선이 열리면 단체장 보궐·권한대행 정리
+function byeClearGov() {
+  for (const b of S.byes) if (byeGov(b)) for (const x of Object.values(b.c || {})) { const f = fig(x.fid); if (f?.pos === 'cand') figDrop(S, f); }
+  S.byes = S.byes.filter(b => !byeGov(b)); S.vacant = S.vacant.filter(v => !byeGov(v)); S.gact = {};
 }
 function byeTick() {
   const done = [], opened = [];
   for (const b of [...S.byes]) {
     if (!b.on) { // 열리기 전엔 일정이 바뀔 수 있어(궐위 보궐 대선 등) 사유일 기준으로 다시 계산
-      byeSet(b, L.byeDay(b.d0, SCHED));
-      if (byeSkip(b.day)) { S.byes = S.byes.filter(x => x !== b); S.vacant.push({ id: ++S.seq, k: b.k, from: b.from, why: b.why, d0: b.d0 }); addLog(`${RK[b.k].n} 보궐선거는 임기 만료까지 1년 미만이 되어 하지 않습니다(공직선거법 제201조). 총선까지 공석입니다.`, 'bad'); continue; }
+      byeSet(b, L.byeDay(b.d0, SCHED, 50, byeHosts(b.kind)));
+      if (byeSkip(b.day, b.kind)) { S.byes = S.byes.filter(x => x !== b); S.vacant.push({ id: ++S.seq, kind: b.kind, k: b.k, from: b.from, why: b.why, d0: b.d0 }); addLog(`${byeLabel(b)}는 임기 만료까지 1년 미만이 되어 하지 않습니다(공직선거법 제201조).`, 'bad'); continue; }
     }
     const dd = b.day - S.day;
     if (!b.on && dd <= byeNom(b)) { byeOpen(b); opened.push(b); }
     if (b.on) byeFill(b, S.day >= byeRegDay(b)); // 등록 마감까지 모두 발표
     if (dd < 0 || (dd === 0 && !b.with)) done.push(byeResolve(b)); // 동시 실시는 본선거 개표(resolveElection) 때 함께
   }
-  if (opened.length) toast(opened.length === 1 ? `${RK[opened[0].k].n} 보궐선거 D-${opened[0].day - S.day} · 선거 탭에서 후보를 낼 수 있습니다.` : `보궐선거 ${opened.length}곳 공천이 시작됐습니다 · 선거 탭에서 후보를 낼 수 있습니다.`, '', '보궐선거');
+  if (opened.length) toast(opened.length === 1 ? `${byeLabel(opened[0])} D-${opened[0].day - S.day} · 선거 탭에서 후보를 낼 수 있습니다.` : `보궐선거 ${opened.length}곳 공천이 시작됐습니다 · 선거 탭에서 후보를 낼 수 있습니다.`, '', '보궐선거');
   byeReport(done);
 }
 function byeOpen(b) {
   b.on = 1;
   const end = byeRegDay(b), at = () => Math.round(rr(S.day, end - 1));
   b.c = { A: { at: at() }, B: { at: at() } };
-  for (const [id, p] of [['C', 0.3], ['D', 0.3], ['O', 0.4]]) if (rnd() < p) b.c[id] = { at: at() };
-  addLog(`${RK[b.k].n} 보궐선거 공천이 시작되었습니다. 후보자 등록 마감 ${fdate(end)}.`, 'ok');
+  for (const [id, p] of [['C', 0.3], ['D', 0.3], ['O', byeGov(b) ? 0.3 : 0.4]]) if (rnd() < p) b.c[id] = { at: at() };
+  addLog(`${byeLabel(b)} 공천이 시작되었습니다. 후보자 등록 마감 ${fdate(end)}.`, 'ok');
 }
-// 발표일이 된 자리에 사람을 정함(인재풀에서). 지금 현직 의원은 후보로 안 냄
+// 발표일이 된 자리에 사람을 정함(인재풀에서). 지금 현직 의원·단체장은 후보로 안 냄
 function byeFill(b, all) {
   const busy = new Set([...S.figs.filter(f => f.pos !== 'cand').map(f => f.id), ...S.byes.flatMap(x => Object.values(x.c || {}).map(y => y.fid)).filter(Boolean)]);
-  for (const id in b.c) { const x = b.c[id]; if (!x.fid && (all || S.day >= x.at)) x.fid = rvPick({ type: 'nat' }, b.k, id, busy).id; }
+  for (const id in b.c) { const x = b.c[id]; if (!x.fid && (all || S.day >= x.at)) x.fid = rvPick({ type: byeGov(b) ? 'gov' : 'nat' }, b.k, id, busy).id; }
 }
 const byeOpenForMe = b => S.phase === 'reg' && b.on && !b.mine && S.day <= byeRegDay(b);
+// 보궐선거 후보가 되면 내려놓아야 하는 직: 의원 보궐은 단체장직(의원은 의석 둘을 못 가져 후보 목록에서 뺌), 단체장 보궐은 의원직
+const byeForced = (p, b) => byeGov(b) ? (isMP(p) ? 'mp' : null) : (isGovP(p) ? 'gov' : null);
+const FORCED_TXT = { gov: '단체장직 사직', mp: '의원직 사직' };
 function byeModal(id) {
   const b = S.byes.find(x => x.id === id); if (!b || b.mine || S.day > byeRegDay(b)) return;
   if (S.phase !== 'reg') return toast('등록된 정당만 후보자를 추천할 수 있습니다.', 'bad');
-  const cs = candIds(), ps = S.pool.filter(p => eligible(p, 'nat') && !p.leader && !cs.has(p.id) && !/국회의원|시·도지사|대통령/.test(p.role)).sort((a, b) => L.candScore(b) - L.candScore(a));
+  const gov = byeGov(b), cs = candIds(), kind = gov ? 'gov' : 'nat';
+  const ps = S.pool.filter(p => eligible(p, kind) && !p.leader && !cs.has(p.id) && !/대통령/.test(p.role) && (gov ? !isGovP(p) : !isMP(p))).sort((a, b) => L.candScore(b) - L.candScore(a));
   if (!ps.length) return toast('출마시킬 수 있는 인재가 없습니다.', 'bad');
+  const SP = gov ? GOV_SPEND.map(x => ({ n: x.n, c: govLimit(b.k) * x.f, b: x.b })) : NAT_SPEND;
   let pid = ps[0].id, idx = 1;
-  openModal({ title: `${RK[b.k].n} 보궐선거 후보 등록`, wide: true,
-    html: `<p class="small muted">선거일 ${fdate(b.day)}${b.with ? ` · ${esc(byeWith(b).name)}와 같은 날` : ''} · 후보 등록 마감 ${fdate(byeRegDay(b))}. 기탁금 ${won(L.deposit('nat', 40))}(청년 감액) + 선거운동비. 득표율 15% 이상이면 전액, 10% 이상이면 절반을 돌려받습니다. 보궐선거는 투표율이 낮아 후보 개인의 힘이 크게 작용합니다.</p>
-      <fieldset style="border:1px solid var(--border);border-radius:8px"><legend class="small">후보 (후보 점수 순)</legend><div style="max-height:34vh;overflow:auto">${ps.map(p => `<label style="display:block;margin:4px 0;padding:4px 0"><input type="radio" name="byep" value="${p.id}" ${p.id === pid ? 'checked' : ''}> <b>${esc(p.name)}</b> <span class="small muted">${p.gender === 'F' ? '여' : '남'} ${p.age}세 · 역량 ${Math.round(p.skill)} · 청렴 ${Math.round(p.integ)} · 인지도 ${Math.round(p.fame)} · 점수 ${candPts(p)}${homeOf(p) === b.k ? ' · 지역 출신(+3%)' : ''}${p.rec.length ? ` · 전과 ${p.rec.length}` : ''}</span></label>`).join('')}</div></fieldset>
-      <fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">선거운동비</legend>${NAT_SPEND.map((x, i) => `<label style="display:block;margin:4px 0;padding:4px 0"><input type="radio" name="byes" value="${i}" ${i === idx ? 'checked' : ''}> <b>${x.n}</b> <span class="small muted">${won(x.c)}${x.b ? ` · 득표력 +${x.b * 100}%` : ''}</span></label>`).join('')}</fieldset>`,
+  const dep = a => L.deposit(kind, a);
+  openModal({ title: `${byeLabel(b)} 후보 등록`, wide: true,
+    html: `<p class="small muted">선거일 ${fdate(b.day)}${b.with ? ` · ${esc(byeWith(b).name)}와 같은 날` : ''} · 후보 등록 마감 ${fdate(byeRegDay(b))}. 기탁금 ${won(dep(40))}${gov ? '' : '(청년 감액)'} + 선거운동비. 득표율 15% 이상이면 전액, 10% 이상이면 절반을 돌려받습니다. 보궐선거는 투표율이 낮아 후보 개인의 힘이 크게 작용합니다.${gov ? ' 권한대행 체제라 현직 프리미엄은 없습니다.' : ''}</p>
+      <fieldset style="border:1px solid var(--border);border-radius:8px"><legend class="small">후보 (후보 점수 순)</legend><div style="max-height:34vh;overflow:auto">${ps.map(p => `<label style="display:block;margin:4px 0;padding:4px 0"><input type="radio" name="byep" value="${p.id}" ${p.id === pid ? 'checked' : ''}> <b>${esc(p.name)}</b> <span class="small muted">${p.gender === 'F' ? '여' : '남'} ${p.age}세 · 역량 ${Math.round(p.skill)} · 청렴 ${Math.round(p.integ)} · 인지도 ${Math.round(p.fame)} · 점수 ${candPts(p)}${homeOf(p) === b.k ? ' · 지역 출신(+3%)' : ''}${p.rec.length ? ` · 전과 ${p.rec.length}` : ''}</span>${byeForced(p, b) ? ` <span class="pill warn">등록 시 ${FORCED_TXT[byeForced(p, b)]}</span>` : ''}</label>`).join('')}</div></fieldset>
+      <fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">선거운동비</legend>${SP.map((x, i) => `<label style="display:block;margin:4px 0;padding:4px 0"><input type="radio" name="byes" value="${i}" ${i === idx ? 'checked' : ''}> <b>${x.n}</b> <span class="small muted">${won(x.c)}${x.b ? ` · 득표력 +${Math.round(x.b * 100)}%` : ''}</span></label>`).join('')}</fieldset>`,
     onOpen: m => { m.querySelectorAll('input[name=byep]').forEach(i => i.onchange = () => { pid = +i.value; }); m.querySelectorAll('input[name=byes]').forEach(i => i.onchange = () => { idx = +i.value; }); },
     buttons: [{ t: '취소' }, { t: '등록', pri: true, fn: () => byeReg(b, pid, idx) }] });
 }
-function byeReg(b, pid, idx) {
+function byeReg(b, pid, idx, sure) {
   const p = person(pid); if (!p || b.mine) return;
-  const dep = L.deposit('nat', p.age), cost = dep + NAT_SPEND[idx].c;
+  const gov = byeGov(b), sp = gov ? GOV_SPEND[idx] : NAT_SPEND[idx], cost = L.deposit(gov ? 'gov' : 'nat', p.age) + (gov ? govLimit(b.k) * sp.f : sp.c), fc = byeForced(p, b);
   if (S.money < cost) return toast(`자금이 부족합니다 (필요 ${won(cost)}).`, 'bad');
-  spend(cost, '선거'); b.mine = { pid, name: p.name, dep, cost, idx };
-  addLog(`${RK[b.k].n} 보궐선거에 ${p.name}을(를) 후보로 등록했습니다 (${won(cost)}).`, 'ok'); Snd.sfx('ok'); renderAll();
+  if (fc && sure !== true) return openModal({ title: `${FORCED_TXT[fc]}가 필요합니다`,
+    html: `<p><b>${esc(p.name)}</b>이(가) ${byeLabel(b)} 후보로 등록하면 <b class="bad">즉시 ${fc === 'gov' ? `${GOVT[(R.find(r => p.role === `${r.n} 시·도지사`) || {}).k] || '단체장'}직을 사직</b>하고 권한대행 체제가 됩니다. 단체장 보궐선거는 임기가 1년 이상 남았을 때만 열립니다` : '의원직을 사직</b>합니다. 그 지역구는 보궐선거를 치릅니다'}. 낙선해도 직은 돌아오지 않습니다.</p><p class="small muted">되돌릴 수 없습니다. 실제 법은 보궐선거 후보가 선거일 30일 전까지 사직하는 것이며, 게임에서는 후보 등록 때 사직하는 것으로 단순화했습니다.</p>`,
+    buttons: [{ t: '취소' }, { t: '등록하고 사직', pri: true, fn: () => byeReg(b, pid, idx, true) }] });
+  spend(cost, '선거'); b.mine = { pid, name: p.name, dep: cost, cost, idx, b: sp.b };
+  addLog(`${byeLabel(b)}에 ${p.name}을(를) 후보로 등록했습니다 (${won(cost)}).`, 'ok'); Snd.sfx('ok');
+  if (fc === 'gov') govOutP(p, `${byeLabel(b)} 출마 사직`); else if (fc === 'mp') mpOut(p, `${byeLabel(b)} 출마 사직`);
+  renderAll();
 }
 // 개표. 결과 화면은 byeReport/byeSummary가 따로 띄움(같은 날 여러 건은 한 화면으로)
 function byeResolve(b) {
   byeFill(b, true);
-  const r = RK[b.k], ids = Object.keys(b.c), mods = {}, lp = b.mine && person(b.mine.pid);
-  for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[b.k] || 0) / r.seats);
+  const gov = byeGov(b), r = RK[b.k], ids = Object.keys(b.c), mods = {}, lp = b.mine && person(b.mine.pid), label = byeLabel(b);
+  if (!gov) for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[b.k] || 0) / r.seats);
   for (const id of ids) { const f = fig(b.c[id].fid); mods[id] = (mods[id] || 1) * candMul(f) * homeMul(f, b.k) * (S.day - (f?.hit ?? -999) < 120 ? 0.88 : 1); }
-  if (lp) { ids.push('P'); mods.P = candMul(lp) * (1 + NAT_SPEND[b.mine.idx].b) * homeMul(lp, b.k); }
-  const { v, win } = shareRace(b.k, ids, mods), e = Math.round(regVoters(r) / r.seats), t = b.wt ? turnouts(b.wt)[b.k] : turnouts('nat')[b.k] * BYE_TO, bl = ballots(e, t, v, LAW.invalid.nat);
-  const row = raceRow(ids, v, b.c, b.mine && { id: b.mine.pid }, bl), name = `${r.n} 보궐선거`, wf = win !== 'P' && fig(b.c[win].fid);
-  S.seats[win].d[b.k] = (S.seats[win].d[b.k] || 0) + 1;
+  if (lp) { ids.push('P'); mods.P = candMul(lp) * (1 + (b.mine.b ?? NAT_SPEND[b.mine.idx].b)) * homeMul(lp, b.k) * (gov && S.gov[b.k] === 'P' ? 1 + ((S.ops[b.k] ?? opsBase('P', b.k)) - opsBase('P', b.k)) / 100 : 1); }
+  const tp = gov ? 'gov' : 'nat', { v, win } = shareRace(b.k, ids, mods), e = gov ? regVoters(r) : Math.round(regVoters(r) / r.seats), t = b.wt ? turnouts(b.wt)[b.k] : turnouts(tp)[b.k] * BYE_TO, bl = ballots(e, t, v, LAW.invalid[tp]);
+  const row = raceRow(ids, v, b.c, b.mine && { id: b.mine.pid }, bl), wf = win !== 'P' && fig(b.c[win].fid);
   for (const id of ids) { // 당선자는 현직으로, 낙선한 다른 당 후보는 명부에서 뺌
     const f = id !== 'P' && fig(b.c[id].fid); if (!f) continue;
-    if (id === win) { f.pos = 'd'; f.k = b.k; } else figDrop(S, f);
+    if (id === win) { f.pos = gov ? 'gov' : 'd'; f.k = b.k; } else figDrop(S, f);
   }
+  if (gov) { // 단체장 자리: 새 단체장(권한대행 끝)
+    S.gov[b.k] = win; delete S.gact[b.k];
+    S.pool.forEach(p => { if (p.role === `${r.n} 시·도지사`) p.role = ''; });
+    if (win === 'P') { lp.role = `${r.n} 시·도지사`; S.ops[b.k] = opsBase('P', b.k); }
+    else { delete S.ops[b.k]; S.rgov[b.k] = { p: win, n: wf?.name || genName('M'), fid: wf?.id, o: opsBase(win, b.k) }; }
+    rgovSync(S); pgovSync(S); S.aap = Math.min(S.aap, aapMax());
+  } else S.seats[win].d[b.k] = (S.seats[win].d[b.k] || 0) + 1;
   const winner = win === 'P' ? `${S.party.name} ${lp.name}` : `${win === 'O' ? '무소속' : pn(win)} ${wf?.name || ''}`;
-  let msg = `${name}: ${winner} 당선`;
+  let msg = `${label}: ${winner} 당선`;
   if (lp) {
-    if (win === 'P') { lp.role = `국회의원(${r.n})`; S.fame += 2; S.trust += 1; }
+    if (win === 'P') { if (!gov) lp.role = `국회의원(${r.n})`; S.fame += 2; S.trust += 1; }
     const refund = b.mine.cost * L.refundRate(v.P);
-    if (refund > 0) S.pending.push({ d: S.day + 30, amt: refund, t: `${name} 기탁금 반환·선거비용 보전` });
+    if (refund > 0) S.pending.push({ d: S.day + 30, amt: refund, t: `${label} 기탁금 반환·선거비용 보전` });
     msg += ` · 우리 후보 득표율 ${pct(v.P)}${refund > 0 ? `, 기탁금·선거비용 ${won(refund)} 30일 후 반환` : ''}`;
   }
+  if (gov) rnews(b.k, `${label}: ${winner} 당선`);
   S.byes = S.byes.filter(x => x !== b);
   addLog(msg, win === 'P' ? 'ok' : '');
-  S.results.push({ d: S.day, name, t: msg, bye: 1, joint: byeWith(b)?.name, races: [{ k: b.k, n: name, e, t, bad: bl.bad, c: row }] });
+  S.results.push({ d: S.day, name: label, t: msg, bye: 1, joint: byeWith(b)?.name, races: [{ k: b.k, n: label, e, t, bad: bl.bad, c: row }] });
   S.results.slice(0, -8).forEach(x => delete x.races);
   figSync(S); checkAch();
-  return { i: S.results.length - 1, k: b.k, winner, mine: !!lp, won: win === 'P', share: v.P };
+  return { i: S.results.length - 1, k: b.k, label, winner, mine: !!lp, won: win === 'P', share: v.P };
 }
-const byeSummary = (rs, btn) => `<div class="tblwrap"><table><thead><tr><th>지역</th><th>당선</th><th>우리 후보</th>${btn ? '<th></th>' : ''}</tr></thead><tbody>${rs.map(x => `<tr><td>${RK[x.k].n}</td><td>${esc(x.winner)}</td><td>${x.mine ? (x.won ? '<b class="ok">당선</b>' : `낙선 (${pct(x.share)})`) : '-'}</td>${btn ? `<td><button class="btn" data-bres="${x.i}">상세 보기</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+const byeSummary = (rs, btn) => `<div class="tblwrap"><table><thead><tr><th>선거</th><th>당선</th><th>우리 후보</th>${btn ? '<th></th>' : ''}</tr></thead><tbody>${rs.map(x => `<tr><td>${esc(x.label)}</td><td>${esc(x.winner)}</td><td>${x.mine ? (x.won ? '<b class="ok">당선</b>' : `낙선 (${pct(x.share)})`) : '-'}</td>${btn ? `<td><button class="btn" data-bres="${x.i}">상세 보기</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
 function byeReport(rs) {
   if (!rs.length) return;
   Snd.sfx(rs.some(x => x.won) ? 'win' : 'click');
@@ -2793,7 +2844,7 @@ function byeReport(rs) {
 // ----- 보궐·공석 화면 -----
 const BYE_STEPS = ['공고', '공천·등록', '선거운동', '투표'];
 const byeStage = b => S.day >= b.day ? 3 : S.day > byeRegDay(b) ? 2 : b.on ? 1 : 0;
-const byeKey = b => S.byes.filter(x => x.k === b.k).length > 1 ? ` (${S.byes.filter(x => x.k === b.k).indexOf(b) + 1})` : '';
+const byeKey = b => S.byes.filter(x => x.k === b.k && x.kind === b.kind).length > 1 ? ` (${S.byes.filter(x => x.k === b.k && x.kind === b.kind).indexOf(b) + 1})` : '';
 function byeCard(b, fold) {
   const rd = byeRegDay(b), dd = b.day - S.day, st = byeStage(b), w = byeWith(b), pid = x => x === 'O' ? '무소속' : pn(x);
   const cands = b.on ? Object.keys(b.c).map(id => { const x = b.c[id], f = x.fid && S.day >= x.at && fig(x.fid); return `<li><span class="pill" style="border-color:${id === 'O' ? '#64748B' : pc(id)}">${esc(pid(id))}</span> ${f ? figBtn(f.id, f.name) : '<span class="muted small">공천 중</span>'}</li>`; }).join('') : '';
@@ -2802,16 +2853,17 @@ function byeCard(b, fold) {
     : S.phase !== 'reg' ? '<p class="small muted">후보를 내려면 먼저 정당 등록을 마쳐야 합니다.</p>'
     : S.day > rd ? '<p class="small muted">후보 등록이 마감됐습니다. 이번에는 후보를 내지 않았습니다.</p>'
     : b.on ? `<button class="btn pri" data-bye="${b.id}">후보 등록</button>` : `<p class="small muted">공천은 ${fdate(b.day - byeNom(b))}부터 시작합니다.</p>`;
-  const head = `${RK[b.k].n} 보궐선거${byeKey(b)} <span class="pill">D-${dd}</span>`;
-  const body = `<p class="small muted"><span class="pill">${esc(b.why)}</span> ${w ? `<span class="pill warn">${esc(w.name)}와 같은 날</span> ` : ''}선거일 ${fdate(b.day)} · 후보 등록 마감 ${fdate(rd)}</p>${steps}${cands ? `<ul style="margin:8px 0;padding-left:18px">${cands}</ul>` : ''}${mine}`;
+  const head = `${esc(byeLabel(b))}${byeKey(b)} <span class="pill">D-${dd}</span>`;
+  const body = `<p class="small muted"><span class="pill">${esc(b.why)}</span> ${w ? `<span class="pill warn">${esc(w.name)}와 같은 날</span> ` : ''}${byeGov(b) ? '<span class="pill">권한대행 체제</span> ' : ''}선거일 ${fdate(b.day)} · 후보 등록 마감 ${fdate(rd)}</p>${steps}${cands ? `<ul style="margin:8px 0;padding-left:18px">${cands}</ul>` : ''}${mine}`;
   return fold ? `<details class="card" ${byeOpenForMe(b) ? 'open' : ''}><summary><h2 style="display:inline">${head}</h2>${b.mine ? ' <span class="pill ok">우리 후보</span>' : ''} <span class="small muted">${esc(b.why)}${w ? ` · ${esc(w.name)}와 같은 날` : ''}</span></summary>${body}</details>` : `<div class="card"><h2>${head}</h2>${body}</div>`;
 }
 const byesHTML = () => S.byes.slice().sort((a, b) => a.day - b.day).map(b => byeCard(b, S.byes.length >= 3)).join('');
-const byeInfo = (k, sep = ' · ') => [...S.byes.filter(b => b.k === k).map(b => `보궐선거 ${fdate(b.day)} (D-${b.day - S.day})`), ...S.vacant.filter(v => v.k === k).map(() => '총선까지 공석')].join(sep);
+const byeInfo = (k, sep = ' · ') => [...S.byes.filter(b => b.k === k).map(b => `${byeGov(b) ? '시·도지사 ' : ''}보궐선거 ${fdate(b.day)} (D-${b.day - S.day})`), ...S.vacant.filter(v => v.k === k).map(v => byeGov(v) ? '다음 지선까지 권한대행' : '총선까지 공석')].join(sep);
 function vacCard() {
-  const n = vacN(); if (!n) return '';
-  const rows = [...S.byes.map(b => `<li>${RK[b.k].n}${byeKey(b)} · ${esc(b.why)} · 보궐선거 ${fdate(b.day)}</li>`), ...S.vacant.map(v => `<li>${v.pr ? '비례대표' : RK[v.k].n} · ${esc(v.why)} · ${v.pr ? '명부에 승계할 사람이 없어 총선까지 공석' : '임기 만료 1년 미만이라 총선까지 공석(제201조)'}</li>`)];
-  return `<div class="card"><h2>국회 공석 <span class="pill bad">${n}석</span></h2><ul style="margin:6px 0;padding-left:18px">${rows.join('') || '<li class="muted">-</li>'}</ul><p class="tip">공석은 재적 의석(${LAW.totalSeats - n}석)에서 빠지고 표결 정족수에도 영향을 줍니다. 지역구 의원이 물러나면 보궐선거를 하고, 비례대표는 명부 차순위가 승계합니다.</p></div>`;
+  const n = Math.max(0, vacN()), gv = [...S.byes.filter(byeGov), ...S.vacant.filter(byeGov)].length; if (!n && !gv) return '';
+  const rows = [...S.byes.map(b => `<li>${RK[b.k].n}${byeGov(b) ? ' 시·도지사' : ''}${byeKey(b)} · ${esc(b.why)} · 보궐선거 ${fdate(b.day)}${byeGov(b) ? ' · 권한대행' : ''}</li>`),
+    ...S.vacant.map(v => `<li>${v.pr ? '비례대표' : RK[v.k].n + (byeGov(v) ? ' 시·도지사' : '')} · ${esc(v.why)} · ${v.pr ? '명부에 승계할 사람이 없어 총선까지 공석' : byeGov(v) ? '임기 만료 1년 미만이라 다음 지방선거까지 권한대행(제201조)' : '임기 만료 1년 미만이라 총선까지 공석(제201조)'}</li>`)];
+  return `<div class="card"><h2>공석 ${n ? `<span class="pill bad">국회 ${n}석</span>` : ''}${gv ? ` <span class="pill bad">단체장 ${gv}곳</span>` : ''}</h2><ul style="margin:6px 0;padding-left:18px">${rows.join('') || '<li class="muted">-</li>'}</ul><p class="tip">${n ? `국회 공석은 재적 의석(${LAW.totalSeats - n}석)에서 빠지고 표결 정족수에도 영향을 줍니다. 지역구 의원이 물러나면 보궐선거를 하고, 비례대표는 명부 차순위가 승계합니다. ` : ''}${gv ? '단체장이 물러나면 권한대행 체제가 되고 보궐선거를 치릅니다. ' : ''}</p></div>`;
 }
 const slotScore = (p, k) => L.candScore(p) + (k ? Math.log(homeMul(p, k)) : Math.log(1 + (HOME - 1) * (RK[homeOf(p)]?.voters || 0) * 1e6 / LAW.voters));
 const poolBest = (id, kind, k, need) => (S.fpool?.[id] || []).reduce((b, p) => p.ban || p.age < LAW.age[kind] || (need && p.gender !== need) || (b && slotScore(b, k) >= slotScore(p, k)) ? b : p, null);
@@ -2822,10 +2874,10 @@ function rvPick(c, k, id, used, pr, need) {
   let b = id in (S.fpool || {}) ? poolBest(id, kd, sk, need) : bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => figSpec('cand'))]);
   if (!b) b = cur || figSpec('cand', need ? { gender: need } : undefined); // 풀이 바닥났을 때만
   else if (cur && b !== cur && slotScore(cur, sk) + INCUMB >= slotScore(b, sk)) b = cur;
-  // 광역단체장은 그 당 현직 국회의원도 후보가 될 수 있음(사직 후 출마)
-  const mp = c.type === 'gov' && id in (S.fpool || {}) ? S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr') && !used.has(f.id) && !f.ban && f.age >= LAW.age.gov).reduce((a, f) => !a || slotScore(f, k) > slotScore(a, k) ? f : a, null) : null;
-  const mr = (c.mpRun ??= {}); // 현직 의원은 인재풀 후보보다 조금이라도 나을 때만, 한 정당이 한 선거에 3명까지(2026년 지선 때 사직 의원 십수 명 수준)
-  if (mp && b !== cur && (mr[id] || 0) < 3 && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, '광역단체장 출마 사직'); return mp; }
+  // 사직하고 나오는 현직도 후보가 될 수 있음: 지선엔 그 당 현직 의원, 총선(지역구)엔 그 당 광역단체장
+  const mp = !pr && (c.type === 'gov' || c.type === 'nat') && id in (S.fpool || {}) ? S.figs.filter(f => f.party === id && (c.type === 'gov' ? (f.pos === 'd' || f.pos === 'pr') : f.pos === 'gov' && !S.gact[f.k]) && !used.has(f.id) && !f.ban && f.age >= LAW.age[kd]).reduce((a, f) => !a || slotScore(f, k) > slotScore(a, k) ? f : a, null) : null;
+  const mr = (c.mpRun ??= {}); // 현직은 인재풀 후보보다 조금이라도 나을 때만, 한 정당이 한 선거에 3명(총선은 2명)까지
+  if (mp && b !== cur && (mr[id] || 0) < (c.type === 'gov' ? 3 : 2) && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, c.type === 'gov' ? '광역단체장 출마 사직' : '총선 출마 사직'); return mp; }
   poolTake(id, b);
   const f = b === cur ? cur : genFig(S, id, pr ? b.home || figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
@@ -3292,7 +3344,13 @@ function registerParty() {
 const eligible = (p, kind) => p && !p.ban && p.age >= LAW.age[kind] && !(kind === 'pres' ? p.wasPres || /대통령$/.test(p.role) : /대통령$/.test(p.role));
 // 공천에 내보낼 수 있는 인재: 대선은 피선거권만, 총선·지선은 당 대표·대통령·다른 선거 현직 제외
 const nomKind = c => c.type === 'gov' ? 'gov' : c.type === 'pres' ? 'pres' : 'nat';
-const nomPool = c => { const kind = nomKind(c); return S.pool.filter(p => eligible(p, kind) && (kind === 'pres' || !p.leader && !(kind === 'gov' ? /대통령/ : /시·도지사|대통령/).test(p.role)) && !S.byes.some(b => b.mine?.pid === p.id)); };
+// 후보로 내면 포기해야 하는 직: 총선·대선은 단체장직(선거일 90일 전 사직), 지선은 의원직(30일 전). 총선의 현직 의원은 재출마라 해당 없음. 대선의 현직 의원은 사직 없이 나가지만 당선되면 의원직을 잃음
+const nomForced = (p, c) => c.type === 'nat' ? (isGovP(p) ? 'gov' : null) : c.type === 'gov' ? (isMP(p) ? 'mp' : null) : isGovP(p) ? 'gov' : isMP(p) ? 'mp' : null;
+const nomImmediate = (p, c) => { const f = nomForced(p, c); return f && !(c.type === 'pres' && f === 'mp') ? f : null; }; // 등록하면 바로 사직하는 경우
+const nomTag = (p, c) => { const f = nomForced(p, c); return f ? (nomImmediate(p, c) ? `등록 시 ${FORCED_TXT[f]}` : '당선 시 의원직 상실') : ''; };
+// 후보로 낼 수 있는 인재 전원(수동 선택용) / 자동 배치·빈 자리 채움이 쓰는 인재(사직이 필요한 현직은 옵션을 켠 경우만)
+const nomAll = c => { const kind = nomKind(c); return S.pool.filter(p => eligible(p, kind) && (kind === 'pres' || !p.leader && !/대통령/.test(p.role)) && !S.byes.some(b => b.mine?.pid === p.id)); };
+const nomPool = c => nomAll(c).filter(p => { const f = nomForced(p, c); return !(f === 'mp' && !nomPref.incMP) && !(f === 'gov' && !nomPref.incGov); });
 // 후보 자리: [객체, 키, 지역] (총선 지역구 각 자리 · 지선 출마 지역 · 대선 1자리)
 const nomSlots = c => { const d = c.draft; return c.type === 'nat' ? R.flatMap(r => d.reg[r.k].ids.map((_, i) => [d.reg[r.k].ids, i, r.k])) : c.type === 'gov' ? R.filter(r => d.reg[r.k].run).map(r => [d.reg[r.k], 'cand', r.k]) : [[d, 'cand', '']]; };
 // 빈 자리는 남는 인재로 무작위로 채움(인재가 모자랄 때만 빈 자리). 지역구로 정한 사람은 비례 명부에서 빠짐
@@ -3326,15 +3384,16 @@ function prRec(c) {
 // ponytail: C·무소속·다른 당 유세는 뺌. 크게 어긋나면 shareRace를 몇 번 돌려 세는 식으로
 const RV_TYP = 0.3, NOM_HOPE = 0.1;
 const distOdds = (c, k, p) => { const ns = natShares(), me = ns.P * pf('P', k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(ns.A * pf('A', k), ns.B * pf('B', k)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
-let nomPref = { spread: 'focus', first: 'pr' }; // 총선 자동 배치 방식(이번 실행 동안 기억)
+let nomPref = { spread: 'focus', first: 'pr', incMP: false, incGov: false }; // 총선 자동 배치 방식·자동 추천에 현직 의원/단체장 포함 여부(이번 실행 동안 기억)
 function nomAutoAsk(key) {
   const c = S.camps[key]; if (!c || c.reg) return;
   if (c.type !== 'nat') return nomAuto(key);
   const opt = (n, v, t, h) => `<label style="display:block;margin:6px 0"><input type="radio" name="${n}" value="${v}" ${nomPref[n] === v ? 'checked' : ''}> <b>${t}</b> <span class="small muted">${h}</span></label>`;
   const fs = (lg, body) => `<fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">${lg}</legend>${body}</fieldset>`;
   openModal({ title: '자동 배치', html: fs('지역구', opt('spread', 'focus', '가망 없는 지역 포기', `당선 가능성 ${NOM_HOPE * 100}% 미만인 자리엔 내지 않고 승산 높은 지역에 몰아서`) + opt('spread', 'even', '최대한 균등하게', '지역마다 한 자리씩 돌아가며 고르게(가망 낮은 곳도 냄)'))
+      + fs('현직 추천', `<label style="display:block;margin:6px 0"><input type="checkbox" name="incGov" ${nomPref.incGov ? 'checked' : ''}> <b>현직 광역단체장도 추천</b> <span class="small muted">등록하면 단체장직을 사직하고 권한대행 체제가 됩니다(단체장 보궐선거는 임기가 1년 이상 남았을 때만).</span></label>`)
       + fs('인재 우선순위', opt('first', 'pr', '비례 우선', `비례 명부 추천 ${prRec(c).n}명을 먼저 채우고 남는 인재로 지역구`) + opt('first', 'dist', '지역구 우선', '지역구에 먼저 내고 남는 인재로 비례 명부(추천 수까지)')),
-    onOpen: m => m.querySelectorAll('input[type=radio]').forEach(i => i.onchange = () => { nomPref[i.name] = i.value; }),
+    onOpen: m => { m.querySelectorAll('input[type=radio]').forEach(i => i.onchange = () => { nomPref[i.name] = i.value; }); m.querySelectorAll('input[type=checkbox]').forEach(i => i.onchange = () => { nomPref[i.name] = i.checked; }); },
     buttons: [{ t: '취소' }, { t: '배치', pri: true, fn: () => nomAuto(key) }] });
 }
 function nomAuto(key) {
@@ -3344,7 +3403,7 @@ function nomAuto(key) {
   // 그 자리 점수 = 후보 점수 + 연고(득표력 배율의 로그). 대선은 출신 지역 선거인 비중만큼
   const scAt = (p, k) => sc(p) + (k ? Math.log(homeMul(p, k)) : Math.log(1 + (HOME - 1) * (RK[homeOf(p)]?.voters || 0) * 1e6 / LAW.voters));
   const bestAt = (xs, k) => xs.reduce((a, b) => scAt(b, k) > scAt(a, k) ? b : a);
-  let ps = nomPool(c).filter(p => c.type !== 'gov' || !isMP(p)).sort((a, b) => sc(b) - sc(a)); // 현직 의원은 등록하면 의원직을 잃으니 자동 배치에서 제외
+  let ps = nomPool(c).sort((a, b) => sc(b) - sc(a));
   if (c.type === 'nat') {
     // 총선은 비례 후보 수와 출마 지역구 수도 정함(nomPref: 지역구 몰기·고르게 / 비례·지역구 우선)
     const rec = prRec(c).n, isF = p => p.gender === 'F', focus = nomPref.spread === 'focus';
@@ -3372,7 +3431,8 @@ function nomAuto(key) {
 }
 // 자동 배치 결과를 우상단 알림으로
 function nomAutoToast(c) {
-  const o = buildReg(c).out, pr = o.pr?.length || 0;
+  const o = buildReg(c).out, pr = o.pr?.length || 0, fc = regForced(c, o).length;
+  if (fc) setTimeout(() => toast(`현직 ${fc}명이 후보에 포함됐습니다. 등록하면 해당 직을 사직합니다.`, '', '사직 필요'), 300);
   toast(c.type === 'nat' ? `지역구 ${o.count - pr}명 · 비례 ${pr}명을 배치했습니다. 예상 비용 ${won(o.cost)}.` : c.type === 'gov' ? (o.count ? `시·도지사 후보 ${o.count}명을 배치했습니다. 예상 비용 ${won(o.cost)}.` : '출마할 지역에 먼저 체크하세요. 체크한 지역에만 후보를 배치합니다.') : `대통령 후보로 ${S.pool.find(p => p.id === c.draft.cand)?.name || '(인재 부족)'}을(를) 배치했습니다.`, 'ok', `${c.name} 자동 배치`);
 }
 function buildReg(c) {
@@ -3447,18 +3507,23 @@ function buildReg(c) {
   if (S.day > c.day - LAW.regDeadline[c.type]) err.push('후보자 등록 기간이 지났습니다.');
   return { out, err };
 }
+// 등록한 후보 중 등록 즉시 직을 내려놓아야 하는 현직: [[인재, 'gov'|'mp']]
+const regForced = (c, out) => (c.type === 'nat' ? [...Object.values(out.dist || {}).flat(), ...(out.pr || [])] : c.type === 'gov' ? Object.values(out.gov || {}) : out.cand ? [out.cand] : []).map(x => x && person(x.id)).filter(Boolean).map(p => [p, nomImmediate(p, c)]).filter(x => x[1]);
 function registerCands(key, sure) {
   const c = S.camps[key]; if (!c || c.reg) return;
   const { out, err } = buildReg(c);
   if (err.length) { Snd.sfx('bad'); return openModal({ title: '후보자 등록 불가', html: `<ul>${err.map(e => `<li>${esc(e)}</li>`).join('')}</ul>`, buttons: [{ t: '확인', pri: true }] }); }
-  // 현직 국회의원이 시·도지사 후보로 등록하면 의원직을 내려놓아야 함(선거일 전 30일까지 사직) → 지역구는 보궐선거
-  const mps = c.type === 'gov' ? Object.values(out.gov || {}).map(x => x && person(x.id)).filter(p => p && isMP(p)) : [];
-  if (mps.length && sure !== true) return openModal({ title: '현직 의원이 후보로 등록됩니다',
-    html: `<p><b>${mps.map(p => esc(p.name)).join('·')}</b> 의원이 시·도지사 후보로 등록하면 <b class="bad">즉시 의원직을 사직</b>합니다. 지역구 의원 ${mps.filter(p => !/비례/.test(p.role)).length}명의 자리는 보궐선거를 치르고(우리 당이 다시 이긴다는 보장이 없습니다), 비례대표는 명부 차순위가 승계합니다. 낙선해도 의원직은 돌아오지 않습니다.</p><p class="small muted">되돌릴 수 없습니다.</p>`,
+  // 등록하면 바로 사직해야 하는 현직(단체장→총선·대선, 의원→지선): 확인을 받고 등록 뒤 사직 처리 → 지역구·단체장 자리는 보궐선거
+  const fo = regForced(c, out), mps = fo.filter(x => x[1] === 'mp').map(x => x[0]), govs = fo.filter(x => x[1] === 'gov').map(x => x[0]);
+  if (fo.length && sure !== true) return openModal({ title: '현직이 후보로 등록됩니다',
+    html: `<p>${fo.map(([p, f]) => `<b>${esc(p.name)}</b>(${f === 'gov' ? '광역단체장' : '국회의원'})`).join(', ')}이(가) 등록하면 <b class="bad">즉시 ${mps.length && govs.length ? '의원직·단체장직을' : mps.length ? '의원직을' : '단체장직을'} 사직</b>합니다.</p>
+      <ul>${mps.length ? `<li>지역구 의원이 물러나면 그 지역구는 보궐선거를 치르고(우리 당이 다시 이긴다는 보장이 없습니다), 비례대표는 명부 차순위가 승계합니다.</li>` : ''}${govs.length ? `<li>단체장이 물러나면 권한대행 체제가 되고, 임기가 1년 이상 남았으면 단체장 보궐선거를 치릅니다.</li>` : ''}<li>낙선해도 직은 돌아오지 않습니다.</li></ul>
+      <p class="small muted">되돌릴 수 없습니다. 실제 법은 총선·대선은 선거일 90일 전, 보궐선거는 30일 전까지 사직하는 것인데, 게임은 공천 기간이 짧아 후보 등록 때 사직하는 것으로 단순화했습니다.</p>`,
     buttons: [{ t: '취소' }, { t: '등록하고 사직', pri: true, fn: () => registerCands(key, true) }] });
   spend(out.cost, '선거');
   c.reg = out;
-  mps.forEach(p => mpOut(p, '광역단체장 출마 사직'));
+  const why = { nat: '총선 출마 사직', gov: '광역단체장 출마 사직', pres: '대선 출마 사직' }[c.type];
+  mps.forEach(p => mpOut(p, why)); govs.forEach(p => govOutP(p, why));
   if (out.recs) S.trust = clamp(S.trust - out.recs * 0.7, 0, 100);
   addLog(`${c.name} 후보자 ${out.count}명 등록 (기탁금 ${won(out.deposits)}, 총 ${won(out.cost)})${out.recs ? ` · 전과 ${out.recs}건 공개로 신뢰 하락` : ''}`, 'ok');
   Snd.sfx('ok'); toast('선관위에 후보자 등록을 마쳤습니다.', 'ok', '후보자 등록'); renderAll();
@@ -3472,7 +3537,7 @@ function applyPen(pen) {
   if (pen.trust) S.trust = clamp(S.trust + pen.trust, 0, 100);
   if (pen.fame) S.fame = clamp(S.fame + pen.fame, 0, 100);
   const who = pen.pid != null && person(pen.pid); if (who) { who.rec.push(pen.tag); who.integ = clamp(who.integ - 15, 0, 100); who.ban = true; }
-  if (pen.gov && S.gov[pen.gov] === 'P') { S.gov[pen.gov] = 'O'; delete S.ops[pen.gov]; S.aap = Math.min(S.aap, aapMax()); S.pool.forEach(p => { if (p.role === `${RK[pen.gov].n} 시·도지사`) p.role = ''; }); pgovSync(S); }
+  if (pen.gov && S.gov[pen.gov] === 'P') govOutP(poolGov(S, pen.gov) || null, '유죄 확정', pen.gov);
   let lost = 0;
   for (let i = 0; i < (pen.seat || 0); i++) if (seatVoid('유죄 확정', /당선무효/.test(pen.note || ''))) lost++;
   return lost;
@@ -4088,7 +4153,7 @@ const AREA = k => GOVT[k].replace(/(장|지사)$/, '');
 const govPerson = k => { const p = poolGov(S, k), x = S.pgov?.[k]; return p || (x && { name: x.n, gender: x.g, age: x.a, skill: x.s ?? 50 }) || null; };
 const govName = k => govPerson(k)?.name || '';
 // 소식용 단체장 표기: "서울특별시장 홍길동(○○당)"
-const govWho = k => { const g = S.gov[k] === 'P' ? { n: govName(k), p: 'P' } : S.rgov?.[k]; return g ? `${GOVT[k]} ${g.n}(${g.p === 'O' ? '무소속' : pn(g.p)})` : GOVT[k]; };
+const govWho = k => { const g = S.gov[k] === 'P' ? { n: govName(k), p: 'P' } : S.rgov?.[k]; return g ? `${GOVT[k]}${S.gact?.[k] ? ' 권한대행' : ''} ${g.n}(${g.p === 'O' ? '무소속' : pn(g.p)})` : GOVT[k]; };
 // 매주 지역 소식 몇 건: 단체장 직무 평가와 일반 지역 뉴스
 // ---------- 지역 현안: 뉴스 → 역점사업, 역점사업 → 뉴스 ----------
 // S.rcur: 실제 지역 문제(화면엔 안 보임) [{ id, k, pj | bad, t, d, until }] — pj 수요(방치하면 그 지역 지사 책임론), bad 악재(그 사업 성공률↓)
@@ -4328,7 +4393,7 @@ function renderTop() {
     $('#setBtn').onclick = settingsModal;
   }
   $('#pname').textContent = S.party.name;
-  $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주', '', 'i-turn')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad', 'i-bolt')}${aapMax() ? st(`${S.aap}/${aapMax()}`, '행정 행동력', S.aap ? '' : 'bad', 'i-city') : ''}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당', '', 'i-cal')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '', 'i-coin')}${st(totalMembers().toLocaleString(), '당원', '', 'i-users')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석', '', 'i-gov')}${vacN() ? st(vacN(), '국회 공석', 'bad', 'i-gov') : ''}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, ''), '', 'i-vote') : ''}`;
+  $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주', '', 'i-turn')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad', 'i-bolt')}${aapMax() ? st(`${S.aap}/${aapMax()}`, '행정 행동력', S.aap ? '' : 'bad', 'i-city') : ''}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당', '', 'i-cal')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '', 'i-coin')}${st(totalMembers().toLocaleString(), '당원', '', 'i-users')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석', '', 'i-gov')}${vacN() > 0 ? st(vacN(), '국회 공석', 'bad', 'i-gov') : ''}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, ''), '', 'i-vote') : ''}`;
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
@@ -4516,6 +4581,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
   m.querySelectorAll('[data-bye]').forEach(b => b.onclick = () => byeModal(+b.dataset.bye));
   m.querySelectorAll('[data-nomauto]').forEach(b => b.onclick = () => nomAutoAsk(b.dataset.nomauto));
+  m.querySelectorAll('[data-nomopt]').forEach(b => b.onchange = () => { nomPref[b.dataset.nomopt] = b.checked; Snd.sfx('click'); renderPanel(); });
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
   m.querySelectorAll('[data-camp]').forEach(el => el.addEventListener('change', () => { draftChange(el); }));
   m.querySelectorAll('input[type=number][data-camp], input[type=range][data-camp]').forEach(el => el.addEventListener('input', () => draftChange(el, true)));
@@ -4664,7 +4730,7 @@ function pOrg() {
       </tbody></table></div><div><table class="kv"><tbody>
         <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
         <tr><th>시·도당</th><td>${S.chapters[r.k] ? '<b class="ok">등록됨</b>' : '미창당'}</td></tr>
-        <tr><th>시·도지사</th><td>${S.gov[r.k] ? esc(pn(S.gov[r.k])) : '-'}</td></tr>
+        <tr><th>시·도지사</th><td>${S.gov[r.k] ? esc(pn(S.gov[r.k])) : '-'}${S.gact?.[r.k] ? ' <span class="pill warn">권한대행</span>' : ''}</td></tr>
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
         ${byeInfo(r.k) ? `<tr><th>공석·보궐</th><td><b class="warn">${byeInfo(r.k, '<br>')}</b></td></tr>` : ''}
       </tbody></table></div></div>
@@ -4785,6 +4851,14 @@ function rvCard(c) {
   return `<div class="card" style="margin-bottom:14px"><h2>공천 현황 <span class="pill">발표 ${xs.filter(rvOut).length + own}/${xs.length + ownN}</span></h2>${body}
     <p class="tip">각 당은 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 점선 칸은 출마하지만 아직 공천 전인 자리입니다.${gov ? ' 우리 당은 후보자 등록을 마치면 채워집니다.' : ''} 이름을 누르면 출신·능력치·전과${gov ? '(다른 당은 보도된 의혹까지)' : '·보도된 의혹'}를 볼 수 있습니다.</p></div>`;
 }
+// 자동 배치·빈 자리 채움이 현직 의원·단체장도 추천할지(사직이 필요한 선거만 표시). 수동 선택에는 영향 없음
+const nomOpts = c => {
+  if (c.reg) return '';
+  const o = [];
+  if (c.type !== 'nat') o.push(['incMP', '현직 국회의원도 자동 추천', c.type === 'gov' ? '등록하면 의원직을 사직합니다. 지역구는 보궐선거를 치르고 비례대표는 명부 차순위가 승계합니다.' : '대선에서 당선되면 의원직을 잃고 보궐선거가 열립니다(출마만으로는 사직하지 않음).']);
+  if (c.type !== 'gov') o.push(['incGov', '현직 광역단체장도 자동 추천', '등록하면 단체장직을 사직하고 권한대행 체제가 됩니다. 임기가 1년 이상 남았으면 단체장 보궐선거를 치릅니다.']);
+  return `<fieldset class="nomopt" style="border:1px solid var(--border);border-radius:8px;margin:0 0 10px;padding:6px 10px"><legend class="small">자동 추천 대상 (기본: 제외)</legend>${o.map(([k, t, h]) => `<label style="display:block;margin:4px 0;padding:4px 0"><input type="checkbox" data-nomopt="${k}" ${nomPref[k] ? 'checked' : ''} aria-describedby="nomo-${k}"> <b>${t}</b><span class="small muted" id="nomo-${k}" style="display:block;margin-left:24px">${h}</span></label>`).join('')}</fieldset>`;
+};
 function campCard(c) {
   const dd = c.day - S.day, dl = c.day - LAW.regDeadline[c.type], cs = campStart(c);
   const head = `<h2>${c.name} <span class="pill">D-${dd}</span></h2><p class="small muted">선거일 ${fdate(c.day)} · 후보자 등록 마감 ${fdate(dl)} · 선거운동 ${fdate(cs)}부터 ${S.day >= c.day - LAW.pollBan ? ' · <b class="warn">여론조사 공표 금지 중</b>' : ''}</p>`;
@@ -4810,7 +4884,7 @@ const candPts = p => { const v = L.candScore(p); return `${v >= 0 ? '+' : ''}${v
 function nomForm(c) {
   nomFill(c);
   const d = c.draft, a = `data-camp="${c.key}"`, ss = nomSlots(c);
-  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button>${infoTip(`후보 점수(역량 › 전과 › 청렴도 › 인지도)에 연고(출신 지역 출마 +3%)를 더해 높은 인재를 ${c.type === 'nat' ? '승산 높은 지역' : c.type === 'gov' ? '우리 지지가 높은 지역' : '대선 후보'}부터 배치합니다.${c.type === 'nat' ? ' 누르면 지역구 배치(가망 없는 지역 포기·최대한 균등하게)와 우선순위(비례·지역구)를 고르고, 비례대표 후보 수와 출마 지역구 수까지 보유 자금 안에서 정합니다.' : ''}`)}</div>`;
+  const top = `<div class="btns" style="margin-bottom:10px"><button class="btn" data-nomauto="${c.key}">자동 배치</button>${infoTip(`후보 점수(역량 › 전과 › 청렴도 › 인지도)에 연고(출신 지역 출마 +3%)를 더해 높은 인재를 ${c.type === 'nat' ? '승산 높은 지역' : c.type === 'gov' ? '우리 지지가 높은 지역' : '대선 후보'}부터 배치합니다.${c.type === 'nat' ? ' 누르면 지역구 배치(가망 없는 지역 포기·최대한 균등하게)와 우선순위(비례·지역구)를 고르고, 비례대표 후보 수와 출마 지역구 수까지 보유 자금 안에서 정합니다.' : ''}`)}</div>${nomOpts(c)}`;
   // 지역 행을 반씩 나눠 표 두 개를 좌우로(좁으면 위아래). 행은 R 순서대로 만들어 slot 번호(si)가 어긋나지 않음
   const twoCol = (head, rows) => { const h = Math.ceil(rows.length / 2), t = rs => `<div class="tblwrap"><table><thead><tr>${head}</tr></thead><tbody>${rs.join('')}</tbody></table></div>`;
     return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:12px;align-items:start">${t(rows.slice(0, h))}${t(rows.slice(h))}</div>`; };
@@ -4824,12 +4898,12 @@ function nomForm(c) {
         <label class="f">비례대표 후보 수<input type="number" min="0" max="46" value="${d.prN}" ${a} data-f="prN"><span class="h">1인당 기탁금 500만원 · ${(r => `추천 ${r.n}명 (지금 여론이면 비례 ${r.exp}석 예상)`)(prRec(c))}</span></label>
       </div>
       <fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">비례대표 명부 상위 배치 인재 (선택 순서대로)</legend>
-      <div class="row">${S.pool.filter(p => eligible(p, 'nat') && !ss.some(([o, f]) => o[f] === p.id)).map(p => `<label class="small"><input type="checkbox" ${a} data-f="prPick" value="${p.id}" ${d.prIds.includes(p.id) ? 'checked' : ''}> ${esc(p.name)}(${p.gender === 'F' ? '여' : '남'})</label>`).join('') || '<span class="muted small">인재 없음</span>'}</div>
+      <div class="row">${S.pool.filter(p => eligible(p, 'nat') && !ss.some(([o, f]) => o[f] === p.id)).map(p => `<label class="small"><input type="checkbox" ${a} data-f="prPick" value="${p.id}" ${d.prIds.includes(p.id) ? 'checked' : ''}> ${esc(p.name)}(${p.gender === 'F' ? '여' : '남'})${nomTag(p, c) ? ` <span class="pill warn">${nomTag(p, c)}</span>` : ''}</label>`).join('') || '<span class="muted small">인재 없음</span>'}</div>
       <p class="tip">홀수 순번은 여성으로 자동 배치됩니다(공직선거법 제47조 제3항, 위반 시 등록무효 제52조). 지역구 후보로 정한 인재는 목록에서 빠집니다(중복 입후보 불가). 고르지 않은 순번은 남는 인재로 채웁니다.</p></fieldset>`;
   }
   if (c.type === 'gov') {
     return `${top}${twoCol('<th>지역</th><th class="r">우리 지지</th><th>출마</th><th>후보</th><th>선거비용</th>', R_ADM.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td><td><input type="checkbox" ${a} data-k="${r.k}" data-f="run" ${x.run ? 'checked' : ''} aria-label="${r.n} 출마"></td>
-      <td>${x.run ? `<button class="btn nomb" data-distc="${c.key}" data-distk="${r.k}">보기·변경</button>${(q => q && isMP(q) ? ' <span class="pill warn">현직 의원 · 등록 시 사직</span>' : '')(person(x.cand))}` : '<span class="muted small">-</span>'}</td>
+      <td>${x.run ? `<button class="btn nomb" data-distc="${c.key}" data-distk="${r.k}">보기·변경</button>${(q => q && nomTag(q, c) ? ` <span class="pill warn">${nomTag(q, c)}</span>` : '')(person(x.cand))}` : '<span class="muted small">-</span>'}</td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }))}
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마를 고르면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, '보기·변경'에서 직접 바꾸거나 '자동 배치'를 누르세요. 다른 지역에 있는 사람을 고르면 두 지역이 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p><p class="tip">현직 국회의원도 후보가 될 수 있지만, 등록하는 순간 의원직을 사직하고 그 지역구는 보궐선거를 치릅니다(자동 배치에서는 제외). 지방선거 후보 등록 전에 사직하면 보궐선거를 이 선거와 같은 날 치르고, 늦으면 다음 4월로 미뤄집니다.</p>`;
   }
@@ -4879,7 +4953,7 @@ function distEdit(c, k) {
     const ss = nomSlots(c), at = rk => ss.flatMap(([o, f, x], i) => x === rk ? [[o[f], i]] : []);
     const rs = distRs(c, rk => at(rk).length); if (!rs.some(r => r.k === k)) k = rs[0]?.k;
     const pool = S.pool.filter(p => eligible(p, kind)).sort((x, y) => L.candScore(y) - L.candScore(x)), by = new Map(pool.map(p => [p.id, p]));
-    const opts = sel => (sel === '' ? '<option value="" selected>인재 부족</option>' : '') + pool.map(p => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.name)} (${candPts(p)})</option>`).join('');
+    const opts = sel => (sel === '' ? '<option value="" selected>인재 부족</option>' : '') + pool.map(p => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.name)} (${candPts(p)})${nomTag(p, c) ? ' · ' + nomTag(p, c) : ''}</option>`).join('');
     const slot = ([v, si], i) => { const p = by.get(v);
       return `<div class="dslot">${p ? face(p, pc('P'), 36) : ''}<div><select data-camp="${c.key}" data-f="slot" data-s="${si}" aria-label="${distReg(k)} ${distWho(c)} ${i + 1}">${opts(v)}</select>${p ? `<span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''} · ${esc(homeTxt(p))}</span>` : ''}</div>${p ? `<div class="dsl-st">${statBars(p)}<span class="small ${p.rec?.length ? 'bad' : 'muted'}">전과 ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span></div>` : ''}</div>`; };
     m.querySelector('[data-dm]').innerHTML = rs.length ? `<div class="filters chips" role="group" aria-label="지역 선택" ${c.type === 'pres' ? 'hidden' : ''}>${rs.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-dk="${r.k}" aria-pressed="${r.k === k}">${r.n} ${at(r.k).length}</button>`).join('')}</div>
@@ -4986,7 +5060,7 @@ function pOffice() {
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도 | 사회적 이슈 나란히(좁으면 위아래)
   // 맨 위: 의석 분포(접고 펼치기, 상태는 탭을 다시 그려도 유지)
-  const seatd = `<details class="card seatd" data-seatd ${seatOpen ? 'open' : ''}><summary><h2>국회 의석 분포 (재적 ${LAW.totalSeats - vacN()}석${vacN() ? ` · 공석 ${vacN()}` : ''})</h2></summary>${hemicycle()}<p class="tip">의장석에서 바라본 배치입니다. 의석은 국회의장이 교섭단체와 협의해 정하며(국회법 제3조), 관례대로 원내 제1당은 가운데, 제2당은 오른쪽, 20석 미만 정당과 무소속은 왼쪽에 앉습니다.</p></details>`;
+  const seatd = `<details class="card seatd" data-seatd ${seatOpen ? 'open' : ''}><summary><h2>국회 의석 분포 (재적 ${LAW.totalSeats - Math.max(0, vacN())}석${vacN() > 0 ? ` · 공석 ${vacN()}` : ''})</h2></summary>${hemicycle()}<p class="tip">의장석에서 바라본 배치입니다. 의석은 국회의장이 교섭단체와 협의해 정하며(국회법 제3조), 관례대로 원내 제1당은 가운데, 제2당은 오른쪽, 20석 미만 정당과 무소속은 왼쪽에 앉습니다.</p></details>`;
   return `<div class="stack">${seatd}${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}${agendaCard()}</div></div>`;
 }
 // 청와대: 대통령 정보·국정 지지율 · 집권 시 거부권 처리 방식
@@ -5056,7 +5130,7 @@ function pAdmin() {
   if (rOpen?.k !== k) rOpen = k && { k, seen: S.rseen[k] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
-  const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
+  const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'}${S.gact?.[k] ? ' · <b class="warn">권한대행 체제</b>' : ''} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 좌: 지역 현안·행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `${govMapCard()}<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters chips" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
@@ -5072,7 +5146,7 @@ function bannerItems() {
     for (const e of SCHED) { const st = e.day - LAW.nomDays - S.day; if (st > 0 && st <= 14 && !S.done[e.key]) out.push(['공천', `${e.name} 공천 시작 D-${st}`, 'elec', '']); }
   }
   const regs = S.byes.filter(byeOpenForMe), soon = S.byes.filter(b => !b.on && b.day - byeNom(b) - S.day <= 14), vote = S.byes.filter(b => !b.with && b.on && S.day > byeRegDay(b) && b.day - S.day <= 30);
-  const bn = (xs, f) => xs.length === 1 ? RK[xs[0].k].n + ' ' : '', cnt = xs => xs.length > 1 ? `${xs.length}곳 ` : '';
+  const bn = xs => xs.length === 1 ? byeLabel(xs[0]).replace(' 보궐선거', '') + ' ' : '', cnt = xs => xs.length > 1 ? `${xs.length}곳 ` : '';
   if (regs.length) { const dl = Math.min(...regs.map(b => byeRegDay(b) - S.day)); out.push(['보궐', `${bn(regs)}보궐선거 ${cnt(regs)}후보 등록 마감 D-${dl}${regs.length > 1 ? '(가장 빠른 곳)' : ''}`, 'elec', dl <= 14 ? 'warn' : '']); }
   if (soon.length) out.push(['보궐', `${bn(soon)}보궐선거 ${cnt(soon)}공천 시작 D-${Math.min(...soon.map(b => b.day - byeNom(b) - S.day))}`, 'elec', '']);
   if (vote.length) out.push(['보궐', `${bn(vote)}보궐선거 ${cnt(vote)}투표일 D-${Math.min(...vote.map(b => b.day - S.day))}`, 'elec', '']);
@@ -5111,7 +5185,7 @@ const LAWS = [
   ['공직선거법 제16조', '대통령 피선거권: 만 40세 이상, 5년 이상 국내 거주. 국회의원·지방선거: 만 18세 이상.'],
   ['공직선거법 제34조', '선거일: 대통령 임기만료 전 70일, 국회의원 50일, 지방선거 30일 이후 첫 번째 수요일.'],
   ['공직선거법 제33조·제59조', '선거기간은 대통령선거 23일, 국회의원·지방선거 14일. 선거운동은 선거기간에만 가능하나 인터넷·문자 등은 상시 허용.'],
-  ['공직선거법 제53조 · 헌법 제83조 · 국회법 제29조', '현직 국회의원은 의원직을 유지한 채 대통령선거에 나갈 수 있고(사직 의무는 지방자치단체장 선거 출마에만 있음), 낙선하면 의원직 그대로입니다. 대통령에 당선되면 겸직 금지로 의원직을 잃고, 비례대표는 명부 차순위가 승계합니다.'],
+  ['공직선거법 제53조 · 헌법 제83조 · 국회법 제29조', '현직 국회의원은 의원직을 유지한 채 총선·대선에 나갈 수 있습니다(사직 의무는 지방자치단체장 선거 출마에만 있음). 낙선하면 의원직 그대로, 대통령에 당선되면 겸직 금지로 의원직을 잃고 비례대표는 명부 차순위가 승계합니다. 반대로 광역단체장이 총선·대선·보궐선거에 나가려면 사직해야 합니다(총선·대선 선거일 90일 전, 보궐 30일 전. 게임은 후보 등록 때 사직으로 단순화). 단체장이 물러나면 권한대행 체제가 되고 보궐선거를 치릅니다.'],
   ['공직선거법 제35조·제201조·제203조', '지역구 의원직이 비면 그 자리는 공석이 되고 보궐선거를 4월 첫 수요일에 치릅니다. 지방선거·대선의 후보 등록 전에 사유가 확정되면 그 선거와 같은 날 치르고(투표율도 그 선거 수준), 임기 만료까지 1년 미만이면 하지 않을 수 있어 총선까지 공석입니다. 단독 실시 보궐선거는 투표율이 낮습니다(최근 35~45%).'],
   ['공직선거법 제192조·제200조', '의원직 상실 사유는 형 확정(피선거권 상실)·사퇴·비례대표의 스스로 탈당 등입니다. 제명은 퇴직 사유가 아닙니다. 비례대표 궐원은 명부 차순위가 승계하지만 선거범죄 당선무효는 승계되지 않습니다.'],
   ['공직선거법 제47조·제52조', '비례대표 후보의 50% 이상을 여성으로, 홀수 순번은 여성으로 추천해야 하며 위반 시 등록무효. 지역구는 여성 30% 이상 추천 노력.'],

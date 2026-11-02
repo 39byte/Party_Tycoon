@@ -64,10 +64,11 @@
   // 지방선거·대선의 후보 등록 전(선거일 JOINT_CUTOFF일 전까지)에 사유가 확정되면 그 선거와 같은 날 함(2026년 6·3 지선 동시 실시 사례).
   // 게임에선 공천·등록할 시간이 있도록 사유일부터 minLead일이 안 남은 4월은 건너뜀. JOINT_CUTOFF 34일은 6·3 지선의 4월 30일 기한을 일반화한 근사치
   const JOINT_CUTOFF = 34;
-  function byeDay(day, events = [], minLead = 50) {
+  // hosts: 같은 날 치를 수 있는 선거 유형(의원 보궐은 지선·대선, 단체장 보궐은 총선·대선)
+  function byeDay(day, events = [], minLead = 50, hosts = ['gov', 'pres']) {
     let yy = dayToDate(day).getUTCFullYear(), base;
     while ((base = electionDay(ymd(yy, 4, 1), 0)) - day < minLead) yy++;
-    const j = events.filter(e => (e.type === 'gov' || e.type === 'pres') && e.day < base && e.day - day >= JOINT_CUTOFF).sort((a, b) => a.day - b.day)[0];
+    const j = events.filter(e => hosts.includes(e.type) && e.day < base && e.day - day >= JOINT_CUTOFF).sort((a, b) => a.day - b.day)[0];
     return j ? { day: j.day, with: j.key } : { day: base, with: null };
   }
   // 앞으로 `years`년간의 임기만료 선거 일정

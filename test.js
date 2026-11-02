@@ -25,6 +25,11 @@ assert.strictEqual(L.byeDay(gov.day - L.JOINT_CUTOFF, sch).day, gov.day);
 assert.strictEqual(L.byeDay(gov.day - L.JOINT_CUTOFF + 1, sch).with, null);
 assert.strictEqual(L.byeDay(pres.day - 40, sch).with, pres.key);
 assert.strictEqual(L.byeDay(dd(2027, 1, 10), sch).with, null); // 총선·먼 선거와는 동시 아님
+// 단체장 보궐선거는 총선·대선과 동시 실시(지선은 임기 만료 선거라 대상 아님)
+const nat0 = sch.find(e => e.type === 'nat'), H = ['nat', 'pres'];
+assert.strictEqual(L.byeDay(nat0.day - 40, sch, 50, H).with, nat0.key);
+assert.strictEqual(L.byeDay(nat0.day - 40, sch).with, null);
+assert.strictEqual(L.byeDay(nat0.day - 20, sch, 50, H).with, null);
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
 assert.strictEqual(Math.round(L.REGIONS.reduce((a, r) => a + r.voters * 1e6, 0)), L.LAW.voters);
 
