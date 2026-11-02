@@ -4833,7 +4833,7 @@ function pElec() {
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
   html += byesHTML();
-  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${r.bye ? '<span class="pill">보궐</span> ' : ''}${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
+  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
 }
 // 공천 현황: 출마는 하지만 아직 공천 전인 자리는 빈 프로필. 총선은 지역을 골라 당별로, 지방선거는 시·도별로(우리 당 포함). 5칸씩 쪽 넘김
