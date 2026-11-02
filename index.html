@@ -4492,6 +4492,7 @@ let rvReg = 'seoul';
 const rvPg = {}, RV_PER = 5; // 쪽 번호: 선거·지역·당별로 기억(저장 안 함)
 function rvCard(c) {
   if (!c.rv || c.type === 'pres') return '';
+  rvPr(c); // 이미 진행 중이던 공천에도 비례 명부가 바로 보이게
   const xs = [...Object.values(c.rv).flat().flatMap(s => Object.values(s)), ...Object.values(c.rvp || {}).flat()], ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
   const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
   // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보)
