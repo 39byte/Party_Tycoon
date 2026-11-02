@@ -1164,12 +1164,13 @@ function pf(id, k) {
   return pfBase(id, k) * g * trReg(id, k);
 }
 const regSupport = k => S.rsup[k] ?? S.support * regFactor(k);
-// 행정 지지도 상승 억제: 시작점 = 100 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 억제 없음
+// 행정 지지도 상승 억제: 시작점 = 90 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
 const opsSoft = (id, k) => {
   const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
   const sh = Object.fromEntries(ids.map(x => [x, ns[x] * pf(x, k)])), tot = sum(ids.map(x => sh[x]));
   const ideo = x => x === 'P' ? S.party.ideo : RIV[x].ideo;
-  return 100 - sum(ids.filter(x => ideo(x) * g < 0).map(x => sh[x])) / tot * 100;
+  if (!g) return 40;
+  return 90 - sum(ids.filter(x => ideo(x) * g < 0).map(x => sh[x])) / tot * 100;
 };
 const opsUp = (id, k, x, d) => {
   if (d <= 0) return x + d;
