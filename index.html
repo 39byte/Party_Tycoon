@@ -4563,6 +4563,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelector('[data-seatd]')?.addEventListener('toggle', e => seatOpen = e.target.open);
   m.querySelector('[data-gmapd]')?.addEventListener('toggle', e => { if (gmapOpen !== e.target.open) { gmapOpen = e.target.open; renderPanel(); } });
+  m.querySelectorAll('[data-rescat]').forEach(b => b.onclick = () => { resCat = b.dataset.rescat; renderAll(); });
   m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
   m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc], b.dataset.distk));
   m.querySelectorAll('[data-prc]').forEach(b => b.onclick = () => prModal(S.camps[b.dataset.prc]));
@@ -4687,7 +4688,7 @@ function pHome() {
   </div>`;
 }
 // 인물 명부: 프로필이 있는 다른 사람들(다른 당 의원·광역단체장·공천 후보·원외 인사). 누르면 인물 정보
-let dirCat = 'mp', dirPar = '', dirPage = 0;
+let dirCat = 'mp', dirPar = '', dirPage = 0, resCat = 'pres';
 const DIR_CAT = [['mp', '국회의원'], ['gov', '광역단체장'], ['min', '장관'], ['cand', '공천 후보'], ['out', '원외 인사']], DIR_PER = 24;
 function dirCard() {
   const ri = k => R.findIndex(r => r.k === k), po = ['A', 'B', 'C', 'D', 'O'];
@@ -4833,7 +4834,9 @@ function pElec() {
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
   html += byesHTML();
-  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<ul class="log">${S.results.map((r, i) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
+  const RES_CAT = [['pres', '대통령 선거'], ['nat', '국회의원 선거'], ['gov', '지방자치단체장 선거']], resOf = r => /대통령/.test(r.name) ? 'pres' : r.bye ? (/시·도지사/.test(r.name) ? 'gov' : 'nat') : /국회의원/.test(r.name) ? 'nat' : 'gov';
+  const rows = S.results.map((r, i) => [r, i]).filter(([r]) => resOf(r) === resCat);
+  html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<div class="filters chips" role="group" aria-label="선거 종류">${RES_CAT.map(([k, n]) => `<button class="btn${resCat === k ? ' pri' : ''}" data-rescat="${k}" aria-pressed="${resCat === k}">${n} <span class="num">${S.results.filter(r => resOf(r) === k).length}</span></button>`).join('')}</div>${rows.length ? `<ul class="log">${rows.map(([r, i]) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">이 종류의 선거는 아직 치르지 않았습니다.</p>'}` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
 }
 // 공천 현황: 출마는 하지만 아직 공천 전인 자리는 빈 프로필. 총선은 지역을 골라 당별로, 지방선거는 시·도별로(우리 당 포함). 5칸씩 쪽 넘김
