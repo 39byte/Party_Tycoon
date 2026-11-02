@@ -4842,7 +4842,7 @@ const rvPg = {}, RV_PER = 5; // 쪽 번호: 선거·지역·당별로 기억(저
 function rvCard(c) {
   if (!c.rv) return '';
   rvPr(c); // 이미 진행 중이던 공천에도 비례 명부가 바로 보이게
-  const pres = c.type === 'pres', xs = pres ? Object.values(c.rivals) : [...Object.values(c.rv).flat().flatMap(s => Object.values(s)), ...Object.values(c.rvp || {}).flat()], ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
+  const pres = c.type === 'pres', xs = pres ? Object.values(c.rivals) : [...Object.values(c.rv).flat().flatMap(s => Object.values(s)), ...Object.values(c.rvp || {}).flat()], ruling = S.president.party, ord = ['P', 'A', 'B', 'C', 'D', 'O'].sort((a, b) => (b === ruling) - (a === ruling) || seatTotal(b) - seatTotal(a)), ids = ord.filter(id => id !== 'P'), gov = c.type === 'gov'; // 정당 나열: 여당 먼저, 나머지는 의석수 순
   const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
   // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보)
   const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted" title="${sub ? `${pname(id)} · ` : ''}${esc(f.job)}">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
@@ -4857,7 +4857,7 @@ function rvCard(c) {
   if (pres) {
     // 대선만 예외: 우리 당 후보도 함께, 프로필을 모두 펼쳐 가로로. 여당 → 나머지는 의석수 순
     own = c.reg?.cand ? 1 : 0; ownN = 1;
-    const ruling = S.president.party, order = ['P', 'A', 'B', 'C', 'D'].filter(id => id === 'P' || c.rivals[id]).sort((a, b) => (b === ruling) - (a === ruling) || seatTotal(b) - seatTotal(a));
+    const order = ord.filter(id => id === 'P' || c.rivals[id]);
     const cell = (id, i) => {
       const x = id === 'P' ? c.reg?.cand : c.rivals[id], p = x && (id === 'P' ? S.pool.find(q => q.id === x.id) || x : rvOut(x) && (fig(x.fid) || x)),
         tag = `<span class="pill">${i + 1}번</span>${id !== 'P' && id === uniId(c) ? ' <span class="pill">단일화</span>' : ''}`;
@@ -4877,7 +4877,7 @@ function rvCard(c) {
     for (const r of R_ADM) { own += !!c.reg?.gov?.[r.k]; ownN += !!mine(r.k); }
     const key = c.key + ':gov', [p, pages] = page(key, R_ADM.length);
     const rows = Math.min(6, Math.max(...R_ADM.map(r => Object.keys(c.rv[r.k][0]).length + !!mine(r.k))));
-    body = `<div class="rvregs" style="--rows:${rows}">${R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).map(r => { const s = c.rv[r.k][0], line = (id, h) => h ? `<div class="rvline" style="--pc:${col(id)}">${h}</div>` : ''; return `<section class="rvreg"><h3>${r.n}</h3><div class="rvlines">${line('P', mine(r.k))}${ids.filter(id => s[id]).map(id => line(id, slot(s[id], id, true))).join('')}</div></section>`; }).join('')}${`<section class="rvreg ghost" aria-hidden="true"><h3>&nbsp;</h3><div class="rvlines"></div></section>`.repeat(RV_PER - (R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).length))}</div>${pg(key, p, pages, '시·도 쪽 이동')}`;
+    body = `<div class="rvregs" style="--rows:${rows}">${R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).map(r => { const s = c.rv[r.k][0], line = (id, h) => h ? `<div class="rvline" style="--pc:${col(id)}">${h}</div>` : ''; return `<section class="rvreg"><h3>${r.n}</h3><div class="rvlines">${ord.filter(id => id === 'P' || s[id]).map(id => id === 'P' ? line('P', mine(r.k)) : line(id, slot(s[id], id, true))).join('')}</div></section>`; }).join('')}${`<section class="rvreg ghost" aria-hidden="true"><h3>&nbsp;</h3><div class="rvlines"></div></section>`.repeat(RV_PER - (R_ADM.slice(p * RV_PER, (p + 1) * RV_PER).length))}</div>${pg(key, p, pages, '시·도 쪽 이동')}`;
   }
   return `<div class="card" style="margin-bottom:14px"><h2>공천 현황 <span class="pill">발표 ${xs.filter(rvOut).length + own}/${xs.length + ownN}</span></h2>${body}
     <p class="tip">각 당은 후보자 등록 마감(${fdate(c.day - LAW.regDeadline[c.type])})까지 공천자를 차례로 발표합니다. 점선 칸은 출마하지만 아직 공천 전인 자리입니다.${gov || pres ? ' 우리 당은 후보자 등록을 마치면 채워집니다.' : ''} 이름을 누르면 출신·능력치·전과${gov ? '(다른 당은 보도된 의혹까지)' : '·보도된 의혹'}를 볼 수 있습니다.</p></div>`;
