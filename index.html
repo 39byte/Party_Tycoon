@@ -4850,7 +4850,7 @@ function pElec() {
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
   html += byesHTML();
-  const RES_CAT = [['pres', '대통령 선거'], ['nat', '국회의원 선거'], ['gov', '지방자치단체장 선거']], resOf = r => /대통령/.test(r.name) ? 'pres' : r.bye ? (/시·도지사/.test(r.name) ? 'gov' : 'nat') : /국회의원/.test(r.name) ? 'nat' : 'gov';
+  const RES_CAT = [['pres', '대통령선거'], ['nat', '국회의원선거'], ['gov', '전국동시지방선거'], ['bye', '보궐선거']], resOf = r => /대통령/.test(r.name) ? 'pres' : r.bye ? 'bye' : /국회의원/.test(r.name) ? 'nat' : 'gov';
   const rows = S.results.map((r, i) => [r, i]).filter(([r]) => resOf(r) === resCat);
   html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<div class="filters chips" role="group" aria-label="선거 종류">${RES_CAT.map(([k, n]) => `<button class="btn${resCat === k ? ' pri' : ''}" data-rescat="${k}" aria-pressed="${resCat === k}">${n} <span class="num">${S.results.filter(r => resOf(r) === k).length}</span></button>`).join('')}</div>${rows.length ? `<ul class="log">${rows.map(([r, i]) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다(최근 8번 선거).</p>` : '<p class="empty">이 종류의 선거는 아직 치르지 않았습니다.</p>'}` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
