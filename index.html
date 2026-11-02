@@ -4407,7 +4407,7 @@ function renderTop() {
     $('#setBtn').onclick = settingsModal;
   }
   $('#pname').textContent = S.party.name;
-  $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주', '', 'i-turn')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad', 'i-bolt')}${aapMax() ? st(`${S.aap}/${aapMax()}`, '행정 행동력', S.aap ? '' : 'bad', 'i-city') : ''}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당', '', 'i-cal')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '', 'i-coin')}${st(totalMembers().toLocaleString(), '당원', '', 'i-users')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석', '', 'i-gov')}${vacN() > 0 ? st(vacN(), '국회 공석', 'bad', 'i-gov') : ''}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, ''), '', 'i-vote') : ''}`;
+  $('#stats').innerHTML = `${st(turnNo() + '턴', '1턴 = 1주', '', 'i-turn')}${st(`${S.ap}/${apMax()}`, '행동력', S.ap ? '' : 'bad', 'i-bolt')}${aapMax() ? st(`${S.aap}/${aapMax()}`, '행정 행동력', S.aap ? '' : 'bad', 'i-city') : ''}${st(fdate(S.day), S.phase === 'prep' ? `창준위 D-${Math.max(0, LAW.prepDays - S.day)}` : '정식 정당', '', 'i-cal')}${st(won(S.money), '자금', S.money < 0 ? 'bad' : '', 'i-coin')}${st(totalMembers().toLocaleString(), '당원', '', 'i-users')}${st(q.P.toFixed(1) + '%', ban ? '지지율(내부조사)' : '지지율')}${st(seatTotal('P'), '국회 의석', '', 'i-gov')}${ne ? st('D-' + (ne.day - S.day), ne.name.replace(/^제\d+(대|회) /, ''), '', 'i-vote') : ''}`;
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
