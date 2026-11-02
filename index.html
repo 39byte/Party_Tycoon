@@ -512,7 +512,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .rvp{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:4px 6px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}.rvp:hover{background:var(--surface2)}.rvp.st{cursor:default}.rvp.st:hover{background:none}.rvp.blank{border-style:dashed}.rvp.ghost,.rvreg.ghost{visibility:hidden}.rvps .rvp{height:56px}.rvps .small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rvp>span{display:flex;flex-direction:column;min-width:0}.rvp b{font-size:14px}
 .dirl{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:6px}
 .dirp{display:flex;align-items:center;gap:10px;min-height:48px;padding:6px 8px;border:1px solid var(--border);border-radius:10px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer}
-.dirp:hover{background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
+.dirp:hover{background:var(--surface2)}.dirp.on{border-color:var(--primary2);box-shadow:inset 0 0 0 1px var(--primary2);background:var(--surface2)}.dirp .pill{font-size:10px;padding:0 6px;vertical-align:1px}.dirp>span{display:flex;flex-direction:column;min-width:0}.dirp b{font-size:14px}
 .facebtn{display:inline-flex;flex:none;padding:0;border:0;background:none;border-radius:10px;cursor:pointer;transition:transform .1s}
 .facebtn:hover{transform:scale(1.06)}
 .facebtn:focus-visible{outline:2px solid var(--primary2);outline-offset:2px}
@@ -2010,16 +2010,17 @@ function accuseModal() {
         const t = list.find(x => x.key === st.key), hs = t?.hs || [];
         st.ch ??= (ks => ks.length ? ks : [CHARGES[0].k])([...new Set(hs.map(h => refCharge(h.ref)?.k).filter(Boolean))]); // 들은 얘기가 가리키는 죄목을 모두 골라 둠
         const busy = t && accOpen(t);
-        box.innerHTML = `<div class="split2">
-          <label class="f">대상 구분<select data-g>${GR.map(([k, n]) => `<option value="${k}" ${st.g === k ? 'selected' : ''}>${n} (${ts.filter(x => x.grp === k).length}명)</option>`).join('')}</select></label>
-          <label class="f">대상<select data-t ${list.length ? '' : 'disabled'}>${list.map(x => `<option value="${x.key}" ${x.key === st.key ? 'selected' : ''}>${esc(x.name)} · ${esc(x.party === 'O' ? '무소속' : pn(x.party))} · ${esc(x.role)}${x.n ? ` · 들은 얘기 ${x.n}` : ''}</option>`).join('')}</select></label></div>
+        const prof = x => { const p = (x.fid != null && fig(x.fid)) || (x.pid != null && person(x.pid)) || S.outs.find(o => 'o' + o.id === x.key) || x; return `<button class="dirp${x.key === st.key ? ' on' : ''}" data-t="${x.key}" aria-pressed="${x.key === st.key}">${face(p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.name)}${x.n ? ` <span class="pill">${x.n}</span>` : ''}</b><span class="small muted">${esc(x.party === 'O' ? '무소속' : pn(x.party))} · ${esc(x.role)}</span></span></button>`; };
+        const sec = (title, xs) => xs.length ? `<h3 style="margin:10px 0 6px">${title} <span class="pill">${xs.length}명</span></h3><div class="dirl">${xs.map(prof).join('')}</div>` : '';
+        box.innerHTML = `<div class="filters chips" role="group" aria-label="대상 구분">${GR.map(([k, n]) => `<button class="btn${st.g === k ? ' pri' : ''}" data-g="${k}" aria-pressed="${st.g === k}">${n} (${ts.filter(x => x.grp === k).length})</button>`).join('')}</div>
+          <div style="max-height:34vh;overflow:auto">${sec('들은 얘기가 있는 사람', list.filter(x => x.n))}${sec('들은 얘기가 없는 사람', list.filter(x => !x.n))}</div>
           <div class="f">죄목 <span class="small muted">(여러 개 고를 수 있음)</span><div class="filters chips" role="group" aria-label="죄목">${CHARGES.map(x => `<button class="btn${st.ch.includes(x.k) ? ' pri' : ''}" data-ch="${x.k}" aria-pressed="${st.ch.includes(x.k)}" title="${x.law}">${x.n}</button>`).join('')}</div>
             ${st.ch.length ? `<p class="small muted" style="margin:-8px 0 0">${esc(chMix(st.ch).law)}</p>` : ''}</div>
           ${!t ? '<p class="empty">이 구분에 고발할 수 있는 사람이 없습니다.</p>' : `<h3 style="margin-top:12px">${esc(t.name)}에 대해 들은 얘기</h3>${hs.length ? `<ul class="log">${hs.map(h => `<li><time>${fdate(h.d)}</time><span>${esc(h.t)} <span class="small muted">— ${esc(h.who)}${h.pty ? ' · 당 차원 소문' : ''}</span>${refCharge(h.ref) ? ` <span class="pill">${esc(refCharge(h.ref).n)}</span>` : ''}</span></li>`).join('')}</ul>` : '<p class="small muted">들은 얘기가 없습니다. 근거 없이 고발하면 불기소될 가능성이 높습니다.</p>'}`}
           <p class="tip">친분이 두터운 사람에게 들은 얘기일수록 맞습니다. 불기소·무죄가 나오면 우리 당이 역풍을 맞고, 근거 없는 고발엔 무고 맞고소(형법 제156조)가 들어올 수 있습니다. 상대 당보다 신뢰가 높을수록 기소·유죄의 파장이 그 당에 크게 갑니다.${st.g === 'pres' ? ' 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.' : ''}</p>
           <div class="btns"><button class="btn pri" data-go ${!t || busy || !st.ch.length ? 'disabled' : ''}>${busy ? '이미 수사 중인 대상' : !st.ch.length ? '죄목을 고르세요' : `고발장 제출 (${won(ACT.accuse.c())} · 행동력 1)`}</button></div>`;
-        box.querySelector('[data-g]').onchange = e => { st.g = e.target.value; st.key = ''; draw(); };
-        box.querySelector('[data-t]').onchange = e => { st.key = e.target.value; st.ch = null; draw(); };
+        box.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { st.g = b.dataset.g; st.key = ''; draw(); });
+        box.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { st.key = b.dataset.t; st.ch = null; draw(); });
         box.querySelectorAll('[data-ch]').forEach(b => b.onclick = () => { const k = b.dataset.ch; st.ch = st.ch.includes(k) ? st.ch.filter(x => x !== k) : [...st.ch, k]; draw(); });
         box.querySelector('[data-go]').onclick = () => { closeModal(); accuseFile(t, st.ch); };
       };
