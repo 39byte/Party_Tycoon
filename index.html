@@ -951,7 +951,7 @@ function genPerson(o = {}) {
     skill: Math.round(clamp(gauss() * 12 + job.s + rb, 10, 99)), integ, rec, ban, role: '', home: o.home || homePick(S.party.ideo),
   };
 }
-// 지역 성향과 당 노선의 궁합(지역 지지 배율 regFactor0와 같은 식)
+// 지역 성향과 당 노선의 궁합(지역 지지 배율 regFacs와 같은 식)
 const ideoFit = (i, l) => i === 0 ? 1.05 - 0.4 * Math.abs(l) : Math.max(0.3, 1 + 0.7 * i * l);
 // 선거인 × w(지역) 가중 무작위 지역
 const wRegion = w => { const ws = R.map(r => r.voters * w(r)); let x = rnd() * sum(ws); return R.find((r, i) => (x -= ws[i]) < 0) || R[0]; };
@@ -1062,8 +1062,6 @@ function defTrust(o) {
 const TR_IDS = ['A', 'B', 'C', 'D'];
 const trMap = id => id === 'P' ? S.rtrust : S.rtr[id];
 const trAvg = id => id === 'P' ? S.trust : sum(R.map(r => S.rtr[id][r.k])) / R.length;
-// 그 지역 신뢰도가 그 당 전국 평균보다 높으면 그만큼 유리(지지율 식의 신뢰 항과 같은 비율)
-const trReg = (id, k) => (0.25 + 0.75 * trMap(id)[k] / 100) / (0.25 + 0.75 * trAvg(id) / 100);
 // 한 지역에서만 생긴 일: 그 지역 신뢰도만 바꿈
 const trustAt = (k, d, id = 'P') => { const m = trMap(id); m[k] = clamp(m[k] + trustScale(d, m[k], id), 0, 100); };
 // 전국 사건(우리 당의 S.trust += d와 같음). 무소속은 무시
@@ -1145,36 +1143,39 @@ function poll() {
 }
 function natShares() { const q = poll(), s = q.P + q.A + q.B + q.C + q.D + q.O; return { P: q.P / s, A: q.A / s, B: q.B / s, C: q.C / s, D: q.D / s, O: q.O / s }; }
 const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1), pa: S.president.acting ? null : +S.president.appr.toFixed(1), ps: S.president.since }; };
-// 우리 당 지역 배율(지사 효과 제외): 지역 성향 + 당원 조직 + 시·도당
-function regFactor0(k) {
-  const r = RK[k], i = S.party.ideo;
-  let f = ideoFit(i, r.lean);
-  f += Math.min(0.5, (S.members[k] || 0) / (r.voters * 1e6) * 250);
-  if (S.chapters[k]) f += 0.05;
-  return f * trReg('P', k);
+const ideoOf = id => id === 'P' ? S.party.ideo : RIV[id].ideo;
+const natSup = id => id === 'P' ? S.support : poll()[id];
+const supMap = id => id === 'P' ? S.rsup : S.rsr[id];
+const VSUM = sum(R.map(r => r.voters));
+// 지역 배율 표(모든 당 같은 식): 지역 성향 궁합 + 당원 조직·시·도당(당원 데이터는 우리 당만 있음) × 지역 신뢰
+// gov면 현직 지사 효과(+0.15 + (행정 지지도 − 기준값)/200, 권한대행 중엔 없음)를 더함
+// 선거인 가중 평균이 1이 되게 나눠서, 지역 지지율을 평균하면 전국 지지율과 같음
+function regFacs(id, gov = true) {
+  const ta = 0.25 + 0.75 * trAvg(id) / 100, tm = trMap(id);
+  const norm = o => { const a = sum(R.map(r => o[r.k] * r.voters)) / VSUM; for (const k in o) o[k] /= a; return o; };
+  const f0 = norm(Object.fromEntries(R.map(r => {
+    let f = ideoFit(ideoOf(id), r.lean);
+    if (id === 'P') { f += Math.min(0.5, (S.members[r.k] || 0) / (r.voters * 1e6) * 250); if (S.chapters[r.k]) f += 0.05; }
+    return [r.k, f * (0.25 + 0.75 * tm[r.k] / 100) / ta];
+  })));
+  if (!gov) return f0;
+  const nat = natSup(id);
+  return norm(Object.fromEntries(R.map(r => {
+    const k = r.k; let f = f0[k];
+    if (S.gov[k] === id && !S.gact?.[k]) { const b = clamp(nat * f0[k], 5, 95), o = id === 'P' ? S.ops[k] : S.rgov[k]?.o; f += 0.15 + ((o ?? b) - b) / 200; }
+    return [k, f];
+  })));
 }
-// 다른 당 지역 배율(지사 효과 제외)
-const pfBase = (id, k) => { const l = RK[k].lean; return id === 'A' ? Math.max(0.15, 1 - 0.85 * l) : id === 'B' ? Math.max(0.15, 1 + 0.85 * l) : id === 'C' ? 1 + 0.25 * l : id === 'D' ? 1 - 0.25 * l : 1; };
-// 행정 지지도 기준값 = 그 지역 소속 정당 지지율. 새 단체장은 득표율에서 시작하고, 가만두면 여기로 돌아감. 무소속은 정당 지지율이 없어 50
-const opsBase = (id, k) => id === 'O' ? 50 : clamp(id === 'P' ? S.support * regFactor0(k) : poll()[id] * pfBase(id, k), 5, 95);
-// 현직 지사 효과: 행정 지지도가 기준값(지역 정당 지지율)보다 높을수록 유리
-function regFactor(k) {
-  let f = regFactor0(k);
-  if (S.gov[k] === 'P' && !S.gact?.[k]) f += 0.15 + ((S.ops[k] ?? opsBase('P', k)) - opsBase('P', k)) / 200; // 권한대행 중엔 현직 효과 없음
-  return f;
-}
-// 다른 당 지역 목표 배율(우리 당 regFactor에 해당)
-function rivFactor(id, k) {
-  const g = S.gov[k] === id && !S.gact?.[k] ? 1.05 + (S.rgov[k] ? S.rgov[k].o - opsBase(id, k) : 0) / 200 : 1;
-  return pfBase(id, k) * g * trReg(id, k);
-}
+const regFactor = (k, id = 'P') => regFacs(id)[k];
+// 행정 지지도 기준값 = 그 지역 소속 정당 지지율(지사 효과 제외). 새 단체장은 득표율에서 시작하고, 가만두면 여기로 돌아감. 무소속은 정당 지지율이 없어 50
+const opsBase = (id, k) => id === 'O' ? 50 : clamp(natSup(id) * regFacs(id, false)[k], 5, 95);
 function pf(id, k) {
   if (id === 'O') return 1;
   // 지역 지지율의 출렁임이 선거에도 반영
-  const nat = id === 'P' ? S.support : poll()[id], cur = id === 'P' ? S.rsup[k] : S.rsr[id]?.[k];
-  return cur != null && nat > 0 ? cur / nat : id === 'P' ? regFactor(k) : rivFactor(id, k);
+  const nat = natSup(id), cur = supMap(id)?.[k];
+  return cur != null && nat > 0 ? cur / nat : regFactor(k, id);
 }
-const regSupport = (k, id = 'P') => id === 'P' ? S.rsup[k] ?? S.support * regFactor(k) : S.rsr[id]?.[k] ?? poll()[id] * rivFactor(id, k);
+const regSupport = (k, id = 'P') => supMap(id)?.[k] ?? natSup(id) * regFactor(k, id);
 // 행정 지지도 상승 억제: 시작점 = 90 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
 const opsSoft = (id, k) => {
   const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
@@ -1561,11 +1562,6 @@ function daily() {
   // 밸런스: 목표치로 따라가는 속도를 오를 땐 SUP_UP배, 내릴 땐 SUP_DOWN배. 화제성(buzz)은 매일 식으므로 일시적 호재는 덜 오르고 악재는 더 깊게 반영됨
   const SUP_UP = 0.6, SUP_DOWN = 1.5;
   S.support = clamp(S.support + (target - S.support) * 0.03 * (target > S.support ? SUP_UP : SUP_DOWN), 0.1, 70);
-  // 지역 지지율은 그 지역 목표치(전국 지지율 × 지역 배율)를 따라감. 신뢰도 낮은 지역은 덜 오르고 더 떨어지며, 높은 지역은 덜 떨어짐
-  for (const r of R) {
-    const t = S.support * regFactor(r.k), cur = S.rsup[r.k] ?? t, tr = S.rtrust[r.k];
-    S.rsup[r.k] = cur + (t - cur) * 0.05 * (t > cur ? lowTrust(tr) : trustFall(tr));
-  }
   for (const id of ['A', 'B', 'C', 'D', 'O']) {
     // 신뢰도는 우리 당 지지율 식과 같은 비율로 기준 지지를 끌어올리거나 깎음(신뢰 50이면 그대로, 0이면 0.4배, 100이면 1.6배)
     // 인지도도 우리 당처럼 비례로 곱함(RIV.fame일 때 그대로)
@@ -1573,11 +1569,13 @@ function daily() {
     if (S.president.party === id) base += (S.president.appr - S.president.a0) * 0.4; // 국정 지지율(레임덕 때 여당 지지도 함께 빠짐)
     S.rw[id] = clamp(S.rw[id] + (base - S.rw[id]) * 0.01 + gauss() * 0.12 * (RIV[id].vol || 1), 1, 60);
   }
-  // 다른 당 지역 지지율도 우리 당과 같은 규칙(그 당 지역 신뢰도로 오르내리는 속도가 달라짐)
-  const q = poll();
-  for (const id of TR_IDS) for (const r of R) {
-    const t = q[id] * rivFactor(id, r.k), cur = S.rsr[id][r.k] ?? t, tr = S.rtr[id][r.k];
-    S.rsr[id][r.k] = cur + (t - cur) * 0.05 * (t > cur ? lowTrust(tr) : trustFall(tr));
+  // 지역 지지율은 그 지역 목표치(전국 지지율 × 지역 배율)를 따라감(모든 당 같은 규칙). 신뢰도 낮은 지역은 덜 오르고 더 떨어지며, 높은 지역은 덜 떨어짐
+  for (const id of ['P', ...TR_IDS]) {
+    const F = regFacs(id), nat = natSup(id), m = supMap(id), tm = trMap(id);
+    for (const r of R) {
+      const t = nat * F[r.k], cur = m[r.k] ?? t;
+      m[r.k] = cur + (t - cur) * 0.05 * (t > cur ? lowTrust(tm[r.k]) : trustFall(tm[r.k]));
+    }
   }
 }
 function monthly(dt) {
@@ -1693,7 +1691,7 @@ const rivShare = (id, k) => natShares()[id] * pf(id, k);
 // 접전도: 그 당 몫과 그 지역에서 가장 센 다른 당 몫이 비슷할수록 1
 const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => rivShare(x, k))); return me > 0 && op > 0 ? Math.exp(-Math.abs(Math.log(me / op)) / 0.3) : 0; };
 // 지역 고르기: 선거운동기간엔 (선거인 × 접전도), 평소엔 (선거인 × 그 당 지역 강세 × 신뢰 낮은 곳 다지기) 가중 무작위
-const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : pfBase(id, r.k) * (1.5 - S.rtr[id][r.k] / 100));
+const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), r.lean) * (1.5 - S.rtr[id][r.k] / 100));
 // 그 선거에 우리 후보가 그 지역에 나왔는지
 const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
 function rivalWeek() {
@@ -2535,7 +2533,7 @@ function figSpec(pos, x = {}) {
 const RV_HOPE = 3;
 const bestCand = xs => xs.reduce((a, b) => L.candScore(b) > L.candScore(a) ? b : a);
 // 지역구가 없는 인물(비례·대선 후보)의 출신 지역(k): 인구 × 그 당 강세 지역
-const figHome = id => wRegion(r => pfBase(id, r.k)).k;
+const figHome = id => wRegion(r => ideoFit(RIV[id].ideo, r.lean)).k;
 function genFig(o, party, k, pos, x = {}) {
   const f = { id: ++o.seq, ...figSpec(pos, x), ...(x.home && { home: x.home }), party, k, pos };
   o.figs.push(f);
