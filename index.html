@@ -4753,7 +4753,7 @@ const POOL_MAX = 350;
 // 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
 let pSort = 'def', pDir = 1, pPage = 0;
-const P_INC = [['mp', '국회의원', p => /^국회의원/.test(p.role)], ['gov', '지방자치단체장', p => /시·도지사$/.test(p.role)], ['cab', '행정부 내각', p => !!cabOf(p)], ['none', '무직책', p => !p.leader && !p.role && !cabOf(p)]], pOff = {}; // 인재 목록에 넣을 직책(꺼진 직책은 목록에서 뺌)
+const P_INC = [['mp', '국회의원', p => /^국회의원/.test(p.role)], ['gov', '지방자치단체장', p => /시·도지사$/.test(p.role)], ['cab', '행정부 내각', p => p.role === '대통령' || !!cabOf(p)], ['none', '무직책', p => !p.leader && !p.role && !cabOf(p)]], pOff = {}; // 인재 목록에 넣을 직책(꺼진 직책은 목록에서 뺌)
 const pShown = () => S.pool.filter(p => !P_INC.some(([k, , f]) => pOff[k] && f(p)));
 // 게시판식 쪽 선택: « 처음 ‹ 이전 [10쪽 묶음] 다음 › 마지막 ». p는 0부터
 function pager(p, n, at = 'ppage', aria = '인재 쪽 이동') {
