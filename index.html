@@ -2713,7 +2713,7 @@ function figRun(f, k, why) {
   else { addLog(`${nm} 의원이 ${ro(why)} 의원직을 잃었습니다. 비례 명부 차순위가 승계합니다.`); figSync(S); }
 }
 const isGovP = p => /시·도지사$/.test(p?.role || '');
-// 단체장이 물러남: 그 자리는 권한대행 체제가 되고(S.gact) 단체장 보궐선거를 치름(임기 1년 미만이면 다음 지선까지 권한대행)
+// 단체장이 물러남: 그 자리는 권한대행 체제가 되고(S.gact) 단체장 보궐선거를 치름(임기 6개월 미만이면 다음 지선까지 권한대행)
 function govVacate(k, id, why, who) {
   const g = S.rgov[k];
   if (id !== 'P' && g) { g.fid = null; g.n = genName(rnd() < 0.2 ? 'F' : 'M'); } // figSync가 권한대행 인물을 새로 채움(같은 이름의 중복 인물 방지)
