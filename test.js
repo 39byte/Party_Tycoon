@@ -14,11 +14,17 @@ assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2018, 5, 30)), 30)), '201
 assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2026, 5, 30)), 30)), '2026-06-03');
 assert.strictEqual(iso(L.electionDay(new Date(Date.UTC(2024, 4, 29)), 50)), '2024-04-10');
 
-// 재·보궐선거: 1~3월 사유 → 4월 첫 수요일, 4~9월 → 10월 첫 수요일, 10~12월 → 다음 해 4월. 준비 기간이 모자라면 다음 정기일로
-assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 0, 10))))), '2027-04-07');
-assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 5, 1))))), '2027-10-06');
-assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 10, 20))))), '2028-04-05');
-assert.strictEqual(iso(L.byeDay(L.dateToDay(new Date(Date.UTC(2027, 2, 31))))), '2027-10-06'); // 4/7까지 7일뿐 → 10월로
+// 재·보궐선거: 4월 첫 수요일 1회. 준비 기간(50일)이 모자라면 다음 해 4월, 지선·대선 후보 등록 전(34일 전까지)에 사유가 확정되면 그 선거와 같은 날
+const dd = (y, m, d) => L.dateToDay(new Date(Date.UTC(y, m - 1, d)));
+assert.strictEqual(iso(L.byeDay(dd(2027, 1, 10)).day), '2027-04-07');
+assert.strictEqual(iso(L.byeDay(dd(2027, 6, 1)).day), '2028-04-05'); // 10월 보궐은 없음
+assert.strictEqual(iso(L.byeDay(dd(2027, 3, 31)).day), '2028-04-05'); // 4/7까지 7일뿐
+const gov = sch.find(e => e.type === 'gov'), pres = sch.find(e => e.type === 'pres');
+assert.strictEqual(L.byeDay(gov.day - L.JOINT_CUTOFF, sch).with, gov.key);
+assert.strictEqual(L.byeDay(gov.day - L.JOINT_CUTOFF, sch).day, gov.day);
+assert.strictEqual(L.byeDay(gov.day - L.JOINT_CUTOFF + 1, sch).with, null);
+assert.strictEqual(L.byeDay(pres.day - 40, sch).with, pres.key);
+assert.strictEqual(L.byeDay(dd(2027, 1, 10), sch).with, null); // 총선·먼 선거와는 동시 아님
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
 assert.strictEqual(Math.round(L.REGIONS.reduce((a, r) => a + r.voters * 1e6, 0)), L.LAW.voters);
 
