@@ -1164,6 +1164,20 @@ function pf(id, k) {
   return pfBase(id, k) * g * trReg(id, k);
 }
 const regSupport = k => S.rsup[k] ?? S.support * regFactor(k);
+// 행정 지지도 상승 억제: 시작점 = 100 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 억제 없음
+const opsSoft = (id, k) => {
+  const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
+  const sh = Object.fromEntries(ids.map(x => [x, ns[x] * pf(x, k)])), tot = sum(ids.map(x => sh[x]));
+  const ideo = x => x === 'P' ? S.party.ideo : RIV[x].ideo;
+  return 100 - sum(ids.filter(x => ideo(x) * g < 0).map(x => sh[x])) / tot * 100;
+};
+const opsUp = (id, k, x, d) => {
+  if (d <= 0) return x + d;
+  const s = opsSoft(id, k), u = Math.max(0, Math.min(d, s - x)); x += u; d -= u;
+  return d > 0 ? s + TRUST_K * Math.log(Math.exp((x - s) / TRUST_K) + d / TRUST_K) : x;
+};
+const opsAdd = (k, d) => (S.ops[k] = clamp(opsUp('P', k, S.ops[k], d), 5, 95));
+const rgovAdd = (k, d) => { const g = S.rgov[k]; g.o = clamp(opsUp(g.p, k, g.o, d), 5, 95); };
 
 // ---------- 선거 시뮬레이션 ----------
 // ponytail: 지역 성향×전국 지지율×로그정규 잡음의 단순 모델. 세대·이슈별 유권자 모델은 필요해지면 추가
@@ -1987,7 +2001,7 @@ function accuseFile(t, ks) {
 function accEv(c, close) {
   const a = c.acc, id = c.target, riv = TR_IDS.includes(id), own = id === 'P', m = riv ? atkMul(id) : 1, f = a.fid != null && fig(a.fid), ch = chMix([a.ch].flat()), who = `${a.role} ${a.name}`;
   const govK = f && f.pos === 'gov' && S.rgov[f.k]?.fid === f.id ? f.k : null;
-  const hit = (tr, rw) => { if (riv) { trustAll(id, tr * m); S.rw[id] += rw * m; } if (govK) S.rgov[govK].o = clamp(S.rgov[govK].o + tr * 2, 5, 95); };
+  const hit = (tr, rw) => { if (riv) { trustAll(id, tr * m); S.rw[id] += rw * m; } if (govK) rgovAdd(govK, tr * 2); };
   if (!c.stage) {
     if (rnd() >= c.ev) {
       close();
@@ -2397,7 +2411,7 @@ function govRun(k, pj, auto) {
   // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
   if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
     need.forEach(x => wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov')); }
-  S.ops[k] = clamp(S.ops[k], 5, 95); wire(`${auto ? '[자동] ' : ''}${msg}`, 'gov');
+  S.ops[k] = clamp(opsUp('P', k, before, S.ops[k] - before), 5, 95); wire(`${auto ? '[자동] ' : ''}${msg}`, 'gov');
   later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
   return { k, msg, ok };
 }
@@ -3616,7 +3630,7 @@ function selfAct() {
   const who = k ? `${GOVT[k]} ${p.name}(${S.party.name})` : p.name, kind = k ? 'gov' : 'mp';
   if (rnd() < clamp(0.35 + (p.skill - 50) / 150 + (p.integ - 50) / 200, 0.15, 0.7)) {
     const g = pick(SELF_GOOD[kind]), t = g.t.replace('{p}', who);
-    S.buzz += g.b; S.fame += g.f || 0.5; if (k) trustAt(k, g.tr || 0); else S.trust += g.tr || 0; if (g.ops && k) S.ops[k] = clamp(S.ops[k] + g.ops, 5, 95);
+    S.buzz += g.b; S.fame += g.f || 0.5; if (k) trustAt(k, g.tr || 0); else S.trust += g.tr || 0; if (g.ops && k) opsAdd(k, g.ops);
     wire(t, k ? 'gov' : 'hall');
     // 호재는 결정할 게 없으니 창을 띄우지 않고 알림·기록만
     addLog(`[소속 정치인 소식] ${t}. 우리 당 지지율에 호재입니다.`, 'ok'); toast(t, 'ok', '지지율 호재'); return;
@@ -3788,7 +3802,7 @@ const EVENTS = [
       { t: '관망', run: () => '상황을 지켜보기로 했습니다.' }] },
   { id: 'disaster', w: 2, cond: () => true, title: '집중호우 피해', pre: () => { ET.k = pick(R).k; rnews(ET.k, `${RK[ET.k].n} 집중호우로 큰 피해`); wire(`${RK[ET.k].n} 집중호우로 큰 피해`, 'reg'); },
     body: () => `${RK[ET.k].n}에 집중호우로 큰 피해가 발생했습니다.${S.gov[ET.k] === 'P' ? ' 우리 당 단체장이 있는 지역입니다.' : ''}`,
-    ch: () => [...(S.gov[ET.k] === 'P' ? [{ t: '도지사가 밤새 현장을 지휘한다', s: '행정 지지도↑', run: () => { S.ops[ET.k] = clamp(S.ops[ET.k] + 6, 5, 95); S.trust += 1; return '단체장의 발 빠른 대응이 호평을 받았습니다.'; } }] : []),
+    ch: () => [...(S.gov[ET.k] === 'P' ? [{ t: '도지사가 밤새 현장을 지휘한다', s: '행정 지지도↑', run: () => { opsAdd(ET.k, 6); S.trust += 1; return '단체장의 발 빠른 대응이 호평을 받았습니다.'; } }] : []),
       { t: '정쟁 중단, 복구 봉사', s: '비용 2천만 · 진정성 또는 보여주기 논란', run: () => { spend(2e7, '활동'); if (luck(0.7)) { S.trust += 4; return '진정성 있는 대응으로 신뢰가 올랐습니다.'; } S.trust -= 2; return '봉사 현장에서 사진 촬영에만 열중했다는 보도가 나왔습니다.'; } },
       { t: '정부 책임론 제기', s: '인지도↑', run: () => { S.fame += 3; S.trust -= ruling() ? 6 : 1; return ruling() ? '여당이 정부를 비판해 혼란만 키웠습니다.' : '책임론이 이슈가 되었습니다.'; } }] },
   { id: 'tragedy', w: 1, cond: () => S.day > 180, title: '대형 참사',
@@ -3975,7 +3989,7 @@ const XEV = {
   audit: () => {
     S.risks.filter(() => rnd() < 0.1).forEach(k => exposeRisk(k)); // 상대 당도 우리 의혹을 판다
     const gov = Object.keys(S.ops);
-    gov.forEach(k => (S.ops[k] = clamp(S.ops[k] + rr(-4, 2), 5, 95))); // 우리 시·도도 피감기관
+    gov.forEach(k => opsAdd(k, rr(-4, 2))); // 우리 시·도도 피감기관
     showEvent({ title: '국정감사 시작', body: () => `국회 국정감사가 시작됐습니다. ${ruling() ? '여당으로서 정부를 지켜야 하는 입장입니다.' : `${presN()} 정부의 실정을 따질 기회입니다.`}${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`,
       ch: ruling() ? [{ t: '정부 정책 방어', run: () => { S.fame += 1; S.trust -= 0.5; return '정부를 감쌌다는 비판과 안정감 있다는 평이 엇갈립니다.'; } },
         { t: '자성하는 감사', s: '정부와 거리두기', run: () => { S.trust += 2; return '"건강한 여당"이라는 평을 들었습니다.'; } }]
@@ -4021,7 +4035,7 @@ const XEV = {
       const m = pick(mine);
       wr(`${w}, 우리 당 ${RK[m].n} 행정에 공동사업 제안`);
       return showEvent({ title: `${n} 지사의 협치 제안`, body: () => `${who}가 우리 당 ${RK[m].n} 행정에 <b>광역 교통망·관광 벨트 공동 추진</b>을 제안했습니다.`,
-        ch: [{ t: '손잡는다', s: `두 지역 행정 지지도↑ · ${pn(id)} 관계↑`, run: () => { S.ops[m] = clamp(S.ops[m] + 3, 5, 95); g.o += 3; relAdd(id, 6, `${n}·${RK[m].n} 공동사업`); return '두 시·도가 업무협약을 맺었습니다. "당을 넘은 협치"라는 평입니다.'; } },
+        ch: [{ t: '손잡는다', s: `두 지역 행정 지지도↑ · ${pn(id)} 관계↑`, run: () => { opsAdd(m, 3); rgovAdd(k, 3); relAdd(id, 6, `${n}·${RK[m].n} 공동사업`); return '두 시·도가 업무협약을 맺었습니다. "당을 넘은 협치"라는 평입니다.'; } },
           { t: '거절한다', s: '독자 노선', run: () => { relAdd(id, -3, `${n} 협치 제안 거절`); return '독자적으로 추진하겠다며 제안을 거절했습니다.'; } }] });
     }
     if (roll < 0.4) {
@@ -4040,7 +4054,7 @@ const XEV = {
   },
   rgovRes: q => {
     const g = S.rgov[q.k], n = RK[q.k].n, d = q.s * (q.ok ? 1 : -1);
-    if (g && g.p === q.id) g.o = clamp(g.o + (q.ok ? 7 : -5), 5, 95);
+    if (g && g.p === q.id) rgovAdd(q.k, q.ok ? 7 : -5);
     wire(`${n} '${q.t}' ${q.ok ? '첫 성과' : '좌초 위기'}`, 'gov');
     S.trust += d * 1.5;
     if (d > 0 && S.members[q.k]) S.members[q.k] += Math.round(rr(100, 400));
@@ -4091,7 +4105,7 @@ const XEV = {
   admFollow: q => {
     const f = pick(ADM_FOLLOW[q.pj][q.ok ? 'ok' : 'no']), t = fillR(f.t, q.k);
     if (f.need || f.bad) addIssue(q.k, { pj: f.need, bad: f.bad }, t); else { wire(t, 'gov'); viral(q.k, t, (f.ops || 0) < 0 ? -1 : 1); } // 새 현안이 되는 보도만 지역 소식
-    if (S.gov[q.k] === 'P') { if (f.ops) S.ops[q.k] = clamp(S.ops[q.k] + f.ops, 5, 95); if (f.mem) S.members[q.k] += f.mem; }
+    if (S.gov[q.k] === 'P') { if (f.ops) opsAdd(q.k, f.ops); if (f.mem) S.members[q.k] += f.mem; }
   },
   selfAct: () => selfAct(),
   // 우리가 근거 없이 고발했던 상대의 맞고소: 일부러 허위 고발했는지가 쟁점이라 유죄는 드묾
@@ -4202,7 +4216,7 @@ function regionNews() {
   S.rcur = S.rcur.filter(x => {
     const g = S.rgov[x.k], n = RK[x.k].n;
     // 다른 당 지사도 실제 문제에 대응함(턴마다 30%)
-    if (x.pj && g && rnd() < 0.3) { g.o = clamp(g.o + 0.5, 5, 95); wire(`${govWho(x.k)}, '${shortT(x)}' 대응책 발표`, 'gov'); return false; }
+    if (x.pj && g && rnd() < 0.3) { rgovAdd(x.k, 0.5); wire(`${govWho(x.k)}, '${shortT(x)}' 대응책 발표`, 'gov'); return false; }
     if (x.until > S.day) return true;
     if (x.pj && S.gov[x.k] === 'P') { S.ops[x.k] = clamp(S.ops[x.k] - 1, 5, 95); wire(`${n} '${shortT(x)}' 대응 지지부진… ${govWho(x.k)} 책임론`, 'gov'); }
     else if (x.pj && g) { g.o = clamp(g.o - 1, 5, 95); wire(`${n} '${shortT(x)}' 장기화… ${govWho(x.k)} 책임론`, 'gov'); }
