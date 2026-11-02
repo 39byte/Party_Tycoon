@@ -4896,13 +4896,10 @@ function campCard(c) {
   if (c.reg) {
     const r = c.reg;
     let body = `<p><b class="ok">후보자 등록 완료</b> · ${r.count}명 · 사용 ${won(r.cost)} (기탁금 ${won(r.deposits)})</p>`;
-    const who = p => `${esc(p.name)} <span class="muted small">(${p.gender === 'F' ? '여' : '남'}·${p.age}세)</span>`, none = '<p class="empty small">없음</p>';
-    if (c.type === 'nat') {
-      const dist = R.some(x => r.dist[x.k]?.length) ? `<button class="btn" data-distc="${c.key}">상세 보기</button>` : '';
-      body += `<div class="regsplit"><div><h3>지역구 ${r.count - r.pr.length}명</h3>${dist || none}</div><div><h3>비례대표 ${r.pr.length}명</h3>${r.pr.length ? `<button class="btn" data-prc="${c.key}">상세 보기</button>` : none}</div></div>`;
-    }
-    if (c.type === 'gov') body += `<div class="regsplit" style="grid-template-columns:1fr"><div><h3>시·도지사 ${r.count}명</h3>${r.count ? `<button class="btn" data-distc="${c.key}">상세 보기</button>` : none}</div></div>`;
-    if (c.type === 'pres') body += `<p>후보: <b>${esc(r.cand.name)}</b> (${r.cand.age}세) vs ${Object.entries(c.rivals).filter(([id]) => id !== uniId(c)).map(([id, x]) => `${figBtn(x.fid, x.name)}(${esc(pn(id))})`).join(', ')}${uniId(c) ? ` · <b>${esc(pn(uniId(c)))}과(와) 단일화 성사</b>` : ''}</p><div class="regsplit" style="grid-template-columns:1fr"><div><h3>대통령 후보 1명</h3><button class="btn" data-distc="${c.key}">상세 보기</button></div></div>`;
+    const btn = (k, t = '상세 보기') => `<button class="btn" data-${k}="${c.key}">${t}</button>`;
+    if (c.type === 'nat') body += `<div class="btns">${R.some(x => r.dist[x.k]?.length) ? btn('distc', '지역구 상세 보기') : ''}${r.pr.length ? btn('prc', '비례대표 상세 보기') : ''}</div>`;
+    if (c.type === 'gov') body += r.count ? `<div class="btns">${btn('distc')}</div>` : '';
+    if (c.type === 'pres') body += `<div class="btns">${btn('distc')}</div>${uniId(c) ? `<p class="small"><b>${esc(pn(uniId(c)))}과(와) 단일화 성사</b></p>` : ''}`;
     body += `<p class="small">${inCampaign(c) ? '<b class="ok">공식 선거운동 중</b> — 조직·지역 탭의 거리 유세, 활동 탭의 방송 광고를 활용하세요. TV 토론은 정해진 날 열립니다.' : `공식 선거운동은 ${fdate(cs)}부터입니다. 그 전엔 온라인 홍보·정책 발표로 지지를 다지세요.`} 현재 캠페인 보정: 전국 +${pct(c.boost.nat, 0)}</p>`;
     return `<div class="card" style="margin-bottom:14px">${head}${body}</div>`;
   }
