@@ -974,7 +974,7 @@ const pFame = (p, g) => { p.fame = clamp(p.fame + g * (1 - p.fame / 100), 0, 100
 // 당 대표가 직접 나선 활동: 대표 개인 인지도도 오름
 const leadFame = g => pFame(leader(), g);
 // 매달: 직책·출마 중인 사람은 g만큼 오르고, 활동 없이 180일이 지나면 매달 3%씩 잊힘(최저 1)
-const FAME_ROLE = [[/^대통령$/, 4], [/시·도지사/, 1.5], [/국회의원/, 1], [/당협위원장|원외정당/, 0.5]], FAME_POS = { gov: 1.5, d: 1, pr: 1, cand: 2 };
+const FAME_ROLE = [[/^대통령$/, 4], [/시·도지사/, 1.5], [/국회의원/, 1], [/당협위원장|원외정당/, 0.5]], FAME_POS = { gov: 1.5, min: 1, d: 1, pr: 1, cand: 2 };
 const roleG = r => FAME_ROLE.find(([rx]) => rx.test(r || ''))?.[1] || 0;
 const candIds = () => new Set(Object.values(S.camps).flatMap(c => c.reg ? [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand] : []).filter(Boolean).map(x => x.id));
 function fameDrift() {
@@ -1299,8 +1299,10 @@ function newCamp(e) {
   if (e.type === 'pres') {
     c.draft = { cand: '', spend: 1 };
     c.rivals = {};
-    for (const id of ['A', 'B', 'C', 'D']) if (id === 'A' || id === 'B' || rnd() < 0.7)
-      c.rivals[id] = bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: Math.round(rr(RIV[id].base < 10 ? 35 : 55, RIV[id].base < 10 ? 60 : 85)), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
+    for (const id of ['A', 'B', 'C', 'D']) if (id === 'A' || id === 'B' || rnd() < 0.7) {
+      const lo = RIV[id].base < 10 ? 35 : 55, b = poolBest(id, 'pres', null); // 대선 후보도 그 당 인재풀에서(경선을 거치며 알려져 인지도는 오름)
+      c.rivals[id] = b ? { ...poolTake(id, b), fame: Math.max(b.fame, Math.round(rr(lo, lo + 25))) } : bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: Math.round(rr(lo, lo + 25)), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
+    }
   }
   return c;
 }
@@ -2479,7 +2481,7 @@ const bestCand = xs => xs.reduce((a, b) => L.candScore(b) > L.candScore(a) ? b :
 // 지역구가 없는 인물(비례·대선 후보)의 출신 지역(k): 인구 × 그 당 강세 지역
 const figHome = id => wRegion(r => pfBase(id, r.k)).k;
 function genFig(o, party, k, pos, x = {}) {
-  const f = { id: ++o.seq, ...figSpec(pos, x), party, k, pos };
+  const f = { id: ++o.seq, ...figSpec(pos, x), ...(x.home && { home: x.home }), party, k, pos };
   o.figs.push(f);
   // 청렴이 낮을수록 언젠가 터질 일을 안고 있음(후보는 낙선하면 명부에서 빠지니 덜 만듦)
   if (rnd() < (100 - f.integ) / 100 * (pos === 'cand' ? 0.1 : 0.25)) incNew(o, f, rr(20, 540));
@@ -2511,20 +2513,27 @@ function figSync(o) {
   }
   o.figs.filter(f => f.pos === 'gov' && o.rgov[f.k]?.fid !== f.id).forEach(f => figDrop(o, f));
   for (const k in o.rgov) { const g = o.rgov[k]; if (!figOf(o, g.fid)) g.fid = genFig(o, g.p, k, 'gov', { name: g.n }).id; }
-  poolSync(o);
+  poolSync(o); rcabSync(o);
 }
 // 다른 당 인재풀(o.fpool: { 당: [능력치만 있는 인물] }): 당마다 현직 의원·단체장을 포함해 400명. 비례 공천은 이 풀에서 뽑고, 풀은 늘 400명으로 채움
 const FPOOL = 400;
+// 다른 당이 집권하면 총리·장관 다섯 자리도 그 당 인재풀에서(후보 점수가 높은 사람부터). 내각이 바뀌면(S.president.rcab 비움) 새로 뽑음
+const cabN = f => CAB.find(c => c.k === f.cab)?.n || '장관';
+function rcabSync(o) {
+  const pr = o.president, id = pr.party, on = id !== 'P' && o.fpool?.[id], cab = on ? (pr.rcab ??= {}) : (pr.rcab = {});
+  o.figs.filter(f => f.pos === 'min' && !(on && f.party === id && cab[f.cab] === f.id)).forEach(f => figDrop(o, f));
+  if (on) for (const c of CAB) if (!figOf(o, cab[c.k])) { const b = poolBest(id, 'nat', null); if (b) { poolTake(id, b); const f = genFig(o, id, b.home || figHome(id), 'min', b); f.cab = c.k; cab[c.k] = f.id; } }
+}
 function poolSync(o) {
   o.fpool ??= {};
   for (const id of ['A', 'B', 'C', 'D']) {
     const have = o.fpool[id] ??= [], room = Math.max(0, FPOOL - o.figs.filter(f => f.party === id && f.pos !== 'cand').length);
     have.length = Math.min(have.length, room);
-    while (have.length < room) have.push(figSpec('cand'));
+    while (have.length < room) have.push({ ...figSpec('cand'), home: figHome(id) });
   }
 }
 const figParty = f => f.party === 'O' ? '무소속' : pn(f.party);
-const figWho = f => f.pos === 'gov' ? `${GOVT[f.k]} ${f.name}(${figParty(f)})` : `${figParty(f)} ${f.name} ${f.pos === 'cand' ? '후보' : '의원'}`;
+const figWho = f => f.pos === 'gov' ? `${GOVT[f.k]} ${f.name}(${figParty(f)})` : f.pos === 'min' ? `${cabN(f)} ${f.name}(${figParty(f)})` : `${figParty(f)} ${f.name} ${f.pos === 'cand' ? '후보' : '의원'}`;
 // 선거 뒤: 이긴 후보는 현직(pos)으로, 진 후보·물러난 현직은 명부에서 뺌. 비례는 새 임기마다 새 명부
 function figElect(c, pos, wins) {
   const won = new Set(wins.map(w => w.fid).filter(Boolean)), mine = new Set(rvFids(c));
@@ -2606,20 +2615,27 @@ function rvPr(c) {
   for (const id of ['A', 'B', 'C', 'D']) if (Object.values(c.rv).some(ss => ss.some(s => s[id]))) c.rvp[id] = Array.from({ length: Math.round(id < 'C' ? rr(16, 24) : rr(6, 10)) }, () => ({ at: Math.round(rr(S.day, end)) }));
 }
 const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.values(s).map(x => x.fid)), ...Object.values(c.rvp || {}).flat().map(x => x.fid), ...Object.values(c.rivals || {}).map(x => x.fid)].filter(Boolean);
-// 한 자리 사람 정하기: 그 지역 현역(피선거권 있으면)과 새 출마 희망자들 중 후보 점수가 가장 높은 사람. pr: 비례 명부 자리(현역 비례의원 또는 새 희망자)
-function rvPick(c, k, id, used, pr) {
-  const cur = S.figs.find(f => f.party === id && (pr ? f.pos === 'pr' : f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov')) && !used.has(f.id) && !f.ban);
-  const pl = pr && S.fpool?.[id]; // 비례는 그 당 인재풀에서 희망자를 뽑음
-  const b = bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => pl?.length ? pick(pl) : figSpec('cand'))]);
-  if (pl) { const i = pl.indexOf(b); if (i >= 0) pl.splice(i, 1); }
-  const f = b === cur ? cur : genFig(S, id, pr ? figHome(id) : k, 'cand', b); used.add(f.id); return f;
+// 한 자리 사람 정하기(우리 자동 배치와 같은 방식): 그 당 인재풀에서 피선거권 있는 사람 중 그 자리 점수(후보 점수 + 연고)가 가장 높은 사람. 그 자리 현역이 있으면 현역 프리미엄을 얹어 겨룸. 무소속은 풀이 없어 무작위 희망자 RV_HOPE명
+// pr: 비례 명부 자리(현역 비례의원 또는 인재풀) · need: 필요한 성별(비례 홀수 순번은 여성, 공직선거법 제47조)
+const INCUMB = 0.3;
+const slotScore = (p, k) => L.candScore(p) + (k ? Math.log(homeMul(p, k)) : Math.log(1 + (HOME - 1) * (RK[homeOf(p)]?.voters || 0) * 1e6 / LAW.voters));
+const poolBest = (id, kind, k, need) => (S.fpool?.[id] || []).reduce((b, p) => p.ban || p.age < LAW.age[kind] || (need && p.gender !== need) || (b && slotScore(b, k) >= slotScore(p, k)) ? b : p, null);
+function poolTake(id, b) { const pl = S.fpool?.[id], i = pl ? pl.indexOf(b) : -1; if (i >= 0) pl.splice(i, 1); return b; }
+function rvPick(c, k, id, used, pr, need) {
+  const cur = S.figs.find(f => f.party === id && (pr ? f.pos === 'pr' : f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov')) && !used.has(f.id) && !f.ban && (!need || f.gender === need));
+  const kd = nomKind(c), sk = pr ? null : k;
+  let b = id in (S.fpool || {}) ? poolBest(id, kd, sk, need) : bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => figSpec('cand'))]);
+  if (!b) b = cur || figSpec('cand'); // 풀이 바닥났을 때만
+  else if (cur && b !== cur && slotScore(cur, sk) + INCUMB >= slotScore(b, sk)) b = cur;
+  poolTake(id, b);
+  const f = b === cur ? cur : genFig(S, id, pr ? b.home || figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
 function rvFill(c) {
   if (!c.rv) return;
   rvPr(c); // 옛 저장 파일 보정
   const used = new Set(rvFids(c));
   for (const k in c.rv) for (const s of c.rv[k]) for (const id in s) if (!s[id].fid && S.day >= s[id].at) s[id].fid = rvPick(c, k, id, used).id;
-  for (const id in c.rvp || {}) for (const s of c.rvp[id]) if (!s.fid && S.day >= s.at) s.fid = rvPick(c, '', id, used, 1).id;
+  for (const id in c.rvp || {}) c.rvp[id].forEach((s, i) => { if (!s.fid && S.day >= s.at) s.fid = rvPick(c, '', id, used, 1, i % 2 ? null : 'F').id; });
 }
 const rvOut = x => x.fid && S.day >= x.at; // 발표된 자리(교섭 자리에서 미리 정해진 사람도 발표일 전엔 안 보임)
 const NEG_BASE = { meet: 0.7, pact: 0.4, mpMeet: 0.75, mpBill: 0.55, mpJoin: 0.12, outMeet: 0.8, outBack: 0.45, outJoin: 0.3 };
@@ -2768,7 +2784,7 @@ function poolInfo(id) {
 }
 function figInfo(id) {
   const f = fig(id); if (!f) return;
-  const pos = { d: `${RK[f.k].n} 지역구 국회의원`, pr: '비례대표 국회의원', gov: GOVT[f.k], cand: `${RK[f.k].n} 후보` }[f.pos];
+  const pos = { d: `${RK[f.k].n} 지역구 국회의원`, pr: '비례대표 국회의원', gov: GOVT[f.k], min: cabN(f), cand: `${RK[f.k].n} 후보` }[f.pos];
   openModal({ title: f.name, html: `<div class="who" style="margin-bottom:12px">${face(f, f.party === 'O' ? '#64748B' : pc(f.party), 64)}<div><div class="small">${esc(figParty(f))} · ${pos}</div><div class="small muted">${f.gender === 'F' ? '여' : '남'} · ${f.age}세 · ${esc(homeTxt(f))} · 출신 직업: ${esc(f.job)}</div></div></div>${statBars(f)}
       <p class="small ${f.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${f.rec.length ? esc(f.rec.join(', ')) : '없음'}</p><p class="tip">공직선거 후보와 당선인은 전과 기록이 공개됩니다(공직선거법 제49조).</p>
       ${f.news?.length ? `<h3 style="margin-top:14px">보도된 의혹</h3><ul class="log">${[...f.news].reverse().map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)}</span></li>`).join('')}</ul>` : ''}
@@ -3242,6 +3258,15 @@ function registerCands(key) {
   addLog(`${c.name} 후보자 ${out.count}명 등록 (기탁금 ${won(out.deposits)}, 총 ${won(out.cost)})${out.recs ? ` · 전과 ${out.recs}건 공개로 신뢰 하락` : ''}`, 'ok');
   Snd.sfx('ok'); toast('선관위에 후보자 등록을 마쳤습니다.', 'ok', '후보자 등록'); renderAll();
 }
+// 등록 마감 전엔 등록을 취소하고(기탁금·선거비용 전액 환급, 공개된 전과로 깎인 신뢰 복구) 같은 초안으로 다시 고쳐 신청
+function unregisterCands(key) {
+  const c = S.camps[key]; if (!c?.reg || S.day > c.day - LAW.regDeadline[c.type]) return;
+  openModal({ title: '후보자 등록 취소', html: `<p>${esc(c.name)} 후보자 등록을 취소하고 명단을 수정할까요? 낸 ${won(c.reg.cost)}은 모두 돌려받고, 마감일 전에 다시 신청해야 합니다. 마감까지 신청하지 않으면 이번 선거에 참여하지 못합니다.</p>`,
+    buttons: [{ t: '돌아가기' }, { t: '등록 취소', pri: true, fn: () => {
+      const r = c.reg; earn(r.cost, '선거 환급'); if (r.recs) S.trust = clamp(S.trust + r.recs * 0.7, 0, 100);
+      c.reg = null; addLog(`${c.name} 후보자 등록을 취소했습니다(${won(r.cost)} 환급). 명단을 고쳐 다시 신청하세요.`);
+      Snd.sfx('click'); renderAll(); } }] });
+}
 
 // ---------- 이벤트 ----------
 // 숨긴 일: 매달 드러날 수 있지만 시간이 지날수록 흐려짐(monthly). k: 관련 시·도(단체장 직 상실용)
@@ -3407,8 +3432,8 @@ const EVENTS = [
       { t: '유포자를 명예훼손으로 고소', s: '수사 결과는 몇 주 뒤', run: () => { openCase({ t: '조작 영상 유포', guilty: rnd() < 0.7, mine: true }); return '경찰에 고소장을 냈습니다.'; } },
       { t: '무대응', run: () => { S.trust -= 3; return '소문이 꽤 오래 남았습니다. 신뢰 하락.'; } },
       { t: '상대 진영 의혹으로 맞불', s: '인지도↑ 신뢰↓', run: () => { S.fame += 3; S.trust -= 4; return '진흙탕 싸움으로 이름은 알려졌지만 신뢰를 잃었습니다.'; } }] },
-  { id: 'hearing', w: 2, cond: () => seatTotal('P') > 0 && !ruling(), title: '장관 후보자 인사청문회', pre: () => (ET.flaw = rnd() < 0.5),
-    body: () => `${presN()}이 지명한 장관 후보자의 인사청문회가 열립니다. 우리 당 의원도 청문위원으로 참여합니다.`,
+  { id: 'hearing', w: 2, cond: () => seatTotal('P') > 0 && !ruling(), title: '장관 후보자 인사청문회', pre: () => { ET.flaw = rnd() < 0.5; ET.m = pick(S.figs.filter(f => f.pos === 'min')); },
+    body: () => `${presN()}이 지명한 ${ET.m ? `${cabN(ET.m)} 후보자 ${esc(ET.m.name)}(${esc(figParty(ET.m))})` : '장관 후보자'}의 인사청문회가 열립니다. 우리 당 의원도 청문위원으로 참여합니다.`,
     ch: [{ t: '도덕성 송곳 검증', s: '한 방이 있으면 대박', run: () => { relAdd(S.president.party, ET.flaw ? -8 : -4, '장관 후보자 도덕성 공세'); if (ET.flaw) { S.fame += 3; hitPres(2); return '위장전입·논문 표절을 밝혀냈습니다. 후보자가 자진 사퇴했습니다!'; } S.trust -= 1.5; return '결정적 한 방이 없어 "흠집내기"라는 비판을 받았습니다.'; } },
       { t: '정책 역량 검증', s: '신뢰↑ · "맹탕" 비판 위험', run: () => { if (luck(0.65)) { S.trust += 1.5; return '정책 질의로 품격 있는 청문회라는 평을 들었습니다.'; } S.trust -= 0.5; return '"맹탕 청문회"라는 비판을 받았습니다.'; } }] },
   { id: 'filibuster', w: 1.5, cond: () => seatTotal('P') > 0, title: '무제한 토론(필리버스터)',
@@ -3452,7 +3477,7 @@ const EVENTS = [
       : [{ t: '예산 심사로 막겠다고 한다', s: `인지도↑ · ${pn(S.president.party)} 관계↓ · 여론 판정`, run: () => { S.fame += 1; relAdd(S.president.party, -5, '대통령실 이전 반대'); polJudge('대통령실 이전', -1); return '이전 예산을 전액 삭감하겠다고 예고했습니다.'; } },
         { t: '국민 의견 수렴을 요구한다', s: '신뢰↑', run: () => { S.trust += 1; return '서두르지 말고 국민 의견부터 들으라고 했습니다.'; } },
         { t: '대통령의 권한이라 본다', s: `${pn(S.president.party)} 관계↑ · 여론 판정`, run: () => { relAdd(S.president.party, 4, '대통령실 이전 용인'); polJudge('대통령실 이전', 1); return '집무실 위치는 대통령이 정할 일이라고 밝혔습니다.'; } }] }),
-  presEv({ id: 'preshuffle', w: 1, d: 400, title: '대규모 개각', c: () => !ruling() || (S.president.appr < S.president.a0 - 3 && CAB.some(c => cabP(c.k))), pre: () => { if (!ruling()) { apprAdd(2); wire(`${presT()}, 내각 대폭 개편`, 'pres'); } },
+  presEv({ id: 'preshuffle', w: 1, d: 400, title: '대규모 개각', c: () => !ruling() || (S.president.appr < S.president.a0 - 3 && CAB.some(c => cabP(c.k))), pre: () => { if (!ruling()) { apprAdd(2); S.president.rcab = {}; figSync(S); wire(`${presT()}, 내각 대폭 개편`, 'pres'); } },
     body: () => ruling() ? `국정 지지율이 ${Math.round(S.president.appr)}%까지 떨어지자 당 안팎에서 내각을 바꾸라는 요구가 터져 나옵니다.` : `${presN()}이 분위기를 바꾸려 내각을 대폭 개편했습니다. 새 장관 후보자들의 인사청문회가 줄줄이 잡힙니다.`,
     ch: () => ruling() ? [{ t: '내각을 전면 개편한다', s: '국정 지지율↑ · 내각 전원 사퇴', run: () => { S.president.cab = {}; apprAdd(6); wire(`${presT()}, 내각 전면 개편`, 'pres'); return '총리와 장관이 모두 물러났습니다. 청와대 탭에서 새 내각을 지명하세요.'; } },
       { t: '역량이 낮은 장관만 바꾼다', s: '국정 지지율 조금↑ · 한 자리 공석', run: () => { const c = CAB.filter(x => cabP(x.k)).sort((a, b) => cabP(a.k).skill - cabP(b.k).skill)[0]; const n = cabP(c.k).name; delete S.president.cab[c.k]; apprAdd(2); wire(`${n} ${c.n} 교체`, 'pres'); return `${n} ${c.n}을(를) 물러나게 했습니다.`; } },
@@ -4268,6 +4293,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; pPage = 0; renderAll(); });
   m.querySelectorAll('[data-ppage]').forEach(b => b.onclick = () => { pPage = +b.dataset.ppage; renderAll(); m.querySelector('.phead')?.scrollIntoView({ block: 'nearest' }); });
   m.querySelectorAll('[data-register]').forEach(b => b.onclick = () => registerCands(b.dataset.register));
+  m.querySelectorAll('[data-unreg]').forEach(b => b.onclick = () => unregisterCands(b.dataset.unreg));
   m.querySelectorAll('[data-nomauto]').forEach(b => b.onclick = () => nomAutoAsk(b.dataset.nomauto));
   const rp = m.querySelector('#regParty'); if (rp) rp.onclick = registerParty;
   m.querySelectorAll('[data-camp]').forEach(el => el.addEventListener('change', () => { draftChange(el); }));
@@ -4359,13 +4385,13 @@ function pHome() {
 }
 // 인물 명부: 프로필이 있는 다른 사람들(다른 당 의원·광역단체장·공천 후보·원외 인사). 누르면 인물 정보
 let dirCat = 'mp', dirPar = '', dirPage = 0;
-const DIR_CAT = [['mp', '국회의원'], ['gov', '광역단체장'], ['cand', '공천 후보'], ['out', '원외 인사']], DIR_PER = 24;
+const DIR_CAT = [['mp', '국회의원'], ['gov', '광역단체장'], ['min', '장관'], ['cand', '공천 후보'], ['out', '원외 인사']], DIR_PER = 24;
 function dirCard() {
   const ri = k => R.findIndex(r => r.k === k), po = ['A', 'B', 'C', 'D', 'O'];
   const xs = (dirCat === 'out' ? S.outs.map(m => ({ key: 'o' + m.id, p: m, party: m.party || 'O', k: m.k, sub: `${m.party ? RIV[m.party].name : '무당적'} · ${m.role}`, neg: !!m.neg }))
     : S.figs.filter(f => dirCat === 'mp' ? f.pos === 'd' || f.pos === 'pr' : f.pos === dirCat).map(f => {
       const mp = S.mps.find(m => m.fid === f.id); // 교섭 명단 의원이면 친분·대화 내역까지
-      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : RK[f.k].n}`, neg: !!mp };
+      return { key: mp ? 'm' + mp.id : 'f' + f.id, p: f, party: f.party, k: f.k, sub: `${figParty(f)} · ${f.pos === 'pr' ? '비례대표' : f.pos === 'gov' ? GOVT[f.k] : f.pos === 'min' ? cabN(f) : RK[f.k].n}`, neg: !!mp };
     })).filter(x => !dirPar || x.party === dirPar).sort((a, b) => !!b.neg - !!a.neg || po.indexOf(a.party) - po.indexOf(b.party) || ri(a.k) - ri(b.k)); // 교섭 명단 먼저
   const pages = Math.max(1, Math.ceil(xs.length / DIR_PER)); dirPage = Math.min(dirPage, pages - 1);
   const chip = (at, v, n, on) => `<button class="btn${on ? ' pri' : ''}" data-${at}="${v}" aria-pressed="${on}">${n}</button>`;
@@ -4548,6 +4574,7 @@ function campCard(c) {
     if (c.type === 'gov') body += `<div class="regsplit" style="grid-template-columns:1fr"><div><h3>시·도지사 ${r.count}명</h3>${r.count ? `<button class="btn" data-distc="${c.key}">상세 보기</button>` : none}</div></div>`;
     if (c.type === 'pres') body += `<p>후보: <b>${esc(r.cand.name)}</b> (${r.cand.age}세) vs ${Object.entries(c.rivals).filter(([id]) => id !== uniId(c)).map(([id, x]) => `${figBtn(x.fid, x.name)}(${esc(pn(id))})`).join(', ')}${uniId(c) ? ` · <b>${esc(pn(uniId(c)))}과(와) 단일화 성사</b>` : ''}</p><div class="regsplit" style="grid-template-columns:1fr"><div><h3>대통령 후보 1명</h3><button class="btn" data-distc="${c.key}">상세 보기</button></div></div>`;
     body += `<p class="small">${inCampaign(c) ? '<b class="ok">공식 선거운동 중</b> — 조직·지역 탭의 거리 유세, 활동 탭의 방송 광고를 활용하세요. TV 토론은 정해진 날 열립니다.' : `공식 선거운동은 ${fdate(cs)}부터입니다. 그 전엔 온라인 홍보·정책 발표로 지지를 다지세요.`} 현재 캠페인 보정: 전국 +${pct(c.boost.nat, 0)}</p>`;
+    if (S.day <= dl) body += `<div class="btns" style="margin-top:10px"><button class="btn" data-unreg="${c.key}">등록 취소 후 수정</button></div><p class="small muted" style="margin:6px 0 0">후보자 등록 마감(${fdate(dl)})까지 등록을 취소하고 명단을 고쳐 다시 신청할 수 있습니다. 낸 돈은 모두 돌려받습니다.</p>`;
     return `<div class="card" style="margin-bottom:14px">${head}${body}</div>`;
   }
   if (S.phase !== 'reg') return `<div class="card" style="margin-bottom:14px">${head}<p class="warn">정식 등록된 정당만 후보를 추천할 수 있습니다. 먼저 창당을 마치세요.</p></div>`;
