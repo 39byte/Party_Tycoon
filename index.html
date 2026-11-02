@@ -1915,6 +1915,7 @@ function accTargets() {
       candF.set(s[id].fid, `${c.name} ${RK[k].n} 후보`);
     } });
     for (const id in c.rivals || {}) if (c.rivals[id].fid && id !== uniId(c)) candF.set(c.rivals[id].fid, `${c.name} 후보`);
+    for (const id in c.rvp || {}) c.rvp[id].forEach(s => { if (rvOut(s)) candF.set(s.fid, `${c.name} 비례 후보`); });
     if (c.reg) for (const x of [...Object.values(c.reg.dist || {}).flat(), ...Object.values(c.reg.gov || {}), ...(c.reg.pr || []), c.reg.cand].filter(Boolean)) candP.set(x.id, `${c.name} 후보`);
   }
   for (const f of S.figs) {
@@ -2584,18 +2585,28 @@ function rvPlan(c) {
     if (rnd() < (nat ? 0.5 : 0.3)) s.O = { at: at() };
     return s;
   })]));
+  rvPr(c);
 }
-const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.values(s).map(x => x.fid)), ...Object.values(c.rivals || {}).map(x => x.fid)].filter(Boolean);
-// 한 자리 사람 정하기: 그 지역 현역(피선거권 있으면)과 새 출마 희망자들 중 후보 점수가 가장 높은 사람
-function rvPick(c, k, id, used) {
-  const cur = S.figs.find(f => f.party === id && f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov') && !used.has(f.id) && !f.ban);
+// 총선 비례대표 명부(c.rvp: { 당: [{ at, fid }] }): 지역구에 후보를 낸 당만. 지역구 공천과 같이 발표일에 사람을 정함
+function rvPr(c) {
+  if (c.type !== 'nat' || c.rvp || !c.rv) return;
+  const end = c.day - LAW.regDeadline.nat;
+  c.rvp = {};
+  for (const id of ['A', 'B', 'C', 'D']) if (Object.values(c.rv).some(ss => ss.some(s => s[id]))) c.rvp[id] = Array.from({ length: Math.round(id < 'C' ? rr(16, 24) : rr(6, 10)) }, () => ({ at: Math.round(rr(S.day, end)) }));
+}
+const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.values(s).map(x => x.fid)), ...Object.values(c.rvp || {}).flat().map(x => x.fid), ...Object.values(c.rivals || {}).map(x => x.fid)].filter(Boolean);
+// 한 자리 사람 정하기: 그 지역 현역(피선거권 있으면)과 새 출마 희망자들 중 후보 점수가 가장 높은 사람. pr: 비례 명부 자리(현역 비례의원 또는 새 희망자)
+function rvPick(c, k, id, used, pr) {
+  const cur = S.figs.find(f => f.party === id && (pr ? f.pos === 'pr' : f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov')) && !used.has(f.id) && !f.ban);
   const b = bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => figSpec('cand'))]);
-  const f = b === cur ? cur : genFig(S, id, k, 'cand', b); used.add(f.id); return f;
+  const f = b === cur ? cur : genFig(S, id, pr ? figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
 function rvFill(c) {
   if (!c.rv) return;
+  rvPr(c); // 옛 저장 파일 보정
   const used = new Set(rvFids(c));
   for (const k in c.rv) for (const s of c.rv[k]) for (const id in s) if (!s[id].fid && S.day >= s[id].at) s[id].fid = rvPick(c, k, id, used).id;
+  for (const id in c.rvp || {}) for (const s of c.rvp[id]) if (!s.fid && S.day >= s.at) s.fid = rvPick(c, '', id, used, 1).id;
 }
 const rvOut = x => x.fid && S.day >= x.at; // 발표된 자리(교섭 자리에서 미리 정해진 사람도 발표일 전엔 안 보임)
 const NEG_BASE = { meet: 0.7, pact: 0.4, mpMeet: 0.75, mpBill: 0.55, mpJoin: 0.12, outMeet: 0.8, outBack: 0.45, outJoin: 0.3 };
@@ -4481,7 +4492,7 @@ let rvReg = 'seoul';
 const rvPg = {}, RV_PER = 5; // 쪽 번호: 선거·지역·당별로 기억(저장 안 함)
 function rvCard(c) {
   if (!c.rv || c.type === 'pres') return '';
-  const xs = Object.values(c.rv).flat().flatMap(s => Object.values(s)), ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
+  const xs = [...Object.values(c.rv).flat().flatMap(s => Object.values(s)), ...Object.values(c.rvp || {}).flat()], ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
   const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
   // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보)
   const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted" title="${sub ? `${pname(id)} · ` : ''}${esc(f.job)}">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
@@ -4494,11 +4505,11 @@ function rvCard(c) {
   const pg = (key, p, pages, aria) => pages > 1 ? `<div data-rvpgk="${key}">${pager(p, pages, 'rvpg', aria)}</div>` : '';
   let body, own = 0, ownN = 0;
   if (!gov) {
-    const k = rvReg in c.rv ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
-    const secs = ids.map(id => { const all = c.rv[k].map(s => s[id]).filter(Boolean); if (!all.length) return '';
+    const pr = !!c.rvp, k = rvReg in c.rv || (pr && rvReg === 'pr') ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
+    const secs = ids.map(id => { const all = k === 'pr' ? c.rvp[id] || [] : c.rv[k].map(s => s[id]).filter(Boolean); if (!all.length) return '';
       const got = all.filter(rvOut), rest = all.filter(x => !rvOut(x)), key = `${c.key}:${k}:${id}`, [p, pages] = page(key, all.length);
-      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3>${pg(key, p, pages, `${pname(id)} 후보 쪽 이동`)}</div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}${pages > 1 ? '<div class="rvp ghost" aria-hidden="true"></div>'.repeat((RV_PER - (all.length % RV_PER || RV_PER)) * (p === pages - 1)) : ''}</div></section>`; }).join('');
-    body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n} <span class="num">${cnt(r)}</span></button>`).join('')}</div>
+      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3></div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}${pages > 1 ? '<div class="rvp ghost" aria-hidden="true"></div>'.repeat((RV_PER - (all.length % RV_PER || RV_PER)) * (p === pages - 1)) : ''}</div>${pg(key, p, pages, `${pname(id)} 후보 쪽 이동`)}</section>`; }).join('');
+    body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n} <span class="num">${cnt(r)}</span></button>`).join('')}${pr ? `<button class="btn${k === 'pr' ? ' pri' : ''}" data-rvreg="pr" aria-pressed="${k === 'pr'}">비례대표 <span class="num">${Object.values(c.rvp).flat().filter(rvOut).length}</span></button>` : ''}</div>
       <div class="rvsecs">${secs || '<p class="empty">이 지역은 후보를 낸 당이 없습니다.</p>'}</div>`;
   } else {
     for (const r of R_ADM) { own += !!c.reg?.gov?.[r.k]; ownN += !!mine(r.k); }
