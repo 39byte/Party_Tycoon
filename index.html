@@ -1128,7 +1128,7 @@ const totalMembers = () => sum(Object.values(S.members));
 const chaptersOk = () => R.filter(r => S.chapters[r.k] && S.members[r.k] >= LAW.chapterMembers).length;
 const govCount = id => Object.values(S.gov).filter(x => x === id).length;
 // 인지도 하한: 의석·광역단체장·대통령이 있으면 그만큼 아래로 안 떨어짐(모든 당 같은 식)
-const fameFloor = id => 2 + seatTotal(id) / 4 + govCount(id) * 2 + (S.president.party === id ? 35 : 0);
+const fameFloor = id => 2 + seatTotal(id) / 4 + govCount(id) * 2 + (S.president.party === id ? 10 : 0);
 const rfameAdd = (id, d) => { if (S.rfame[id] != null) S.rfame[id] = clamp(S.rfame[id] + d, 0, 100); };
 
 function addLog(text, type = '') { S.log.push({ d: S.day, t: text, c: type }); if (S.log.length > 400) S.log.shift(); }
