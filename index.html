@@ -4860,7 +4860,7 @@ function rvCard(c) {
     const ruling = S.president.party, order = ['P', 'A', 'B', 'C', 'D'].filter(id => id === 'P' || c.rivals[id]).sort((a, b) => (b === ruling) - (a === ruling) || seatTotal(b) - seatTotal(a));
     const cell = (id, i) => {
       const x = id === 'P' ? c.reg?.cand : c.rivals[id], p = x && (id === 'P' ? S.pool.find(q => q.id === x.id) || x : rvOut(x) && (fig(x.fid) || x)),
-        tag = `<span class="pill">${i + 1}번</span>${id === ruling ? ' <span class="pill ok">여당</span>' : ''}${id !== 'P' && id === uniId(c) ? ' <span class="pill">단일화</span>' : ''}`;
+        tag = `<span class="pill">${i + 1}번</span>${id !== 'P' && id === uniId(c) ? ' <span class="pill">단일화</span>' : ''}`;
       const inner = !p ? `<div class="small muted">${id === 'P' ? '후보 등록 전' : '후보 미정 · 공천 전'}</div>`
         : `<div class="who">${face(p, col(id), 36)}<span class="rcn"><b>${esc(p.name)}</b><span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''} · ${esc(homeTxt(p))}</span></span><span class="rcv"><b class="num">${candPts(p)}</b><span class="small muted">후보 점수</span></span></div>${statBars(p)}<p class="small ${p.rec?.length ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}</p>${p.news?.length ? `<ul class="log">${[...p.news].reverse().map(n => `<li><time>${fdate(n.d)}</time><span>${esc(n.t)}</span></li>`).join('')}</ul>` : ''}`;
       return `<div class="rcand" open style="background:var(--surface2);border-left:4px solid ${col(id)};align-self:stretch"><div style="margin-bottom:8px"><b>${pname(id)}</b> ${tag}</div>${inner}</div>`;
