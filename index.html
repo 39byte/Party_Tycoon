@@ -1817,10 +1817,11 @@ const wire = (t, c = 'hall') => { S.wire.push({ d: S.day, t, c }); if (S.wire.le
 
 // ---------- 뉴스 ----------
 const shuffle = a => a.map(x => [rnd(), x]).sort((p, q) => p[0] - q[0]).map(x => x[1]);
+const NO_SEOUL = /응급실|신입생 미달/; // 서울에선 안 나오는 지역 소식
 function makeNews() {
   // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 지방 정부 탭 지역 소식에도 올림
   const fill = h => { let k = null;
-    const t = h.replace(/\{r\}/g, () => { const r = pick(R); k = r.k; return r.n; }).replace(/\{p\} 대통령/g, presT()).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
+    const t = h.replace(/\{r\}/g, () => { const r = pick(NO_SEOUL.test(h) ? R.filter(x => x.k !== 'seoul') : R); k = r.k; return r.n; }).replace(/\{p\} 대통령/g, presT()).replace(/\{a\}/g, RIV.A.name).replace(/\{b\}/g, RIV.B.name);
     return { t, k: k || (R.find(r => t.startsWith(r.n + ' ')) || {}).k }; };
   const hot = shuffle(NEWS[S.issue]).slice(0, rnd() < 0.4 ? 3 : 2).map(h => [h, S.issue]);
   const cold = shuffle(ISSUES.filter(i => i.k !== S.issue)).slice(0, 2).map(i => [pick(NEWS[i.k]), i.k]);
@@ -3861,9 +3862,9 @@ function regionNews() {
   S.rdes = S.rdes.filter(x => S.day - x.d < 35 && (!x.rid || S.rcur.some(i => i.id === x.rid)));
   for (let i = 0; i < 7; i++) {
     const r = pick(R), k = r.k, g = S.rgov[k], x = rnd();
-    if (x < 0.45) { const it = pick(RISSUE), t = fillR(it.t, k); if (rnd() < 0.65) addIssue(k, it, t); else rnews(k, t, 0, viral(k, t, -1)); }
+    if (x < 0.45) { const it = pick(RISSUE); if (k === 'seoul' && NO_SEOUL.test(it.t)) continue; const t = fillR(it.t, k); if (rnd() < 0.65) addIssue(k, it, t); else rnews(k, t, 0, viral(k, t, -1)); }
     else if (x < 0.75) { const t = fillR(pick(RMICRO), k); rnews(k, t, 0, viral(k, t, 1)); }
-    else if (x < 0.88) rnews(k, fillR(pick(RNEWS), k));
+    else if (x < 0.88) { const t = pick(RNEWS); if (!(k === 'seoul' && NO_SEOUL.test(t))) rnews(k, fillR(t, k)); }
     else if (S.gov[k] === 'P') wire(`${govWho(k)} 직무 긍정 평가 ${Math.round(S.ops[k])}%`, 'gov');
     else if (g) wire(`${govWho(k)} 직무 긍정 평가 ${Math.round(g.o)}%`, 'gov');
     else rnews(k, fillR(pick(RMICRO), k));
