@@ -2848,6 +2848,7 @@ const byeKey = b => S.byes.filter(x => x.k === b.k && x.kind === b.kind).length 
 function byeCard(b, fold) {
   const rd = byeRegDay(b), dd = b.day - S.day, st = byeStage(b), w = byeWith(b), pid = x => x === 'O' ? '무소속' : pn(x);
   const col = id => id === 'O' ? '#64748B' : pc(id), card = (id, f) => `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted">${esc(pid(id))} · ${esc(f.job)}</span></span></button>`;
+  const q = b.mine && (S.pool.find(x => x.id === b.mine.pid) || b.mine), me = q ? `<button class="rvp" ${S.pool.some(x => x.id === q.id) ? `data-pinfo="p${q.id}"` : 'disabled'}>${face(q, col('P'), 32)}<span><b>${esc(q.name)}</b><span class="small muted">${esc(pid('P'))}${q.job ? ` · ${esc(q.job)}` : ''}</span></span></button>` : '';
   const cands = b.on ? Object.keys(b.c).map(id => { const x = b.c[id], f = x.fid && S.day >= x.at && fig(x.fid); return f ? card(id, f) : `<div class="rvp st blank"><span class="rvface" aria-hidden="true"></span><span><b>후보 미정</b><span class="small muted">${esc(pid(id))} · 공천 전</span></span></div>`; }).join('') : '';
   const steps = `<div class="legend" role="list" aria-label="보궐선거 진행 단계">${BYE_STEPS.map((n, i) => `<span role="listitem" class="pill${i === st ? ' ok' : ''}"${i === st ? ' aria-current="step"' : ''}>${i + 1}. ${n}${i < st ? ' ✓' : ''}</span>`).join('')}</div>`;
   const mine = b.mine ? `<p><b class="ok">후보 등록 완료</b> · ${esc(b.mine.name)} · 사용 ${won(b.mine.cost)}</p>`
@@ -2855,7 +2856,7 @@ function byeCard(b, fold) {
     : S.day > rd ? '<p class="small muted">후보 등록이 마감됐습니다. 이번에는 후보를 내지 않았습니다.</p>'
     : b.on ? `<button class="btn pri" data-bye="${b.id}">후보 등록</button>` : `<p class="small muted">공천은 ${fdate(b.day - byeNom(b))}부터 시작합니다.</p>`;
   const head = `${esc(byeLabel(b))}${byeKey(b)} <span class="pill">D-${dd}</span>`;
-  const body = `<p class="small muted"><span class="pill">${esc(b.why)}</span> ${w ? `<span class="pill warn">${esc(w.name)}와 같은 날</span> ` : ''}${byeGov(b) ? '<span class="pill">권한대행 체제</span> ' : ''}선거일 ${fdate(b.day)} · 후보 등록 마감 ${fdate(rd)}</p>${steps}${cands ? `<div class="rvps" style="margin:8px 0">${cands}</div>` : ''}${mine}`;
+  const body = `<p class="small muted"><span class="pill">${esc(b.why)}</span> ${w ? `<span class="pill warn">${esc(w.name)}와 같은 날</span> ` : ''}${byeGov(b) ? '<span class="pill">권한대행 체제</span> ' : ''}선거일 ${fdate(b.day)} · 후보 등록 마감 ${fdate(rd)}</p>${steps}${cands || me ? `<div class="rvps" style="margin:8px 0">${me}${cands}</div>` : ''}${mine}`;
   return fold ? `<details class="card" ${byeOpenForMe(b) ? 'open' : ''}><summary><h2 style="display:inline">${head}</h2>${b.mine ? ' <span class="pill ok">우리 후보</span>' : ''} <span class="small muted">${esc(b.why)}${w ? ` · ${esc(w.name)}와 같은 날` : ''}</span></summary>${body}</details>` : `<div class="card"><h2>${head}</h2>${body}</div>`;
 }
 const byesHTML = () => S.byes.slice().sort((a, b) => a.day - b.day).map(b => byeCard(b, S.byes.length >= 3)).join('');
