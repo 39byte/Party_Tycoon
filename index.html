@@ -1149,7 +1149,7 @@ function regFactor0(k) {
 }
 // 다른 당 지역 배율(지사 효과 제외)
 const pfBase = (id, k) => { const l = RK[k].lean; return id === 'A' ? Math.max(0.15, 1 - 0.85 * l) : id === 'B' ? Math.max(0.15, 1 + 0.85 * l) : id === 'C' ? 1 + 0.25 * l : id === 'D' ? 1 - 0.25 * l : 1; };
-// 행정 지지도 기준값 = 그 지역 소속 정당 지지율. 새 단체장은 여기서 시작하고, 가만두면 여기로 돌아감. 무소속은 정당 지지율이 없어 50
+// 행정 지지도 기준값 = 그 지역 소속 정당 지지율. 새 단체장은 득표율에서 시작하고, 가만두면 여기로 돌아감. 무소속은 정당 지지율이 없어 50
 const opsBase = (id, k) => id === 'O' ? 50 : clamp(id === 'P' ? S.support * regFactor0(k) : poll()[id] * pfBase(id, k), 5, 95);
 // 현직 지사 효과: 행정 지지도가 기준값(지역 정당 지지율)보다 높을수록 유리
 function regFactor(k) {
@@ -1269,7 +1269,7 @@ function simGov(c) {
     for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
     for (const id of ids) if (id !== 'P') { const f = fig(slot?.[id]?.fid); mods[id] = (mods[id] || 1) * campMul(c, id, r.k, r.k) * candMul(f) * homeMul(f, r.k); } // 선거운동 · 후보 개인 · 연고
     const res = shareRace(r.k, ids, mods), b = ballots(regVoters(r), to[r.k], res.v, LAW.invalid.gov);
-    win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid }); races.push({ k: r.k, n: RK[r.k].n, e: b.e, t: to[r.k], bad: b.bad, c: raceRow(ids, res.v, slot, cand, b) });
+    win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid, sh: clamp(res.v[res.win] * 100, 5, 95) }); races.push({ k: r.k, n: RK[r.k].n, e: b.e, t: to[r.k], bad: b.bad, c: raceRow(ids, res.v, slot, cand, b) });
     if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, sk: lp.skill, share: res.v.P, votes: b.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
   }
   return { win, mine, wins, races, to: sum(R.map(r => regVoters(r) * to[r.k])) / LAW.voters };
@@ -1393,9 +1393,9 @@ function resolveElection(c) {
     const g = simGov(c); races = g.races;
     S.gov = g.win;
     // 당선자가 새 지사(같은 사람이 다시 되면 행정 지지도 유지)
-    for (const w of g.wins) if (w.id !== 'P') { const f = fig(w.fid), old = S.rgov[w.k]; S.rgov[w.k] = { p: w.id, n: f ? f.name : genName('M'), fid: f?.id, o: old && f && old.fid === f.id ? old.o : opsBase(w.id, w.k) }; }
+    for (const w of g.wins) if (w.id !== 'P') { const f = fig(w.fid), old = S.rgov[w.k]; S.rgov[w.k] = { p: w.id, n: f ? f.name : genName('M'), fid: f?.id, o: old && f && old.fid === f.id ? old.o : w.sh }; }
     rgovSync(S); figElect(c, 'gov', g.wins);
-    S.ops = Object.fromEntries(R.filter(r => g.win[r.k] === 'P').map(r => [r.k, S.ops[r.k] ?? opsBase('P', r.k)])); // 새 지사는 지역 우리 당 지지율에서 시작
+    S.ops = Object.fromEntries(g.wins.filter(w => w.id === 'P').map(w => [w.k, S.ops[w.k] ?? w.sh])); // 새 지사는 득표율에서 시작
     S.aap = Math.min(S.aap, aapMax());
     S.pool.forEach(p => { if (/시·도지사/.test(p.role)) p.role = ''; });
     if (c.reg) {
@@ -2840,8 +2840,8 @@ function byeResolve(b) {
   if (gov) { // 단체장 자리: 새 단체장(권한대행 끝)
     S.gov[b.k] = win; delete S.gact[b.k];
     S.pool.forEach(p => { if (p.role === `${r.n} 시·도지사`) p.role = ''; });
-    if (win === 'P') { lp.role = `${r.n} 시·도지사`; S.ops[b.k] = opsBase('P', b.k); }
-    else { delete S.ops[b.k]; S.rgov[b.k] = { p: win, n: wf?.name || genName('M'), fid: wf?.id, o: opsBase(win, b.k) }; }
+    if (win === 'P') { lp.role = `${r.n} 시·도지사`; S.ops[b.k] = clamp(v.P * 100, 5, 95); }
+    else { delete S.ops[b.k]; S.rgov[b.k] = { p: win, n: wf?.name || genName('M'), fid: wf?.id, o: clamp(v[win] * 100, 5, 95) }; }
     rgovSync(S); pgovSync(S); S.aap = Math.min(S.aap, aapMax());
   } else S.seats[win].d[b.k] = (S.seats[win].d[b.k] || 0) + 1;
   const winner = win === 'P' ? `${S.party.name} ${lp.name}` : `${win === 'O' ? '무소속' : pn(win)} ${wf?.name || ''}`;
@@ -5164,7 +5164,7 @@ function pAdmin() {
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${govPerson(k) ? `<button class="facebtn" data-pinfo="g${k}" aria-label="${esc(govName(k))} 정보 보기" title="인물 정보">${face(govPerson(k), S.party.color, 48)}</button>` : face({ name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} · 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 · 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}<label class="sw">자동화<input type="checkbox" role="switch" data-autok="${k}" aria-label="${esc(govName(k))} 행정 자동화" ${autoOn(k) ? 'checked' : ''}></label>
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
-      <p class="tip">행정 지지도는 그 지역 우리 당 지지율에서 출발하고 가만두면 그 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있으며, 단체장 역량이 높을수록 성공률이 오릅니다.</p></div>`
+      <p class="tip">행정 지지도는 당선 때 득표율에서 출발하고 가만두면 그 지역 우리 당 지지율 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있으며, 단체장 역량이 높을수록 성공률이 오릅니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
   const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${fig(g.fid) ? `<button class="facebtn" data-pinfo="f${g.fid}" aria-label="${esc(g.n)} 정보 보기" title="인물 정보">${face(fig(g.fid), pc(g.p), 40)}</button>` : face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${GOVT[r.k]} ${esc(g.n)}</b> <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
       <p class="tip">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
