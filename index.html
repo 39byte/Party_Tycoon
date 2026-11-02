@@ -1509,11 +1509,13 @@ const apprStart = id => clamp(poll()[id], 5, 90);
 const CAB = [{ k: 'pm', n: '국무총리', is: [] }, { k: 'econ', n: '경제부총리', is: ['econ', 'house', 'tax'] }, { k: 'soc', n: '사회부총리', is: ['welfare', 'youth', 'climate'] },
   { k: 'sec', n: '외교안보 장관', is: ['security'] }, { k: 'law', n: '법무·행안 장관', is: ['order', 'reform', 'region'] }];
 const cabP = k => person(S.president.cab?.[k]);
+// 장관 역량: 우리 당 집권이면 내각 인재, 다른 당 집권이면 그 당 인재풀에서 뽑은 장관(공석은 45로 침)
+const cabSkill = k => (S.president.party === 'P' ? cabP(k) : fig(S.president.rcab?.[k]))?.skill ?? 45;
 const cabOf = p => ruling() && CAB.find(c => S.president.cab?.[c.k] === p.id);
 function apprTarget() {
   const P = S.president, me = P.pid != null && person(P.pid);
   return P.a0 * (1 - 0.4 * Math.min(1, (S.day - P.since) / 1825)) + (trAvg(P.party) - 50) * 0.25 + (me ? (me.skill - 60) * 0.2 + (me.integ - 60) * 0.1 : 0)
-    + (P.party === 'P' ? (sum(CAB.map(c => cabP(c.k)?.skill ?? 45)) / CAB.length - 60) * 0.2 : 0); // 내각 평균 역량(공석은 45로 침)
+    + (sum(CAB.map(c => cabSkill(c.k))) / CAB.length - 60) * 0.2; // 내각 평균 역량
 }
 const apprAdd = n => { S.president.appr = clamp(S.president.appr + n, 5, 90); };
 
@@ -1580,6 +1582,7 @@ function monthly(dt) {
   if (Object.keys(S.rgov).length && rnd() < 0.5) S.queue.push({ ev: 'rgov' }); // 다른 당 지사도 행정을 편다
   S.fx = S.fx.filter(f => f.until > S.day);
   if (ruling() && !S.president.acting) cabMonth();
+  else if (!S.president.acting) { const hot = CAB.find(c => c.is.includes(S.issue)); if (hot) apprAdd((cabSkill(hot.k) - 60) * 0.04); } // 다른 당 집권: 핵심 쟁점 담당 장관 성적도 같은 식
   if (!S.president.acting) { S.president.last = S.president.appr; if (!pollBanned()) wire(`여론조사: ${presT()} 국정 지지율 ${Math.round(S.president.appr)}%`, 'pres'); }
   // 대통령도 정책을 낸다(우리가 집권하면 우리 몫)
   if (!ruling() && rnd() < 0.4) S.queue.push({ ev: 'policy' });
