@@ -4652,7 +4652,7 @@ function pHome() {
     <div class="span-2 stack">
       <div style="order:1;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0">${status}</div>
-        <div class="card" style="flex:1 1 200px;margin-top:0"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${e.bye ? '<span class="pill">보궐</span> ' : ''}${esc(e.name)}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
+        <div class="card" style="flex:1 1 200px;margin-top:0"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${esc(e.name)}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
           <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년마다 열립니다. 대선은 3년마다(단임)입니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
       </div>
       <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
