@@ -4251,8 +4251,8 @@ function showEvent(e) {
 function scandalEv(pid) {
   const p = person(pid); if (!p) return;
   const what = pick(['음주운전 적발', '부동산 투기 의혹', '갑질 폭로', '논문 표절 의혹', '막말 녹취 공개', '성비위 폭로']);
-  showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc(roleLabel(p.role) || p.job)})의 ${what} 보도가 나왔습니다.`,
-    html: () => `<div class="pcard" style="margin-top:12px"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)} · ${esc(homeTxt(p))}</div></div></div>
+  showEvent({ title: `${p.name} ${what}`, body: () => `영입 인재 <b>${esc(p.name)}</b>(${esc([roleLabel(p.role), cabOf(p)?.n].filter(Boolean).join(' · ') || p.job)})의 ${what} 보도가 나왔습니다.`,
+    html: () => `<div class="pcard" style="margin-top:12px"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}${cabOf(p) ? ` <span class="pill ok">${cabOf(p).n}</span>` : ''}</h3><div class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세 · ${esc(p.job)} · ${esc(homeTxt(p))}</div></div></div>
       ${statBars(p)}<div class="foot"><span class="${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' · <b>피선거권 없음</b>' : ''}</span></div></div>`, // 제명할지 판단하도록 그 사람 프로필
     note: /비례/.test(p.role) ? '비례대표 의원을 제명하면 무소속으로 의원직을 유지해 당은 의석을 잃습니다.' : '',
     ch: [{ t: '제명(출당)한다', s: '신뢰 회복, 인재 상실', run: () => { leaveParty(p); S.trust += 1; return `${p.name}을(를) 제명했습니다.`; } },
