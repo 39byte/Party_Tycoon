@@ -569,35 +569,31 @@ const { REGIONS: R, LAW } = L;
 const RK = Object.fromEntries(R.map(r => [r.k, r]));
 const BASE_SCHED = L.schedule(40);
 let SCHED = BASE_SCHED;
-// 선거 템포: 실제 법정 주기(총선·지방선거 4년, 대선 5년)보다 빠르게 — 총선·지방선거 2년, 대선 3년. 대선은 단임(헌법 제70조)
-// 총선과 지방선거는 1년씩 엇갈리고, 대선은 총선 반년 뒤. tempoFrom(빠른 일정 시작일, 새 게임은 0) 전에 치른 선거는 실제 일정 그대로 둠
-const GAP = { nat: 730, gov: 730, pres: 1095 };
-const wedOn = d => L.electionDay(L.dayToDate(d), 0); // 그날 이후 첫 수요일(공휴일 앞뒤면 다음 주, 공직선거법 제34조)
+// 선거 템포: 실제 법정 주기(총선·지방선거 4년, 대선 5년)보다 빠르게 — 총선·지방선거·대선 모두 2년 주기. 세 선거가 총선 → 대선 → 지선 순으로 돌아가며 약 243일(8개월)마다 하나씩 열림(L.cadence). 대선은 단임(헌법 제70조)
+// 일정 = 실제 일정(tempoFrom 전) + 이미 치렀거나 공천 중인 선거(o.done·o.camps 키, 날짜 고정) + 기준 선거 o.schedBase 뒤로 이어지는 순환.
+// 기준이 저장돼 있어 다시 계산해도 날짜가 흔들리지 않음. 새 게임은 첫 총선이 시작 365일째
+const SCHED_NAME = { nat: n => `제${n}대 국회의원선거`, pres: n => `제${n}대 대통령선거`, gov: n => `제${n}회 전국동시지방선거` }, SCHED_N0 = { nat: 23, pres: 23, gov: 9 };
+const schedKeys = o => [...new Set([...Object.keys(o.done || {}), ...Object.keys(o.camps || {})])].flatMap(k => { const m = /^(nat|gov|pres)(\d+)$/.exec(k); return m ? [{ type: m[1], day: +m[2] }] : []; });
 function rebuildSched(o) {
-  const a = o.tempoFrom ?? 0, past = BASE_SCHED.filter(e => e.day < a), cnt = t => past.filter(e => e.type === t).length;
-  const nat1 = o.natDay ?? a + 365; // 옛 저장 파일은 앞당긴 총선(D-140)부터
-  // 옛 저장 파일의 앞당긴 총선은 정한 날(D-140) 그대로, 나머지는 수요일로 맞춤
-  const series = (type, first, n0, name) => Array.from({ length: 25 }, (_, i) => type === 'nat' && i === 0 && o.natDay != null ? first : wedOn(first + i * GAP[type])).filter(d => d >= a)
-    .map((day, i) => ({ type, name: name(n0 + i), day, key: type + day }));
-  let out = [...past,
-    ...series('nat', nat1, 23 + cnt('nat'), n => `제${n}대 국회의원선거`),
-    ...series('gov', nat1 + 365, 9 + cnt('gov'), n => `제${n}회 전국동시지방선거`),
-    ...series('pres', nat1 + 182, 23 + cnt('pres'), n => `제${n}대 대통령선거`)];
-  // 이미 치렀거나 공천 중인 대선은 그날 그대로 두고, 다음 대선은 마지막 대선부터 3년 뒤(5년 주기로 치른 저장 파일도 이어짐)
-  const fixed = [...new Set([...Object.keys(o.done || {}), ...Object.keys(o.camps || {})].filter(k => k.startsWith('pres')).map(k => +k.slice(4)).filter(d => d >= a))].sort((x, y) => x - y);
-  if (fixed.length) {
-    const n0 = 23 + cnt('pres'), last = fixed.at(-1);
-    out = [...out.filter(e => e.type !== 'pres' || e.day < a), ...[...fixed, ...Array.from({ length: 12 }, (_, i) => wedOn(last + (i + 1) * GAP.pres))]
-      .map((day, i) => ({ type: 'pres', name: `제${n0 + i}대 대통령선거${(o.presEarly || []).includes(day) ? ' (궐위)' : ''}`, day, key: 'pres' + day }))];
-  }
-  // 대통령 궐위 → 60일 안에 보궐 대선(헌법 제68조). 새 임기가 시작되므로 이후 대선도 그날부터 3년마다
-  for (const d of (o.presEarly || []).filter(d => !fixed.includes(d))) {
-    const n = 23 + out.filter(e => e.type === 'pres' && e.day < d).length;
-    const pres = [{ type: 'pres', name: `제${n}대 대통령선거 (궐위)`, day: d, key: 'pres' + d },
-      ...Array.from({ length: 12 }, (_, i) => wedOn(d + (i + 1) * GAP.pres)).map((day, i) => ({ type: 'pres', name: `제${n + i + 1}대 대통령선거`, day, key: 'pres' + day }))];
-    out = [...out.filter(e => e.type !== 'pres' || e.day < d), ...pres];
-  }
-  SCHED = out.sort((x, y) => x.day - y.day);
+  const a = o.tempoFrom ?? 0, past = BASE_SCHED.filter(e => e.day < a), have = new Set(past.map(e => e.key)), early = new Set(o.presEarly || []), ev = [...past];
+  const add = (type, day) => { const key = type + day; if (day >= a && !have.has(key)) { have.add(key); ev.push({ type, day, key }); } };
+  schedKeys(o).forEach(e => add(e.type, e.day));
+  early.forEach(d => add('pres', d)); // 대통령 궐위 → 60일 안에 보궐 대선(헌법 제68조)
+  L.cadence(o.schedBase.day, o.schedBase.type, 24).forEach(e => add(e.type, e.day));
+  // 궐위 보궐 대선 뒤 1년 안의 정기 대선은 없앰(새 임기가 1년 이상 가도록). 이미 치른 것과 보궐 대선 자체는 둠
+  const out = ev.filter(e => !(e.type === 'pres' && !early.has(e.day) && !o.done?.[e.key] && [...early].some(d => e.day > d && e.day < d + 365)));
+  out.sort((x, y) => x.day - y.day);
+  const n = Object.fromEntries(L.ROT.map(t => [t, SCHED_N0[t] + past.filter(e => e.type === t).length]));
+  for (const e of out) if (!e.name) e.name = SCHED_NAME[e.type](n[e.type]++) + (e.type === 'pres' && early.has(e.day) ? ' (궐위)' : '');
+  SCHED = out;
+}
+// 옛 일정(총선·지선 2년, 대선 3년)으로 진행 중이던 저장 파일을 세 선거 순환으로 옮김: 마지막으로 치렀거나 공천 중인 선거를 기준으로 하되, 첫 새 선거가 지금부터 공천 기간(nomDays) 뒤가 되게 함
+function schedBaseFor(o) {
+  const a = o.tempoFrom ?? 0, kept = schedKeys(o).filter(e => e.day >= a).sort((x, y) => x.day - y.day);
+  if (!kept.length) return { type: 'gov', day: (o.natDay ?? a + 365) - Math.round(L.CYCLE / 3) };
+  const last = kept.at(-1), i0 = L.ROT.indexOf(last.type);
+  let j = 1; while (L.cadence(last.day, last.type, j).at(-1).day < o.day + LAW.nomDays) j++;
+  return j === 1 ? { type: last.type, day: last.day } : { type: L.ROT[(i0 + j - 1) % 3], day: last.day + Math.round((j - 1) * L.CYCLE / 3) };
 }
 const SAVE_KEY = 'party-tycoon-save-v1', SET_KEY = 'party-tycoon-settings';
 const RIV = {
@@ -862,7 +858,7 @@ const Snd = {
   })(),
   // 2박마다 화음
   CH: 'G G G G G C D D G D E G G D G G D D G G A D D D G D E G G D G G'.split(' '),
-  CHN: { G: [43, 55, 59, 62], C: [48, 55, 60, 64], D: [50, 57, 62, 66], E: [52, 55, 59, 64], A: [45, 57, 60, 64], B: [46, 58, 62, 65], F: [41, 57, 60, 65], g: [43, 55, 58, 62] },
+  CHN: { G: [43, 55, 59, 62], C: [48, 55, 60, 64], D: [50, 57, 62, 66], E: [52, 55, 59, 64], A: [45, 57, 60, 64], B: [46, 58, 62, 65], F: [41, 57, 60, 65], g: [43, 55, 58, 62], H: [45, 52, 57, 64], J: [43, 50, 55, 62], K: [50, 57, 62, 69] },
   // 아리랑(전통 민요, 3/4) 사장조, 사용자 악보(music/아리랑.jpg)에서 옮김: 8분 단위 → 박
   ARI: (() => {
     const a = [[62, 3], [64, 1], [62, 1], [64, 1]], b = [[67, 3], [69, 1], [67, 1], [69, 1]], c = [[71, 2], [69, 1], [71, 1], [67, 1], [64, 1]], d = [[71, 1], [69, 1], [67, 1], [64, 1], [62, 1], [64, 1]];
@@ -890,8 +886,11 @@ const Snd = {
     return [...a, ...b, ...a, ...b, ...c, ...d, ...d, ...e, ...c, ...d, ...e, ...d, ...c, ...d, ...e, ...e,
       [64, 1 / 3], [69, 1 / 3], [69, 1 / 3], [69, 1], [69, 1.5], [67, .5], [69, 4], [69, 1], [69, 1], [72, 2], [69, 1], [69, 1], [67, 2], [0, 8]].map(([m, d]) => [m, d / 2]);
   })(),
+  // 달빛 한마당(창작, 12/8 중중모리풍) 가 계면조 5음(라 도 레 미 솔), 열린 5도 화음: 8분 단위 → 박
+  DAL: [[69, 6], [72, 3], [74, 3], [76, 6], [74, 3], [72, 3], [74, 3], [72, 3], [69, 6], [67, 3], [69, 3], [67, 3], [64, 3],
+    [76, 6], [79, 3], [76, 3], [74, 3], [76, 3], [74, 3], [72, 3], [72, 3], [74, 3], [72, 3], [69, 3], [69, 9], [0, 3]].map(([m, d]) => [m, d / 3]),
   // 곡별 [박자 빠르기, 화음 하나의 박 수, 선율, 화음]
-  SONGS: () => [[72, 2, Snd.MEL, Snd.CH], [96, 3, Snd.ARI, 'G C E G C E C G G D E G C E C G'.split(' ')], [90, 3, Snd.DOR, 'G G D G E C C D G G D G E C C D C E C G'.split(' ')], [100, 4, Snd.GUN, 'B B B g g F B'.split(' ')], [100, 2, Snd.DAE, 'g g D g g g D g'.split(' ')], [100, 4, Snd.YEO, 'A A A A C A C A C A C A C A C A A C A'.split(' ')]],
+  SONGS: () => [[72, 2, Snd.MEL, Snd.CH], [96, 3, Snd.ARI, 'G C E G C E C G G D E G C E C G'.split(' ')], [90, 3, Snd.DOR, 'G G D G E C C D G G D G E C C D C E C G'.split(' ')], [100, 4, Snd.GUN, 'B B B g g F B'.split(' ')], [100, 2, Snd.DAE, 'g g D g g g D g'.split(' ')], [100, 4, Snd.YEO, 'A A A A C A C A C A C A C A C A A C A'.split(' ')], [84, 4, Snd.DAL, 'H H K J H J K H'.split(' ')]],
   bgm(on) {
     clearInterval(this.timer); this.timer = null;
     if (!on || !this.ensure()) return;
@@ -1107,6 +1106,7 @@ function migrate(o) {
   // 진행 중이던 옛 저장 파일만: 다음 국회의원선거를 불러온 날부터 140일 뒤로(한 번만). 새 게임은 natv가 이미 있어 정기 일정 그대로
   if (!o.natv) { o.natFrom = o.day; o.natDay = o.day + 140; o.natv = 1; }
   if (!o.tempov) { o.tempoFrom = o.day; o.tempov = 1; } // 옛 저장 파일: 불러온 날부터 빠른 선거 일정
+  if (!o.schedv) { o.schedBase = schedBaseFor(o); o.schedv = 2; } // 총선·대선·지선 2년 순환(8개월 간격)
   for (const p of o.pool) if (/대통령$/.test(p.role)) p.wasPres = 1; // 단임제 전 저장 파일의 현직·전직 대통령
   for (const p of o.pool) p.home ??= p.leader ? o.party.home : homePick(o.party.ideo); // 옛 저장: 출신 지역
   rebuildSched(o);
@@ -1482,7 +1482,7 @@ function presResultHTML(g, c) {
   return `<div class="mapwrap"><div>${ART.map({ fill: k => pc(top(k)), label: k => pn(top(k)), aria: k => `${RK[k].n}: ${pn(top(k))} 1위` })}</div><div>` +
     [...g.ids].sort((a, b) => g.votes[b] - g.votes[a]).map(id => { const n = id === 'P' ? c.reg.cand.name : c.rivals[id].name; return `<div class="who" style="margin:10px 0">${face(id === 'P' ? c.reg.cand : { name: n, age: 60 }, pc(id), 48)}<div style="flex:1"><div style="display:flex;justify-content:space-between;gap:8px"><span><b>${esc(n)}</b> <span class="muted">${esc(pn(id))}</span> ${id === g.win ? '<b class="ok">당선</b>' : ''}</span><span class="num"><span class="small muted">${nf(g.votes[id])}표</span> <b>${pct(g.v[id])}</b></span></div><div class="bar"><i style="width:${(g.v[id] * 100).toFixed(1)}%;background:${pc(id)}"></i></div></div></div>`; }).join('') +
     `<p class="small muted">선거인 ${nf(LAW.voters)}명 · 투표율 ${pct(g.to)} · 무효 ${nf(g.bad)}표</p>
-    <p class="small muted">대통령은 단순다수 득표자로 당선되며 결선투표는 없습니다(헌법 제67조). 게임에서는 3년마다 선거를 치르며, 단임이라 한 번 대통령을 지낸 사람은 다시 출마할 수 없습니다.</p>${RES_TIP}</div></div>`;
+    <p class="small muted">대통령은 단순다수 득표자로 당선되며 결선투표는 없습니다(헌법 제67조). 게임에서는 2년마다 선거를 치르며, 단임이라 한 번 대통령을 지낸 사람은 다시 출마할 수 없습니다.</p>${RES_TIP}</div></div>`;
 }
 
 // ---------- 보조금 ----------
@@ -1518,7 +1518,7 @@ const cabSkill = k => (S.president.party === 'P' ? cabP(k) : fig(S.president.rca
 const cabOf = p => ruling() && CAB.find(c => S.president.cab?.[c.k] === p.id);
 function apprTarget() {
   const P = S.president, me = P.pid != null && person(P.pid);
-  return P.a0 * (1 - 0.4 * Math.min(1, (S.day - P.since) / 1825)) + (trAvg(P.party) - 50) * 0.25 + (me ? (me.skill - 60) * 0.2 + (me.integ - 60) * 0.1 : 0)
+  return P.a0 * (1 - 0.4 * Math.min(1, (S.day - P.since) / (L.CYCLE * 5 / 3))) + (trAvg(P.party) - 50) * 0.25 + (me ? (me.skill - 60) * 0.2 + (me.integ - 60) * 0.1 : 0)
     + (sum(CAB.map(c => cabSkill(c.k))) / CAB.length - 60) * 0.2; // 내각 평균 역량
 }
 const apprAdd = n => { S.president.appr = clamp(S.president.appr + n, 5, 90); };
@@ -4658,7 +4658,7 @@ function pHome() {
       <div style="order:1;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0">${status}</div>
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>다가오는 선거</h2><ul class="log">${ups.map(e => `<li><time>D-${e.day - S.day}</time><div><b>${esc(e.name)}</b><div class="small muted">${fdate(e.day)}</div></div></li>`).join('')}</ul>
-          <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거는 2년마다 열립니다. 대선은 3년마다(단임)입니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
+          <p class="tip">게임에서는 실제보다 빠르게 총선·지방선거·대선이 각각 2년마다(대선은 단임) 열리고, 세 선거가 약 8개월 간격으로 돌아가며 열립니다. 선거일은 수요일입니다(공직선거법 제34조).</p></div>
       </div>
       <div style="order:3;display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
         <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (주별)</h2>${pollChart(ban)}</div>
@@ -5324,7 +5324,7 @@ function pGuide() {
       <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
-    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거와 지방선거는 2년마다(서로 1년씩 엇갈림)입니다. 대통령선거는 3년마다이고 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
+    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거·지방선거·대통령선거는 각각 2년마다이고 약 8개월 간격으로 번갈아 열립니다(총선 → 대선 → 지선 순). 대통령은 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
       <li>공천 기간에는 화면 맨 위에 D-day 배너가 뜨고, 선거 탭 '공천 현황'에서 다른 당 후보 발표를 5칸씩 쪽을 넘기며 볼 수 있습니다. 우리 당 후보를 누르면 프로필이 열립니다. 공천 표의 '보기·변경'으로 후보를 바꾸고 '자동 배치'로 한꺼번에 정합니다.</li>
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
@@ -5365,7 +5365,7 @@ function pGuide() {
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
     ${sec('탄핵과 조기 대선', `<ul><li>대통령 쪽 지지율이 크게 떨어지면 탄핵소추안이 발의될 수 있습니다. 재적의원 3분의 2 이상이 찬성하면 헌법재판소 심판으로 넘어갑니다.</li>
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
-      <li>조기 대선 뒤에는 그날부터 다시 3년마다 대선이 열립니다.</li></ul>`)}
+      <li>조기 대선 뒤 1년 안의 정기 대선은 열리지 않고, 그 뒤로는 원래 순환대로 이어집니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
@@ -5408,7 +5408,7 @@ function settingsModal() {
   openModal({
     title: '설정·저장', html: `
       <h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
-      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
+      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야', '달빛 한마당 (창작)'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
       <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>
       <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
