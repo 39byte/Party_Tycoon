@@ -4765,7 +4765,7 @@ function pOrg() {
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
         <tr><th>우리 당 지지</th><td class="num">${regSupport(r.k).toFixed(1)}%</td></tr>
         <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
-        <tr><th>다른 당 신뢰</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${S.rtr[id][r.k].toFixed(0)}</span>`).join('')}</div></td></tr>
+        <tr><th>다른 당 지지</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${(poll()[id] * pf(id, r.k)).toFixed(1)}%</span>`).join('')}</div></td></tr>
       </tbody></table></div><div><table class="kv"><tbody>
         <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
         <tr><th>시·도당</th><td>${S.chapters[r.k] ? '<b class="ok">등록됨</b>' : '미창당'}</td></tr>
