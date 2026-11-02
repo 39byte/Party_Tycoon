@@ -2730,7 +2730,7 @@ function govOutP(p, why, kk) {
 }
 // ---------- 재·보궐선거 ----------
 // 국회의원(지역구)·광역단체장 자리가 비면 그 자리만 따로 선거를 함. 일정은 L.byeDay(4월 첫 수요일, 사유가 일찍 확정되면 다른 선거와 같은 날: 의원 보궐은 지선·대선, 단체장 보궐은 총선·대선).
-// 사유가 확정되고 임기 만료까지 1년 미만이면 하지 않음(공직선거법 제201조): 의원은 다음 총선까지 공석, 단체장은 다음 지선까지 권한대행. 총선·지선이 열리면 남은 보궐·공석은 정리됨
+// 사유가 확정되고 임기 만료까지 6개월 미만이면 하지 않음(공직선거법 제201조): 의원은 다음 총선까지 공석, 단체장은 다음 지선까지 권한대행. 총선·지선이 열리면 남은 보궐·공석은 정리됨
 // S.byes: { id, kind('mp'|'gov'), k 지역, from 궐원 정당, why 사유, d0 사유일, day 선거일, with 동시 선거 key, wt 그 유형, on 공천 시작, c: { 당: { at, fid } }, mine: { pid, name, dep, cost, idx, b } }
 // S.vacant: 보궐을 안 하는 공석 { id, kind, k 지역(비례면 pr:1), from, why, d0 } · S.gact: 권한대행 중인 지역 { k: { d0, why } }
 // ponytail: 선거운동은 우리 후보의 지출 단계(최소·보통·최대)로만 반영. 토론·여론조사·지역 유세·후보 단일화는 없음. 보궐선거의 다른 당 후보는 인재풀에서만 나옴(현직 의원·단체장은 안 냄)
@@ -2738,10 +2738,10 @@ const BYE_NOM = 45, BYE_REG = 20, BYE_TO = 0.65; // 단독 실시: 공천 시작
 const byeGov = b => b.kind === 'gov';
 const byeLabel = b => `${RK[b.k].n}${byeGov(b) ? ' 시·도지사' : ''} 보궐선거`;
 const byeHosts = kind => kind === 'gov' ? ['nat', 'pres'] : ['gov', 'pres'];
-// 임기 만료일은 총선일 약 50일 뒤(5월 29일)·지선일 약 30일 뒤(6월 30일)라 그만큼을 더해 1년 미만을 가림
+// 임기 만료일은 총선일 약 50일 뒤(5월 29일)·지선일 약 30일 뒤(6월 30일)라 그만큼을 더해 6개월 미만을 가림
 function byeSkip(day, kind) {
   const e = SCHED.find(x => x.type === (kind === 'gov' ? 'gov' : 'nat') && x.day > S.day);
-  return !!e && e.day + (kind === 'gov' ? 30 : 50) - day < 365;
+  return !!e && e.day + (kind === 'gov' ? 30 : 50) - day < 183;
 }
 const byeWith = b => b.with && SCHED.find(e => e.key === b.with);
 const byeNom = b => b.wt ? LAW.nomDays : BYE_NOM, byeRegDay = b => b.day - (b.wt ? LAW.regDeadline[b.wt] : BYE_REG);
@@ -2750,7 +2750,7 @@ function byeNew(k, from, why, who, kind = 'mp') {
   const gov = kind === 'gov', r = L.byeDay(S.day, SCHED, 50, byeHosts(kind)), post = gov ? GOVT[k] : `${RK[k].n} 지역구`;
   if (!gov) S.seats[from].d[k]--; // 궐원
   const t = `${post} ${who ? who + ' ' : ''}${ro(why)} ${gov ? '자리가 비었습니다(권한대행 체제)' : '의석이 비었습니다'}`;
-  if (byeSkip(r.day, kind)) { S.vacant.push({ id: ++S.seq, kind, k, from, why, d0: S.day }); addLog(`${t}. 임기 만료까지 1년 미만이라 보궐선거를 하지 않습니다(공직선거법 제201조). ${gov ? '다음 지방선거까지 권한대행입니다' : '총선까지 공석입니다'}.`, 'bad'); }
+  if (byeSkip(r.day, kind)) { S.vacant.push({ id: ++S.seq, kind, k, from, why, d0: S.day }); addLog(`${t}. 임기 만료까지 6개월 미만이라 보궐선거를 하지 않습니다(공직선거법 제201조). ${gov ? '다음 지방선거까지 권한대행입니다' : '총선까지 공석입니다'}.`, 'bad'); }
   else { const b = { id: ++S.seq, kind, k, from, why, d0: S.day }; byeSet(b, r); S.byes.push(b); addLog(`${t}. 보궐선거는 ${fdate(b.day)}${b.with ? ` (${byeWith(b).name}와 같은 날)` : ''}입니다.${gov ? '' : ' 그때까지 공석입니다.'}`, 'bad'); }
   figSync(S);
 }
@@ -2770,7 +2770,7 @@ function byeTick() {
   for (const b of [...S.byes]) {
     if (!b.on) { // 열리기 전엔 일정이 바뀔 수 있어(궐위 보궐 대선 등) 사유일 기준으로 다시 계산
       byeSet(b, L.byeDay(b.d0, SCHED, 50, byeHosts(b.kind)));
-      if (byeSkip(b.day, b.kind)) { S.byes = S.byes.filter(x => x !== b); S.vacant.push({ id: ++S.seq, kind: b.kind, k: b.k, from: b.from, why: b.why, d0: b.d0 }); addLog(`${byeLabel(b)}는 임기 만료까지 1년 미만이 되어 하지 않습니다(공직선거법 제201조).`, 'bad'); continue; }
+      if (byeSkip(b.day, b.kind)) { S.byes = S.byes.filter(x => x !== b); S.vacant.push({ id: ++S.seq, kind: b.kind, k: b.k, from: b.from, why: b.why, d0: b.d0 }); addLog(`${byeLabel(b)}는 임기 만료까지 6개월 미만이 되어 하지 않습니다(공직선거법 제201조).`, 'bad'); continue; }
     }
     const dd = b.day - S.day;
     if (!b.on && dd <= byeNom(b)) { byeOpen(b); opened.push(b); }
@@ -2891,7 +2891,7 @@ const byeInfo = (k, sep = ' · ') => [...S.byes.filter(b => b.k === k).map(b => 
 function vacCard() {
   const n = Math.max(0, vacN()), gv = [...S.byes.filter(byeGov), ...S.vacant.filter(byeGov)].length; if (!n && !gv) return '';
   const rows = [...S.byes.map(b => `<li>${RK[b.k].n}${byeGov(b) ? ' 시·도지사' : ''}${byeKey(b)} · ${esc(b.why)} · 보궐선거 ${fdate(b.day)}${byeGov(b) ? ' · 권한대행' : ''}</li>`),
-    ...S.vacant.map(v => `<li>${v.pr ? '비례대표' : RK[v.k].n + (byeGov(v) ? ' 시·도지사' : '')} · ${esc(v.why)} · ${v.pr ? '명부에 승계할 사람이 없어 총선까지 공석' : byeGov(v) ? '임기 만료 1년 미만이라 다음 지방선거까지 권한대행(제201조)' : '임기 만료 1년 미만이라 총선까지 공석(제201조)'}</li>`)];
+    ...S.vacant.map(v => `<li>${v.pr ? '비례대표' : RK[v.k].n + (byeGov(v) ? ' 시·도지사' : '')} · ${esc(v.why)} · ${v.pr ? '명부에 승계할 사람이 없어 총선까지 공석' : byeGov(v) ? '임기 만료 6개월 미만이라 다음 지방선거까지 권한대행(제201조)' : '임기 만료 6개월 미만이라 총선까지 공석(제201조)'}</li>`)];
   return `<div class="card"><h2>공석 ${n ? `<span class="pill bad">국회 ${n}석</span>` : ''}${gv ? ` <span class="pill bad">단체장 ${gv}곳</span>` : ''}</h2><ul style="margin:6px 0;padding-left:18px">${rows.join('') || '<li class="muted">-</li>'}</ul><p class="tip">${n ? `국회 공석은 재적 의석(${LAW.totalSeats - n}석)에서 빠지고 표결 정족수에도 영향을 줍니다. 지역구 의원이 물러나면 보궐선거를 하고, 비례대표는 명부 차순위가 승계합니다. ` : ''}${gv ? '단체장이 물러나면 권한대행 체제가 되고 보궐선거를 치릅니다. ' : ''}</p></div>`;
 }
 const slotScore = (p, k) => L.candScore(p) + (k ? Math.log(homeMul(p, k)) : Math.log(1 + (HOME - 1) * (RK[homeOf(p)]?.voters || 0) * 1e6 / LAW.voters));
@@ -5233,7 +5233,7 @@ const LAWS = [
   ['공직선거법 제34조', '선거일: 대통령 임기만료 전 70일, 국회의원 50일, 지방선거 30일 이후 첫 번째 수요일.'],
   ['공직선거법 제33조·제59조', '선거기간은 대통령선거 23일, 국회의원·지방선거 14일. 선거운동은 선거기간에만 가능하나 인터넷·문자 등은 상시 허용.'],
   ['공직선거법 제53조 · 헌법 제83조 · 국회법 제29조', '현직 국회의원은 의원직을 유지한 채 총선·대선에 나갈 수 있습니다(사직 의무는 지방자치단체장 선거 출마에만 있음). 낙선하면 의원직 그대로, 대통령에 당선되면 겸직 금지로 의원직을 잃고 비례대표는 명부 차순위가 승계합니다. 반대로 광역단체장이 총선·대선·보궐선거에 나가려면 사직해야 합니다(총선·대선 선거일 90일 전, 보궐 30일 전. 게임은 후보 등록 때 사직으로 단순화). 단체장이 물러나면 권한대행 체제가 되고 보궐선거를 치릅니다.'],
-  ['공직선거법 제35조·제201조·제203조', '지역구 의원직이 비면 그 자리는 공석이 되고 보궐선거를 4월 첫 수요일에 치릅니다. 지방선거·대선의 후보 등록 전에 사유가 확정되면 그 선거와 같은 날 치르고(투표율도 그 선거 수준), 임기 만료까지 1년 미만이면 하지 않을 수 있어 총선까지 공석입니다. 단독 실시 보궐선거는 투표율이 낮습니다(최근 35~45%).'],
+  ['공직선거법 제35조·제201조·제203조', '지역구 의원직이 비면 그 자리는 공석이 되고 보궐선거를 4월 첫 수요일에 치릅니다. 지방선거·대선의 후보 등록 전에 사유가 확정되면 그 선거와 같은 날 치르고(투표율도 그 선거 수준), 임기 만료까지 6개월 미만이면 하지 않을 수 있어 총선까지 공석입니다. 단독 실시 보궐선거는 투표율이 낮습니다(최근 35~45%).'],
   ['공직선거법 제192조·제200조', '의원직 상실 사유는 형 확정(피선거권 상실)·사퇴·비례대표의 스스로 탈당 등입니다. 제명은 퇴직 사유가 아닙니다. 비례대표 궐원은 명부 차순위가 승계하지만 선거범죄 당선무효는 승계되지 않습니다.'],
   ['공직선거법 제47조·제52조', '비례대표 후보의 50% 이상을 여성으로, 홀수 순번은 여성으로 추천해야 하며 위반 시 등록무효. 지역구는 여성 30% 이상 추천 노력.'],
   ['공직선거법 제56조·제57조', '기탁금: 대통령 3억, 지역구 국회의원 1,500만, 비례 500만, 시·도지사 5,000만(청년 후보 감액). 득표율 15% 이상 전액, 10% 이상 절반 반환.'],
