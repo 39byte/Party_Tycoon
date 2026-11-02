@@ -1829,9 +1829,13 @@ const BORDER = ['incheon', 'gyeonggi', 'gangwon']; // 휴전선·NLL 접경 시�
 const NO_SEOUL = /응급실|신입생 미달/; // 서울에선 안 나오는 지역 소식
 // 보조 분야: 헤드라인 원문 → 함께 맞는 분야. 정책·법안의 '여론과 동떨어짐'(stray) 판정만 피하고 쟁점 보너스는 없음
 const ALSO = {
-  '{r} 신도시 교통대책 지연에 입주민 반발': 'region', '{r} 대학 신입생 미달 속출, 지방대 위기': 'region', '출생률 0.7명대, 학교 통폐합 가속': 'region',
-  '{r} 산업단지 공장 가동률 역대 최저': 'region', '{r} 접경지역 주민들 "불안해서 못 살겠다"': 'region', '석탄발전소 폐쇄 일정 두고 지역 갈등': 'region',
-  '응급실 찾아 헤매다 환자 숨져… 의료 공백 논란': 'region', '{r} 기업들 "규제 때문에 공장 못 짓는다"': 'region',
+  '{r} 신도시 교통대책 지연에 입주민 반발': ['region'], '{r} 대학 신입생 미달 속출, 지방대 위기': ['region'], '출생률 0.7명대, 학교 통폐합 가속': ['region', 'welfare'],
+  '{r} 산업단지 공장 가동률 역대 최저': ['region'], '{r} 접경지역 주민들 "불안해서 못 살겠다"': ['region'], '석탄발전소 폐쇄 일정 두고 지역 갈등': ['region'],
+  '응급실 찾아 헤매다 환자 숨져… 의료 공백 논란': ['region'], '{r} 기업들 "규제 때문에 공장 못 짓는다"': ['region'],
+  '청년 체감실업률 20% 육박, "취업 포기" 늘어': ['youth'], '일도 구직도 "그냥 쉬었음" 청년 40만 명': ['econ'], '지역 청년 유출 가속, "일자리가 없다"': ['youth', 'econ'],
+  '맞벌이 부부 "아이 맡길 곳이 없다"': ['youth'], '공시가격 인상에 보유세 부담 논란': ['tax'], '상속세 부담에 가업 승계 포기 속출': ['econ'],
+  '법인세율 OECD 상위권… 해외 이전 기업 늘어': ['econ'], '신산업 규제 샌드박스 신청 1년째 표류': ['econ'], '탄소국경세 시행 임박, 수출기업 비상': ['econ', 'tax'],
+  '해외 해킹조직, 국가기관 전산망 공격 시도': ['order'], '마약 사범 역대 최다, 10대까지 번져': ['youth'],
 };
 function makeNews() {
   // 특정 지역 헤드라인({r} 자리 지역, 또는 지역 이름으로 시작)은 지방 정부 탭 지역 소식에도 올림
@@ -2320,7 +2324,7 @@ function billModal() {
       // 역풍(정책 발표보다 느슨): 노선 밖 분야는 90일 안에 3번째부터, 헤드라인에 없는 분야는 조금만
       S.billOff = (S.billOff || []).filter(d => S.day - d < BILL_OFF_DAYS);
       if (f < 1) S.billOff.push(S.day);
-      const nOff = f < 1 ? S.billOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === issue || n.a === issue), bad = [];
+      const nOff = f < 1 ? S.billOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === issue || n.a?.includes(issue)), bad = [];
       if (nOff >= 3) { S.trust = clamp(S.trust - Math.min(4, nOff - 2), 0, 100); bad.push('노선과 동떨어진 법안만 낸다는 지지층 반발이 나왔습니다.'); }
       if (stray) { S.trust = clamp(S.trust - 0.75, 0, 100); bad.push('지금 여론과 동떨어진 법안이라는 비판이 나왔습니다.'); }
       if (seatTotal('P') < 10 && rnd() < 0.3) return info('법안 발의 무산', `공동발의 서명 10명을 채우지 못해 '${t}' 발의가 무산됐습니다.`, true);
@@ -3279,7 +3283,7 @@ function policyModal() {
       // 역풍: 노선 밖 분야를 45일 안에 거듭 발표, 이번 주 헤드라인에 없는 분야
       S.polOff = (S.polOff || []).filter(d => S.day - d < POL_OFF_DAYS);
       if (fit(i) < 1) S.polOff.push(S.day);
-      const nOff = fit(i) < 1 ? S.polOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === i.k || n.a === i.k), bad = [];
+      const nOff = fit(i) < 1 ? S.polOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === i.k || n.a?.includes(i.k)), bad = [];
       if (nOff >= 2) { const d = Math.min(6, 2 * (nOff - 1)); S.trust = clamp(S.trust - d, 0, 100); bad.push(`지지층에서 '당 정체성이 뭐냐'는 반발이 나왔습니다.`); }
       if (stray) { S.trust = clamp(S.trust - 1.5, 0, 100); bad.push('지금 여론과 동떨어졌다는 비판이 나왔습니다.'); }
       if (!bad.length) { S.trust = clamp(S.trust + 1.5 * mult, 0, 100); S.fame = clamp(S.fame + 1 * mult, 0, 100); S.buzz += 0.4 * mult; leadFame(1 * mult); }
