@@ -4837,11 +4837,11 @@ function rvCard(c) {
   let body, own = 0, ownN = 0;
   if (!gov) {
     const pr = !!c.rvp, k = rvReg in c.rv || (pr && rvReg === 'pr') ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
-    const secs = ids.map(id => { const all = k === 'pr' ? c.rvp[id] || [] : c.rv[k].map(s => s[id]).filter(Boolean); if (!all.length) return '';
-      const got = all.filter(rvOut), rest = all.filter(x => !rvOut(x)), key = `${c.key}:${k}:${id}`, [p, pages] = page(key, all.length);
-      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3></div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}${pages > 1 ? '<div class="rvp ghost" aria-hidden="true"></div>'.repeat((RV_PER - (all.length % RV_PER || RV_PER)) * (p === pages - 1)) : ''}</div>${pg(key, p, pages, `${pname(id)} 후보 쪽 이동`)}</section>`; }).join('');
+    const lists = ids.map(id => [id, k === 'pr' ? c.rvp[id] || [] : c.rv[k].map(s => s[id]).filter(Boolean)]).filter(([, a]) => a.length), key = `${c.key}:${k}`, [p, pages] = page(key, Math.max(1, ...lists.map(([, a]) => a.length)));
+    const secs = lists.map(([id, all]) => { const got = all.filter(rvOut), rest = all.filter(x => !rvOut(x));
+      return `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)} <span class="small muted num">${got.length}/${all.length}명</span></h3></div><div class="rvps">${[...got, ...rest].slice(p * RV_PER, (p + 1) * RV_PER).map(x => slot(x, id)).join('')}${pages > 1 ? '<div class="rvp ghost" aria-hidden="true"></div>'.repeat(Math.max(0, (p + 1) * RV_PER - Math.max(all.length, p * RV_PER))) : ''}</div></section>`; }).join('');
     body = `<div class="filters chips" role="group" aria-label="지역 선택">${R_ADM.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-rvreg="${r.k}" aria-pressed="${r.k === k}">${r.n} <span class="num">${cnt(r)}</span></button>`).join('')}${pr ? `<button class="btn${k === 'pr' ? ' pri' : ''}" data-rvreg="pr" aria-pressed="${k === 'pr'}">비례대표 <span class="num">${Object.values(c.rvp).flat().filter(rvOut).length}</span></button>` : ''}</div>
-      <div class="rvsecs">${secs || '<p class="empty">이 지역은 후보를 낸 당이 없습니다.</p>'}</div>`;
+      <div class="rvsecs">${secs || '<p class="empty">이 지역은 후보를 낸 당이 없습니다.</p>'}</div>${pg(key, p, pages, '후보 쪽 이동')}`;
   } else {
     for (const r of R_ADM) { own += !!c.reg?.gov?.[r.k]; ownN += !!mine(r.k); }
     const key = c.key + ':gov', [p, pages] = page(key, R_ADM.length);
