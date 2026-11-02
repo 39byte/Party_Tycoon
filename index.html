@@ -1157,13 +1157,13 @@ const opsBase = (id, k) => id === 'O' ? 50 : clamp(id === 'P' ? S.support * regF
 // 현직 지사 효과: 행정 지지도가 기준값(지역 정당 지지율)보다 높을수록 유리
 function regFactor(k) {
   let f = regFactor0(k);
-  if (S.gov[k] === 'P') f += 0.15 + ((S.ops[k] ?? opsBase('P', k)) - opsBase('P', k)) / 200;
+  if (S.gov[k] === 'P' && !S.gact?.[k]) f += 0.15 + ((S.ops[k] ?? opsBase('P', k)) - opsBase('P', k)) / 200; // 권한대행 중엔 현직 효과 없음
   return f;
 }
 function pf(id, k) {
   if (id === 'P') return S.rsup[k] != null ? S.rsup[k] / S.support : regFactor(k); // 지역 지지율의 출렁임이 선거에도 반영
   if (id === 'O') return 1;
-  const g = S.gov[k] === id ? 1.05 + (S.rgov[k] ? S.rgov[k].o - opsBase(id, k) : 0) / 200 : 1;
+  const g = S.gov[k] === id && !S.gact?.[k] ? 1.05 + (S.rgov[k] ? S.rgov[k].o - opsBase(id, k) : 0) / 200 : 1;
   return pfBase(id, k) * g * trReg(id, k);
 }
 const regSupport = k => S.rsup[k] ?? S.support * regFactor(k);
@@ -2803,7 +2803,7 @@ function byeResolve(b) {
   const gov = byeGov(b), r = RK[b.k], ids = Object.keys(b.c), mods = {}, lp = b.mine && person(b.mine.pid), label = byeLabel(b);
   if (!gov) for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[b.k] || 0) / r.seats);
   for (const id of ids) { const f = fig(b.c[id].fid); mods[id] = (mods[id] || 1) * candMul(f) * homeMul(f, b.k) * (S.day - (f?.hit ?? -999) < 120 ? 0.88 : 1); }
-  if (lp) { ids.push('P'); mods.P = candMul(lp) * (1 + (b.mine.b ?? NAT_SPEND[b.mine.idx].b)) * homeMul(lp, b.k) * (gov && S.gov[b.k] === 'P' ? 1 + ((S.ops[b.k] ?? opsBase('P', b.k)) - opsBase('P', b.k)) / 100 : 1); }
+  if (lp) { ids.push('P'); mods.P = candMul(lp) * (1 + (b.mine.b ?? NAT_SPEND[b.mine.idx].b)) * homeMul(lp, b.k) * (gov && S.gov[b.k] === 'P' && !S.gact[b.k] ? 1 + ((S.ops[b.k] ?? opsBase('P', b.k)) - opsBase('P', b.k)) / 100 : 1); }
   const tp = gov ? 'gov' : 'nat', { v, win } = shareRace(b.k, ids, mods), e = gov ? regVoters(r) : Math.round(regVoters(r) / r.seats), t = b.wt ? turnouts(b.wt)[b.k] : turnouts(tp)[b.k] * BYE_TO, bl = ballots(e, t, v, LAW.invalid[tp]);
   const row = raceRow(ids, v, b.c, b.mine && { id: b.mine.pid }, bl), wf = win !== 'P' && fig(b.c[win].fid);
   for (const id of ids) { // 당선자는 현직으로, 낙선한 다른 당 후보는 명부에서 뺌
