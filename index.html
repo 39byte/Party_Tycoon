@@ -1300,8 +1300,8 @@ function newCamp(e) {
     c.draft = { cand: '', spend: 1 };
     c.rivals = {};
     for (const id of ['A', 'B', 'C', 'D']) if (id === 'A' || id === 'B' || rnd() < 0.7) {
-      const lo = RIV[id].base < 10 ? 35 : 55, hi = lo + (lo < 40 ? 25 : 30), b = poolBest(id, 'pres', null); // 대선 후보도 그 당 인재풀에서(경선을 거치며 알려져 인지도는 오름)
-      c.rivals[id] = b ? { ...poolTake(id, b), fame: Math.max(b.fame, Math.round(rr(lo, hi))) } : bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: Math.round(rr(lo, hi)), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
+      const lo = RIV[id].base < 10 ? 35 : 55, hi = lo + (lo < 40 ? 25 : 30), b = presBest(id); // 대선 후보도 그 당 인재풀·현직 의원에서(경선을 거치며 알려져 인지도는 오름)
+      c.rivals[id] = b?.pos ? presMP(b, Math.round(rr(lo, hi))) : b ? { ...poolTake(id, b), fame: Math.max(b.fame, Math.round(rr(lo, hi))) } : bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: Math.round(rr(lo, hi)), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
     }
   }
   return c;
@@ -1403,7 +1403,8 @@ function resolveElection(c) {
     if (!S.president.acting) presEnd(false, g.win); // 파면된 대통령은 파면 때 이미 판단함
     S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null, appr: apprStart(g.win), a0: apprStart(g.win) };
     S.pool.forEach(p => { if (p.role === '대통령') p.role = '전직 대통령'; });
-    if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) { p.role = '대통령'; p.wasPres = 1; } }
+    if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) { presSeatLost(p); p.role = '대통령'; p.wasPres = 1; } }
+    else { const wf = fig(c.rivals[g.win]?.fid); if (wf && (wf.pos === 'd' || wf.pos === 'pr')) figPresSeat(wf); }
     if (c.reg) refund += (c.reg.cand.dep + c.reg.cand.spend) * L.refundRate(g.v.P);
     html = presResultHTML(g, c);
     lines.push(`${c.name} 결과: ${winName}(${pn(g.win)}) 당선` + (c.reg ? ` · ${S.party.name} 후보 ${pct(g.v.P)}` : ''));
@@ -2621,6 +2622,38 @@ const rvFids = c => [...Object.values(c.rv || {}).flat().flatMap(s => Object.val
 // 한 자리 사람 정하기(우리 자동 배치와 같은 방식): 그 당 인재풀에서 피선거권 있는 사람 중 그 자리 점수(후보 점수 + 연고)가 가장 높은 사람. 그 자리 현역이 있으면 현역 프리미엄을 얹어 겨룸. 무소속은 풀이 없어 무작위 희망자 RV_HOPE명
 // pr: 비례 명부 자리(현역 비례의원 또는 인재풀) · need: 필요한 성별(비례 홀수 순번은 여성, 공직선거법 제47조)
 const INCUMB = 0.3;
+// 대선 후보 고르기: 인재풀 사람과 현직 국회의원 중 점수가 가장 높은 사람. 현직 의원은 사직 없이 대선에 나올 수 있음(공직선거법 제53조: 의원의 사직 의무는 지방자치단체장 선거 출마에만 있음)
+const presBest = id => {
+  const b = poolBest(id, 'pres', null), m = S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr') && !f.ban && f.age >= LAW.age.pres).reduce((a, f) => !a || slotScore(f, null) > slotScore(a, null) ? f : a, null);
+  return !m ? b : !b || slotScore(m, null) > slotScore(b, null) ? m : b;
+};
+const presMP = (f, fame) => { f.fame = Math.max(f.fame, fame); return { name: f.name, gender: f.gender, age: f.age, job: f.job, fame: f.fame, skill: f.skill, integ: f.integ, rec: f.rec, ban: f.ban, home: homeOf(f), fid: f.id }; };
+// 대통령에 당선된 현직 의원은 의원직을 잃음: 헌법 제83조·국회법 제29조(의원은 국무총리·국무위원 외의 직을 겸할 수 없음). 낙선하면 의원직 그대로
+// 지역구 궐원은 보궐선거(공직선거법 제35조), 비례대표 궐원은 명부 차순위 승계(제200조 제2항)라 의석은 그 당 몫으로 남음
+// ponytail: 보궐선거는 날짜 없이 당선 즉시 치른 것으로 쳐서 득표력(전국 지지율 × 지역 지지)대로 한 번 추첨. 4월 보궐선거 일정을 따로 두려면 S.byel 대기열로
+function byElect(k, from) {
+  const ns = natShares(), ids = from === 'P' ? ['P', 'A', 'B', 'C', 'D'] : ['A', 'B', 'C', 'D'], ws = ids.map(id => ns[id] * pf(id, k));
+  let x = rnd() * sum(ws);
+  const win = ids.find((id, i) => (x -= ws[i]) < 0) || ids[0], d = S.seats[from].d;
+  d[k]--; S.seats[win].d[k] = (S.seats[win].d[k] || 0) + 1;
+  return win;
+}
+function presSeatLost(p) { // 우리 당 인재
+  const dk = (R.find(r => p.role === `국회의원(${r.n})`) || {}).k;
+  if (dk && S.seats.P.d[dk] > 0) { const w = byElect(dk, 'P'); addLog(`${p.name} 의원이 대통령에 당선되어 의원직을 잃었습니다(겸직 금지). ${RK[dk].n} 보궐선거: ${w === 'P' ? '우리 당이 의석을 지켰습니다' : `${pn(w)} 당선`}.`, w === 'P' ? 'ok' : 'bad'); }
+  else if (/비례/.test(p.role)) {
+    const nc = Object.values(S.camps).filter(c => c.type === 'nat' && c.reg?.pr?.length).sort((a, b) => b.day - a.day)[0], n = nc?.reg.pr.map(x => x.id != null && person(x.id)).find(q => q && q !== p && !q.ban && !/국회의원|대통령/.test(q.role));
+    if (n) { n.role = '비례대표 국회의원'; addLog(`${p.name} 의원이 대통령에 당선되어 의원직을 잃었습니다(겸직 금지). 비례 명부 차순위 ${n.name}이(가) 의원직을 승계했습니다.`, 'ok'); }
+    else if (S.seats.P.pr > 0) { S.seats.P.pr--; S.seats.O.pr++; addLog(`${p.name} 의원이 대통령에 당선되어 의원직을 잃었습니다. 승계할 후순위 후보가 없어 의석이 비었습니다.`, 'bad'); }
+  }
+}
+function figPresSeat(f) { // 다른 당 현직 의원
+  const k = f.k, id = f.party, d = f.pos === 'd';
+  figDrop(S, f); S.mps = (S.mps || []).filter(m => m.fid !== f.id);
+  const w = d && byElect(k, id);
+  addLog(`${pn(id)} ${f.name} 의원이 대통령에 당선되어 의원직을 잃었습니다. ${d ? `${RK[k].n} 보궐선거: ${pn(w)} 당선.` : '비례 명부 차순위가 승계합니다.'}`);
+  figSync(S);
+}
 const slotScore = (p, k) => L.candScore(p) + (k ? Math.log(homeMul(p, k)) : Math.log(1 + (HOME - 1) * (RK[homeOf(p)]?.voters || 0) * 1e6 / LAW.voters));
 const poolBest = (id, kind, k, need) => (S.fpool?.[id] || []).reduce((b, p) => p.ban || p.age < LAW.age[kind] || (need && p.gender !== need) || (b && slotScore(b, k) >= slotScore(p, k)) ? b : p, null);
 function poolTake(id, b) { const pl = S.fpool?.[id], i = pl ? pl.indexOf(b) : -1; if (i >= 0) pl.splice(i, 1); return b; }
@@ -4874,6 +4907,7 @@ const LAWS = [
   ['공직선거법 제16조', '대통령 피선거권: 만 40세 이상, 5년 이상 국내 거주. 국회의원·지방선거: 만 18세 이상.'],
   ['공직선거법 제34조', '선거일: 대통령 임기만료 전 70일, 국회의원 50일, 지방선거 30일 이후 첫 번째 수요일.'],
   ['공직선거법 제33조·제59조', '선거기간은 대통령선거 23일, 국회의원·지방선거 14일. 선거운동은 선거기간에만 가능하나 인터넷·문자 등은 상시 허용.'],
+  ['공직선거법 제53조 · 헌법 제83조 · 국회법 제29조', '현직 국회의원은 의원직을 유지한 채 대통령선거에 나갈 수 있고(사직 의무는 지방자치단체장 선거 출마에만 있음), 낙선하면 의원직 그대로입니다. 대통령에 당선되면 겸직 금지로 의원직을 잃고, 지역구는 보궐선거를 치르며 비례대표는 명부 차순위가 승계합니다.'],
   ['공직선거법 제47조·제52조', '비례대표 후보의 50% 이상을 여성으로, 홀수 순번은 여성으로 추천해야 하며 위반 시 등록무효. 지역구는 여성 30% 이상 추천 노력.'],
   ['공직선거법 제56조·제57조', '기탁금: 대통령 3억, 지역구 국회의원 1,500만, 비례 500만, 시·도지사 5,000만(청년 후보 감액). 득표율 15% 이상 전액, 10% 이상 절반 반환.'],
   ['공직선거법 제122조의2', '선거비용 보전: 득표율 15% 이상 전액, 10~15% 절반. 비례대표는 당선인이 있으면 전액.'],
