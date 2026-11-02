@@ -3644,9 +3644,9 @@ function selfAct() {
   const t = pick(SELF_BAD[kind]).replace('{p}', who), att = attacker(), hit = rr(2.5, 5.5) * gapHit(att);
   S.buzz -= hit; if (k) trustAt(k, -hit * 0.3); else S.trust -= hit * 0.3; S.rw[att] += 0.8; relAdd(att, -3, `${p.name} 논란 공세`); if (k) S.ops[k] = clamp(S.ops[k] - 3, 5, 95);
   wire(`${t}… ${pn(att)} "즉각 사퇴하라"`, k ? 'gov' : 'hall');
-  showEvent({ title: '소속 정치인 논란', body: () => `${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(pn(att))}이(가) 즉각 사퇴를 요구하며 맹공에 나섰고, 우리 당 지지율이 흔들립니다.${esc(gapNote(att))}`,
+  showEvent({ title: '소속 정치인 논란', body: () => `<div class="leader">${face(p, S.party.color, 56)}<div><b>${esc(p.name)}</b> <span class="pill">${esc(p.role)}</span><div class="small muted">역량 ${p.skill} · 청렴 ${p.integ}</div></div></div>${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(pn(att))}이(가) 즉각 사퇴를 요구하며 맹공에 나섰고, 우리 당 지지율이 흔들립니다.${esc(gapNote(att))}`,
     ch: [{ t: '즉각 사과하고 당직 정지', s: '파장 절반으로', run: () => { S.buzz += hit * 0.5; S.trust += 0.5; if (!p.temp) p.integ = clamp(p.integ + 10, 0, 100); return '빠른 사과로 불길이 잦아들었습니다.'; } },
-      { t: '"왜곡·짜깁기"라며 감싼다', s: '통하면 역공, 아니면 더 커짐', run: () => { if (vsLuck(0.35, att)) { S.buzz += hit * 0.9; S.rw[att] -= 1; trustAll(att, -1); return '원본 영상이 공개되며 상대 당 공세가 역풍을 맞았습니다.'; } S.buzz -= hit * 0.6; S.trust -= 1.5; return '감싸기가 "내로남불"로 번지며 파장이 커졌습니다.'; } },
+      { t: '"왜곡·짜깁기"라며 감싼다', s: '통하면 역공, 아니면 더 커짐 · 청렴할수록 유리', run: () => { if (vsLuck(clamp(0.1 + p.integ / 200, 0.1, 0.6), att)) { S.buzz += hit * 0.9; S.rw[att] -= 1; trustAll(att, -1); return '사건의 실체가 드러나며 상대 당 공세가 역풍을 맞았습니다.'; } S.buzz -= hit * 0.6; S.trust -= 1.5; return '감싸기가 "내로남불"로 번지며 파장이 커졌습니다.'; } },
       { t: '윤리위원회 징계 회부', s: `신뢰↑ · 당원 일부 반발${(S.ethics || []).filter(d => S.day - d < ETH_WIN).length >= ETH_MAX ? ' · 잦은 징계로 지지율↓' : ''}`, run: () => { S.buzz += hit * 0.6; S.trust += 1; for (const x in S.members) S.members[x] = Math.round(S.members[x] * 0.99);
         // 8주 안에 3번째 회부부터는 "당이 콩가루"라는 인상에 지지율 소폭 하락(넘친 만큼 1씩)
         S.ethics = [...(S.ethics || []).filter(d => S.day - d < ETH_WIN), S.day]; const over = S.ethics.length - ETH_MAX;
