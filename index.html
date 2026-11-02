@@ -2618,7 +2618,7 @@ function incReport() {
 // c.rv: { 지역: [의석별 { 당: { at, fid } }] } (지방선거는 지역마다 한 자리). 등록 마감까지 모두 발표. 대선은 c.rivals[당].fid
 function rvPlan(c) {
   if (c.rv) return;
-  if (c.type === 'pres') { for (const id in c.rivals) { const x = c.rivals[id]; x.fid ??= genFig(S, id, figHome(id), 'cand', { age: Math.round(rr(52, 70)), ...x }).id; } c.rv = {}; return; }
+  if (c.type === 'pres') { for (const id in c.rivals) { const x = c.rivals[id]; x.at ??= Math.round(rr(S.day, c.day - LAW.regDeadline.pres)); x.fid ??=genFig(S, id, figHome(id), 'cand', { age: Math.round(rr(52, 70)), ...x }).id; } c.rv = {}; return; }
   const end = c.day - LAW.regDeadline[c.type], at = () => Math.round(rr(S.day, end)), nat = c.type === 'nat';
   c.rv = Object.fromEntries(R.map(r => [r.k, Array.from({ length: nat ? r.seats : 1 }, () => {
     const s = { A: { at: at() }, B: { at: at() } };
@@ -2901,7 +2901,7 @@ function rvFill(c) {
   for (const k in c.rv) for (const s of c.rv[k]) for (const id in s) if (!s[id].fid && S.day >= s[id].at) s[id].fid = rvPick(c, k, id, used).id;
   for (const id in c.rvp || {}) c.rvp[id].forEach((s, i) => { if (!s.fid && S.day >= s.at) s.fid = rvPick(c, '', id, used, 1, i % 2 ? null : 'F').id; });
 }
-const rvOut = x => x.fid && S.day >= x.at; // 발표된 자리(교섭 자리에서 미리 정해진 사람도 발표일 전엔 안 보임)
+const rvOut = x => x.fid && S.day >= (x.at ?? 0); // 발표된 자리(교섭 자리에서 미리 정해진 사람도 발표일 전엔 안 보임)
 const NEG_BASE = { meet: 0.7, pact: 0.4, mpMeet: 0.75, mpBill: 0.55, mpJoin: 0.12, outMeet: 0.8, outBack: 0.45, outJoin: 0.3 };
 // 성공 확률과 근거(근거는 부호만 보여 줌)
 // id: 상대 당(무당적 원외 인사면 null), mp: 상대 인물(의원·원외 인사)
@@ -4840,9 +4840,9 @@ function pElec() {
 let rvReg = 'seoul';
 const rvPg = {}, RV_PER = 5; // 쪽 번호: 선거·지역·당별로 기억(저장 안 함)
 function rvCard(c) {
-  if (!c.rv || c.type === 'pres') return '';
+  if (!c.rv) return '';
   rvPr(c); // 이미 진행 중이던 공천에도 비례 명부가 바로 보이게
-  const xs = [...Object.values(c.rv).flat().flatMap(s => Object.values(s)), ...Object.values(c.rvp || {}).flat()], ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
+  const pres = c.type === 'pres', xs = pres ? Object.values(c.rivals) : [...Object.values(c.rv).flat().flatMap(s => Object.values(s)), ...Object.values(c.rvp || {}).flat()], ids = ['A', 'B', 'C', 'D', 'O'], gov = c.type === 'gov';
   const col = id => id === 'O' ? '#64748B' : pc(id), pname = id => id === 'O' ? '무소속' : esc(pn(id));
   // 후보 한 명: 얼굴·이름·출신(누르면 인물 정보)
   const who = (x, id, sub) => { const f = fig(x.fid); return f ? `<button class="rvp" data-pinfo="f${f.id}">${face(f, col(id), 32)}<span><b>${esc(f.name)}${f.pos === 'cand' ? '' : ' <span class="pill">현역</span>'}</b><span class="small muted" title="${sub ? `${pname(id)} · ` : ''}${esc(f.job)}">${sub ? `${pname(id)} · ` : ''}${esc(f.job)}</span></span></button>` : ''; };
@@ -4854,7 +4854,9 @@ function rvCard(c) {
   const page = (key, n) => { const pages = Math.max(1, Math.ceil(n / RV_PER)), p = rvPg[key] = Math.min(rvPg[key] || 0, pages - 1); return [p, pages]; };
   const pg = (key, p, pages, aria) => pages > 1 ? `<div data-rvpgk="${key}">${pager(p, pages, 'rvpg', aria)}</div>` : '';
   let body, own = 0, ownN = 0;
-  if (!gov) {
+  if (pres) {
+    body = `<div class="rvsecs">${['A', 'B', 'C', 'D'].filter(id => c.rivals[id]).map(id => `<section class="rvsec" style="--pc:${col(id)}"><div class="rvhead"><h3>${pname(id)}</h3></div><div class="rvps">${slot(c.rivals[id], id)}</div></section>`).join('')}</div>`;
+  } else if (!gov) {
     const pr = !!c.rvp, k = rvReg in c.rv || (pr && rvReg === 'pr') ? rvReg : 'seoul', cnt = r => c.rv[r.k].flatMap(s => Object.values(s)).filter(rvOut).length;
     const lists = ids.map(id => [id, k === 'pr' ? c.rvp[id] || [] : c.rv[k].map(s => s[id]).filter(Boolean)]).filter(([, a]) => a.length), key = `${c.key}:${k}`, [p, pages] = page(key, Math.max(1, ...lists.map(([, a]) => a.length)));
     const secs = lists.map(([id, all]) => { const got = all.filter(rvOut), rest = all.filter(x => !rvOut(x));
@@ -4931,7 +4933,7 @@ function nomForm(c) {
       <td><button class="btn nomb" data-distc="${c.key}">${pc0 ? `${esc(pc0.name)} · ` : ''}보기·변경</button></td>
       <td><select ${a} data-f="spend" aria-label="선거비용">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr></tbody></table></div>
     <p class="tip">대통령 후보는 만 40세 이상(헌법 제67조)이고, 경선 탈락자는 같은 선거에 출마할 수 없습니다(공직선거법 제57조의2). 단임이라 현직·전직 대통령은 나갈 수 없습니다(헌법 제70조). 선거비용은 선거비용제한액(약 588억) 이내입니다.</p>
-    <p class="small muted">상대 후보: ${Object.entries(c.rivals).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${Math.round(x.fame)})`).join(', ')} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
+    <p class="small muted">상대 후보: ${Object.entries(c.rivals).filter(([, x]) => rvOut(x)).map(([id, x]) => `${esc(x.name)}(${esc(pn(id))}, 인지도 ${Math.round(x.fame)})`).join(', ') || '아직 발표 전'} · 기탁금 3억원 + 경선 관리비 5,000만원</p>`;
 }
 // 총선 지역구·지방선거 시·도지사 후보 목록: 등록했으면 등록 명단, 아니면 지금 배치안. 지역마다 후보 카드(누르면 능력치·전과)
 const distWho = c => c.type === 'gov' ? '시·도지사 후보' : c.type === 'pres' ? '대통령 후보' : '지역구 후보';
