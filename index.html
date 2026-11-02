@@ -4215,6 +4215,7 @@ function bindPanel(m) {
   m.querySelector('[data-gmapd]')?.addEventListener('toggle', e => { if (gmapOpen !== e.target.open) { gmapOpen = e.target.open; renderPanel(); } });
   m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
   m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc], b.dataset.distk));
+  m.querySelectorAll('[data-prc]').forEach(b => b.onclick = () => prModal(S.camps[b.dataset.prc]));
   m.querySelector('[data-partyedit]')?.addEventListener('click', partyEdit);
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
@@ -4516,8 +4517,7 @@ function campCard(c) {
     const who = p => `${esc(p.name)} <span class="muted small">(${p.gender === 'F' ? '여' : '남'}·${p.age}세)</span>`, none = '<p class="empty small">없음</p>';
     if (c.type === 'nat') {
       const dist = R.some(x => r.dist[x.k]?.length) ? `<button class="btn" data-distc="${c.key}">상세 보기</button>` : '';
-      const pr = r.pr.map((p, i) => `<li value="${i + 1}">${who(p)}</li>`).join('');
-      body += `<div class="regsplit"><div><h3>지역구 ${r.count - r.pr.length}명</h3>${dist || none}</div><div><h3>비례대표 ${r.pr.length}명</h3>${pr ? `<ol style="margin:0;padding-left:22px;max-height:240px;overflow-y:auto">${pr}</ol>` : none}</div></div>`;
+      body += `<div class="regsplit"><div><h3>지역구 ${r.count - r.pr.length}명</h3>${dist || none}</div><div><h3>비례대표 ${r.pr.length}명</h3>${r.pr.length ? `<button class="btn" data-prc="${c.key}">상세 보기</button>` : none}</div></div>`;
     }
     if (c.type === 'gov') body += `<div class="regsplit" style="grid-template-columns:1fr"><div><h3>시·도지사 ${r.count}명</h3>${r.count ? `<button class="btn" data-distc="${c.key}">상세 보기</button>` : none}</div></div>`;
     if (c.type === 'pres') body += `<p>후보: <b>${esc(r.cand.name)}</b> (${r.cand.age}세) vs ${Object.entries(c.rivals).filter(([id]) => id !== uniId(c)).map(([id, x]) => `${figBtn(x.fid, x.name)}(${esc(pn(id))})`).join(', ')}${uniId(c) ? ` · <b>${esc(pn(uniId(c)))}과(와) 단일화 성사</b>` : ''}</p><div class="regsplit" style="grid-template-columns:1fr"><div><h3>대통령 후보 1명</h3><button class="btn" data-distc="${c.key}">상세 보기</button></div></div>`;
@@ -4570,13 +4570,28 @@ const distRs = (c, has) => (c.type === 'pres' ? [{ k: '', n: '전국' }] : R_ADM
 function distModal(c, k) {
   if (!c.reg) return distEdit(c, k);
   const d = c.type === 'pres' ? { '': [c.reg.cand] } : c.type === 'gov' ? Object.fromEntries(R_ADM.filter(r => c.reg.gov[r.k]).map(r => [r.k, [c.reg.gov[r.k]]])) : c.reg.dist, rs = distRs(c, k => d[k]?.length);
-  // 지방선거는 지역마다 한 명이라 지역 이름을 카드에 달고 3열로 늘 펼쳐 보임
-  const gov = c.type === 'gov', cand = (x, reg) => { const p = S.pool.find(q => q.id === x.id) || x;
-    return `<details class="rcand${gov ? ' fixed' : ''}" ${gov ? 'open' : ''}><summary>${face(p, pc('P'), 36)}<span class="rcn"><b>${reg ? `<span class="pill">${reg}</span> ` : ''}${esc(p.name)}</b><span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''} · ${esc(homeTxt(p))}</span></span><span class="rcv"><b class="num">${candPts(p)}</b><span class="small muted">후보 점수</span></span></summary>
-      ${statBars(p)}<p class="small ${p.rec?.length ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}</p></details>`; };
-  openModal({ title: `${c.name} ${distWho(c)} ${sum(rs.map(r => d[r.k].length))}명`, wide: true, html: `<p class="small muted">등록한 후보입니다.${gov ? '' : ' 후보를 누르면 능력치와 전과를 볼 수 있습니다.'}</p>
-    ${rs.length ? `<div style="max-height:62vh;overflow:auto">${gov ? `<div class="rcands g3">${rs.map(r => cand(d[r.k][0], r.n)).join('')}</div>` : rs.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map(cand).join('')}</div></section>`).join('')}</div>` : `<p class="empty">배치된 ${distWho(c)}가 없습니다.</p>`}`, buttons: [{ t: '닫기' }],
-    onOpen: m => m.querySelectorAll('.rcand.fixed summary').forEach(x => x.onclick = e => e.preventDefault()) });
+  // 지방선거는 지역마다 한 명이라 지역 이름을 카드에 달고 3열로 늘 펼쳐 보임. 총선은 지역 칩으로 한 지역만 골라 볼 수 있음
+  const gov = c.type === 'gov', cand = (x, reg) => rcand(x, reg, gov);
+  let fk = '';
+  const draw = m => {
+    const shown = fk ? rs.filter(r => r.k === fk) : rs;
+    m.querySelector('[data-dm]').innerHTML = (!gov && rs.length > 1 ? `<div class="filters chips" role="group" aria-label="지역 선택">${[['', '전체', sum(rs.map(r => d[r.k].length))], ...rs.map(r => [r.k, r.n, d[r.k].length])].map(([v, n, N]) => `<button class="btn${v === fk ? ' pri' : ''}" data-fk="${v}" aria-pressed="${v === fk}">${n} <span class="num">${N}</span></button>`).join('')}</div>` : '')
+      + (rs.length ? `<div style="max-height:62vh;overflow:auto">${gov ? `<div class="rcands g3">${rs.map(r => cand(d[r.k][0], r.n)).join('')}</div>` : shown.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map(x => cand(x)).join('')}</div></section>`).join('')}</div>` : `<p class="empty">배치된 ${distWho(c)}가 없습니다.</p>`);
+    m.querySelectorAll('[data-fk]').forEach(b => b.onclick = () => { fk = b.dataset.fk; draw(m); });
+    m.querySelectorAll('.rcand.fixed summary').forEach(x => x.onclick = e => e.preventDefault());
+  };
+  openModal({ title: `${c.name} ${distWho(c)} ${sum(rs.map(r => d[r.k].length))}명`, wide: true, html: `<p class="small muted">등록한 후보입니다.${gov ? '' : ' 후보를 누르면 능력치와 전과를 볼 수 있습니다.'}</p><div data-dm></div>`, buttons: [{ t: '닫기' }], onOpen: draw });
+}
+// 후보 카드(누르면 능력치·전과). fixed: 늘 펼침
+function rcand(x, tag, fixed) {
+  const p = S.pool.find(q => q.id === x.id) || x;
+  return `<details class="rcand${fixed ? ' fixed' : ''}" ${fixed ? 'open' : ''}><summary>${face(p, pc('P'), 36)}<span class="rcn"><b>${tag ? `<span class="pill">${tag}</span> ` : ''}${esc(p.name)}</b><span class="small muted">${p.gender === 'F' ? '여' : '남'} · ${p.age}세${p.job ? ` · ${esc(p.job)}` : ''} · ${esc(homeTxt(p))}</span></span><span class="rcv"><b class="num">${candPts(p)}</b><span class="small muted">후보 점수</span></span></summary>
+    ${statBars(p)}<p class="small ${p.rec?.length ? 'bad' : 'muted'}" style="margin-top:6px">전과: ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}</p></details>`;
+}
+// 등록한 비례대표 명부: 순번대로 후보 카드
+function prModal(c) {
+  const pr = c.reg.pr;
+  openModal({ title: `${c.name} 비례대표 후보 ${pr.length}명`, wide: true, html: `<p class="small muted">등록한 명부입니다(순번 순). 후보를 누르면 능력치와 전과를 볼 수 있습니다.</p><div style="max-height:62vh;overflow:auto"><div class="rcands">${pr.map((x, i) => rcand(x, `${i + 1}번`)).join('')}</div></div>`, buttons: [{ t: '닫기' }] });
 }
 // 등록 전: 지역 하나씩 골라 후보 자리를 바꿈(자리마다 select를 한꺼번에 그리면 느려서 팝업·지역 단위로)
 function distEdit(c, k) {
