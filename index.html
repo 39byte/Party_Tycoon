@@ -858,7 +858,7 @@ const Snd = {
   })(),
   // 2박마다 화음
   CH: 'G G G G G C D D G D E G G D G G D D G G A D D D G D E G G D G G'.split(' '),
-  CHN: { G: [43, 55, 59, 62], C: [48, 55, 60, 64], D: [50, 57, 62, 66], E: [52, 55, 59, 64], A: [45, 57, 60, 64], B: [46, 58, 62, 65], F: [41, 57, 60, 65], g: [43, 55, 58, 62], H: [45, 52, 57, 64], J: [43, 50, 55, 62], K: [50, 57, 62, 69] },
+  CHN: { G: [43, 55, 59, 62], C: [48, 55, 60, 64], D: [50, 57, 62, 66], E: [52, 55, 59, 64], A: [45, 57, 60, 64], B: [46, 58, 62, 65], F: [41, 57, 60, 65], g: [43, 55, 58, 62] },
   // 아리랑(전통 민요, 3/4) 사장조, 사용자 악보(music/아리랑.jpg)에서 옮김: 8분 단위 → 박
   ARI: (() => {
     const a = [[62, 3], [64, 1], [62, 1], [64, 1]], b = [[67, 3], [69, 1], [67, 1], [69, 1]], c = [[71, 2], [69, 1], [71, 1], [67, 1], [64, 1]], d = [[71, 1], [69, 1], [67, 1], [64, 1], [62, 1], [64, 1]];
@@ -886,25 +886,11 @@ const Snd = {
     return [...a, ...b, ...a, ...b, ...c, ...d, ...d, ...e, ...c, ...d, ...e, ...d, ...c, ...d, ...e, ...e,
       [64, 1 / 3], [69, 1 / 3], [69, 1 / 3], [69, 1], [69, 1.5], [67, .5], [69, 4], [69, 1], [69, 1], [72, 2], [69, 1], [69, 1], [67, 2], [0, 8]].map(([m, d]) => [m, d / 2]);
   })(),
-  // 달빛 한마당(창작, 12/8 중중모리풍) 가 계면조 5음(라 도 레 미 솔), 열린 5도 화음: 8분 단위 → 박
-  DAL: [[69, 6], [72, 3], [74, 3], [76, 6], [74, 3], [72, 3], [74, 3], [72, 3], [69, 6], [67, 3], [69, 3], [67, 3], [64, 3],
-    [76, 6], [79, 3], [76, 3], [74, 3], [76, 3], [74, 3], [72, 3], [72, 3], [74, 3], [72, 3], [69, 3], [69, 9], [0, 3]].map(([m, d]) => [m, d / 3]),
-  // 진군 행진곡(창작 군가풍, 4/4 다장조): 점8분+16분 행진 리듬, 박 단위
-  MAR: [[67, .75], [67, .25], [72, 1], [72, .75], [72, .25], [76, 1], [76, .75], [74, .25], [72, 1], [74, 2],
-    [77, .75], [77, .25], [81, 1], [79, .75], [77, .25], [76, 1], [74, 1.5], [71, .5], [74, 2],
-    [72, .75], [72, .25], [76, 1], [79, .75], [79, .25], [84, 1], [81, .75], [79, .25], [77, 1], [76, 2],
-    [74, .75], [77, .25], [79, 1], [77, .75], [74, .25], [71, 1], [72, 3], [0, 1]],
   // 곡별 [박자 빠르기, 화음 하나의 박 수, 선율, 화음]
-  SONGS: () => [[72, 2, Snd.MEL, Snd.CH], [96, 3, Snd.ARI, 'G C E G C E C G G D E G C E C G'.split(' ')], [90, 3, Snd.DOR, 'G G D G E C C D G G D G E C C D C E C G'.split(' ')], [100, 4, Snd.GUN, 'B B B g g F B'.split(' ')], [100, 2, Snd.DAE, 'g g D g g g D g'.split(' ')], [100, 4, Snd.YEO, 'A A A A C A C A C A C A C A C A A C A'.split(' ')], [84, 4, Snd.DAL, 'H H K J H J K H'.split(' ')], [112, 2, Snd.MAR, 'C C C G F F G G C C F C G G C C'.split(' ')]],
-  // 음원 파일 곡(music/): 목록 번호는 SONGS 뒤에 이어 붙음
-  FILES: ['music/march of the preobrazhensky regiment.ogg'],
+  SONGS: () => [[72, 2, Snd.MEL, Snd.CH], [96, 3, Snd.ARI, 'G C E G C E C G G D E G C E C G'.split(' ')], [90, 3, Snd.DOR, 'G G D G E C C D G G D G E C C D C E C G'.split(' ')], [100, 4, Snd.GUN, 'B B B g g F B'.split(' ')], [100, 2, Snd.DAE, 'g g D g g g D g'.split(' ')], [100, 4, Snd.YEO, 'A A A A C A C A C A C A C A C A A C A'.split(' ')]],
   bgm(on) {
     clearInterval(this.timer); this.timer = null;
-    if (this.au) { this.au.pause(); this.au = null; }
-    if (!on) return;
-    const f = this.FILES[this.set.song - this.SONGS().length];
-    if (f) { this.au = new Audio(encodeURI(f)); this.au.loop = true; this.au.volume = this.set.bgmVol; this.au.play().catch(() => { }); return; }
-    if (!this.ensure()) return;
+    if (!on || !this.ensure()) return;
     const [bpm, cb, MEL, CH] = this.SONGS()[this.set.song] || this.SONGS()[0];
     const q = 60 / bpm, hz = m => 440 * 2 ** ((m - 69) / 12);
     this.t = this.ct = this.ctx.currentTime + 0.1; this.step = this.ci = 0;
@@ -924,13 +910,12 @@ const Snd = {
     }, 200);
   },
   // 음량 슬라이더 1 = 예전 최대의 효과음 3배, 배경음악 15배
-  applyVol() { if (this.au) this.au.volume = this.set.bgmVol; if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 15 * this.set.bgmVol; },
+  applyVol() { if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 15 * this.set.bgmVol; },
   vol(k, v) { this.set[k] = v; this.applyVol(); this.saveSet(); },
 };
 document.addEventListener('pointerdown', () => { if (Snd.set.bgm && !Snd.timer) Snd.bgm(true); }, { once: true });
 document.addEventListener('visibilitychange', () => {
   if (Snd.ctx) document.hidden ? Snd.ctx.suspend() : Snd.ctx.resume();
-  if (Snd.au) document.hidden ? Snd.au.pause() : Snd.au.play().catch(() => { });
   if (document.hidden && S) save();
 });
 
@@ -5430,7 +5415,7 @@ function settingsModal() {
   openModal({
     title: '설정·저장', html: `
       <h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
-      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야', '달빛 한마당 (창작)', '진군 행진곡 (군가풍)', '프레오브라젠스키 연대 행진곡'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
+      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
       <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>
       <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
