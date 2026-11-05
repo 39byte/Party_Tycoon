@@ -4,7 +4,10 @@
 
 ## 실행
 
-- `index.html`을 브라우저로 열면 됩니다. 설치·빌드·외부 라이브러리 없음, 휴대폰 지원.
+- **웹:** https://39byte.github.io/Party_Tycoon/ 를 열면 바로 플레이(안드로이드·iOS 포함). 홈 화면에 추가하면 앱처럼 전체 화면으로 열리고, 한 번 연 뒤에는 오프라인에서도 됩니다.
+  - 안드로이드 크롬: 메뉴 ⋮ → 홈 화면에 추가 / iOS 사파리: 공유 → 홈 화면에 추가
+  - 배포: GitHub 저장소 Settings → Pages → Branch `WebGame` / `(root)`. push하면 1~2분 뒤 반영.
+- 로컬: `index.html`을 브라우저로 열어도 됩니다. 설치·빌드·외부 라이브러리 없음.
 - 매 턴 localStorage에 자동 저장. 설정에서 파일 내보내기/불러오기, 크롬·엣지는 저장 폴더 지정 가능.
 - 규칙 테스트: `node test.js`
 
@@ -14,6 +17,7 @@
 | `logic.js` | 순수 규칙: 법정 수치, 선거 일정, 비례 의석·보조금 배분, 기탁금 |
 | `art.js` | SVG 그래픽: 시·도 지도, 인물 초상, 탭별 장면 |
 | `test.js` | `logic.js` 점검 |
+| `manifest.webmanifest`, `sw.js`, `icon-*.png` | 웹앱 설치 정보, 오프라인 캐시, 아이콘 |
 
 지도는 통계청 2013년 시·도 경계([southkorea-maps](https://github.com/southkorea/southkorea-maps))를 단순화했고, 광주·전남은 전남광주통합특별시로 합쳤습니다(16개 시·도).
 

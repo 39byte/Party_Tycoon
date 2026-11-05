@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>정당 키우기</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="theme-color" content="#0E1A33">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="정당 키우기">
 <style>
 /* 게임 GUI 스킨: 남색 상황실 크롬(상단 HUD·메뉴) + 금색 강조. 정부·공공 팔레트(navy) + 금색 CTA */
 :root{
@@ -5547,6 +5554,9 @@ setInterval(() => {
     if (id) { asked.push(id); S.queue.push({ ev: 'unify', key: c.key, id }); }
   }
 }, 1000);
+// 웹게임: 홈 화면 설치·오프라인 실행(sw.js), 저장 데이터가 브라우저 정리로 지워지지 않게 요청
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js');
+navigator.storage?.persist?.();
 </script>
 </body>
 </html>
