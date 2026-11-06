@@ -2234,7 +2234,10 @@ function rivalBill(notes, who) {
   const by = who || (gov ? S.president.party : ids.find((id, i) => (x -= w[i]) < 0));
   const pool = RBILLS.filter(r => Math.abs(r.side - RIV[by].ideo) <= 1 && !(r.big && seatTotal(by) < 20) && !S.bills.some(b => b.t === r.t) && !S.rdone.some(x => x.t === r.t && S.day - x.d < RB_AGAIN));
   if (!pool.length) return;
-  const r = pick(pool), mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
+  // 우리처럼 노선 궁합으로 고름: 궁합 높은 분야·노선 가까운 법안 위주, 궁합 낮은(<1) 분야는 드물게
+  const ide = RIV[by].ideo, ws = pool.map(r => { const f = ISSUES.find(i => i.k === r.issue).fit[Math.round(ide) + 1]; return f ** 4 * (f < 1 ? 0.3 : 1) * (1.2 - Math.abs(r.side - ide)); });
+  let y = rnd() * sum(ws);
+  const r = pool.find((_, i) => (y -= ws[i]) < 0) || pool[0], mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
   const pop = clamp(0.5 + (r.issue === S.issue ? 0.05 : 0) + gauss() * 0.15, 0.15, 0.85), poll = Math.round(clamp(pop + gauss() * 0.05, 0.05, 0.95) * 100);
   const b = { id: ++S.seq, t: r.t, issue: r.issue, side: r.side, fx: r.fx, by, gov, mp: mp ? mp.name : genName('M'), pop, poll, stance: 0, stage: 0, tries: 0, next: S.day + 21, lobbied: 0 };
   S.bills.push(b); S.billNew = 1; // 국회 탭 빨간 점
