@@ -3385,22 +3385,26 @@ function doAct(key, k) {
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 대정부 질문: 질문자는 우리 당 최고 역량 의원(없으면 대표). 성공률은 질문자와 장관의 역량 차이. 핵심 쟁점 담당 장관이면 효과 1.5배
-const qAsker = () => S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill)[0] || leader();
-const qOdds = m => clamp(0.55 + (qAsker().skill - m.skill) / 80, 0.15, 0.9);
+// 대정부 질문: 질문자는 우리 당 의원 중에서 고름(기본 최고 역량, 의원이 없으면 대표). 성공률은 질문자와 장관의 역량 차이. 핵심 쟁점 담당 장관이면 효과 1.5배
+const qAskers = () => { const xs = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill); return xs.length ? xs : [leader()]; };
+const qOdds = (mp, m) => clamp(0.55 + (mp.skill - m.skill) / 80, 0.15, 0.9);
 function questionModal() {
-  const mp = qAsker(), opp = !ruling(), hot = CAB.find(c => c.is.includes(S.issue));
-  openModal({ title: '대정부 질문', wide: true, html: `<p>질문자: <b>${esc(mp.name)}</b> (역량 ${mp.skill}). ${opp ? `${esc(pn(S.president.party))} 정부의 국무위원을 몰아세웁니다. 성공하면 국정 지지율과 여당 지지율이 깎이고, 약한 장관은 경질될 수도 있습니다.` : '우리 정부 국무위원에게 정책을 따져 묻습니다. 성공하면 "건강한 여당"이라는 평과 함께 국정 신뢰가 오릅니다.'} 민심이 쏠린 쟁점(${ISSUES.find(i => i.k === S.issue).n})의 담당 장관을 짚으면 효과가 큽니다.</p>
+  const xs = qAskers(), opp = !ruling(), hot = CAB.find(c => c.is.includes(S.issue));
+  openModal({ title: '대정부 질문', wide: true, html: `<p><label>질문자 <select data-qmp aria-label="질문할 의원">${xs.map(p => `<option value="${p.id}">${esc(p.name)} (역량 ${p.skill} · 인지도 ${Math.round(p.fame)})</option>`).join('')}</select></label></p><p>${opp ? `${esc(pn(S.president.party))} 정부의 국무위원을 몰아세웁니다. 성공하면 국정 지지율과 여당 지지율이 깎이고, 약한 장관은 경질될 수도 있습니다.` : '우리 정부 국무위원에게 정책을 따져 묻습니다. 성공하면 "건강한 여당"이라는 평과 함께 국정 신뢰가 오릅니다.'} 민심이 쏠린 쟁점(${ISSUES.find(i => i.k === S.issue).n})의 담당 장관을 짚으면 효과가 큽니다.</p>
     <div class="pcards">${CAB.map(c => { const m = cabM(c.k), col = m && (m.party ? pc(m.party) : S.party.color);
-      return `<div class="pcard"><div><b>${c.n}</b>${c === hot ? ' <span class="pill warn">핵심 쟁점</span>' : ''}</div>${m ? `<div class="who">${face(m, col, 48)}<div><h3>${esc(m.name)}</h3><div class="small muted">역량 ${m.skill}</div></div></div><div class="small muted">성공 가능성 ${Math.round(qOdds(m) * 100)}%</div><button class="btn pri" data-qk="${c.k}">질문</button>` : '<p class="empty">공석</p>'}</div>`; }).join('')}</div>`,
-    buttons: [{ t: '취소' }], onOpen: m => m.querySelectorAll('[data-qk]').forEach(b => b.onclick = () => questionRun(b.dataset.qk)) });
+      return `<div class="pcard"><div><b>${c.n}</b>${c === hot ? ' <span class="pill warn">핵심 쟁점</span>' : ''}</div>${m ? `<div class="who">${face(m, col, 48)}<div><h3>${esc(m.name)}</h3><div class="small muted">역량 ${m.skill}</div></div></div><div class="small muted">성공 가능성 <b data-qodds="${m.skill}">${Math.round(qOdds(xs[0], m) * 100)}</b>%</div><button class="btn pri" data-qk="${c.k}">질문</button>` : '<p class="empty">공석</p>'}</div>`; }).join('')}</div>`,
+    buttons: [{ t: '취소' }], onOpen: el => {
+      const sel = el.querySelector('[data-qmp]'), mp = () => xs.find(p => p.id === +sel.value);
+      sel.onchange = () => el.querySelectorAll('[data-qodds]').forEach(b => b.textContent = Math.round(qOdds(mp(), { skill: +b.dataset.qodds }) * 100));
+      el.querySelectorAll('[data-qk]').forEach(b => b.onclick = () => questionRun(b.dataset.qk, mp()));
+    } });
 }
-function questionRun(k) {
-  const c = CAB.find(x => x.k === k), m = cabM(k), mp = qAsker(), opp = !ruling(), mul = c.is.includes(S.issue) ? 1.5 : 1, pp = S.president.party;
+function questionRun(k, mp) {
+  const c = CAB.find(x => x.k === k), m = cabM(k), opp = !ruling(), mul = c.is.includes(S.issue) ? 1.5 : 1, pp = S.president.party;
   if (!m) return;
   closeModal(); S.ap--; S.cd.question = S.day + ACT.question.cd;
   const who = `${c.n} ${m.name}`;
-  let msg, ok = rnd() < qOdds(m);
+  let msg, ok = rnd() < qOdds(mp, m);
   if (ok) {
     S.fame = clamp(S.fame + 1.5 * mul, 0, 100); pFame(mp, 2 * mul);
     if (opp) {
