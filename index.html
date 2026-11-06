@@ -1027,9 +1027,9 @@ function newState(f) {
   S = {
     v: 1, day: 0, diff: f.diff, party: { name: f.name, color: f.color, ideo: +f.ideo, slogan: f.slogan, home: f.home },
     phase: 'prep', regDay: null, money: { easy: 6e8, normal: 3e8, hard: 1.5e8 }[f.diff],
-    fame: 2, support: 0.3, buzz: 0, rw: { A: 35, B: 37, C: 8.3, D: 8.6, O: 3 }, rfame: Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])),
+    fame: 2, support: 0.3, buzz: 0, rw: { A: 35 + gauss() * 2.5, B: 37 + gauss() * 2.5, C: 8.3 + gauss() * 0.8, D: 8.6 + gauss() * 0.8, O: 3 }, // 게임마다 조금씩 달라서 게임 전 대선 결과가 한쪽으로 쏠리지 않음 rfame: Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])),
     members: Object.fromEntries(R.map(r => [r.k, 0])), chapters: {}, up: {}, cd: {},
-    seats: {}, gov: {}, president: { party: pick(['A', 'B', 'C', 'D']), name: '', since: -200, appr: 50 }, lastVotes: { A: 0.36, B: 0.37, C: 0.12, D: 0.1, P: 0 },
+    seats: {}, gov: {}, president: { party: 'O', name: '', since: -200, appr: 50 } /* 게임 전 대선 전까지 자리만(인재풀을 내각으로 빼가지 않게) */, lastVotes: { A: 0.36, B: 0.37, C: 0.12, D: 0.1, P: 0 },
     everNat: false, lastPart: null, pool: [], nid: 1, camps: {}, done: {}, results: [], hist: [], log: [], risks: [],
     pending: [], queue: [], ach: {}, ap: AP, issue: 'econ', fund: { year: 2026, raised: 0 }, ledger: { cur: {}, last: {} },
     negDays: 0, grace: null, over: null, ended: false, natv: 1, tempov: 1, tempoFrom: 0, // 새 게임: 총선 앞당김 없음, 처음부터 빠른 선거 일정
@@ -1043,8 +1043,10 @@ function newState(f) {
   S.lastVotes = { ...g.pv, P: 0 };
   S.gov = simGov(null).win; rgovSync(S);
   figSync(S); // 현직 의원 300명·광역단체장 전원
+  const pv = prePres(); poolTake(pv.win, pv.src[pv.win]); // 게임 전 대선 당선자가 현 대통령
+  S.president = { party: pv.win, name: pv.src[pv.win].name, since: -200 }; S.president.appr = S.president.a0 = apprStart(pv.win);
+  rcabSync(S); // 그 당 내각
   S.mps = genMPs(S);
-  S.president.name = genName(rnd() < 0.3 ? 'F' : 'M'); S.president.appr = S.president.a0 = apprStart(S.president.party);
   for (let i = 0; i < 3; i++) S.pool.push(genPerson());
   addLog(`${S.party.name} 중앙당창당준비위원회 결성 신고 완료 (발기인 ${LAW.founders}명, 정당법 제6조). 6개월 안에 창당을 마쳐야 합니다.`, 'ok');
   S.hist.push(snapPoll());
@@ -1329,6 +1331,17 @@ function simGov(c) {
 const uniId = c => c.unified === true ? 'C' : c.unified || null;
 // 대선: 시·도마다 득표 몫을 내 개표하고, 전국 득표는 지역 득표 수의 합
 // 지역 몫 = 전국 지지 × 지역 배율 pf(지역 성향·지역 지지·신뢰도·지사 행정 지지도) × 후보 × 선거운동(전국·그 지역) × 연고 × 운(후보별 전국 공통 + 지역)
+// 게임 전 대선(기록 안 함): 지금 지지율로 각 당 인재풀 1순위끼리 겨룸. 현직은 내보내지 않아 사직·보궐 같은 뒤탈이 없음. { win, src: 당별 인재풀 원본 }
+function prePres() {
+  const c = { rivals: {}, boost: { nat: 0, reg: {} } }, src = {};
+  for (const id of ['A', 'B', 'C', 'D']) if (id === 'A' || id === 'B' || rnd() < 0.7) {
+    const b = poolBest(id, 'pres', null); if (!b) continue;
+    src[id] = b; c.rivals[id] = { ...b, fame: Math.max(b.fame, presFame(id)) };
+  }
+  return { win: simPres(c).win, src };
+}
+// 대선 후보 인지도: 경선을 거치며 알려짐(작은 당은 덜)
+const presFame = id => { const lo = RIV[id].base < 10 ? 35 : 55; return Math.round(rr(lo, lo + (lo < 40 ? 25 : 30))); };
 function simPres(c) {
   const ns = natShares(), ids = ['A', 'B'], u = uniId(c), to = turnouts('pres');
   for (const id of ['C', 'D']) if (c.rivals[id] && u !== id) ids.push(id);
@@ -1363,8 +1376,8 @@ function newCamp(e) {
     c.draft = { cand: '', spend: 1 };
     c.rivals = {};
     for (const id of ['A', 'B', 'C', 'D']) if (id === 'A' || id === 'B' || rnd() < 0.7) {
-      const lo = RIV[id].base < 10 ? 35 : 55, hi = lo + (lo < 40 ? 25 : 30), b = presBest(id); // 대선 후보도 그 당 인재풀·현직 의원에서(경선을 거치며 알려져 인지도는 오름)
-      c.rivals[id] = b?.pos ? presMP(b, Math.round(rr(lo, hi))) : b ? { ...poolTake(id, b), fame: Math.max(b.fame, Math.round(rr(lo, hi))) } : bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: Math.round(rr(lo, hi)), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
+      const b = presBest(id); // 대선 후보도 그 당 인재풀·현직 의원에서(경선을 거치며 알려져 인지도는 오름)
+      c.rivals[id] = b?.pos ? presMP(b, presFame(id)) : b ? { ...poolTake(id, b), fame: Math.max(b.fame, presFame(id)) } : bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: presFame(id), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
     }
   }
   return c;
