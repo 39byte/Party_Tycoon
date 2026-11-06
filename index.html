@@ -2538,6 +2538,7 @@ function rgovRun() {
     else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [1, `${n} 투자 유치 협상 결렬`];
     else [d, t] = rnd() < pr(0.7) ? [2, `${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`] : [-1, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`];
     g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov');
+    later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 투자 유치 결렬(+1)·실패·찐빠는 실패 보도
   }
 }
 // 행정 사업 자동화(S.autoK[지역], 지사마다 따로 켬): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
@@ -4262,6 +4263,7 @@ const XEV = {
     const f = pick(ADM_FOLLOW[q.pj][q.ok ? 'ok' : 'no']), t = fillR(f.t, q.k);
     if (f.need || f.bad) addIssue(q.k, { pj: f.need, bad: f.bad }, t); else { wire(t, 'gov'); viral(q.k, t, (f.ops || 0) < 0 ? -1 : 1); } // 새 현안이 되는 보도만 지역 소식
     if (S.gov[q.k] === 'P') { if (f.ops) opsAdd(q.k, f.ops); if (f.mem) S.members[q.k] += f.mem; }
+    else if (S.rgov[q.k] && f.ops) rgovAdd(q.k, f.ops); // 다른 당 지사 사업의 후속 보도
   },
   selfAct: () => selfAct(),
   // 우리가 근거 없이 고발했던 상대의 맞고소: 일부러 허위 고발했는지가 쟁점이라 유죄는 드묾
