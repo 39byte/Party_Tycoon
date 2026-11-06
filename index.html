@@ -1218,6 +1218,7 @@ function pf(id, k) {
 }
 const regSupport = (k, id = 'P') => supMap(id)?.[k] ?? natSup(id) * regFactor(k, id);
 // 행정 지지도 상승 억제: 시작점 = 90 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
+// 다른 당 지사는 시작점 +5(조금 덜 억제)
 const opsSoft = (id, k) => {
   const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
   const sh = Object.fromEntries(ids.map(x => [x, ns[x] * pf(x, k)])), tot = sum(ids.map(x => sh[x]));
@@ -1227,7 +1228,7 @@ const opsSoft = (id, k) => {
 };
 const opsUp = (id, k, x, d) => {
   if (d <= 0) return x + d;
-  const s = opsSoft(id, k), u = Math.max(0, Math.min(d, s - x)); x += u; d -= u;
+  const s = opsSoft(id, k) + (id === 'P' ? 0 : 5), u =Math.max(0, Math.min(d, s - x)); x += u; d -= u;
   return d > 0 ? s + TRUST_K * Math.log(Math.exp((x - s) / TRUST_K) + d / TRUST_K) : x;
 };
 const opsAdd = (k, d) => (S.ops[k] = clamp(opsUp('P', k, S.ops[k], d), 5, 95));
@@ -1855,7 +1856,7 @@ function runTurn() {
       S.hist.push(snapPoll()); if (S.hist.length > 260) S.hist.shift(); // 지지율 추이: 매주(옛 저장 파일은 그 전까지 월별)
       if (turnNo() % 3 === 0) outFill(S, 1); // 교섭 명단 밖 원외 인사는 3턴마다 새 얼굴로
       if (turnNo() % 2 === 0) S.issue = pick(ISSUES.filter(i => i.k !== S.issue)).k; // 쟁점은 2턴마다 반드시 다른 분야로. 플레이어에겐 뉴스로만 드러남
-      turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews();
+      turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews(); rgovRun();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); saveToSlots(); renderAll();
       // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
       if (ready.length) toast(ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', '), '', '턴 회복');
@@ -2521,6 +2522,23 @@ function govRun(k, pj, auto) {
   S.ops[k] = clamp(opsUp('P', k, before, S.ops[k] - before), 5, 95); wire(`${auto ? '[자동] ' : ''}${msg}`, 'gov');
   later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
   return { k, msg, ok };
+}
+// 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. 우리 자동화와 같은 셈법(성공률 −20%p, 찐빠 43−역량/4 %)이라 역량 높으면 오르고 낮으면 깎임
+// 그 지역 악재(rcur bad)가 걸린 사업은 피함. 지사 역량은 명부(fig)의 skill
+function rgovRun() {
+  for (const k in S.rgov) {
+    if (rnd() >= 0.4) continue;
+    const g = S.rgov[k], sk = fig(g.fid)?.skill ?? 50, n = RK[k].n, w = govWho(k), before = g.o, bad = issuesOf(k).map(x => x.bad);
+    const pjs = GOV_PROJ.map(p => p.k).filter(pj => !bad.includes(pj)), pj = pjs.length ? pick(pjs) : 'safe';
+    const pr = x => clamp(x + (sk - 50) / 250 - 0.2 - (bad.includes(pj) ? 0.2 : 0) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0), 0.05, 0.95);
+    let d, t;
+    if (rnd() < clamp(0.43 - sk / 400, 0.26, 0.43)) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
+    else if (pj === 'dev') [d, t] = rnd() < pr(0.65) ? [7, `${w}, ${n} 개발사업 순조롭게 착공`] : [-3, `${n} 개발사업 주민 반발로 지연… ${w} 곤혹`];
+    else if (pj === 'care') [d, t] = rnd() < pr(0.75) ? [3.5, `${w}, 돌봄센터 확충에 주민 호응`] : [-2, `${n} 돌봄센터 위탁업체 특혜 논란`];
+    else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [1, `${n} 투자 유치 협상 결렬`];
+    else [d, t] = rnd() < pr(0.7) ? [2, `${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`] : [-1, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`];
+    g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov');
+  }
 }
 // 행정 사업 자동화(S.autoK[지역], 지사마다 따로 켬): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
 // ② 지정한 현안에 맞는 사업 ③ 남으면 행정 지지도 낮은 곳부터 무난한 사업. 악재 소식이 보이는 사업은 피함
@@ -4183,7 +4201,7 @@ const XEV = {
           { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { g.o -= 3; relAdd(id, -4, `${GOVT[k]} 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
           { t: '정치 공세는 자제한다', run: () => { S.trust += 0.5; return '수사를 지켜보겠다는 입장만 냈습니다.'; } }] });
     }
-    const t = pick(RGOV_PROJ), ok = rnd() < 0.55, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
+    const t = pick(RGOV_PROJ), ok = rnd() < 0.55 + ((fig(g.fid)?.skill ?? 50) - 50) / 250, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
     wr(`${w}, '${t}' 역점사업 발표`);
     showEvent({ title: `${n} 지사 역점사업 발표`, body: () => `${who}가 <b>${t}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
       ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ · 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
