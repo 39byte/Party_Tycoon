@@ -3445,12 +3445,23 @@ function auditRun(id, mp) {
   wire(`[국정감사] ${msg}`, 'hall'); Snd.sfx(good ? 'ok' : 'bad'); toast(msg, good ? 'ok' : 'bad'); addLog(msg, good ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 상대 당의 추궁: 10월 턴마다 우리 행정 실책이 있으면 50%로 한 건. 질의자는 의석 있는 다른 당의 역량 상위 15명 중 무작위
+// 국감 질의자: 그 당 의원 중 역량 상위 15명 중 무작위(의원이 없으면 null)
+const audAtk = id => { const top = S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')).sort((a, b) => b.skill - a.skill).slice(0, 15); return top.length ? pick(top) : null; };
+const audIds = () => TR_IDS.filter(id => S.figs.some(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')));
+// 다른 당의 추궁: 10월 턴마다 ① 우리 행정 실책이 있으면 50%로 한 건(우리가 반박/사과 선택) ② 다른 당끼리도 50%로 한 건(AI끼리 결판, 소식으로만)
 function auditRiv() {
-  if (!auditOn() || rnd() >= 0.5) return;
-  const bs = S.blun.filter(b => !b.used && b.p === 'P' && S.gov[b.k] === 'P'), b = bs.length && pick(bs);
-  const ids = TR_IDS.filter(id => S.figs.some(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')));
-  if (b && ids.length) S.queue.push({ ev: 'auditHit', bid: b.id, id: pick(ids) });
+  if (!auditOn()) return;
+  const bs = S.blun.filter(b => !b.used && b.p === 'P' && S.gov[b.k] === 'P'), b = bs.length && pick(bs), ids = audIds();
+  if (b && ids.length && rnd() < 0.5) S.queue.push({ ev: 'auditHit', bid: b.id, id: pick(ids) });
+  if (rnd() < 0.5) auditAI();
+}
+// 다른 당끼리: 실책 낸 당이 아닌 의석 있는 당이 추궁, 방어 단체장(AI)은 반박 성공률 +10%p 확률로 반박
+function auditAI() {
+  const ids = audIds(), xs = audTargets().filter(x => ids.some(id => id !== x.p)); if (!xs.length) return;
+  const b = pick(xs), id = pick(ids.filter(i => i !== b.p)), atk = audAtk(id), d = audDp(b), def = audDef(d);
+  const who = `${GOVT[b.k]} ${S.rgov[b.k].n}(${pn(b.p)})`, by = `${pn(id)} ${atk.name} 의원`, r = audResolve(b, id, atk.skill, def, rnd() < audOdds(atk.skill, def) + 0.1);
+  if (r === 'sorry' || r === 'fail') pFame(atk, r === 'fail' ? 2.5 : 1.5); else if (r === 'back' && d) pFame(d, 2);
+  wire(`[국정감사] ${{ sorry: `${by} 추궁에 ${who} 행정 실책 사과`, fail: `${by} 송곳 질의… ${who} 반박 무너져`, back: `${who}, ${by}에 역공… "준비 안 된 국감"`, ok: `${who}, ${by} 추궁에 차분히 반박` }[r]}`, 'hall');
 }
 const POL_OFF_DAYS = 45;
 function policyModal() {
@@ -4164,7 +4175,7 @@ const XEV = {
   auditHit: q => {
     const b = S.blun.find(x => x.id === q.bid);
     if (!b || b.used || S.gov[b.k] !== 'P') return;
-    const top = S.figs.filter(f => f.party === q.id && (f.pos === 'd' || f.pos === 'pr')).sort((a, b) => b.skill - a.skill).slice(0, 15), atk = top.length && pick(top); // 질의자: 그 당 역량 상위 15명 중 무작위
+    const atk = audAtk(q.id);
     if (!atk) return;
     const gp = govPerson(b.k), def = audDef(gp), odds = audOdds(atk.skill, def), who = [GOVT[b.k], gp?.name].filter(Boolean).join(' '), by = `${pn(q.id)} ${atk.name} 의원`;
     showEvent({ title: '국정감사: 행정 실책 추궁', body: () => `${esc(by)}(역량 ${atk.skill})이 국정감사에서 우리 당 ${esc(who)}의 행정 실책을 따졌습니다.<br><span class="small muted">"${esc(b.t)}" (${fdate(b.d)})</span><br>반박하면 ${esc(gp?.name || '단체장')}의 역량·청렴(방어력 ${Math.round(def)})으로 맞섭니다.`,
@@ -5550,7 +5561,7 @@ function pGuide() {
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
       <li>조기 대선 뒤 1년 안의 정기 대선은 열리지 않고, 그 뒤로는 원래 순환대로 이어집니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
-      <li>매년 10월 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙습니다. 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
+      <li>매년 10월 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙고, 다른 당끼리도 서로 추궁합니다(소식 탭에서 결과 확인). 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
