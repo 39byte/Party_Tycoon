@@ -3423,7 +3423,7 @@ function talentModal() {
   const fee = p => Math.round(3e7 * Math.exp(L.candScore(p) - L.CW.rec * Math.min(3, p.rec.length)) / 1e5) * 1e5;
   openModal({
     title: '인재 영입', wide: 'x',
-    html: `<p class="muted small">영입비는 후보 점수(역량·청렴·인지도·전과)에 비례하고, 전과가 있으면 더 크게 떨어집니다. 재사용 대기가 끝나기 전(${fdate(S.tal.until)})까지는 창을 닫아도 남은 후보를 행동력·탐색비 없이 이어서 영입할 수 있습니다.</p><div class="filters psort chips" role="group" aria-label="후보 정렬" style="margin-bottom:8px">${P_SORT.map(([k, n]) => `<button class="btn" data-tsort="${k}">${n}</button>`).join('')}</div><div class="acts tal">${cands.map((p, i) => `<div class="act" data-ci="${i}"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job} · ${esc(homeTxt(p))}</p>
+    html: `<p class="muted small">영입비는 후보 점수(역량·청렴·인지도·전과)에 비례하고, 전과가 있으면 더 크게 떨어집니다. 재사용 대기가 끝나기 전(${fdate(S.tal.until)})까지는 창을 닫아도 남은 후보를 행동력·탐색비 없이 이어서 영입할 수 있습니다.</p><div class="filters psort chips" role="group" aria-label="후보 정렬" style="margin-bottom:8px">${T_SORT.map(([k, n]) => `<button class="btn" data-tsort="${k}">${n}</button>`).join('')}</div><div class="acts tal">${cands.map((p, i) => `<div class="act" data-ci="${i}"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job} · ${esc(homeTxt(p))}</p>
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
       <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
       <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
@@ -3453,8 +3453,8 @@ function talentModal() {
       const box = m.querySelector('.acts.tal'), ts = [...m.querySelectorAll('[data-tsort]')];
       const sortBy = k => {
         tDir = k === tSort ? -tDir : k === 'def' ? 1 : -1; tSort = k;
-        [...box.children].sort((a, b) => { const x = cands[+a.dataset.ci], y = cands[+b.dataset.ci]; return tDir * (k === 'def' ? +a.dataset.ci - +b.dataset.ci : x[k] - y[k]); }).forEach(el => box.appendChild(el));
-        ts.forEach(b => { const on = b.dataset.tsort === k, n = P_SORT.find(x => x[0] === b.dataset.tsort)[1]; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', on); b.textContent = n + (on ? (tDir > 0 ? ' ▲' : ' ▼') : ''); });
+        [...box.children].sort((a, b) => { const x = cands[+a.dataset.ci], y = cands[+b.dataset.ci]; return tDir * (k === 'def' ? +a.dataset.ci - +b.dataset.ci : k === 'fee' ? fee(x) - fee(y) : x[k] - y[k]); }).forEach(el => box.appendChild(el));
+        ts.forEach(b => { const on = b.dataset.tsort === k, n = T_SORT.find(x => x[0] === b.dataset.tsort)[1]; b.classList.toggle('pri', on); b.setAttribute('aria-pressed', on); b.textContent = n + (on ? (tDir > 0 ? ' ▲' : ' ▼') : ''); });
       };
       ts.forEach(b => b.onclick = () => sortBy(b.dataset.tsort));
       tDir = -tDir; sortBy(tSort); // 지난번 정렬 유지
@@ -4859,6 +4859,7 @@ const statBars = (p, hide) => `<div class="pstat">${[['인지도', p.fame, 'var(
 const POOL_MAX = 350;
 // 인재 정렬: 기본(직책 순) · 인지도 · 역량 · 청렴, dir 1 오름차순 / -1 내림차순. 같은 기준을 다시 누르면 방향이 바뀜
 const P_SORT = [['def', '기본'], ['fame', '인지도'], ['skill', '역량'], ['integ', '청렴']];
+const T_SORT = [...P_SORT, ['fee', '가격']]; // 인재 영입 팝업 전용(가격순)
 let pSort = 'def', pDir = 1, pPage = 0;
 const P_INC = [['mp', '국회의원', p => /^국회의원/.test(p.role)], ['gov', '지방자치단체장', p => /시·도지사$/.test(p.role)], ['cab', '행정부 내각', p => p.role === '대통령' || !!cabOf(p)], ['none', '무직책', p => !p.leader && !p.role && !cabOf(p)]], pOff = {}; // 인재 목록에 넣을 직책(꺼진 직책은 목록에서 뺌)
 const pShown = () => S.pool.filter(p => !P_INC.some(([k, , f]) => pOff[k] && f(p)));
