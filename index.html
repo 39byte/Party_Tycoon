@@ -428,9 +428,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .ppl{container-type:inline-size}
 @container (max-width:520px){
   .ppl thead{display:none}
-  .ppl tr{display:grid;grid-template-columns:1fr auto;align-items:center;column-gap:10px;padding:6px 0;border-bottom:1px solid var(--border)}
+  .ppl tr,.negl .ppl tbody tr{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"who btn" "rel btn";align-items:center;column-gap:10px;height:auto;padding:8px 0;border-bottom:1px solid var(--border)}
   .ppl td{border:0;padding:2px 4px}
-  .ppl td:first-child{grid-column:1/-1}
+  .ppl td:first-child{grid-area:who}
+  .ppl td.rel{grid-area:rel}
+  .ppl td:last-child{grid-area:btn}
+  .ppl .rel .bar{width:min(140px,100%)}
 }
 .rel .meter{white-space:nowrap}
 .ptys{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
