@@ -3528,7 +3528,7 @@ function nomAutoAsk(key) {
   if (c.type !== 'nat') return nomAuto(key);
   const opt = (n, v, t, h) => `<label style="display:block;margin:6px 0"><input type="radio" name="${n}" value="${v}" ${nomPref[n] === v ? 'checked' : ''}> <b>${t}</b> <span class="small muted">${h}</span></label>`;
   const fs = (lg, body) => `<fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">${lg}</legend>${body}</fieldset>`;
-  openModal({ title: '자동 배치', html: fs('지역구', opt('spread', 'focus', '가망 없는 지역 포기', `당선 가능성 ${NOM_HOPE * 100}% 미만인 자리엔 내지 않고 승산 높은 지역에 몰아서`) + opt('spread', 'even', '최대한 균등하게', '지역마다 한 자리씩 돌아가며 고르게(가망 낮은 곳도 냄)'))
+  openModal({ title: '자동 배치', html: fs('지역구', opt('spread', 'focus', '가망 없는 지역 포기', `당선 가능성 ${NOM_HOPE * 100}% 미만인 자리엔 내지 않고 승산 높은 지역에 몰아서`) + opt('spread', 'fill', '승산 높은 지역부터, 남으면 전부', '승산 높은 지역부터 채우고, 인재가 남으면 가망 낮은 지역에도 냄') + opt('spread', 'even', '최대한 균등하게', '지역마다 한 자리씩 돌아가며 고르게(가망 낮은 곳도 냄)'))
       + fs('현직 추천', `<label style="display:block;margin:6px 0"><input type="checkbox" name="incGov" ${nomPref.incGov ? 'checked' : ''}> <b>현직 광역단체장도 추천</b> <span class="small muted">등록하면 단체장직을 사직하고 권한대행 체제가 됩니다(단체장 보궐선거는 임기가 1년 이상 남았을 때만).</span></label>`)
       + fs('인재 우선순위', opt('first', 'pr', '비례 우선', `비례 명부 추천 ${prRec(c).n}명을 먼저 채우고 남는 인재로 지역구`) + opt('first', 'dist', '지역구 우선', '지역구에 먼저 내고 남는 인재로 비례 명부(추천 수까지)')),
     onOpen: m => { m.querySelectorAll('input[type=radio]').forEach(i => i.onchange = () => { nomPref[i.name] = i.value; }); m.querySelectorAll('input[type=checkbox]').forEach(i => i.onchange = () => { nomPref[i.name] = i.checked; }); },
@@ -3543,8 +3543,8 @@ function nomAuto(key) {
   const bestAt = (xs, k) => xs.reduce((a, b) => scAt(b, k) > scAt(a, k) ? b : a);
   let ps = nomPool(c).sort((a, b) => sc(b) - sc(a));
   if (c.type === 'nat') {
-    // 총선은 비례 후보 수와 출마 지역구 수도 정함(nomPref: 지역구 몰기·고르게 / 비례·지역구 우선)
-    const rec = prRec(c).n, isF = p => p.gender === 'F', focus = nomPref.spread === 'focus';
+    // 총선은 비례 후보 수와 출마 지역구 수도 정함(nomPref: 지역구 몰기·몰고 남으면 전부·고르게 / 비례·지역구 우선)
+    const rec = prRec(c).n, isF = p => p.gender === 'F', focus = nomPref.spread !== 'even', cut = nomPref.spread === 'focus';
     // 비례 몫: 후보 점수 낮은 쪽부터(비례 득표는 후보 점수와 무관), 홀수 순번 여성을 먼저 확보
     const prPick = (xs, n) => { const F = xs.filter(isF); n = Math.min(n, 2 * F.length, xs.length); const f = F.slice(F.length - Math.ceil(n / 2)), o = xs.filter(p => !f.includes(p)); return [...f, ...o.slice(o.length - (n - f.length))]; };
     // 자리 순서: 승산 높은 지역부터 의석 수만큼(몰기) 또는 지역마다 한 자리씩 돌아가며(고르게)
@@ -3553,7 +3553,7 @@ function nomAuto(key) {
     let pr = nomPref.first === 'pr' ? prPick(ps, rec) : [];
     // 자리마다 남은 인재 중 그 자리 점수(연고 포함)가 가장 높은 사람
     const dist = [], left = ps.filter(p => !pr.includes(p));
-    for (const r of seats) { if (!left.length) break; const p = bestAt(left, r.k); if (focus && distOdds(c, r.k, p) < NOM_HOPE) break; dist.push([r, p]); left.splice(left.indexOf(p), 1); }
+    for (const r of seats) { if (!left.length) break; const p = bestAt(left, r.k); if (cut && distOdds(c, r.k, p) < NOM_HOPE) break; dist.push([r, p]); left.splice(left.indexOf(p), 1); }
     if (nomPref.first === 'dist') pr = prPick(ps.filter(p => !dist.some(x => x[1] === p)), rec);
     for (const r of R) d.reg[r.k].ids = [];
     for (const [r, p] of dist) d.reg[r.k].ids.push(p.id);
