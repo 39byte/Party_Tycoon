@@ -1495,7 +1495,6 @@ function resolveElection(c) {
   } else if (c.reg) html += `<p class="muted">득표율 10% 미만 지역은 기탁금이 국고에 귀속되고 선거비용도 보전되지 않습니다.</p>`;
   lines.forEach(t => addLog(t, 'ok'));
   S.results.push({ d: S.day, name: c.name, t: lines.join(' '), races });
-  S.results.slice(0, -8).forEach(r => delete r.races); // 저장 용량: 상세는 최근 8번만
   S.done[c.key] = true; delete S.camps[c.key];
   checkAch();
   Snd.sfx('win');
@@ -2981,7 +2980,6 @@ function byeResolve(b) {
   S.byes = S.byes.filter(x => x !== b);
   addLog(msg, win === 'P' ? 'ok' : '');
   S.results.push({ d: S.day, name: label, t: msg, bye: 1, joint: byeWith(b)?.name, races: [{ k: b.k, n: label, e, t, bad: bl.bad, c: row }] });
-  S.results.slice(0, -8).forEach(x => delete x.races);
   figSync(S); checkAch();
   return { i: S.results.length - 1, k: b.k, label, winner, mine: !!lp, won: win === 'P', share: v.P };
 }
@@ -5213,7 +5211,7 @@ function distEdit(c, k) {
 let resReg = 'all', resMine = false; // 선거 결과 팝업: 지역 필터 · 우리 당 출마 지역만
 function resultModal(r, keep) {
   if (!r) return;
-  if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">이 선거는 출마자 기록이 남아 있지 않습니다. 상세 기록 기능이 생기기 전에 치렀거나, 최근 8번보다 오래된 선거입니다. 다음 선거부터는 출마자 프로필과 득표율이 기록됩니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
+  if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">이 선거는 출마자 기록이 남아 있지 않습니다. 상세 기록 기능이 생기기 전에 치른 선거입니다. 다음 선거부터는 출마자 프로필과 득표율이 기록됩니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
   const col = id => id === 'O' ? '#64748B' : pc(id);
   // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
   // 대선은 첫 칸(전국)이 '당선', 지역은 '1위'
