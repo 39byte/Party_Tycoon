@@ -112,25 +112,20 @@ main{padding:18px;min-width:0}
   .brand{flex:1}
   main{padding:10px}
 }
-/* 모바일: 하단 탭바 4개 + 더보기. 60열 격자: 주 탭 12칸 × 5, 더보기 시트의 보조 탭 8개는 15칸 × 4씩 두 줄 */
-nav .more{display:none}
+/* 모바일: 하단 탭바 한 줄, 전체 탭을 좌우 스크롤 */
 @media (max-width:640px){
-  nav{position:fixed;left:0;right:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(60,minmax(0,1fr));gap:4px 0;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-bottom:0;border-top:2px solid var(--gold2);background:var(--hud);box-shadow:0 -4px 16px rgba(2,6,23,.3)}
-  nav button{grid-column:span 12;flex-direction:column;gap:2px;min-height:52px;padding:6px 2px;font-size:11.5px}
-  nav button[aria-current="page"],nav .more.cur{box-shadow:inset 0 3px 0 var(--gold);font-weight:800;color:#fff}
-  nav .sec{display:none;order:-1;grid-column:span 15;flex-direction:row;min-height:48px;font-size:13px}
-  nav.open .sec{display:flex}
-  nav.open{border-top-left-radius:14px;border-top-right-radius:14px}
-  nav .more{display:flex}
+  nav{position:fixed;left:0;right:0;bottom:0;z-index:30;flex-direction:row;flex-wrap:nowrap;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none;gap:0;padding:4px 4px calc(4px + env(safe-area-inset-bottom));border-bottom:0;border-top:2px solid var(--gold2);background:var(--hud);box-shadow:0 -4px 16px rgba(2,6,23,.3)}
+  nav::-webkit-scrollbar{display:none} nav .navsep{display:none}
+  nav button{flex:0 0 auto;min-width:68px;flex-direction:column;gap:2px;min-height:52px;padding:6px 2px;font-size:11.5px}
+  nav button[aria-current="page"]{box-shadow:inset 0 3px 0 var(--gold);font-weight:800;color:#fff}
   nav button{position:relative}
   nav .badge{position:absolute;top:4px;left:calc(50% + 6px);margin:0}
-  nav .more[aria-expanded="true"]{background:rgba(255,255,255,.08);color:#fff}
   /* 좁은 화면: 아이콘 빼고 3열 격자로 HUD 높이를 줄임 */
   .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
   .stat{display:flex;flex-direction:column;padding:3px 8px} .stat .ic{display:none}
   .stat b{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   main{padding-bottom:calc(84px + env(safe-area-inset-bottom))}
-  .toasts{top:calc(8px + env(safe-area-inset-top))}
+  .toasts{top:auto;bottom:calc(76px + env(safe-area-inset-bottom))} /* 위쪽 '턴 종료'를 가리지 않게 탭바 위로 */
 }
 
 /* buttons */
@@ -4590,7 +4585,7 @@ function toast(msg, type = '', head) {
   sentWrap(el); el.querySelector('.tx').onclick = close; el.querySelector('.tbar').onanimationend = close;
   if (matchMedia('(prefers-reduced-motion:reduce)').matches) setTimeout(() => el.remove(), 7000); // 애니메이션이 꺼지면 막대 종료 신호가 없음
   // 위쪽 끝을 상단 배너(사회적 이슈 등) 위쪽 끝에, 배너가 없으면 사이드 메뉴 '본부' 버튼 위쪽 끝에 맞춤(휴대폰처럼 메뉴가 아래 탭바면 CSS 기본값)
-  const bn = $('#banner'), nb = (bn && !bn.hidden ? bn.querySelector('.bn') || bn : $('nav button'))?.getBoundingClientRect(); $('#toasts').style.top = nb && nb.top > 0 && nb.top < innerHeight / 2 ? nb.top + 'px' : '';
+  const bn = $('#banner'), nb = (bn && !bn.hidden ? bn.querySelector('.bn') || bn : $('nav button'))?.getBoundingClientRect(); $('#toasts').style.top = !matchMedia('(max-width:640px)').matches && nb && nb.top > 0 && nb.top < innerHeight / 2 ? nb.top + 'px' : '';
   $('#toasts').appendChild(el);
   while ($('#toasts').children.length > 4) $('#toasts').firstChild.remove();
 }
@@ -4623,17 +4618,14 @@ function renderTop() {
   renderBanner();
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
-const SEC = ['people', 'office', 'court', 'pres', 'neg', 'admin', 'fin', 'law', 'log', 'guide']; // 모바일에서 '더보기' 안으로
 function renderNav() {
-  const nav = $('#nav'), open = nav.classList.contains('open');
+  const nav = $('#nav');
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length + S.byes.filter(byeOpenForMe).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => !autoOn(r.k) && rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
   const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length, people: S.alerts.people.length, office: S.alerts.office.length }, badgeSr = { elec: '공천·후보 등록이 필요한 선거 ', people: '다시 영입할 수 있음 ', office: '다시 할 수 있는 의회 활동 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
-  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" class="${SEC.includes(k) ? 'sec' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('')
-    + `<button class="more ${SEC.includes(tab) ? 'cur' : ''}" aria-expanded="${open}">${icon('i-more')}${SEC.includes(tab) ? TABS.find(t => t[0] === tab)[1] : '더보기'}${(cases || unread || S.alerts.neg.length || S.alerts.people.length || S.alerts.office.length || S.billNew) && !open ? '<span class="badge">!</span>' : ''}</button>`;
-  nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; nav.classList.remove('open'); Snd.sfx('click'); renderPanel(); renderNav(); $('#main').focus({ preventScroll: true }); });
-  nav.querySelector('.more').onclick = () => { nav.classList.toggle('open'); renderNav(); };
+  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('');
+  nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; Snd.sfx('click'); renderPanel(); renderNav(); nav.querySelector('[aria-current]')?.scrollIntoView({ inline: 'center', block: 'nearest' }); $('#main').focus({ preventScroll: true }); });
 }
 function renderPanel() {
   if (!S) return;
