@@ -1090,7 +1090,7 @@ function migrate(o) {
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; delete o.agenda; delete o.agUsed; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
+  o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; delete o.agenda; delete o.agUsed; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.blun ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= []; o.byes ??= []; o.vacant ??= []; o.prList ??= []; o.gact ??= {}; o.byes.forEach(b => b.kind ??= 'mp'); o.vacant.forEach(v => v.kind ??= 'mp');
   for (const m of o.outs) if (POL_ROLE.test(m.role)) m.job ??= pick(FIG_JOBS);
@@ -1685,7 +1685,7 @@ function tick() {
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
-  if (S.day % TURN === 0) rivalWeek();
+  if (S.day % TURN === 0) { rivalWeek(); auditRiv(); }
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
   if (nOff && rnd() < Math.min(0.08, 0.01 + nOff * 0.003)) S.queue.push({ ev: 'selfAct' });
@@ -1848,7 +1848,7 @@ const readyWatched = d0 => {
   return Object.keys(S.watch).filter(k => S.watch[k] && (S.cd[k] || 0) > d0 && S.cd[k] <= S.day && canNow(k));
 };
 // 다시 할 수 있게 된 알림은 탭 이름 옆 숫자로: 활동(act) · 교섭(neg). 그 탭에 들어가면 사라짐
-const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : k === 'talent' ? 'people' : k === 'bill' || k === 'question' ? 'office' : 'act']; if (!a.includes(k)) a.push(k); } };
+const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'neg' : k === 'talent' ? 'people' : k === 'bill' || k === 'question' || k === 'audit' ? 'office' : 'act']; if (!a.includes(k)) a.push(k); } };
 let shownTab = null, fresh = []; // 이번에 들어온 탭에서 방금 확인한 알림(카드에 '다시 가능' 표시)
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
@@ -2453,6 +2453,8 @@ const GOV_FLOP = [
   k => `${RK[k].n}에서 주민 설명회 없이 밀어붙인 사업에 주민들이 반발했습니다.`,
   k => `${RK[k].n} 사업이 업체 선정 잡음으로 첫 삽도 못 뜨고 멈췄습니다.`,
 ];
+// 행정 실책 장부 S.blun [{ id, k, p, t, d, used }]: 국정감사에서 추궁할 거리. 1년·40건까지
+const blunAdd = (k, p, t) => { S.blun = S.blun.filter(x => S.day - x.d < 365).slice(-39); S.blun.push({ id: ++S.seq, k, p, t, d: S.day }); };
 // 역점사업 한 건 실행(행정 행동력 1). 창에서 고르든 자동화든 여기로
 // 자동화(auto)는 직접 챙기지 않으니 성공률 −20%p, 찐빠 확률 43−역량/4 %(역량 50 → 30.5%, 68 이상 → 26%). 역량 60~70이면 행정 지지도가 대체로 제자리
 function govRun(k, pj, auto) {
@@ -2478,6 +2480,7 @@ function govRun(k, pj, auto) {
     need.forEach(x => wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov')); }
   S.ops[k] = clamp(opsUp('P', k, before, S.ops[k] - before), 5, 95); wire(`${auto ? '[자동] ' : ''}${msg}`, 'gov');
   later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
+  if (!ok) blunAdd(k, 'P', msg);
   return { k, msg, ok };
 }
 // 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. 우리 자동화와 같은 셈법(성공률 −20%p, 찐빠 43−역량/4 %)이라 역량 높으면 오르고 낮으면 깎임
@@ -2494,7 +2497,7 @@ function rgovRun() {
     else if (pj === 'care') [d, t] = rnd() < pr(0.75) ? [3.5, `${w}, 돌봄센터 확충에 주민 호응`] : [-2, `${n} 돌봄센터 위탁업체 특혜 논란`];
     else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [1, `${n} 투자 유치 협상 결렬`];
     else [d, t] = rnd() < pr(0.7) ? [2, `${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`] : [-1, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`];
-    g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov');
+    g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (d <= 1) blunAdd(k, g.p, t);
     later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 투자 유치 결렬(+1)·실패·찐빠는 실패 보도
   }
 }
@@ -3293,6 +3296,7 @@ const ACT = {
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승(선거기간 중 최대 2번). 다른 당도 방송 광고를 합니다.' },
   bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면 역풍을 맞습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관 중 한 명을 골라 질문합니다. 우리 의원과 상대 장관의 역량 차이로 성패가 갈리고, 민심이 쏠린 쟁점의 담당 장관을 짚으면 효과가 큽니다. 야당이면 정부를 몰아붙이고, 여당이면 정책을 점검합니다.' },
+  audit: { n: '국정감사', c: () => 0, cd: 7, seat: true, d: '10월 국정감사에서 다른 당 단체장의 행정 실책을 추궁합니다. 상대는 반박하거나 사과합니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴으로 겨룹니다.' },
   govern: { n: '행정 역점사업', c: () => 0, cd: 7, // 지역×사업별 재사용 대기
     d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
 };
@@ -3306,6 +3310,8 @@ function why(key, k) {
   if (key === 'tvad' && activeCamps().every(c => (c.tv || 0) >= 2)) return '이번 선거기간 방송 광고 2회를 모두 썼습니다';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
   if (key === 'question' && (S.president.acting || !CAB.some(c => cabM(c.k)))) return '질문할 국무위원이 없습니다';
+  if (key === 'audit' && !auditOn()) return '매년 10월 국정감사 기간에만 가능';
+  if (key === 'audit' && !audTargets().length) return '따질 행정 실책이 없습니다';
   if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
@@ -3324,6 +3330,7 @@ function doAct(key, k) {
   if (key === 'accuse') return accuseModal();
   if (key === 'bill') return billModal();
   if (key === 'question') return questionModal();
+  if (key === 'audit') return auditModal();
   if (key === 'govern') return govModal(k);
   if (key === 'talent') {
     if (!talOpen()) { spend(a.c(), '활동'); S.cd.talent = S.day + a.cd; S.ap--; S.tal = { until: S.cd.talent, got: [], cands: Array.from({ length: 25 }, () => genPerson({ fameAdd: rnd() < 0.2 ? 25 : 0 })) }; }
@@ -3395,6 +3402,55 @@ function questionRun(k, mp) {
   }
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
+}
+// 국정감사(10월): 행정 실책을 짚으면 방어 측은 반박 또는 사과. 반박은 질의자 역량 vs 방어자 역량·청렴(65:35)
+// 사과: 방어 측 신뢰도 −1·행정 지지도 −1 / 반박 성공: 공격 측 신뢰도 −0.5(방어자가 15 이상 앞서면 15%로 역공: −2) / 반박 실패: 방어 측 신뢰도 −3·행정 지지도 −3
+const auditOn = () => L.dayToDate(S.day).getUTCMonth() === 9;
+const audDef = p => 0.65 * (p?.skill ?? 50) + 0.35 * (p?.integ ?? 60);
+const audOdds = (att, def) => clamp(0.5 + (def - att) / 80, 0.1, 0.9);
+const audTargets = () => S.blun.filter(b => !b.used && b.p !== 'P' && S.rgov[b.k]?.p === b.p);
+const audDp = b => fig(S.rgov[b.k]?.fid);
+function audResolve(b, atk, att, def, rebut) {
+  const tr = (id, d) => id === 'P' ? (S.trust = clamp(S.trust + d, 0, 100)) : trustAll(id, d);
+  const ops = d => b.p === 'P' ? S.gov[b.k] === 'P' && b.k in S.ops && opsAdd(b.k, d) : S.rgov[b.k]?.p === b.p && rgovAdd(b.k, d);
+  b.used = 1;
+  if (!rebut) { tr(b.p, -1); ops(-1); return 'sorry'; }
+  if (rnd() < audOdds(att, def)) { if (def - att >= 15 && rnd() < 0.15) { tr(atk, -2); return 'back'; } tr(atk, -0.5); return 'ok'; }
+  tr(b.p, -3); ops(-3); return 'fail';
+}
+function auditModal() {
+  const xs = qAskers(), bs = audTargets().reverse();
+  openModal({ title: '국정감사', wide: true, html: `<p><label>질의자 <select data-amp aria-label="질의할 의원">${xs.map(p => `<option value="${p.id}">${esc(p.name)} (역량 ${p.skill} · 인지도 ${Math.round(p.fame)})</option>`).join('')}</select></label></p>
+    <p>다른 당 단체장의 행정 실책을 추궁합니다. 상대가 사과하면 그 당 신뢰도가 조금 깎이고, 반박에 실패하면 크게 깎입니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴(65:35)으로 겨루고, 상대가 훨씬 뛰어나면 오히려 역공을 당할 수 있습니다.</p>
+    <div class="pcards">${bs.map(b => { const d = audDp(b), def = audDef(d);
+      return `<div class="pcard"><div><b>${AREA(b.k)}</b> <span class="small muted">${fdate(b.d)}</span></div><div class="who">${d ? face(d, pc(b.p), 48) : ''}<div><h3>${esc(S.rgov[b.k].n)}</h3><div class="small muted">${esc(pn(b.p))} · 방어력 ${Math.round(def)}</div></div></div><p class="small">${esc(b.t)}</p><div class="small muted">상대 반박 성공 <b data-aodds="${def}">${Math.round(audOdds(xs[0].skill, def) * 100)}</b>%</div><button class="btn pri" data-ab="${b.id}">추궁</button></div>`; }).join('')}</div>`,
+    buttons: [{ t: '취소' }], onOpen: el => {
+      const sel = el.querySelector('[data-amp]'), mp = () => xs.find(p => p.id === +sel.value);
+      sel.onchange = () => el.querySelectorAll('[data-aodds]').forEach(b => b.textContent = Math.round(audOdds(mp().skill, +b.dataset.aodds) * 100));
+      el.querySelectorAll('[data-ab]').forEach(b => b.onclick = () => auditRun(+b.dataset.ab, mp()));
+    } });
+}
+// 우리가 추궁: 상대 단체장(AI)은 반박 성공률 +10%p 확률로 반박을 고름
+function auditRun(id, mp) {
+  const b = S.blun.find(x => x.id === id); if (!b) return;
+  closeModal(); S.ap--; S.cd.audit = S.day + ACT.audit.cd;
+  const d = audDp(b), def = audDef(d), odds = audOdds(mp.skill, def), who = `${GOVT[b.k]} ${S.rgov[b.k].n}(${pn(b.p)})`;
+  const r = audResolve(b, 'P', mp.skill, def, rnd() < odds + 0.1);
+  let msg;
+  if (r === 'sorry') { S.fame = clamp(S.fame + 1, 0, 100); pFame(mp, 1.5); msg = `${mp.name} 의원의 국감 질의에 ${who}이(가) 행정 실책을 인정하고 사과했습니다.`; }
+  else if (r === 'fail') { S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100); pFame(mp, 2.5); msg = `${mp.name} 의원의 송곳 질의에 ${who}의 반박이 무너졌습니다. 그 당 신뢰도가 크게 흔들립니다.`; }
+  else if (r === 'back') { if (d) pFame(d, 2); msg = `${who}이(가) 조목조목 반박하며 ${mp.name} 의원의 준비 부족을 꼬집었습니다. 역공을 당해 우리 당 신뢰도가 떨어졌습니다.`; }
+  else msg = `${who}이(가) 차분히 반박해 ${mp.name} 의원의 질의가 힘을 잃었습니다.`;
+  const good = r === 'sorry' || r === 'fail';
+  wire(`[국정감사] ${msg}`, 'hall'); Snd.sfx(good ? 'ok' : 'bad'); toast(msg, good ? 'ok' : 'bad'); addLog(msg, good ? '' : 'bad');
+  checkAch(); renderAll();
+}
+// 상대 당의 추궁: 10월 턴마다 우리 행정 실책이 있으면 50%로 한 건. 질의자는 의석 있는 다른 당 의원 중 역량 최고
+function auditRiv() {
+  if (!auditOn() || rnd() >= 0.5) return;
+  const bs = S.blun.filter(b => !b.used && b.p === 'P' && S.gov[b.k] === 'P'), b = bs.length && pick(bs);
+  const ids = TR_IDS.filter(id => S.figs.some(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')));
+  if (b && ids.length) S.queue.push({ ev: 'auditHit', bid: b.id, id: pick(ids) });
 }
 const POL_OFF_DAYS = 45;
 function policyModal() {
@@ -4101,12 +4157,23 @@ const XEV = {
     S.risks.filter(() => rnd() < 0.1).forEach(k => exposeRisk(k)); // 상대 당도 우리 의혹을 판다
     const gov = Object.keys(S.ops);
     gov.forEach(k => opsAdd(k, rr(-4, 2))); // 우리 시·도도 피감기관
-    showEvent({ title: '국정감사 시작', body: () => `국회 국정감사가 시작됐습니다. ${ruling() ? '여당으로서 정부를 지켜야 하는 입장입니다.' : `${presN()} 정부의 실정을 따질 기회입니다.`}${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`,
-      ch: ruling() ? [{ t: '정부 정책 방어', run: () => { S.fame += 1; S.trust -= 0.5; return '정부를 감쌌다는 비판과 안정감 있다는 평이 엇갈립니다.'; } },
-        { t: '자성하는 감사', s: '정부와 거리두기', run: () => { S.trust += 2; return '"건강한 여당"이라는 평을 들었습니다.'; } }]
-        : [{ t: '정부 실정 집중 추궁', s: '인지도↑', run: () => { S.fame += 3; hitPres(2); relAdd(S.president.party, -5, '국정감사 집중 추궁'); return '정부 실정을 파헤친 질의가 헤드라인을 장식했습니다.'; } },
-          { t: '정책 대안 제시형 감사', s: '신뢰↑ · 묻힐 수도', run: () => { relAdd(S.president.party, 2, '정책 대안형 국정감사'); if (luck(0.65)) { S.trust += 2.5; S.fame += 1; return '시민단체 선정 "우수 국감 의원"에 이름을 올렸습니다.'; } S.trust += 0.5; return '차분한 질의가 호통 경쟁에 묻혀 주목받지 못했습니다.'; } },
-          { t: '증인 호통·망신주기', s: '화제성↑ 신뢰↓', run: () => { S.fame += 4; S.buzz += 1; S.trust -= 2; relAdd(S.president.party, -4, '국정감사 호통'); return '호통 영상이 퍼졌지만 "갑질 국감" 비판도 받았습니다.'; } }] });
+    const n = audTargets().length;
+    info('국정감사 시작', `국회 국정감사가 시작됐습니다. 이번 달 동안 국회 탭에서 다른 당 단체장의 행정 실책을 추궁할 수 있습니다${n ? `(따질 거리 ${n}건)` : ''}. 다른 당도 우리 단체장의 행정 실책을 파고들 테니, 반박할지 사과할지 정해야 합니다.${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`, false);
+  },
+  // 다른 당이 우리 단체장의 행정 실책을 추궁: 반박(역량·청렴 vs 상대 질의자 역량) 또는 사과
+  auditHit: q => {
+    const b = S.blun.find(x => x.id === q.bid);
+    if (!b || b.used || S.gov[b.k] !== 'P') return;
+    const atk = S.figs.filter(f => f.party === q.id && (f.pos === 'd' || f.pos === 'pr')).reduce((a, f) => !a || f.skill > a.skill ? f : a, null);
+    if (!atk) return;
+    const gp = govPerson(b.k), def = audDef(gp), odds = audOdds(atk.skill, def), who = [GOVT[b.k], gp?.name].filter(Boolean).join(' '), by = `${pn(q.id)} ${atk.name} 의원`;
+    showEvent({ title: '국정감사: 행정 실책 추궁', body: () => `${esc(by)}(역량 ${atk.skill})이 국정감사에서 우리 당 ${esc(who)}의 행정 실책을 따졌습니다.<br><span class="small muted">"${esc(b.t)}" (${fdate(b.d)})</span><br>반박하면 ${esc(gp?.name || '단체장')}의 역량·청렴(방어력 ${Math.round(def)})으로 맞섭니다.`,
+      ch: [{ t: '반박한다', s: `성공 ${Math.round(odds * 100)}% · 실패하면 신뢰도 크게↓`, run: () => {
+        const r = audResolve(b, q.id, atk.skill, def, true);
+        if (r === 'fail') { S.fame += 0.5; return `반박이 오히려 역풍을 불렀습니다. "${b.t.slice(0, 20)}…" 책임론이 커지며 신뢰도가 크게 떨어졌습니다.`; }
+        if (r === 'back') { if (gp?.fame != null) pFame(gp, 2); S.fame += 1.5; wire(`[국정감사] ${who}, ${by} 질의에 역공… "준비 안 된 국감"`, 'hall'); return `${who}의 조목조목 반박에 ${by}이(가) 역공을 당했습니다. ${pn(q.id)} 신뢰도가 떨어졌습니다.`; }
+        return `${who}이(가) 차분히 해명해 공세를 막아냈습니다.`; } },
+        { t: '사과한다', s: '신뢰도 소폭↓', run: () => { audResolve(b, q.id, atk.skill, def, false); return `${who}이(가) 행정 실책을 인정하고 사과했습니다. 신뢰도가 조금 떨어졌습니다.`; } }] });
   },
   budget: () => showEvent({ title: '새해 예산안 심사', body: () => `법정 처리시한을 앞두고 예산 협상이 한창입니다. 우리 당 의석은 ${seatTotal('P')}석입니다.`,
     ch: [{ t: '지역 예산을 챙긴다', s: '지역 당원↑', run: () => { const ks = Object.keys(S.seats.P.d).filter(k => S.seats.P.d[k] > 0), k = ks.length ? pick(ks) : S.party.home; S.members[k] += Math.round(rr(500, 1500)); S.trust += 0.5; return `${RK[k].n} 숙원사업 예산을 따냈습니다.`; } },
@@ -5184,8 +5251,8 @@ function pOffice() {
     <h3 style="margin-top:32px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? `우리 당이 집권 중입니다. 반대 당론 법안이 통과되면 공포와 거부권 중에서 고릅니다. 재의결선은 ${twoThirds()}표이고, 청와대 탭에서 자동 처리를 켤 수 있습니다.` : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
 </section>
-    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
-      <p class="tip">매년 10월 국정감사, 12월 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
+    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}${actBtn('audit', undefined, true)}</div>
+      <p class="tip">매년 10월 국정감사에선 다른 당 단체장의 행정 실책을 추궁하고, 우리 단체장도 추궁받습니다. 12월엔 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
     <h3 style="margin:28px 0 10px">최근 법안</h3>${(xs => xs.length ? voteList(xs) : '<p class="small muted">아직 표결된 법안이 없습니다.</p>')(recentBills())}</section></div></div>`;
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도
@@ -5483,7 +5550,7 @@ function pGuide() {
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
       <li>조기 대선 뒤 1년 안의 정기 대선은 열리지 않고, 그 뒤로는 원래 순환대로 이어집니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
-      <li>매년 10월 국정감사, 12월 예산안 심사에서 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
+      <li>매년 10월 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙습니다. 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
