@@ -1634,7 +1634,7 @@ function daily() {
 }
 function monthly(dt) {
   // 의혹이 보도된 다른 당 의원은 가끔 책임지고 사퇴함(청렴이 낮을수록 잘)
-  for (const f of [...S.figs]) if ((f.pos === 'd' || f.pos === 'pr') && S.day - (f.hit ?? -999) < 120 && rnd() < 0.08 * (1 + (60 - f.integ) / 100)) figOut(f, '의혹 책임 사퇴');
+  for (const f of [...S.figs]) if ((f.pos === 'd' || f.pos === 'pr') && S.day - (f.hit ?? -999) < 120 && rnd() < 0.01 * (1 + (60 - f.integ) / 100)) figOut(f, '의혹 책임 사퇴');
   S.ledger.last = S.ledger.cur; S.ledger.cur = {};
   for (const r of R) {
     let m = S.members[r.k] || 0;
@@ -3028,8 +3028,8 @@ function rvPick(c, k, id, used, pr, need) {
   else if (cur && b !== cur && slotScore(cur, sk) + INCUMB >= slotScore(b, sk)) b = cur;
   // 사직하고 나오는 현직도 후보가 될 수 있음: 지선엔 그 당 현직 의원, 총선(지역구)엔 그 당 광역단체장
   const mp = !pr && (c.type === 'gov' || c.type === 'nat') && id in (S.fpool || {}) ? S.figs.filter(f => f.party === id && (c.type === 'gov' ? (f.pos === 'd' || f.pos === 'pr') : f.pos === 'gov' && !S.gact[f.k]) && !used.has(f.id) && !f.ban && f.age >= LAW.age[kd]).reduce((a, f) => !a || slotScore(f, k) > slotScore(a, k) ? f : a, null) : null;
-  const mr = (c.mpRun ??= {}); // 현직은 인재풀 후보보다 조금이라도 나을 때만, 한 정당이 한 선거에 3명(총선은 2명)까지
-  if (mp && b !== cur && (mr[id] || 0) < (c.type === 'gov' ? 3 : 2) && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, c.type === 'gov' ? '광역단체장 출마 사직' : '총선 출마 사직'); return mp; }
+  const mr = (c.mpRun ??= {}); // 현직은 인재풀 후보보다 조금이라도 나을 때만, 한 정당이 한 선거에 1명까지(보궐선거가 너무 잦지 않게)
+  if (mp && b !== cur && (mr[id] || 0) < 1 && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, c.type === 'gov' ? '광역단체장 출마 사직' : '총선 출마 사직'); return mp; }
   poolTake(id, b);
   const f = b === cur ? cur : genFig(S, id, pr ? b.home || figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
