@@ -3445,7 +3445,7 @@ function auditRun(id, mp) {
   wire(`[국정감사] ${msg}`, 'hall'); Snd.sfx(good ? 'ok' : 'bad'); toast(msg, good ? 'ok' : 'bad'); addLog(msg, good ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 상대 당의 추궁: 10월 턴마다 우리 행정 실책이 있으면 50%로 한 건. 질의자는 의석 있는 다른 당 의원 중 역량 최고
+// 상대 당의 추궁: 10월 턴마다 우리 행정 실책이 있으면 50%로 한 건. 질의자는 의석 있는 다른 당의 역량 상위 15명 중 무작위
 function auditRiv() {
   if (!auditOn() || rnd() >= 0.5) return;
   const bs = S.blun.filter(b => !b.used && b.p === 'P' && S.gov[b.k] === 'P'), b = bs.length && pick(bs);
@@ -4164,7 +4164,7 @@ const XEV = {
   auditHit: q => {
     const b = S.blun.find(x => x.id === q.bid);
     if (!b || b.used || S.gov[b.k] !== 'P') return;
-    const atk = S.figs.filter(f => f.party === q.id && (f.pos === 'd' || f.pos === 'pr')).reduce((a, f) => !a || f.skill > a.skill ? f : a, null);
+    const top = S.figs.filter(f => f.party === q.id && (f.pos === 'd' || f.pos === 'pr')).sort((a, b) => b.skill - a.skill).slice(0, 15), atk = top.length && pick(top); // 질의자: 그 당 역량 상위 15명 중 무작위
     if (!atk) return;
     const gp = govPerson(b.k), def = audDef(gp), odds = audOdds(atk.skill, def), who = [GOVT[b.k], gp?.name].filter(Boolean).join(' '), by = `${pn(q.id)} ${atk.name} 의원`;
     showEvent({ title: '국정감사: 행정 실책 추궁', body: () => `${esc(by)}(역량 ${atk.skill})이 국정감사에서 우리 당 ${esc(who)}의 행정 실책을 따졌습니다.<br><span class="small muted">"${esc(b.t)}" (${fdate(b.d)})</span><br>반박하면 ${esc(gp?.name || '단체장')}의 역량·청렴(방어력 ${Math.round(def)})으로 맞섭니다.`,
