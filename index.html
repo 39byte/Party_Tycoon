@@ -2466,7 +2466,6 @@ function govRun(k, pj, auto) {
   else if (pj === 'dev') {
     if (rnd() < pr(0.65)) { S.ops[k] += 7; S.members[k] += Math.round(rr(200, 600)); msg = `${n} 개발사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.`; }
     else { S.ops[k] -= 3; ok = false; msg = `${n} 개발사업이 주민 반발로 지연되고 있습니다.`; }
-    if (rnd() < 0.35) later(rr(14, 60), { ev: 'devbribe', k });
   } else if (pj === 'care') {
     if (luck(pr(0.75))) { S.ops[k] += 3.5; S.trust += 0.5; msg = `${n} 돌봄센터 확충으로 주민 호응이 좋습니다.`; }
     else { S.ops[k] -= 2; ok = false; msg = `${n} 돌봄센터 위탁업체 선정을 두고 특혜 논란이 일었습니다.`; }
@@ -3851,34 +3850,22 @@ const presEv = e => ({ ...e, cond: () => S.phase === 'reg' && !S.president.actin
 const polJudge = (t, s) => later(rr(21, 35), { ev: 'polRes', t, pop: ET.pop, s, pr: S.president.party });
 const EVENTS = [
   // --- 검은 제안: 받으면 이득, 들킬 수도 묻힐 수도 있음 ---
-  { id: 'corp', w: 3, cond: () => true, title: '법인 명의 후원 제안',
+  { id: 'corp', w: 1, cond: () => true, title: '법인 명의 후원 제안',
     body: () => `${pick(CORPS)} 대표가 "당 발전기금" 명목으로 <b>회사 법인 계좌에서 3억 원</b>을 보내겠다고 합니다. "조용히 처리하면 아무도 모릅니다."`,
     ch: [{ t: '정중히 거절한다', run: () => { S.trust += 2; return '거절했습니다. 원칙을 지켰다는 이야기가 돌며 신뢰가 조금 올랐습니다.'; } },
       { t: '받는다', s: '자금 +3억', run: () => { earn(3e8, '기타'); addRisk('법인 자금 3억 원 수수', 0.012, 7 * 365, { money: -4.5e8, trust: -15, note: '3억 원 몰수·추징과 벌금, 회계책임자 실형' }); return '3억 원이 입금되었습니다. 장부에는 남기지 않았습니다.'; } }] },
-  { id: 'split', w: 2, cond: () => S.phase === 'reg', title: '쪼개기 후원 제안',
+  { id: 'split', w: 0.7, cond: () => S.phase === 'reg', title: '쪼개기 후원 제안',
     body: () => `한 건설사가 임직원 50명 명의로 500만 원씩, 총 <b>2억 5천만 원</b>을 나눠 후원하겠다고 합니다. 돈의 실제 주인은 회사입니다.`,
     ch: [{ t: '거절한다', run: () => { S.trust += 1; return '거절했습니다.'; } },
       { t: '받는다', s: '자금 +2.5억', run: () => { raiseFunds(2.5e8); addRisk('임직원 명의 쪼개기 후원', 0.014, 7 * 365, { money: -3e8, trust: -12, note: '후원금 전액 반환과 벌금' }); return '후원금이 들어왔습니다.'; } }] },
-  { id: 'precamp', w: 4, cond: () => S.phase === 'reg' && !!nearElec(), title: '이른 선거운동 제안',
+  { id: 'precamp', w: 1.3, cond: () => S.phase === 'reg' && !!nearElec(), title: '이른 선거운동 제안',
     body: () => `지역 조직책들이 공식 선거운동기간 전부터 유세차와 명함 배포를 시작하자고 건의합니다. "남들도 다 합니다."`,
     ch: [{ t: '기간을 기다린다', s: '온라인 홍보에 집중', run: () => { S.trust += 1; return '공식 선거운동기간까지 기다리기로 했습니다.'; } },
       { t: '강행한다', s: '전국 득표력 상승', run: () => { const c = nearElec(); c.boost.nat += 0.03; addRisk('사전선거운동', 0.03, c.day - S.day + 180, { money: -3e7, trust: -6, seat: 1, note: '사전선거운동 유죄, 해당 당선인 당선무효' }); return '유세단이 일찍 움직이기 시작했습니다.'; } }] },
-  { id: 'meal', w: 3, cond: () => totalMembers() > 500, title: '경로당 식사 대접', pre: () => (ET.k = pick(R).k),
+  { id: 'meal', w: 1, cond: () => totalMembers() > 500, title: '경로당 식사 대접', pre: () => (ET.k = pick(R).k),
     body: () => `${RK[ET.k].n} 당원협의회장이 경로당 어르신 100명에게 식사를 대접하며 당을 알리자고 합니다. "명절 인사 정도인데요."`,
     ch: [{ t: '거절한다', run: () => '거절했습니다. 대신 봉사활동을 권했습니다.' },
       { t: '진행한다', s: '당원·인지도 상승', run: () => { S.members[ET.k] += 300; S.fame += 1; addRisk('경로당 식사 제공', 0.025, 365, { money: -2e7, trust: -6, note: '기부행위 유죄, 식사한 주민들도 과태료' }); return '식사 자리가 성황리에 끝났습니다.'; } }] },
-  { id: 'pollfake', w: 2, cond: () => Object.keys(S.camps).length > 0 && S.phase === 'reg', title: '여론조사 설계 제안',
-    body: () => '한 조사업체가 표본을 "조정"해 우리 당 지지율이 높게 나오는 여론조사를 발표해주겠다고 합니다.',
-    ch: [{ t: '거절한다', run: () => '거절했습니다.' },
-      { t: '의뢰한다', s: '일시적 지지 상승', run: () => { S.buzz += 3; addRisk('왜곡 여론조사 공표', 0.03, 365, { money: -5e7, trust: -9, note: '왜곡 여론조사 공표 유죄' }); return '조사 결과가 크게 보도되었습니다.'; } }] },
-  { id: 'macro', w: 2, cond: () => S.fame > 8, title: '댓글 여론 관리 제안',
-    body: () => '한 온라인 마케팅 업체가 매크로 프로그램으로 포털 기사 댓글과 공감 수를 "관리"해주겠다고 합니다. 비용은 3천만 원.',
-    ch: [{ t: '거절한다', run: () => { S.trust += 0.5; return '거절했습니다.'; } },
-      { t: '맡긴다', s: '화제성·인지도↑', run: () => { spend(3e7, '활동'); S.buzz += 3; S.fame += 2; addRisk('매크로 댓글 조작', 0.025, 7 * 365, { money: -8e7, trust: -14, note: '업무방해 유죄, 당 관계자 실형' }); return '포털 댓글 분위기가 눈에 띄게 우호적으로 바뀌었습니다.'; } }] },
-  { id: 'leak', w: 1.5, cond: () => totalMembers() > 5000, title: '당원 명부 유출',
-    body: () => '외부 해킹으로 당원 명부 일부가 유출된 정황이 확인되었습니다.',
-    ch: [{ t: '즉시 신고하고 사과', s: '과징금 3천만', run: () => { spend(3e7, '벌금·추징'); S.trust -= 2; return '당국에 신고하고 당원들에게 알렸습니다.'; } },
-      { t: '조용히 덮는다', run: () => { addRisk('개인정보 유출 은폐', 0.02, 3 * 365, { money: -1e8, trust: -10, note: '신고·통지 의무 위반으로 과징금' }); return '외부에 알리지 않았습니다.'; } }] },
   { id: 'satellite', w: 3, once: true, cond: () => S.phase === 'reg' && !!natCamp() && !natCamp().sat, title: '위성정당 창당 제안',
     body: () => '비례대표 의석을 더 얻으려면 비례 후보만 내는 "위성정당"을 따로 만들자는 제안이 나왔습니다. 법에 걸리진 않지만 꼼수라는 비판은 각오해야 합니다.',
     ch: [{ t: '원칙대로 간다', run: () => { S.trust += 2; return '위성정당 없이 선거를 치르기로 했습니다.'; } },
@@ -4143,10 +4130,6 @@ const XEV = {
     return info('상급심 무죄', `상급심이 ${q.n}의 '${q.ch}' 1심 유죄 판단을 뒤집었습니다. 의원직은 유지됩니다.`, !own);
   },
   scandal: q => scandalEv(q.pid),
-  devbribe: q => S.gov[q.k] === 'P' && showEvent({ title: '개발업자의 방문',
-    body: () => `${RK[q.k].n} 개발사업 인허가를 앞두고 한 시행사 대표가 도지사를 찾아와 "선거 때 진 빚은 갚겠다"며 <b>2억 원</b>이 든 쇼핑백을 내밀었습니다.`,
-    ch: [{ t: '돌려보낸다', run: () => { S.trust += 1; return '돈을 돌려보냈습니다.'; } },
-      { t: '받는다', s: '자금 +2억', run: () => { earn(2e8, '기타'); addRisk(`${RK[q.k].n} 개발 인허가 금품 수수`, 0.015, 10 * 365, { money: -3e8, trust: -14, gov: q.k, note: `뇌물 수수 유죄, ${GOVT[q.k]} 직 상실` }); return '쇼핑백은 당 금고로 들어갔습니다.'; } }] }),
   court: q => {
     const ok = rnd() < 0.65;
     if (ok) hitPres(8); else if (!ruling()) S.rw[S.president.party] += 3;
