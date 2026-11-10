@@ -3508,7 +3508,7 @@ function talentModal() {
   const { cands } = S.tal, got = { has: i => S.tal.got.includes(i), add: i => S.tal.got.push(i) };
   // 영입비 ∝ exp(후보 점수). 전과는 점수 감점(건당 CW.rec)에 같은 만큼 더 깎아 값이 두 배로 떨어짐(건당 약 -45%)
   // 인재 영입 안내를 처음 볼 때 맨 앞 후보를 튜토리얼용 인재(무료)로 바꿈
-  if (S.tut && !S.tut.off && !S.tut.seen?.tal && !cands.some(p => p.free)) Object.assign(cands[0], { fame: 10, skill: 55, integ: 60, rec: [], ban: false, free: 1 });
+  if (S.tut && !S.tut.off && !S.tut.seen?.tal && !cands.some(p => p.free)) Object.assign(cands[0], { name: '한지원', gender: 'M', age: 21, job: '연구자', fame: 10, skill: 55, integ: 60, rec: [], ban: false, free: 1 });
   const fee = p => p.free ? 0 : Math.round(3e7 * Math.exp(L.candScore(p) - L.CW.rec * Math.min(3, p.rec.length)) / 1e5) * 1e5;
   openModal({
     title: '인재 영입', wide: 'x', tut: 'tal',
