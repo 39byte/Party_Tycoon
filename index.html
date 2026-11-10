@@ -3507,13 +3507,15 @@ let tSort = 'def', tDir = 1;
 function talentModal() {
   const { cands } = S.tal, got = { has: i => S.tal.got.includes(i), add: i => S.tal.got.push(i) };
   // 영입비 ∝ exp(후보 점수). 전과는 점수 감점(건당 CW.rec)에 같은 만큼 더 깎아 값이 두 배로 떨어짐(건당 약 -45%)
-  const fee = p => Math.round(3e7 * Math.exp(L.candScore(p) - L.CW.rec * Math.min(3, p.rec.length)) / 1e5) * 1e5;
+  // 인재 영입 안내를 처음 볼 때 맨 앞 후보를 튜토리얼용 인재(무료)로 바꿈
+  if (S.tut && !S.tut.off && !S.tut.seen?.tal && !cands.some(p => p.free)) Object.assign(cands[0], { fame: 10, skill: 55, integ: 60, rec: [], ban: false, free: 1 });
+  const fee = p => p.free ? 0 : Math.round(3e7 * Math.exp(L.candScore(p) - L.CW.rec * Math.min(3, p.rec.length)) / 1e5) * 1e5;
   openModal({
     title: '인재 영입', wide: 'x', tut: 'tal',
     html: `<p class="muted small">영입비는 후보 점수(역량·청렴·인지도·전과)에 비례하고, 전과가 있으면 더 크게 떨어집니다. 재사용 대기가 끝나기 전(${fdate(S.tal.until)})까지는 창을 닫아도 남은 후보를 행동력·탐색비 없이 이어서 영입할 수 있습니다.</p><div class="filters psort chips" role="group" aria-label="후보 정렬" style="margin-bottom:8px">${T_SORT.map(([k, n]) => `<button class="btn" data-tsort="${k}">${n}</button>`).join('')}</div><div class="acts tal">${cands.map((p, i) => `<div class="act" data-ci="${i}"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job} · ${esc(homeTxt(p))}</p>
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
       <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
-      <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
+      <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${p.free ? '무료' : won(fee(p))})</button></div>`).join('')}</div>
       <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button><span class="push"></span><button class="btn" data-close>닫기</button></div>`,
     // 닫기는 '모두 영입'과 같은 줄에
     // 창을 닫지 않고 여러 명 영입 가능. 영입한 후보는 '영입 완료'로 잠김
@@ -5729,8 +5731,8 @@ const TUT = {
   tal: [
     { modal: 1, at: '#modalRoot .modal > div > p', t: '인재 영입 창', d: '후보 25명이 나왔습니다. 재사용 대기(2턴)가 끝나기 전엔 창을 닫아도 남은 후보를 <b>행동력·탐색비 없이</b> 이어서 영입할 수 있어요.' },
     { modal: 1, at: '#modalRoot [data-tsort="skill"]', tap: 1, t: '정렬', d: '인지도·역량·청렴·가격 순으로 줄 세울 수 있습니다. 같은 버튼을 다시 누르면 순서가 뒤집혀요.', do: '역량 버튼을 눌러 역량이 높은 순으로 정렬해 보세요.' },
-    { modal: 1, at: '#modalRoot .acts.tal .act', t: '후보 카드', d: '<b>인지도</b>가 높으면 선거에서 표를 끌고 당 인지도도 올려 줍니다. <b>역량</b>은 토론·의정·교섭 성패를, <b>청렴</b>은 의혹이 터질 위험을 좌우해요. 전과가 있으면 영입비는 싸지만 선거에서 불리하고, 피선거권이 없으면 공천할 수 없습니다.' },
-    { modal: 1, at: '#modalRoot .acts.tal .act [data-i]', tap: 1, t: '영입하기', d: '영입비는 후보 점수에 비례합니다. 역량 높은 인재는 비싸지만 오래 쓸 수 있어요.', do: '맨 앞 후보의 영입 버튼을 눌러 보세요.' },
+    { modal: 1, at: '#modalRoot [data-ci="0"]', t: '후보 카드', d: '이 사람은 튜토리얼용 인재(인지도 10·역량 55·청렴 60)로, <b>무료</b>로 데려올 수 있어요. <b>인지도</b>가 높으면 선거에서 표를 끌고 당 인지도도 올려 줍니다. <b>역량</b>은 토론·의정·교섭 성패를, <b>청렴</b>은 의혹이 터질 위험을 좌우해요. 전과가 있으면 영입비는 싸지만 선거에서 불리하고, 피선거권이 없으면 공천할 수 없습니다.' },
+    { modal: 1, at: '#modalRoot [data-i="0"]', tap: 1, t: '영입하기', d: '다른 후보의 영입비는 후보 점수에 비례합니다. 역량 높은 인재는 비싸지만 오래 쓸 수 있어요.', do: '튜토리얼용 인재의 무료 영입 버튼을 눌러 보세요.' },
     { modal: 1, at: '#modalRoot [data-all]', t: '남은 후보 모두 영입', d: '자금이 넉넉하면 한 번에 다 데려올 수 있습니다. 인재풀은 최대 350명이고, 영입한 사람은 인재 탭에서 볼 수 있어요.' },
     { modal: 1, at: '#modalRoot [data-close]', tap: 1, t: '창 닫기', d: '필요한 만큼 영입했으면 닫습니다. 영입한 인재는 선거 때 공천하거나, 집권하면 장관으로 지명할 수 있어요.', do: '닫기를 눌러 보세요.' },
   ],
