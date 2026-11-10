@@ -1751,7 +1751,8 @@ function tick() {
 const RIV_GOOD = ['민생 정책 패키지 발표에 호평', '지도부 수해 현장 복구 봉사', '청년 공약 발표에 "참신하다" 평가', '정치개혁안 선제 발표', '소속 의원 세비 인상분 기부 선언'];
 const RIV_GAFFE = ['대변인 논평 "막말" 논란', '지도부 회의 중 내분 고성 생중계', '당직자 음주운전 적발', '청년 비하 발언 녹취 공개', '공천 잡음… 탈당 행렬'];
 // 지역 몫(운 빼고): 전국 득표 × 지역 배율
-const rivShare = (id, k) => natShares()[id] * pf(id, k);
+// 다른 당 선거운동 판단은 발표된 여론조사(지역은 최근 4주 통합)로. 비율로만 쓰므로 지역 지지율 그대로
+const rivShare = (id, k) => pubReg(k, id);
 // 접전도: 그 당 몫과 그 지역에서 가장 센 다른 당 몫이 비슷할수록 1
 const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => rivShare(x, k))); return me > 0 && op > 0 ? Math.exp(-Math.abs(Math.log(me / op)) / 0.3) : 0; };
 // 지역 고르기: 선거운동기간엔 (선거인 × 접전도), 평소엔 (선거인 × 그 당 지역 강세 × 신뢰 낮은 곳 다지기) 가중 무작위
@@ -3065,7 +3066,7 @@ function negOdds(kind, id, mp) {
   if (id in S.rel) p += add('당 관계', S.rel[id] / (mp ? 400 : 250));
   if (mp) {
     p += add('개인 친분', mp.rel / 200);
-    if (join && id) { p += add('당 충성도', -(mp.loyalty - 50) / 200); p += add('지지율 격차', clamp((S.support - poll()[id]) / 100, -0.2, 0.2)); }
+    if (join && id) { p += add('당 충성도', -(mp.loyalty - 50) / 200); p += add('지지율 격차', clamp((S.pub.P - S.pub[id]) / 100, -0.2, 0.2)); }
     if (kind === 'outBack' || kind === 'outJoin') p += add('상대 체급', -(mp.fame - 25) / 250);
   } else {
     p += add('체급 차이', clamp((seatTotal('P') - seatTotal(id)) / 300, -0.25, 0.1));
@@ -4108,7 +4109,7 @@ const EVENTS = [
     ch: [{ t: '청소년 당원 프로그램 운영', s: '비용 1천만', run: () => { spend(1e7, '활동'); const k = pick(R).k, n = Math.round(rr(300, 900) * (S.up.youth ? 1.6 : 1)); S.members[k] += n; return `${RK[k].n} 등에서 청소년 당원 ${n}명이 입당했습니다.`; } },
       { t: '보류', run: () => '보류했습니다.' }] },
   ...SMEARS,
-  { id: 'defect', w: 2, cond: () => seatTotal('P') > 0 && S.support < 8, title: '소속 의원 탈당 움직임',
+  { id: 'defect', w: 2, cond: () => seatTotal('P') > 0 && S.pub.P < 8, // 의원들은 여론조사를 보고 동요 title: '소속 의원 탈당 움직임',
     body: () => '지지율 부진에 실망한 소속 의원이 탈당을 고민 중입니다.', note: '지역구 의원은 탈당해도 의원직을 유지하지만, 비례대표 의원은 스스로 탈당하면 물러나고 다음 순번이 승계합니다.',
     ch: [{ t: '설득한다', s: '비용 3천만, 성공 60%', run: () => { spend(3e7, '활동'); if (rnd() < 0.6) return '설득에 성공했습니다.'; defectOne(); return '설득에 실패해 의원이 탈당했습니다.'; } },
       { t: '붙잡지 않는다', run: () => { defectOne(); S.trust -= 1; return '의원이 탈당했습니다.'; } }] },
@@ -5880,7 +5881,7 @@ setInterval(() => {
   if (!S || modalOpen) return;
   // 대선 선거운동기간에 우리가 앞서면 작은 당(푸른내일당·반석당)이 단일화를 제안. 당마다 한 번, 한 번에 하나씩
   for (const c of activeCamps()) if (c.type === 'pres' && !uniId(c)) {
-    const asked = c.uniAsk ??= c.unifyAsked ? ['C'] : [], id = ['C', 'D'].find(x => c.rivals[x] && !asked.includes(x) && !(x === 'D' && S.party.ideo > 0) && !(x === 'C' && S.party.ideo < 0) && S.support > poll()[x]); // 반석당(보수)은 진보, 푸른내일당(중도진보)은 보수 정당과 단일화하지 않음
+    const asked = c.uniAsk ??= c.unifyAsked ? ['C'] : [], id = ['C', 'D'].find(x => c.rivals[x] && !asked.includes(x) && !(x === 'D' && S.party.ideo > 0) && !(x === 'C' && S.party.ideo < 0) && S.pub.P > S.pub[x]); // 반석당(보수)은 진보, 푸른내일당(중도진보)은 보수 정당과 단일화하지 않음
     if (id) { asked.push(id); S.queue.push({ ev: 'unify', key: c.key, id }); }
   }
 }, 1000);
