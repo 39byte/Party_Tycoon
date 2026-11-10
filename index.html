@@ -1008,7 +1008,7 @@ function newState(f) {
     v: 1, day: 0, diff: f.diff, party: { name: f.name, color: f.color, ideo: +f.ideo, slogan: f.slogan, home: f.home },
     phase: 'prep', regDay: null, money: { easy: 6e8, normal: 3e8, hard: 1.5e8 }[f.diff],
     fame: 2, support: 0.3, buzz: 0, rw: { A: 35 + gauss() * 2.5, B: 37 + gauss() * 2.5, C: 8.3 + gauss() * 0.8, D: 8.6 + gauss() * 0.8, O: 3 }, // 게임마다 조금씩 달라서 게임 전 대선 결과가 한쪽으로 쏠리지 않음 rfame: Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])),
-    members: Object.fromEntries(R.map(r => [r.k, 0])), chapters: {}, up: {}, cd: {},
+    members: Object.fromEntries(R.map(r => [r.k, r.k === f.home ? LAW.founders : 0])), chapters: {}, up: {}, cd: {},
     lean: Object.fromEntries(R.map(r => [r.k, +clamp(r.lean + gauss() * r.sw, -1, 1).toFixed(3)])), // 지역 성향을 게임마다 조금씩 다르게 → 기존 국회·지사·게임 전 대선과 이후 지역 지지율 모두 반영
     seats: {}, gov: {}, president: { party: 'O', name: '', since: -200, appr: 50 } /* 게임 전 대선 전까지 자리만(인재풀을 내각으로 빼가지 않게) */, lastVotes: { A: 0.36, B: 0.37, C: 0.12, D: 0.1, P: 0 },
     everNat: false, lastPart: null, pool: [], nid: 1, camps: {}, done: {}, results: [], hist: [], log: [], risks: [],
@@ -1017,7 +1017,6 @@ function newState(f) {
   };
   migrate(S);
   S.tut = { seq: 'main', i: 0, open: {}, q: [], off: false }; // 튜토리얼·탭 잠금(새 게임만)
-  S.members[f.home] = LAW.founders;
   S.pool.push({ id: 0, leader: true, name: f.leader, gender: f.gender, age: +f.age, job: '당 대표', fame: 5, skill: 62, integ: 75, rec: [], ban: false, role: '', home: f.home }); // 대표는 창당 지역 출신
   for (const id of ['P', 'A', 'B', 'C', 'D', 'O']) S.seats[id] = { d: {}, pr: 0 };
   // 기존 국회·지자체 구성(가상): 플레이어 없이 한 번 시뮬레이션
@@ -1031,7 +1030,7 @@ function newState(f) {
   S.mps = genMPs(S);
   for (let i = 0; i < 3; i++) S.pool.push(genPerson());
   addLog(`${S.party.name} 중앙당창당준비위원회 결성 신고 완료 (발기인 ${LAW.founders}명, 정당법 제6조). 6개월 안에 창당을 마쳐야 합니다.`, 'ok');
-  S.hist.push(snapPoll());
+  pollTake(); S.hist.push(snapPoll());
   S.news = makeNews();
 }
 // 저장 파일 호환: 나중에 추가된 필드 채우기
@@ -1100,10 +1099,20 @@ function migrate(o) {
   if ('autoGov' in o) { if (o.autoGov) o.autoK = Object.fromEntries(Object.keys(o.ops || {}).map(k => [k, 1])); delete o.autoGov; } // 옛 저장: 전체 자동화 → 지사별
   if (!o.rtrust) { const t = o.trust ?? 50; delete o.trust; o.rtrust = Object.fromEntries(R.map(r => [r.k, t])); }
   defTrust(o); o.rsup ??= {};
-  o.rsr ??= {}; for (const id of TR_IDS) o.rsr[id] ??= {}; // 다른 당 지역 지지율(우리 당 rsup과 같은 방식)
   o.rtr ??= Object.fromEntries(TR_IDS.map(id => [id, Object.fromEntries(R.map(r => [r.k, 50]))]));
   o.rfame ??= Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])); // 옛 저장: 다른 당 인지도
   o.rtr.D ??= Object.fromEntries(R.map(r => [r.k, 50])); if (o.rw) o.rw.D ??= RIV.D.base; if (o.lastVotes) o.lastVotes.D ??= 0; if (o.seats?.A) o.seats.D ??= { d: {}, pr: 0 }; // 옛 저장: 반석당은 원외로 시작
+  if (!o.rwr || !o.pub) { // 지역 진짜 지지율이 없으면(옛 저장·새 게임) 전국 값(support·rw)을 지역 배율대로 나눠 만듦
+    const prev = S; S = o; // regFacs가 S를 읽으므로 잠시 바꿔 끼움
+    try {
+      if (!o.rwr) {
+        o.rwr = Object.fromEntries(RW_IDS.map(id => { const F = id === 'O' ? null : regFacs(id, false); return [id, Object.fromEntries(R.map(r => [r.k, (o.rw?.[id] ?? RIV[id].base) * (F ? F[r.k] : 1)]))]; }));
+        const FP = regFacs('P', false); for (const r of R) o.rsup[r.k] ??= (o.support ?? 0.3) * FP[r.k];
+        delete o.rsr; delete o.support; delete o.rw;
+      }
+      defSup(o); if (!o.pub) pollTake();
+    } finally { S = prev; }
+  } else defSup(o);
   // 옛 저장 파일: 예전 등록 마감(대선·총선 23일, 지선 19일 전)으로 이미 정산한 공천은 다시 정산하지 않음
   for (const c of Object.values(o.camps || {})) c.settled ??= c.day - o.day < { pres: 23, nat: 23, gov: 19 }[c.type] - 1;
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; if (!o.passed2) { // 옛 저장 파일: 당 기록의 '… 국회 통과' 줄에서 모든 당의 통과 법안을 되살림
@@ -1159,16 +1168,44 @@ function earn(n, cat) { S.money += n; S.ledger.cur[cat] = (S.ledger.cur[cat] || 
 function spend(n, cat) { S.money -= n; S.ledger.cur[cat] = (S.ledger.cur[cat] || 0) - n; }
 
 // ---------- 여론 ----------
-const undecided = () => clamp(24 - S.support * 0.3, 8, 30);
-function poll() {
-  const p = S.support, U = undecided(), rest = Math.max(0, 100 - p - U), w = S.rw, ws = w.A + w.B + w.C + w.D + w.O;
-  return { P: p, A: rest * w.A / ws, B: rest * w.B / ws, C: rest * w.C / ws, D: rest * w.D / ws, O: rest * w.O / ws, U };
+// 진짜 민심(플레이어에겐 안 보임): 시·도마다 우리 당 지지율 S.rsup[지역]과 다른 당 지지 무게 S.rwr[당][지역]이 원본.
+// 지역 여론 = 우리 당 · 무당층(그 지역 우리 당 지지율로 정함) · 나머지를 다른 당 무게대로. 전국 = 모든 유권자를 조사한 값(지역을 선거인 수로 가중 평균)
+const RW_IDS = ['A', 'B', 'C', 'D', 'O'], QIDS = ['P', ...RW_IDS, 'U'];
+function regPoll(k) {
+  const p = S.rsup[k], U = clamp(24 - p * 0.3, 8, 30), rest = Math.max(0, 100 - p - U), ws = sum(RW_IDS.map(id => S.rwr[id][k]));
+  return { P: p, U, ...Object.fromEntries(RW_IDS.map(id => [id, rest * S.rwr[id][k] / ws])) };
 }
+const vAvg = f => sum(R.map(r => f(r.k) * r.voters)) / VSUM;
+function poll() { const qs = Object.fromEntries(R.map(r => [r.k, regPoll(r.k)])); return Object.fromEntries(QIDS.map(id => [id, vAvg(k => qs[k][id])])); }
+// S.support·S.rw[당]은 전국 값을 읽는 창구(저장 안 함). 값을 바꾸면(전국 사건) 모든 지역이 같은 비율로 움직임
+function defSup(o) {
+  Object.defineProperty(o, 'support', { configurable: true, enumerable: false, get: () => vAvg(k => o.rsup[k]) });
+  const rw = {};
+  for (const id of RW_IDS) Object.defineProperty(rw, id, { enumerable: true, get: () => vAvg(k => o.rwr[id][k]), set(v) { const m = Math.max(0.5, v) / rw[id]; for (const r of R) o.rwr[id][r.k] *= m; } });
+  Object.defineProperty(o, 'rw', { configurable: true, enumerable: false, value: rw });
+}
+// 발표 여론조사(플레이어가 보는 값): 매주 진짜 민심에서 1,000명을 시·도 선거인 비례로 뽑아 물음(무작위 표본 → 표본오차).
+// 전국 = 이번 주 지역 표본을 선거인 비중으로 가중, 지역 = 최근 4주 표본을 합친 값(실제 조사의 월간 통합처럼. 그래도 작은 시·도는 크게 출렁임)
+const POLL_N = 1000, POLL_POOL = 4;
+function pollTake() {
+  const wk = Object.fromEntries(R.map(r => {
+    const q = regPoll(r.k), c = Object.fromEntries(QIDS.map(id => [id, 0]));
+    for (let i = Math.max(1, Math.round(POLL_N * r.voters / VSUM)); i > 0; i--) { let x = rnd() * 100; c[QIDS.find(id => (x -= q[id]) < 0) ?? 'U']++; }
+    return [r.k, c];
+  }));
+  S.pubs = [...(S.pubs || []), wk].slice(-POLL_POOL);
+  const pct = c => { const n = sum(QIDS.map(id => c[id])); return Object.fromEntries([...QIDS.map(id => [id, c[id] / n * 100]), ['n', n]]); };
+  const now = Object.fromEntries(R.map(r => [r.k, pct(wk[r.k])]));
+  S.pub = { d: S.day, ...Object.fromEntries(QIDS.map(id => [id, vAvg(k => now[k][id])])),
+    reg: Object.fromEntries(R.map(r => [r.k, pct(Object.fromEntries(QIDS.map(id => [id, sum(S.pubs.map(w => w[r.k][id]))])))])) };
+}
+const pubReg = (k, id = 'P') => S.pub.reg[k][id];
+// 95% 신뢰수준 표본오차(%p)
+const pubErr = (p, n) => 196 * Math.sqrt(Math.max(p, 1) / 100 * (1 - p / 100) / n);
 function natShares() { const q = poll(), s = q.P + q.A + q.B + q.C + q.D + q.O; return { P: q.P / s, A: q.A / s, B: q.B / s, C: q.C / s, D: q.D / s, O: q.O / s }; }
-const snapPoll = () => { const q = poll(); return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1), pa: S.president.acting ? null : +S.president.appr.toFixed(1), ps: S.president.since }; };
+const snapPoll = () => { const q = S.pub; return { d: S.day, P: +q.P.toFixed(1), A: +q.A.toFixed(1), B: +q.B.toFixed(1), C: +q.C.toFixed(1), D: +q.D.toFixed(1), pa: S.president.acting ? null : +S.president.appr.toFixed(1), ps: S.president.since }; };
 const ideoOf = id => id === 'P' ? S.party.ideo : RIV[id].ideo;
-const natSup = id => id === 'P' ? S.support : poll()[id];
-const supMap = id => id === 'P' ? S.rsup : S.rsr[id];
+const natSup = id => poll()[id];
 const VSUM = sum(R.map(r => r.voters));
 // 지역 배율 표(모든 당 같은 식): 지역 성향 궁합 + 당원 조직·시·도당(당원 데이터는 우리 당만 있음) × 지역 신뢰
 // gov면 현직 지사 효과(+0.15 + (행정 지지도 − 기준값)/200, 권한대행 중엔 없음)를 더함
@@ -1189,16 +1226,14 @@ function regFacs(id, gov = true) {
     return [k, f];
   })));
 }
-const regFactor = (k, id = 'P') => regFacs(id)[k];
 // 행정 지지도 기준값 = 그 지역 소속 정당 지지율(지사 효과 제외). 새 단체장은 득표율에서 시작하고, 가만두면 여기로 돌아감. 무소속은 정당 지지율이 없어 50
 const opsBase = (id, k) => id === 'O' ? 50 : clamp(natSup(id) * regFacs(id, false)[k], 5, 95);
 function pf(id, k) {
   if (id === 'O') return 1;
-  // 지역 지지율의 출렁임이 선거에도 반영
-  const nat = natSup(id), cur = supMap(id)?.[k];
-  return cur != null && nat > 0 ? cur / nat : regFactor(k, id);
+  const nat = natSup(id);
+  return nat > 0 ? regSupport(k, id) / nat : 1;
 }
-const regSupport = (k, id = 'P') => supMap(id)?.[k] ?? natSup(id) * regFactor(k, id);
+const regSupport = (k, id = 'P') => regPoll(k)[id];
 // 행정 지지도 상승 억제: 시작점 = 90 − 그 지역에서 단체장 당과 노선이 반대인 정당 지지율 합. 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
 // 다른 당 지사는 시작점 +5(조금 덜 억제)
 const opsSoft = (id, k) => {
@@ -1597,21 +1632,17 @@ function daily() {
   const target = (S.fame / 100) * (0.25 + 0.75 * S.trust / 100) * 40 + seats / 300 * 8 + S.buzz + honey + Math.min(3, S.laws.length * 0.3);
   // 밸런스: 목표치로 따라가는 속도를 오를 땐 SUP_UP배, 내릴 땐 SUP_DOWN배. 화제성(buzz)은 매일 식으므로 일시적 호재는 덜 오르고 악재는 더 깊게 반영됨
   const SUP_UP = 0.6, SUP_DOWN = 1.5;
-  S.support = clamp(S.support + (target - S.support) * 0.03 * (target > S.support ? SUP_UP : SUP_DOWN), 0.1, 70);
-  for (const id of ['A', 'B', 'C', 'D', 'O']) {
+  // 진짜 지지율은 지역마다 움직임: 지역 목표치 = 전국 목표치 × 지역 배율(regFacs, 모든 당 같은 규칙). 신뢰도 낮은 지역은 덜 오르고 더 떨어지며, 높은 지역은 덜 떨어짐
+  const FP = regFacs('P');
+  for (const r of R) { const k = r.k, t = target * FP[k], cur = S.rsup[k]; S.rsup[k] = clamp(cur + (t - cur) * 0.03 * (t > cur ? SUP_UP * lowTrust(S.rtrust[k]) : SUP_DOWN * trustFall(S.rtrust[k])), 0.05, 85); }
+  for (const id of RW_IDS) {
     // 신뢰도는 우리 당 지지율 식과 같은 비율로 기준 지지를 끌어올리거나 깎음(신뢰 50이면 그대로, 0이면 0.4배, 100이면 1.6배)
     // 인지도도 우리 당처럼 비례로 곱함(RIV.fame일 때 그대로)
     let base = RIV[id].base * (id === 'O' ? 1 : (0.25 + 0.75 * trAvg(id) / 100) / 0.625 * S.rfame[id] / RIV[id].fame);
     if (S.president.party === id) base += (S.president.appr - apprBase(id)) * 0.4; // 국정 지지율이 기준보다 낮으면(레임덕·악재) 여당 지지도 함께 빠짐
-    S.rw[id] = clamp(S.rw[id] + (base - S.rw[id]) * 0.01 + gauss() * 0.12 * (RIV[id].vol || 1), 1, 60);
-  }
-  // 지역 지지율은 그 지역 목표치(전국 지지율 × 지역 배율)를 따라감(모든 당 같은 규칙). 신뢰도 낮은 지역은 덜 오르고 더 떨어지며, 높은 지역은 덜 떨어짐
-  for (const id of ['P', ...TR_IDS]) {
-    const F = regFacs(id), nat = natSup(id), m = supMap(id), tm = trMap(id);
-    for (const r of R) {
-      const t = nat * F[r.k], cur = m[r.k] ?? t;
-      m[r.k] = cur + (t - cur) * 0.05 * (t > cur ? lowTrust(tm[r.k]) : trustFall(tm[r.k]));
-    }
+    // 출렁임: 전국 공통(sh) + 지역 잡음. 무소속은 지역 배율 없이 고르게
+    const F = id === 'O' ? null : regFacs(id), tm = trMap(id), w = S.rwr[id], sh = gauss() * 0.12 * (RIV[id].vol || 1);
+    for (const r of R) { const k = r.k, f = F ? F[k] : 1, t = base * f, cur = w[k]; w[k] = clamp(cur + (t - cur) * 0.01 * (!F ? 1 : t > cur ? lowTrust(tm[k]) : trustFall(tm[k])) + (sh + gauss() * 0.05) * f, 0.3, 80); }
   }
 }
 function monthly(dt) {
@@ -1760,7 +1791,7 @@ function rivalWeek() {
 // 초청 대상: 국회 5석 이상 정당·직전 비례 득표 3% 이상 정당·여론조사 5% 이상(무소속은 초청 외). 초청 외 후보는 첫 토론일 '초청 외 토론회'에 한 번(시청자가 적어 효과 절반)
 const DEB_DAYS = { pres: [21, 14, 8], gov: [14], nat: [14] }, DEB_UP = 0.035, DEB_DOWN = -0.02;
 const DEB_OUT = '<p class="tip">우리 후보는 초청 대상(국회 5석·직전 비례 3%·여론조사 5% 중 하나)이 아니라 초청 외 토론회에만 나갔습니다.</p>';
-const debInvited = id => id !== 'O' && (seatTotal(id) >= 5 || (S.lastVotes[id] || 0) >= 0.03 || poll()[id] >= 5);
+const debInvited = id => id !== 'O' && (seatTotal(id) >= 5 || (S.lastVotes[id] || 0) >= 0.03 || S.pub[id] >= 5); // 초청 기준은 발표된 여론조사
 // 토론 자리: [자리 키(득표 계산의 race와 같음), [[당, 후보]…]]
 function debRaces(c) {
   if (c.type === 'pres') return [['pres', [...Object.keys(c.rivals).filter(id => id !== uniId(c)).map(id => [id, fig(c.rivals[id].fid) || c.rivals[id]]), ...(c.reg?.cand ? [['P', live(c.reg.cand)]] : [])]]];
@@ -1818,7 +1849,7 @@ function endTurn(sure) {
   Snd.sfx('click');
   // 권한 요청은 사용자 입력 중에만 됨. 이미 허용됐으면 창 없이 넘어감
   if (saveDir) saveDir.requestPermission({ mode: 'readwrite' }).catch(() => { });
-  turnStart = { day: S.day, money: S.money, mem: totalMembers(), sup: poll().P };
+  turnStart = { day: S.day, money: S.money, mem: totalMembers(), sup: S.pub.P };
   if (anyAuto()) autoGov();
   left = TURN; runTurn();
 }
@@ -1831,7 +1862,7 @@ function runTurn() {
     tick(); left--;
     if (!left) {
       S.ap = apMax(); S.aap = aapMax(); turnStart.notes = billStep();
-      S.hist.push(snapPoll()); if (S.hist.length > 260) S.hist.shift(); // 지지율 추이: 매주(옛 저장 파일은 그 전까지 월별)
+      pollTake(); S.hist.push(snapPoll()); if (S.hist.length > 260) S.hist.shift(); // 지지율 추이: 매주(옛 저장 파일은 그 전까지 월별)
       if (turnNo() % 3 === 0) outFill(S, 1); // 교섭 명단 밖 원외 인사는 3턴마다 새 얼굴로
       if (turnNo() % 2 === 0) S.issue = pick(ISSUES.filter(i => i.k !== S.issue)).k; // 쟁점은 2턴마다 반드시 다른 분야로. 플레이어에겐 뉴스로만 드러남
       turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews(); rgovRun();
@@ -1873,7 +1904,7 @@ const addAlerts = ks => { for (const k of ks) { const a = S.alerts[isNeg(k) ? 'n
 let shownTab = null, fresh = []; // 이번에 들어온 탭에서 방금 확인한 알림(카드에 '다시 가능' 표시)
 // 브리핑은 소식 탭에서 다시 볼 수 있게 남겨 둠(최근 2년)
 function brief(t) {
-  const r = { d: S.day, news: S.news, notes: t.notes, dm: S.money - t.money, dmem: totalMembers() - t.mem, dsup: poll().P - t.sup };
+  const r = { d: S.day, news: S.news, notes: t.notes, dm: S.money - t.money, dmem: totalMembers() - t.mem, dsup: S.pub.P - t.sup };
   S.briefs.push(r); if (S.briefs.length > 104) S.briefs.shift(); save();
   const wk = S.wire.filter(x => x.d > S.day - TURN);
   const pol = Object.entries(WIRE_C).map(([c, n]) => { const ls = [...wk.filter(x => x.c === c).map(x => x.t), ...(c === 'hall' ? t.notes : [])];
@@ -4575,7 +4606,7 @@ function renderAll() { if (!S) return; renderTop(); renderPanel(); renderNav(); 
 function renderTop() {
   if (!S) return;
   document.documentElement.style.setProperty('--party', S.party.color);
-  const ne = nextElection(), q = poll(), ban = pollBanned();
+  const ne = nextElection(), q = S.pub, ban = pollBanned();
   const st = (v, l, cls = '', ic = 'i-chart') => `<div class="stat">${icon(ic)}<b class="num ${cls}">${v}</b><span>${l}</span></div>`;
   // 버튼은 한 번만 만들고 숫자만 갱신 (매 틱 다시 그리면 빠른 속도에서 클릭이 씹힘)
   if (!$('#stats')) {
@@ -4823,7 +4854,7 @@ function partyEdit() {
     } });
 }
 function pHome() {
-  const q = poll(), ban = pollBanned();
+  const q = S.pub, ban = pollBanned();
   let status;
   if (S.phase === 'prep') {
     const ok = chaptersOk(), left = LAW.prepDays - S.day;
@@ -4857,7 +4888,7 @@ function pHome() {
         <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (주별)</h2>${pollChart(ban)}</div>
         <div class="card" style="flex:1 1 200px;margin-top:0"><h2>현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
           ${['P', 'B', 'A', 'C', 'D', 'O'].filter(id => !ban || id === 'P').sort((a, b) => q[b] - q[a]).map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
-          ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}</div>
+          ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}<div class="small muted">매주 ${nf(POLL_N)}명 무작위 조사 · 95% 신뢰수준 ±${pubErr(50, POLL_N).toFixed(1)}%p</div></div>
       </div>
       ${S.figs.length || S.outs.length ? `<div class="card dircard" style="order:7">${dirCard()}</div>` : ''}
     </div>
@@ -4904,14 +4935,14 @@ function pollChart(ban) {
 }
 function pOrg() {
   const r = RK[selReg], cs = activeCamps().length > 0, c = S.party.color;
-  const sps = R.map(x => regSupport(x.k)), lo = Math.min(...sps), hi = Math.max(...sps, lo + 1);
+  const sps = R.map(x => pubReg(x.k)), lo = Math.min(...sps), hi = Math.max(...sps, lo + 1);
   // 지도: 우리 당 지지가 높을수록 당 색이 진함. 깃발 = 시·도당, 별 = 창당 본거지
   const kmap = ART.map({
     sel: selReg, click: true, vb: mapVB, cls: 'zoom' + (mapVB ? ' zoomed' : ''),
     // 지역끼리 비교가 보이게 가장 낮은 곳~높은 곳을 15~90%로 펼침
-    fill: k => `color-mix(in srgb,${c} ${Math.round(15 + (regSupport(k) - lo) / (hi - lo) * 75)}%,var(--land))`,
-    label: k => regSupport(k).toFixed(0) + '%',
-    aria: k => `${RK[k].n} 지지 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명${S.chapters[k] ? ' · 시·도당' : ''}${byeInfo(k) ? ' · ' + byeInfo(k) : ''}`,
+    fill: k => `color-mix(in srgb,${c} ${Math.round(15 + (pubReg(k) - lo) / (hi - lo) * 75)}%,var(--land))`,
+    label: k => pubReg(k).toFixed(0) + '%',
+    aria: k => `${RK[k].n} 지지 ${pubReg(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명${S.chapters[k] ? ' · 시·도당' : ''}${byeInfo(k) ? ' · ' + byeInfo(k) : ''}`,
     mark: k => (S.chapters[k] ? `<path class="mk" d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/>` : '') + (byeInfo(k) ? '<path class="mk" d="M24 -80l7 7-7 7-7-7z" style="fill:var(--warn)"/>' : '') + (k === S.party.home ? `<path class="mk" d="M-30 -74l3.5 7 7.6 1.1-5.5 5.4 1.3 7.6-6.9-3.6-6.9 3.6 1.3-7.6-5.5-5.4 7.6-1.1z" style="fill:var(--gold)"/>` : ''),
   });
   const ln = leanOf(r), leanTxt = ln > 0.4 ? '진보 강세' : ln > 0.08 ? '진보 우세' : ln < -0.4 ? '보수 강세' : ln < -0.08 ? '보수 우세' : '경합';
@@ -4922,9 +4953,9 @@ function pOrg() {
       <div class="split2 regkv"><div><table class="kv"><tbody>
         <tr><th>선거인 수</th><td class="num">약 ${nf(Math.round(r.voters * 100))}만 명</td></tr>
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
-        <tr><th>우리 당 지지</th><td class="num">${regSupport(r.k).toFixed(1)}%</td></tr>
+        <tr><th>우리 당 지지</th><td class="num">${pubReg(r.k).toFixed(1)}% <span class="muted small">±${pubErr(pubReg(r.k), S.pub.reg[r.k].n).toFixed(1)}%p</span><div class="muted small">최근 4주 여론조사 · ${nf(S.pub.reg[r.k].n)}명</div></td></tr>
         <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
-        <tr><th>다른 당 지지</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${regSupport(r.k, id).toFixed(1)}%</span>`).join('')}</div></td></tr>
+        <tr><th>다른 당 지지</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${pubReg(r.k, id).toFixed(1)}%</span>`).join('')}</div></td></tr>
       </tbody></table></div><div><table class="kv"><tbody>
         <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
         <tr><th>시·도당</th><td>${S.chapters[r.k] ? '<b class="ok">등록됨</b>' : '미창당'}</td></tr>
@@ -5102,7 +5133,7 @@ function nomForm(c) {
   const twoCol = (head, rows) => { const h = Math.ceil(rows.length / 2), t = rs => `<div class="tblwrap"><table><thead><tr>${head}</tr></thead><tbody>${rs.join('')}</tbody></table></div>`;
     return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));gap:12px;align-items:start">${t(rows.slice(0, h))}${t(rows.slice(h))}</div>`; };
   if (c.type === 'nat') {
-    return `${top}${twoCol('<th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th>', R_ADM.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r">${r.seats}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td>
+    return `${top}${twoCol('<th>지역</th><th class="r">의석</th><th class="r">우리 지지</th><th>출마 지역구 수</th><th>지역구 후보</th><th>선거비용(1곳당)</th>', R_ADM.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r">${r.seats}</td><td class="r num">${pubReg(r.k).toFixed(1)}%</td>
       <td><input type="number" min="0" max="${r.seats}" value="${x.n}" ${a} data-k="${r.k}" data-f="n" aria-label="${r.n} 출마 수"></td>
       <td>${x.ids.length ? `<button class="btn nomb" data-distc="${c.key}" data-distk="${r.k}">${x.ids.length}명 보기·변경</button>` : '<span class="muted small">-</span>'}</td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${NAT_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr>`; }))}
@@ -5115,13 +5146,13 @@ function nomForm(c) {
       <p class="tip">홀수 순번은 여성으로 자동 배치됩니다(공직선거법 제47조 제3항, 위반 시 등록무효 제52조). 지역구 후보로 정한 인재는 목록에서 빠집니다(중복 입후보 불가). 고르지 않은 순번은 남는 인재로 채웁니다.</p></fieldset>`;
   }
   if (c.type === 'gov') {
-    return `${top}${twoCol('<th>지역</th><th class="r">우리 지지</th><th>출마</th><th>후보</th><th>선거비용</th>', R_ADM.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r num">${regSupport(r.k).toFixed(1)}%</td><td><input type="checkbox" ${a} data-k="${r.k}" data-f="run" ${x.run ? 'checked' : ''} aria-label="${r.n} 출마"></td>
+    return `${top}${twoCol('<th>지역</th><th class="r">우리 지지</th><th>출마</th><th>후보</th><th>선거비용</th>', R_ADM.map(r => { const x = d.reg[r.k]; return `<tr><td>${r.n}</td><td class="r num">${pubReg(r.k).toFixed(1)}%</td><td><input type="checkbox" ${a} data-k="${r.k}" data-f="run" ${x.run ? 'checked' : ''} aria-label="${r.n} 출마"></td>
       <td>${x.run ? `<button class="btn nomb" data-distc="${c.key}" data-distk="${r.k}">보기·변경</button>${(q => q && nomTag(q, c) ? ` <span class="pill warn">${nomTag(q, c)}</span>` : '')(person(x.cand))}` : '<span class="muted small">-</span>'}</td>
       <td><select ${a} data-k="${r.k}" data-f="spend" aria-label="${r.n} 선거비용">${GOV_SPEND.map((s, i) => `<option value="${i}" ${x.spend == i ? 'selected' : ''}>${s.n} ${won(govLimit(r.k) * s.f)}</option>`).join('')}</select></td></tr>`; }))}
       <p class="tip">후보는 인재풀에서만 나옵니다. 출마를 고르면 남는 인재(당 대표·대통령·다른 선거 현직 제외)가 무작위로 들어가니, '보기·변경'에서 직접 바꾸거나 '자동 배치'를 누르세요. 다른 지역에 있는 사람을 고르면 두 지역이 맞바뀝니다. 인재가 모자라면 등록할 수 없습니다.</p><p class="tip">시·도지사 기탁금 5,000만원. '최대'는 선거비용제한액 수준입니다.</p><p class="tip">현직 국회의원도 후보가 될 수 있지만, 등록하는 순간 의원직을 사직하고 그 지역구는 보궐선거를 치릅니다(자동 배치에서는 제외). 지방선거 후보 등록 전에 사직하면 보궐선거를 이 선거와 같은 날 치르고, 늦으면 다음 4월로 미뤄집니다.</p>`;
   }
   const pc0 = S.pool.find(p => p.id === d.cand);
-  return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">우리 지지</th><th>후보 (당내 경선)</th><th>선거비용</th></tr></thead><tbody><tr><td>전국</td><td class="r num">${S.support.toFixed(1)}%</td>
+  return `${top}<div class="tblwrap"><table><thead><tr><th>지역</th><th class="r">우리 지지</th><th>후보 (당내 경선)</th><th>선거비용</th></tr></thead><tbody><tr><td>전국</td><td class="r num">${S.pub.P.toFixed(1)}%</td>
       <td><button class="btn nomb" data-distc="${c.key}">${pc0 ? `${esc(pc0.name)} · ` : ''}보기·변경</button></td>
       <td><select ${a} data-f="spend" aria-label="선거비용">${PRES_SPEND.map((s, i) => `<option value="${i}" ${d.spend == i ? 'selected' : ''}>${s.n} ${won(s.c)}</option>`).join('')}</select></td></tr></tbody></table></div>
     <p class="tip">대통령 후보는 만 40세 이상(헌법 제67조)이고, 경선 탈락자는 같은 선거에 출마할 수 없습니다(공직선거법 제57조의2). 단임이라 현직·전직 대통령은 나갈 수 없습니다(헌법 제70조). 선거비용은 선거비용제한액(약 588억) 이내입니다.</p>
@@ -5343,7 +5374,7 @@ function pAdmin() {
   if (rOpen?.k !== k) rOpen = k && { k, seen: S.rseen[k] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
-  const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'}${S.gact?.[k] ? ' · <b class="warn">권한대행 체제</b>' : ''} · 우리 당 지역 지지율 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
+  const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'}${S.gact?.[k] ? ' · <b class="warn">권한대행 체제</b>' : ''} · 우리 당 지역 지지율 ${pubReg(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 좌: 지역 현안·행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
   return `${govMapCard()}<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식</h2>
     <div class="filters chips" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
