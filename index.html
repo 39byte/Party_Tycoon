@@ -973,7 +973,9 @@ const ideoFit = (i, l) => i === 0 ? 1.05 - 0.4 * Math.abs(l) : Math.max(0.3, 1 +
 // 선거인 × w(지역) 가중 무작위 지역
 const wRegion = w => { const ws = R.map(r => r.voters * w(r)); let x = rnd() * sum(ws); return R.find((r, i) => (x -= ws[i]) < 0) || R[0]; };
 // 우리 인재 출신 지역: 인구 비율 × 노선 궁합(진보 정당이면 진보 성향 지역 출신이 더 많음)
-const homePick = ideo => wRegion(r => ideoFit(ideo, r.lean)).k;
+// 이번 게임의 지역 성향: 새 게임 때 역대 출렁임(r.sw)만큼 흔든 값. 옛 저장·게임 전 화면은 기본값
+const leanOf = r => S?.lean?.[r.k] ?? r.lean;
+const homePick = ideo => wRegion(r => ideoFit(ideo, leanOf(r))).k;
 // 출신 지역: 우리 인재는 home, 다른 당 인물은 지역구·출마 지역(k)
 const homeOf = p => p?.home ?? p?.k;
 const homeTxt = p => homeOf(p) && RK[homeOf(p)] ? `${RK[homeOf(p)].n} 출신` : '';
@@ -1007,6 +1009,7 @@ function newState(f) {
     phase: 'prep', regDay: null, money: { easy: 6e8, normal: 3e8, hard: 1.5e8 }[f.diff],
     fame: 2, support: 0.3, buzz: 0, rw: { A: 35 + gauss() * 2.5, B: 37 + gauss() * 2.5, C: 8.3 + gauss() * 0.8, D: 8.6 + gauss() * 0.8, O: 3 }, // 게임마다 조금씩 달라서 게임 전 대선 결과가 한쪽으로 쏠리지 않음 rfame: Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])),
     members: Object.fromEntries(R.map(r => [r.k, 0])), chapters: {}, up: {}, cd: {},
+    lean: Object.fromEntries(R.map(r => [r.k, +clamp(r.lean + gauss() * r.sw, -1, 1).toFixed(3)])), // 지역 성향을 게임마다 조금씩 다르게 → 기존 국회·지사·게임 전 대선과 이후 지역 지지율 모두 반영
     seats: {}, gov: {}, president: { party: 'O', name: '', since: -200, appr: 50 } /* 게임 전 대선 전까지 자리만(인재풀을 내각으로 빼가지 않게) */, lastVotes: { A: 0.36, B: 0.37, C: 0.12, D: 0.1, P: 0 },
     everNat: false, lastPart: null, pool: [], nid: 1, camps: {}, done: {}, results: [], hist: [], log: [], risks: [],
     pending: [], queue: [], ach: {}, ap: AP, issue: 'econ', fund: { year: 2026, raised: 0 }, ledger: { cur: {}, last: {} },
@@ -1174,7 +1177,7 @@ function regFacs(id, gov = true) {
   const ta = 0.25 + 0.75 * trAvg(id) / 100, tm = trMap(id);
   const norm = o => { const a = sum(R.map(r => o[r.k] * r.voters)) / VSUM; for (const k in o) o[k] /= a; return o; };
   const f0 = norm(Object.fromEntries(R.map(r => {
-    let f = ideoFit(ideoOf(id), r.lean);
+    let f = ideoFit(ideoOf(id), leanOf(r));
     if (id === 'P') { f += Math.min(0.5, (S.members[r.k] || 0) / (r.voters * 1e6) * 250); if (S.chapters[r.k]) f += 0.05; }
     return [r.k, f * (0.25 + 0.75 * tm[r.k] / 100) / ta];
   })));
@@ -1721,7 +1724,7 @@ const rivShare = (id, k) => natShares()[id] * pf(id, k);
 // 접전도: 그 당 몫과 그 지역에서 가장 센 다른 당 몫이 비슷할수록 1
 const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => rivShare(x, k))); return me > 0 && op > 0 ? Math.exp(-Math.abs(Math.log(me / op)) / 0.3) : 0; };
 // 지역 고르기: 선거운동기간엔 (선거인 × 접전도), 평소엔 (선거인 × 그 당 지역 강세 × 신뢰 낮은 곳 다지기) 가중 무작위
-const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), r.lean) * (1.5 - S.rtr[id][r.k] / 100));
+const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), leanOf(r)) * (1.5 - S.rtr[id][r.k] / 100));
 // 그 선거에 우리 후보가 그 지역에 나왔는지
 const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
 function rivalWeek() {
@@ -2619,7 +2622,7 @@ function figSpec(pos, x = {}) {
 const RV_HOPE = 3;
 const bestCand = xs => xs.reduce((a, b) => L.candScore(b) > L.candScore(a) ? b : a);
 // 지역구가 없는 인물(비례·대선 후보)의 출신 지역(k): 인구 × 그 당 강세 지역
-const figHome = id => wRegion(r => ideoFit(RIV[id].ideo, r.lean)).k;
+const figHome = id => wRegion(r => ideoFit(RIV[id].ideo, leanOf(r))).k;
 function genFig(o, party, k, pos, x = {}) {
   const f = { id: ++o.seq, ...figSpec(pos, x), ...(x.home && { home: x.home }), party, k, pos };
   o.figs.push(f);
@@ -4911,7 +4914,7 @@ function pOrg() {
     aria: k => `${RK[k].n} 지지 ${regSupport(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명${S.chapters[k] ? ' · 시·도당' : ''}${byeInfo(k) ? ' · ' + byeInfo(k) : ''}`,
     mark: k => (S.chapters[k] ? `<path class="mk" d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/>` : '') + (byeInfo(k) ? '<path class="mk" d="M24 -80l7 7-7 7-7-7z" style="fill:var(--warn)"/>' : '') + (k === S.party.home ? `<path class="mk" d="M-30 -74l3.5 7 7.6 1.1-5.5 5.4 1.3 7.6-6.9-3.6-6.9 3.6 1.3-7.6-5.5-5.4 7.6-1.1z" style="fill:var(--gold)"/>` : ''),
   });
-  const leanTxt = r.lean > 0.4 ? '진보 강세' : r.lean > 0.08 ? '진보 우세' : r.lean < -0.4 ? '보수 강세' : r.lean < -0.08 ? '보수 우세' : '경합';
+  const ln = leanOf(r), leanTxt = ln > 0.4 ? '진보 강세' : ln > 0.08 ? '진보 우세' : ln < -0.4 ? '보수 강세' : ln < -0.08 ? '보수 우세' : '경합';
   const seatRows = partyOrder().filter(id => S.seats[id].d[r.k]).map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${S.seats[id].d[r.k]}</span>`).join('');
   return `<div class="mapwrap">
     <div class="card"><h2>전국 지도</h2><div class="mapbox">${kmap}<div class="mapctl" role="group" aria-label="지도 보기"><button class="ib" data-zoom="in" aria-label="확대" title="확대">+</button><button class="ib" data-zoom="out" aria-label="축소" title="축소">−</button><button class="ib" data-zoom="reset" title="전체 보기">전체</button></div></div><p class="tip mapnote"><span>우리 당 지지 낮음<i class="grad" style="background:linear-gradient(90deg,var(--land),${c})"></i>높음</span></p><p class="tip mapnote"><span><svg width="14" height="16" viewBox="-4 -81 22 28" aria-hidden="true"><path d="M-3 -80v26M-3 -80h20l-5 6 5 6h-20z" style="fill:${c}"/></svg> 시·도당</span><span><span style="color:var(--gold)">★</span> 창당 본거지</span><span><svg width="14" height="14" viewBox="22 -82 18 18" aria-hidden="true"><path d="M24 -80l7 7-7 7-7-7z" style="fill:var(--warn)"/></svg> 공석·보궐선거</span></p><p class="tip">지역을 누르면 오른쪽에 자세히 나옵니다. 휠·버튼으로 확대하고, 확대한 뒤엔 끌어서 옮깁니다(휴대폰은 두 손가락으로도 확대).</p></div>
