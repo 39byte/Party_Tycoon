@@ -557,6 +557,22 @@ body{background:
   .modal{border-radius:18px 18px 0 0;max-height:calc(100dvh - 24px);padding-bottom:calc(20px + env(safe-area-inset-bottom));animation:sheet .24s cubic-bezier(.2,.9,.3,1)}
 }
 @keyframes sheet{from{opacity:.4;transform:translateY(28px)}}
+/* 튜토리얼: 화면을 어둡게 덮고 가리킬 요소만 뚫어 비춤(hole의 큰 그림자), 옆에 말풍선 */
+#tut{position:fixed;inset:0;z-index:900;pointer-events:none}
+#tut[hidden]{display:none}
+.tut-hole{position:fixed;border-radius:12px;box-shadow:0 0 0 9999px rgba(0,0,0,.68);outline:3px solid var(--gold,#F2B33D);outline-offset:2px;transition:left .25s,top .25s,width .25s,height .25s}
+.tut-hole.none{outline:0}
+.tut-hole.tap{animation:tutPulse 1.4s ease-in-out infinite}
+@keyframes tutPulse{50%{outline-offset:7px}}
+.tut-bub{position:fixed;width:min(360px,calc(100vw - 32px));pointer-events:auto;background:var(--surface);color:var(--fg);border:1px solid var(--border);border-top:4px solid var(--gold,#F2B33D);border-radius:var(--r);padding:14px 16px;box-shadow:0 18px 40px -12px rgba(0,0,0,.55)}
+.tut-bub .tut-n{font-size:12px;font-weight:700;color:var(--muted)}
+.tut-bub h3{margin:2px 0 6px;font-size:17px}
+.tut-bub p{margin:0 0 6px;font-size:15px;line-height:1.6}
+.tut-bub .tut-do{font-weight:700;color:var(--accent)}
+.tut-bub .btns{display:flex;gap:8px;margin-top:10px;align-items:center}
+.tut-bub .btns .btn{min-height:44px}
+.tut-bub .tut-skip{margin-right:auto;background:none;border:0;box-shadow:none;color:var(--muted);text-decoration:underline;padding:7px 4px}
+@media (prefers-reduced-motion:reduce){.tut-hole{transition:none}.tut-hole.tap{animation:none}}
 </style>
 </head>
 <body>
@@ -596,6 +612,7 @@ body{background:
 </div>
 <div class="toasts" id="toasts" aria-live="polite"></div>
 <div id="modalRoot"></div>
+<div id="tut" hidden><div class="tut-hole"></div><div class="tut-bub" role="dialog" aria-labelledby="tutT"></div></div>
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 
 <script src="logic.js"></script>
@@ -996,6 +1013,7 @@ function newState(f) {
     negDays: 0, grace: null, over: null, ended: false, natv: 1, tempov: 1, tempoFrom: 0, // 새 게임: 총선 앞당김 없음, 처음부터 빠른 선거 일정
   };
   migrate(S);
+  S.tut = { seq: 'main', i: 0, open: {}, q: [], off: false }; // 튜토리얼·탭 잠금(새 게임만)
   S.members[f.home] = LAW.founders;
   S.pool.push({ id: 0, leader: true, name: f.leader, gender: f.gender, age: +f.age, job: '당 대표', fame: 5, skill: 62, integ: 75, rec: [], ban: false, role: '', home: f.home }); // 대표는 창당 지역 출신
   for (const id of ['P', 'A', 'B', 'C', 'D', 'O']) S.seats[id] = { d: {}, pr: 0 };
@@ -3489,13 +3507,15 @@ let tSort = 'def', tDir = 1;
 function talentModal() {
   const { cands } = S.tal, got = { has: i => S.tal.got.includes(i), add: i => S.tal.got.push(i) };
   // 영입비 ∝ exp(후보 점수). 전과는 점수 감점(건당 CW.rec)에 같은 만큼 더 깎아 값이 두 배로 떨어짐(건당 약 -45%)
-  const fee = p => Math.round(3e7 * Math.exp(L.candScore(p) - L.CW.rec * Math.min(3, p.rec.length)) / 1e5) * 1e5;
+  // 인재 영입 안내를 처음 볼 때 맨 앞 후보를 튜토리얼용 인재(무료)로 바꿈
+  if (S.tut && !S.tut.off && !S.tut.seen?.tal && !cands.some(p => p.free)) Object.assign(cands[0], { name: '한지원', gender: 'M', age: 21, job: '연구자', home: 'gyeonggi', fame: 10, skill: 55, integ: 60, rec: [], ban: false, free: 1 });
+  const fee = p => p.free ? 0 : Math.round(3e7 * Math.exp(L.candScore(p) - L.CW.rec * Math.min(3, p.rec.length)) / 1e5) * 1e5;
   openModal({
-    title: '인재 영입', wide: 'x',
+    title: '인재 영입', wide: 'x', tut: 'tal',
     html: `<p class="muted small">영입비는 후보 점수(역량·청렴·인지도·전과)에 비례하고, 전과가 있으면 더 크게 떨어집니다. 재사용 대기가 끝나기 전(${fdate(S.tal.until)})까지는 창을 닫아도 남은 후보를 행동력·탐색비 없이 이어서 영입할 수 있습니다.</p><div class="filters psort chips" role="group" aria-label="후보 정렬" style="margin-bottom:8px">${T_SORT.map(([k, n]) => `<button class="btn" data-tsort="${k}">${n}</button>`).join('')}</div><div class="acts tal">${cands.map((p, i) => `<div class="act" data-ci="${i}"><div class="who">${face(p, '#64748B', 56)}<div><h3>${esc(p.name)}</h3><span class="pill">${p.gender === 'F' ? '여' : '남'} · ${p.age}세</span></div></div><p>${p.job} · ${esc(homeTxt(p))}</p>
       <div class="small">인지도 <b>${p.fame}</b> · 역량 <b>${p.skill}</b> · 청렴 <b>${p.integ}</b></div>
       <div class="small ${p.rec.length ? 'bad' : 'muted'}">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</div>${p.ban ? '<div class="small bad">피선거권 없음 (공직선거법 제19조)</div>' : ''}
-      <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${won(fee(p))})</button></div>`).join('')}</div>
+      <button class="btn pri" style="margin-top:auto" data-i="${i}" ${S.money < fee(p) ? 'disabled' : ''}>영입 (${p.free ? '무료' : won(fee(p))})</button></div>`).join('')}</div>
       <div class="btns" style="margin-top:12px"><button class="btn" data-all="1">남은 후보 모두 영입</button><span class="push"></span><button class="btn" data-close>닫기</button></div>`,
     // 닫기는 '모두 영입'과 같은 줄에
     // 창을 닫지 않고 여러 명 영입 가능. 영입한 후보는 '영입 완료'로 잠김
@@ -4505,7 +4525,7 @@ async function slotsModal() {
 // ---------- 모달·토스트 ----------
 let modalOpener = null;
 const setBgInert = on => document.querySelectorAll('#top,.app').forEach(e => e.toggleAttribute('inert', on)); // 모달 뒤 화면은 키보드·포인터·스크린리더 모두 막음
-function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpen }) {
+function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpen, tut }) {
   if (!modalOpen) modalOpener = document.activeElement;
   modalOpen = true; setBgInert(true);
   const root = $('#modalRoot');
@@ -4516,6 +4536,7 @@ function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpe
   root.dataset.dismiss = dismiss ? '1' : '';
   sentWrap(m);
   if (onOpen) onOpen(m);
+  if (tut) tutOpen(tut);
   (m.querySelector('[autofocus]') || m.querySelector('button:not(.info),input,select'))?.focus({ preventScroll: true }); // (i)는 건너뜀: 포커스되면 설명이 바로 펼쳐짐
   m.scrollTop = root.querySelector('.scrim').scrollTop = 0; m.querySelectorAll('.tblwrap,.log').forEach(e => e.scrollTop = 0); // 팝업은 항상 맨 위부터
 }
@@ -4570,16 +4591,17 @@ function renderTop() {
   const eb = $('#endTurn'); eb.disabled = !!left || !!turnStart || !!S.over; eb.textContent = left ? `진행 중 ${TURN - left}/${TURN}일` : '턴 종료 ▸';
 }
 function renderNav() {
-  const nav = $('#nav');
+  const nav = $('#nav'), vis = (tutUnlock(), TABS.filter(([k]) => tabOk(k)));
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length + S.byes.filter(byeOpenForMe).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => !autoOn(r.k) && rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
   const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length, people: S.alerts.people.length, office: S.alerts.office.length }, badgeSr = { elec: '공천·후보 등록이 필요한 선거 ', people: '다시 영입할 수 있음 ', office: '다시 할 수 있는 의회 활동 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', neg: '다시 교섭할 수 있는 상대 ' };
-  nav.innerHTML = TABS.map(([k, n, ic]) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP ? `<hr class="navsep${NAV_SEP[k]}">` : ''}`).join('');
+  nav.innerHTML = vis.map(([k, n, ic], i) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP || vis[i + 1]?.[0] === 'log' ? `<hr class="navsep${NAV_SEP[k] ?? ' wide'}">` : ''}`).join(''); // 숨긴 탭 뒤 구분선은 '소식' 앞으로
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; Snd.sfx('click'); renderPanel(); renderNav(); nav.querySelector('[aria-current]')?.scrollIntoView({ inline: 'center', block: 'nearest' }); $('#main').focus({ preventScroll: true }); });
 }
 function renderPanel() {
   if (!S) return;
+  if (!tabOk(tab)) tab = 'home';
   const main = $('#main');
   const y = main.scrollTop, al = S.alerts[tab], fy = tab === shownTab ? [...main.querySelectorAll('.follow')].map(e => e.scrollTop) : []; // 안쪽 스크롤 영역(지역 소식 등)도 유지
   if (tab !== shownTab) fresh = [];
@@ -4588,6 +4610,7 @@ function renderPanel() {
   shownTab = tab;
   main.innerHTML = sceneHead() + ({ pres: pPres, home: pHome, org: pOrg, act: pAct, people: pPeople, elec: pElec, office: pOffice, court: pCourt, admin: pAdmin, neg: pNeg, fin: pFin, law: pLaw, log: pLog, guide: pGuide })[tab]();
   main.scrollTop = y; main.querySelectorAll('.follow').forEach((e, i) => e.scrollTop = fy[i] || 0);
+  main.querySelectorAll('[data-go]').forEach(b => b.hidden = !tabOk(b.dataset.go)); // 아직 안 열린 탭으로 가는 버튼은 숨김
   tipify(main); sentWrap(main); fitAppr();
   markLead();
   bindPanel(main);
@@ -5474,7 +5497,7 @@ function pGuide() {
   const sec = (t, body, open) => `<details ${open ? 'open' : ''}><summary>${t}</summary>${body}</details>`;
   return `<div class="card"><h2>지금 할 일</h2><ul class="check">${nextSteps().map(([t, go, bad], i) => `<li><span class="st ${bad ? 'bad' : ''}">${bad ? '!' : i + 1}</span><div class="small">${esc(t)}</div>${go ? `<button class="btn" data-go="${go}">${T[go]}</button>` : ''}</li>`).join('')}</ul></div>
   <div class="card guide" style="margin-top:14px"><h2>게임 방법</h2>
-    <div class="gtools"><button class="btn" data-gall="1">모두 펼치기</button><button class="btn" data-gall="0">모두 접기</button></div>
+    <div class="gtools">${S.tut ? '<button class="btn" data-tutre>튜토리얼 다시 보기</button>' : ''}<button class="btn" data-gall="1">모두 펼치기</button><button class="btn" data-gall="0">모두 접기</button></div>
     <h3 class="gh">기본</h3>
     ${sec('목표', `<p>창당준비위원회에서 시작해 정식 정당으로 등록하고, 국회의원선거·지방선거·대통령선거를 거쳐 <b>대통령을 배출</b>하면 집권 엔딩입니다. 엔딩 뒤에도 과반 의석과 재집권에 도전하며 계속할 수 있습니다.</p>`, true)}
     ${sec('턴과 행동력', `<ul><li>1턴은 1주(7일)입니다. 매 턴 행동력 ${AP}을 받고, 공식 선거운동기간에는 1을 더 받습니다.</li>
@@ -5645,12 +5668,172 @@ function newGameModal() {
         const err = partyNameErr(v.name) || (!v.leader ? '대표 이름을 입력하세요.' : '');
         if (err) { m.querySelector('#ngErr').textContent = err; m.querySelector('#ngErr').className = 'h bad'; Snd.sfx('bad'); return; }
         v.age = clamp(+v.age || 45, 18, 85);
-        newState(v); save(); closeModal(); tab = 'guide'; renderAll(); Snd.sfx('ok');
-        toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작');
+        newState(v); save(); closeModal(); tab = 'home'; selReg = v.home; tutKey = ''; renderAll(); Snd.sfx('ok'); // 안내는 튜토리얼이 맡음(건너뛰면 그때 알림)
       };
     },
   });
 }
+
+// ---------- 튜토리얼 ----------
+// 새 게임(S.tut 있음)에서만: 조건을 채우기 전엔 탭을 숨기고, 열릴 때 사용법을 짚어 줌. 예전 세이브는 S.tut이 없어 모든 탭이 열려 있음
+const LOCK = { elec: () => S.phase === 'reg', neg: () => S.phase === 'reg', court: () => S.phase === 'reg' || S.cases.length > 0, office: () => seatTotal('P') > 0, pres: () => seatTotal('P') > 0 || ruling(), admin: () => govCount('P') > 0 };
+const tabOk = k => !S?.tut || !LOCK[k] || !!S.tut.open[k];
+// 한 번 열린 탭은 계속 열림. 튜토리얼을 건너뛰었으면 알림만, 아니면 그 탭 안내를 줄 세움
+function tutUnlock() {
+  if (!S?.tut) return;
+  for (const k in LOCK) if (!S.tut.open[k] && LOCK[k]()) {
+    S.tut.open[k] = 1;
+    if (S.tut.off) toast(`조건을 채워 '${TABS.find(t => t[0] === k)[1]}' 탭이 열렸습니다.`, 'sys', '새 기능');
+    else S.tut.q.push(k);
+  }
+}
+// 단계: at = 비출 요소(선택자나 함수, 없으면 화면 가운데), tab = 이 탭으로 옮겨서 보여 줌, tap = 그 요소를 직접 눌러야 넘어감, until = 이 조건이 되면 넘어감
+const nb = k => `#nav [data-tab="${k}"]`, up = (s, c) => () => $(s)?.closest(c);
+const TUT = {
+  main: [
+    { intro: 1, t: '정당 키우기에 오신 것을 환영합니다', d: '당신은 막 창당준비위원회를 꾸린 신생 정당의 대표입니다. 정식 정당 등록 → 선거 승리 → <b>대통령 배출</b>이 최종 목표예요. 화면을 하나씩 짚으며 무엇을 눌러야 하는지 차근차근 알려 드릴게요. 이미 해 본 게임이라면 건너뛰어도 됩니다.' },
+    { at: '#stats', t: '상단 현황판', d: '턴·행동력·날짜·자금·당원·지지율·의석 같은 핵심 숫자가 언제나 여기에 떠 있습니다. 1턴은 1주(7일)예요.' },
+    { at: '#stats .stat:nth-child(2)', t: '행동력', d: `매 턴 행동력 ${AP}을 받습니다. 활동·교섭 하나에 1씩 쓰고, <b>남은 행동력은 다음 턴으로 넘어가지 않으니</b> 매 턴 다 쓰는 게 이득이에요. 공식 선거운동기간엔 1을 더 받습니다.` },
+    { at: '#stats .stat:nth-child(3)', t: '창당 기한', d: `창준위는 ${LAW.prepDays}일(약 ${Math.ceil(LAW.prepDays / TURN)}턴) 안에 정식 정당으로 등록해야 합니다. 기한을 넘기면 해산(게임 오버)! 아래 D-day를 자주 확인하세요.` },
+    { at: '#stats .stat:nth-child(4)', t: '자금', d: '활동마다 돈이 들고, 매달 사무처·시·도당 유지비가 빠져나갑니다. 자금이 마이너스인 채로 120일이 지나면 해산하니 바닥나지 않게 관리하세요.' },
+    { at: '#nav', t: '메뉴', d: '탭을 눌러 화면을 바꿉니다. 지금은 창당 단계라 <b>쓸 수 있는 탭만</b> 보여요. 정당 등록, 국회의원·단체장 배출 같은 조건을 채우면 선거·교섭·국회 등 새 탭이 열리고, 그때마다 사용법을 다시 알려 드립니다.' },
+    { tab: 'home', at: '#main .grid.home .card', t: '본부: 창당 진행 상황', d: '창당까지 할 일이 체크리스트로 나옵니다. ① 결성 신고(완료) ② <b>시·도당 5곳 창당</b>(각 당원 1,000명) ③ 선관위 등록 신청. 지금 목표는 ②예요.' },
+    { tab: 'home', at: '#regParty', t: '등록 신청 버튼', d: '시·도당이 5곳이 되면 이 버튼이 켜집니다. 눌러서 정식 정당이 되어야 선거에 후보를 내고 교섭·고발도 할 수 있어요.' },
+    { tab: 'home', at: up('#main [data-go="log"]', '.card'), t: '이번 주 뉴스', d: '민심이 쏠린 <b>핵심 쟁점은 숨겨져</b> 있습니다. 헤드라인에 자주 나오는 분야가 곧 쟁점이에요. 쟁점을 맞혀 정책을 발표하면 지지율이 크게 오릅니다.' },
+    { at: nb('org'), tap: 1, t: '조직·지역 탭', d: '시·도당을 만들고 지역 당원을 모으는 곳입니다.', do: '조직·지역 탭을 눌러 보세요.' },
+    { tab: 'org', at: '#main .mapbox', t: '전국 지도', d: '색이 진할수록 우리 당 지지가 높은 지역입니다. 별은 창당 본거지, 깃발은 시·도당이에요. 지역을 누르면 그 지역 정보가 나오고, +/− 버튼이나 휠·두 손가락으로 확대할 수 있습니다.' },
+    { tab: 'org', at: '#main .mapwrap > .card:nth-child(2)', t: '지역 정보', d: '선택한 지역의 지지율·신뢰도·당원 수입니다. 본거지엔 발기인 200명이 있어요. 당원 1,000명을 채우면 그 지역에 시·도당을 창당할 수 있습니다.' },
+    { tab: 'org', at: '#main [data-act="recruit"]', tap: 1, t: '당원 모집 캠페인', d: '당원을 모으는 핵심 활동입니다. 자금 1,000만 원과 행동력 1을 쓰고, 1턴 뒤에 다시 할 수 있어요. 그 지역 지지율이 높을수록 많이 모입니다. 이번 튜토리얼에선 <b>행동력 3을 모두</b> 직접 써 볼 거예요. 첫 번째입니다.', do: '실행을 눌러 보세요. 확인 창이 뜨면 한 번 더 실행을 누르면 됩니다.' },
+    { tab: 'org', at: up('#main [data-act="chapter"]', '.act'), t: '시·도당 창당대회', d: '그 지역 당원이 1,000명을 넘으면 이 버튼이 켜집니다. 창당 뒤엔 월 300만 원 유지비가 들어요. 본거지 말고도 지지가 높은 지역 4곳을 골라 당원을 모으세요.' },
+    { tab: 'org', at: up('#main [data-act="volunteer"]', '.act'), t: '지역 봉사활동', d: '그 지역 신뢰도를 올리고 당원도 조금 늡니다. 신뢰가 높은 지역일수록 당원 모집과 선거 득표가 잘 됩니다.' },
+    { at: nb('act'), tap: 1, t: '활동 탭', d: '전국 단위 활동과 당 시설이 모여 있습니다.', do: '활동 탭을 눌러 보세요.' },
+    { tab: 'act', at: '#main [data-act="online"]', tap: 1, t: '온라인·SNS 홍보', d: '전국 인지도를 올립니다. 인지도가 높아야 당원 모집과 지지율이 따라와요. 두 번째 행동력을 여기에 써 봅시다.', do: '온라인·SNS 홍보의 실행을 눌러 보세요.' },
+    { tab: 'act', at: up('#main [data-act="policy"]', '.act'), t: '정책 발표', d: '분야를 골라 정책을 발표합니다. <b>뉴스 헤드라인의 쟁점을 맞히면</b> 지지율이 크게 오르고, 헤드라인에 없는 분야나 노선과 맞지 않는 분야를 거듭 내면 역풍을 맞아요.' },
+    { tab: 'act', at: up('#main [data-act="media"]', '.act'), t: '언론 인터뷰', d: '무료지만 결과는 대표 역량에 달렸습니다. 인지도·신뢰가 오를 수도, 말실수로 떨어질 수도 있어요.' },
+    { tab: 'act', at: up('#main [data-act="fund"]', '.act'), t: '후원의 밤', d: '비용 없이 후원금을 모읍니다. 연간 한도가 있고 재사용까지 오래 걸리니, 자금이 빠듯할 때 잊지 말고 챙기세요.' },
+    { tab: 'act', at: '#main .bell', t: '재사용 알림', d: '종을 켜 두면 재사용 대기가 끝났을 때 메뉴의 \'활동\' 옆에 숫자로 알려 줍니다.' },
+    { tab: 'act', at: up('#main .acts.ups', '.card'), t: '당 시설·조직', d: '한 번 설치하면 계속 효과를 내는 시설입니다. 대신 설치비와 매달 유지비가 드니 자금에 여유가 생기면 고르세요.' },
+    { at: nb('people'), tap: 1, t: '인재 탭', d: '선거에 내보낼 인재를 모으고 관리합니다.', do: '인재 탭을 눌러 보세요.' },
+    { tab: 'people', at: '#main [data-act="talent"]', tap: 1, t: '인재 영입', d: '탐색비 1,000만 원과 행동력 1로 후보 25명을 불러 원하는 만큼 영입합니다. <b>공천은 인재풀에 있는 사람만</b> 할 수 있어요. 마지막 행동력을 여기에 써 봅시다.', do: '인재 영입을 눌러 보세요. 영입 창에서도 안내가 이어집니다.' },
+    { at: '#stats .stat:nth-child(2)', t: '행동력을 다 썼습니다', d: '당원 모집·SNS 홍보·인재 영입으로 이번 턴 행동력 3을 모두 썼어요. 행동력은 다음 턴으로 넘어가지 않으니, 앞으로도 매 턴 이렇게 다 쓰고 넘기는 게 기본입니다. 남은 탭을 마저 둘러볼게요.' },
+    { at: nb('fin'), tap: 1, t: '재정 탭', d: '돈이 어디서 들어오고 어디로 나가는지 봅니다.', do: '재정 탭을 눌러 보세요.' },
+    { tab: 'fin', at: '#main .grid > .card:nth-child(1)', t: '자금과 고정 지출', d: '매달 빠져나가는 고정 지출입니다. 당원·의석·시·도당·시설이 늘수록 커집니다.' },
+    { tab: 'fin', at: '#main .grid > .card:nth-child(2)', t: '국고보조금', d: '정식 정당이 되면 분기마다 국고보조금이 들어옵니다. 의석과 득표가 많을수록 커지는 큰 수입원이에요.' },
+    { tab: 'fin', at: () => [...document.querySelectorAll('#main .card')].find(c => c.textContent.includes('숨긴 일')), t: '숨긴 일', d: '사건 중에 불법 제안을 받아들이면 당장은 이득이지만 여기에 \'숨긴 일\'로 남습니다. 언젠가 드러나면 수사를 받을 수 있어요.' },
+    { at: nb('log'), t: '소식 탭', d: '지난 주간 브리핑·뉴스·기록을 모아 봅니다. 쟁점을 추리할 때 유용해요.' },
+    { at: nb('law'), t: '법령 탭', d: '게임 규칙의 바탕이 된 정당법·공직선거법·정치자금법 요약입니다.' },
+    { at: nb('guide'), tap: 1, t: '가이드 탭', d: '막힐 땐 여기로 오세요.', do: '가이드 탭을 눌러 보세요.' },
+    { tab: 'guide', at: '#main .card', t: '지금 할 일', d: '현재 상황에 맞춰 할 일이 바뀌어 나옵니다. 오른쪽 버튼을 누르면 그 탭으로 바로 갑니다. 아래 \'게임 방법\'엔 자세한 규칙이 있어요.' },
+    { at: '#setBtn', t: '설정·저장', d: '매 턴 자동 저장됩니다. 여기서 파일 내보내기·불러오기, 소리, 확인 창 설정을 바꿀 수 있어요.' },
+    { at: '#endTurn', tap: 1, until: () => S.day > S.tut.d0, t: '턴 종료', d: '행동력을 다 썼으니 턴 종료(Space)를 누르세요. 7일이 흐르며 여론이 움직이고 사건이 벌어진 뒤, 주간 브리핑으로 결과를 알려 줍니다.', do: '턴 종료를 눌러 첫 주를 넘겨 보세요.' },
+    { t: '튜토리얼 완료!', d: '이제 매 턴 <b>당원 모집 → 시·도당 창당 → 정당 등록</b>을 목표로 움직이세요. 등록하면 선거·교섭·법원 탭이 열리고, 새 기능이 열릴 때마다 다시 안내해 드립니다. 튜토리얼은 가이드 탭에서 다시 볼 수 있어요.' },
+  ],
+  tal: [
+    { modal: 1, at: '#modalRoot .modal > div > p', t: '인재 영입 창', d: '후보 25명이 나왔습니다. 재사용 대기(2턴)가 끝나기 전엔 창을 닫아도 남은 후보를 <b>행동력·탐색비 없이</b> 이어서 영입할 수 있어요.' },
+    { modal: 1, at: '#modalRoot [data-tsort="skill"]', tap: 1, t: '정렬', d: '인지도·역량·청렴·가격 순으로 줄 세울 수 있습니다. 같은 버튼을 다시 누르면 순서가 뒤집혀요.', do: '역량 버튼을 눌러 역량이 높은 순으로 정렬해 보세요.' },
+    { modal: 1, at: '#modalRoot [data-ci="0"]', t: '후보 카드', d: '이 사람은 튜토리얼용 인재(인지도 10·역량 55·청렴 60)로, <b>무료</b>로 데려올 수 있어요. <b>인지도</b>가 높으면 선거에서 표를 끌고 당 인지도도 올려 줍니다. <b>역량</b>은 토론·의정·교섭 성패를, <b>청렴</b>은 의혹이 터질 위험을 좌우해요. 전과가 있으면 영입비는 싸지만 선거에서 불리하고, 피선거권이 없으면 공천할 수 없습니다.' },
+    { modal: 1, at: '#modalRoot [data-i="0"]', tap: 1, t: '영입하기', d: '다른 후보의 영입비는 후보 점수에 비례합니다. 역량 높은 인재는 비싸지만 오래 쓸 수 있어요.', do: '튜토리얼용 인재의 무료 영입 버튼을 눌러 보세요.' },
+    { modal: 1, at: '#modalRoot [data-all]', t: '남은 후보 모두 영입', d: '자금이 넉넉하면 한 번에 다 데려올 수 있습니다. 인재풀은 최대 350명이고, 영입한 사람은 인재 탭에서 볼 수 있어요.' },
+    { modal: 1, at: '#modalRoot [data-close]', tap: 1, t: '창 닫기', d: '필요한 만큼 영입했으면 닫습니다. 영입한 인재는 선거 때 공천하거나, 집권하면 장관으로 지명할 수 있어요.', do: '닫기를 눌러 보세요.' },
+  ],
+  elec: [
+    { at: nb('elec'), tap: 1, t: '선거 탭이 열렸습니다', d: '정식 정당이 되어 선거에 후보를 낼 수 있게 됐습니다!', do: '선거 탭을 눌러 보세요.' },
+    { tab: 'elec', at: '#main .card', t: '공천과 후보 등록', d: '선거일이 다가오면 여기서 지역구 공천과 비례대표 명부를 짜고 후보를 등록합니다. <b>등록 기한을 넘기면 출마할 수 없어요.</b> 비례 명부는 여성 50%·홀수 순번 여성이 원칙이고, 자동 공천으로 한 번에 채울 수도 있습니다.' },
+    { tab: 'elec', t: '선거운동', d: '공식 선거운동기간엔 행동력이 1 늘고, 조직·지역 탭의 거리 유세와 활동 탭의 방송 광고가 열립니다. 정해진 날엔 TV 토론도 열려요. 4년간 총선·지방선거에 한 번도 나가지 않으면 등록이 취소되니 주의하세요.' },
+  ],
+  neg: [
+    { at: nb('neg'), tap: 1, t: '교섭 탭이 열렸습니다', d: '다른 정당·의원·원외 인사와 협상할 수 있습니다.', do: '교섭 탭을 눌러 보세요.' },
+    { tab: 'neg', at: up('#main .ptys', '.card'), t: '정당 교섭', d: '정당을 눌러 회동·법안 공조·선거 연대를 제안합니다. 행동력 1을 쓰고, 성공률은 대표 역량·노선 차이·관계(막대)에 따라 달라요.' },
+    { tab: 'neg', at: '#main .split', t: '의원·원외 인사', d: '원내 의원과 친분을 쌓으면 법안 협조나 이적을 끌어낼 수 있고, 원외 인사는 지지 선언·영입 대상입니다. 교섭 자리에서 들은 의혹은 고발의 근거가 돼요.' },
+  ],
+  court: [
+    { at: nb('court'), tap: 1, t: '법원 탭이 열렸습니다', d: '고발과 수사·재판을 다룹니다.', do: '법원 탭을 눌러 보세요.' },
+    { tab: 'court', at: up('#main [data-act="accuse"]', '.card'), t: '고발', d: '교섭에서 들은 의혹을 근거로 상대를 고발합니다. 기소·유죄가 나오면 상대 당이 타격을 입지만, 불기소·무죄면 <b>우리 당이 역풍</b>을 맞아요. 우리 쪽 사람이 수사받게 되면 옆 칸에 진행 상황이 나오고 단계마다 대응을 고르게 됩니다.' },
+  ],
+  office: [
+    { at: nb('office'), tap: 1, t: '국회 탭이 열렸습니다', d: '첫 국회의원을 배출했습니다! 이제 의회에서 싸울 수 있어요.', do: '국회 탭을 눌러 보세요.' },
+    { tab: 'office', at: up('#main [data-act="bill"]', 'section'), t: '의회 활동', d: '법안 발의(본회의 과반 통과), 대정부 질문, 10월 국정감사에 참여합니다. 민심이 쏠린 쟁점의 법안일수록 통과 효과가 커요.' },
+    { tab: 'office', at: '#main .billsplit > section:first-child', t: '법안과 당론', d: '다른 당·정부 법안엔 찬성·반대·자유투표로 당론을 정하고, 표 단속으로 우리 의원 이탈을 막습니다. 예상 찬성 막대가 통과선을 넘는지 보세요.' },
+  ],
+  pres: [
+    { at: nb('pres'), tap: 1, t: '청와대 탭이 열렸습니다', d: '대통령과 국정 지지율을 볼 수 있습니다.', do: '청와대 탭을 눌러 보세요.' },
+    { tab: 'pres', at: '#main .presbox', t: '대통령과 국정 지지율', d: '국정 지지율은 임기 말로 갈수록 떨어지고 여당 지지율에 영향을 줍니다. 야당이면 영수회담을 제안할 수 있고, 집권하면 내각을 지명하고 다른 당 법안의 공포·거부를 고릅니다.' },
+  ],
+  admin: [
+    { at: nb('admin'), tap: 1, t: '지방 정부 탭이 열렸습니다', d: '광역단체장을 배출했습니다!', do: '지방 정부 탭을 눌러 보세요.' },
+    { tab: 'admin', t: '행정 역점사업', d: '단체장이 있으면 매 턴 <b>행정 행동력</b>을 따로 받습니다(상단 현황판). 지역 현안을 골라 역점사업을 펼치면 행정 지지도가 오르고 다음 선거에 유리해요. 손이 많이 가면 자동화를 켤 수 있습니다.' },
+  ],
+};
+// 지금 위치: 팝업 안내(sub)가 있으면 그쪽, 없으면 본 안내(seq). 진행 중인 안내가 없으면 줄 선 새 탭 안내를 꺼냄
+const tutAt = () => S.tut.sub ? ['sub', 'si'] : ['seq', 'i'];
+function tutCur() {
+  const s = S?.tut; if (!s) return null;
+  if (s.sub) return TUT[s.sub][s.si];
+  if (s.off && s.seq === 'main') return null;
+  if (s.seq == null && s.q.length) { s.seq = s.q.shift(); s.i = 0; }
+  return TUT[s.seq]?.[s.i] || null;
+}
+// 팝업을 처음 열 때 한 번(튜토리얼을 건너뛰었으면 안 함)
+function tutOpen(k) {
+  const s = S.tut; if (!s || s.off || s.seen?.[k]) return;
+  (s.seen ??= {})[k] = 1; s.sub = k; s.si = 0; save();
+}
+// 화면 갱신은 0.15초 주기에 맡김(누른 버튼의 원래 동작이 먼저 돌게)
+function tutStep(d) {
+  const s = S.tut, [a, b] = tutAt();
+  s[b] = Math.max(0, s[b] + d);
+  if (s[b] >= TUT[s[a]].length) { s[a] = null; if (a === 'seq' && !s.q.length) Snd.sfx('ok'); }
+  save();
+}
+function tutSkip() {
+  const s = S.tut, [a] = tutAt();
+  if (s.seq === 'main' && a === 'seq') { s.off = true; s.q = []; toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작'); }
+  s[a] = null; save(); tutTick();
+}
+let tutKey = '', tutTgt = null;
+// ponytail: 0.15초마다 위치를 다시 잼(탭을 다시 그리면 요소가 바뀌어서). 느려지면 ResizeObserver로
+function tutTick() {
+  const box = $('#tut'), st = tutCur();
+  if (S?.tut?.sub && !modalOpen) { S.tut.sub = null; save(); return tutTick(); } // 팝업 안내 도중 창을 닫으면 그 안내는 끝
+  if (!st || !!st.modal !== modalOpen || left || turnStart || S.over) { box.hidden = true; tutTgt = null; return; }
+  const s = S.tut, [a, b] = tutAt(), name = s[a], idx = s[b], steps = TUT[name], first = tutKey.split('|')[0] !== name + idx;
+  if (first) { s.d0 = S.day; if (st.tab && tab !== st.tab) { tab = st.tab; renderAll(); } }
+  if (st.until?.()) { tutStep(1); return tutTick(); }
+  const t = typeof st.at === 'function' ? st.at() : st.at ? $(st.at) : null, tap = !!(st.tap && t && !t.disabled), key = `${name + idx}|${tap}`;
+  tutTgt = t; box.hidden = false;
+  const hole = box.querySelector('.tut-hole'), bub = box.querySelector('.tut-bub');
+  if (key !== tutKey) {
+    tutKey = key;
+    const last = idx === steps.length - 1, main = name === 'main';
+    bub.innerHTML = `<div class="tut-n">${main ? '튜토리얼' : name === 'tal' ? '인재 영입 안내' : '새 기능 안내'} · ${idx + 1}/${steps.length}</div><h3 id="tutT">${st.t}</h3><p>${st.d}</p>${tap ? `<p class="tut-do">▶ ${st.do}</p>` : ''}
+      <div class="btns">${last && main ? '' : `<button class="btn tut-skip" data-tut="skip">${main ? '튜토리얼 건너뛰기' : '이 안내 닫기'}</button>`}${idx && !st.intro ? '<button class="btn" data-tut="-1">이전</button>' : ''}${tap ? '' : `<button class="btn pri" data-tut="1">${st.intro ? '튜토리얼 시작' : last ? '완료' : '다음'}</button>`}</div>`;
+    hole.classList.toggle('tap', tap);
+    if (first) { t?.scrollIntoView({ block: 'center', inline: 'center' }); (tap ? t : bub.querySelector('[data-tut="1"]'))?.focus({ preventScroll: true }); }
+  }
+  const r = t?.getBoundingClientRect(), W = innerWidth, H = innerHeight, bw = bub.offsetWidth, bh = bub.offsetHeight, g = 14;
+  hole.classList.toggle('none', !r);
+  Object.assign(hole.style, r ? { left: r.left - 6 + 'px', top: r.top - 6 + 'px', width: r.width + 12 + 'px', height: r.height + 12 + 'px' } : { left: W / 2 + 'px', top: H / 2 + 'px', width: 0, height: 0 });
+  // 말풍선: 아래 → 위 → 오른쪽 → 왼쪽, 다 안 되면 화면 아래
+  let x = (W - bw) / 2, y = (H - bh) / 2;
+  if (r) {
+    if (r.bottom + g + bh < H - 8) y = r.bottom + g; else if (r.top - g - bh > 8) y = r.top - g - bh; else y = null;
+    if (y != null) x = clamp(r.left + r.width / 2 - bw / 2, 8, W - bw - 8);
+    else { y = clamp(r.top, 8, H - bh - 8); x = r.right + g + bw < W - 8 ? r.right + g : r.left - g - bw > 8 ? r.left - g - bw : (y = H - bh - 8, (W - bw) / 2); }
+  }
+  bub.style.left = x + 'px'; bub.style.top = y + 'px';
+}
+setInterval(tutTick, 150);
+addEventListener('scroll', () => S && tutTick(), true);
+// 튜토리얼 중엔 말풍선·팝업·비춘 요소(눌러야 하는 단계만) 말고는 누를 수 없음
+document.addEventListener('click', e => {
+  if ($('#tut').hidden) return;
+  if (e.target.closest('#tut')) { const b = e.target.closest('[data-tut]'); if (b) { if (b.dataset.tut === 'skip') tutSkip(); else { tutStep(+b.dataset.tut); tutTick(); } } return; }
+  const st = tutCur();
+  if (st?.tap && tutTgt?.contains(e.target)) { if (!st.until) tutStep(1); return; }
+  e.preventDefault(); e.stopPropagation();
+}, true);
+document.addEventListener('keydown', e => { if (e.key === ' ' && !$('#tut').hidden && !e.target.closest?.('#tut') && tutCur()?.at !== '#endTurn') { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+document.addEventListener('click', e => { if (e.target.closest?.('[data-tutre]') && S?.tut) { Object.assign(S.tut, { off: false, seq: 'main', i: 1, seen: {} }); tutKey = ''; save(); tutTick(); } });
 
 // ---------- 시작 ----------
 (function boot() {
