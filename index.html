@@ -1200,6 +1200,8 @@ function pollTake() {
     reg: Object.fromEntries(R.map(r => [r.k, pct(Object.fromEntries(QIDS.map(id => [id, sum(S.pubs.map(w => w[r.k][id]))])))])) };
 }
 const pubReg = (k, id = 'P') => S.pub.reg[k][id];
+// 발표 여론조사의 결정층 몫(무당층 뺀 비율). natShares()의 발표판
+const pubShares = () => { const t = sum(PIDS.map(id => S.pub[id])); return Object.fromEntries(PIDS.map(id => [id, S.pub[id] / t])); };
 // 95% 신뢰수준 표본오차(%p)
 const pubErr = (p, n) => 196 * Math.sqrt(Math.max(p, 1) / 100 * (1 - p / 100) / n);
 function natShares() { const q = poll(), s = q.P + q.A + q.B + q.C + q.D + q.O; return { P: q.P / s, A: q.A / s, B: q.B / s, C: q.C / s, D: q.D / s, O: q.O / s }; }
@@ -3636,7 +3638,8 @@ function nomFill(c) {
 // 비례 후보 수 추천: 지금 여론대로면 받을 비례 의석(우리 지역구 당선은 0으로 쳐 넉넉히) × 1.3 + 1로 여론 변동 대비.
 // 비례 득표율이 국고보조금 배분 기준이라 최소 2명. 홀수 순번 여성·인재 수 안에서
 function prRec(c) {
-  const ns = natShares(), ids = ['P', 'A', 'B', 'C', 'D', 'O'];
+  // 비례 예상 의석도 발표된 여론조사로
+  const ns = pubShares(), ids = ['P', 'A', 'B', 'C', 'D', 'O'];
   const exp = L.allocatePR(ids.map(id => ({ id, votes: prWeight(c, id, ns), district: id === 'P' || id === 'O' ? 0 : sum(Object.values(S.seats[id].d)) }))).P;
   const ps = nomPool(c);
   return { exp, n: Math.min(LAW.prSeats, 2 * ps.filter(p => p.gender === 'F').length, ps.length, Math.max(2, Math.ceil(exp * 1.3) + 1)) };
@@ -3644,7 +3647,8 @@ function prRec(c) {
 // 지역구 당선 가능성(대략): 우리 후보 vs 그 지역 A·B 중 강한 쪽(상대 후보 점수는 RV_TYP로 가정). 득표 잡음 σ 0.22 둘의 차 ≈ 0.31, 정규분포를 로지스틱으로 근사
 // ponytail: C·무소속·다른 당 유세는 뺌. 크게 어긋나면 shareRace를 몇 번 돌려 세는 식으로
 const RV_TYP = 0.3, NOM_HOPE = 0.1;
-const distOdds = (c, k, p) => { const ns = natShares(), me = ns.P * pf('P', k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(ns.A * pf('A', k), ns.B * pf('B', k)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
+// 판세는 발표된 여론조사(지역은 최근 4주 통합)로 가늠함. 진짜 민심과 어긋날 수 있음
+const distOdds = (c, k, p) => { const me = pubReg(k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(pubReg(k, 'A'), pubReg(k, 'B')) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
 let nomPref = { spread: 'focus', first: 'pr', incMP: false, incGov: false }; // 총선 자동 배치 방식·자동 추천에 현직 의원/단체장 포함 여부(이번 실행 동안 기억)
 function nomAutoAsk(key) {
   const c = S.camps[key]; if (!c || c.reg) return;
@@ -3686,7 +3690,7 @@ function nomAuto(key) {
     for (let i = dist.length - 1; i >= 0 && buildReg(c).out.cost > S.money; i--) { const x = d.reg[dist[i][0].k]; x.ids.splice(x.ids.indexOf(dist[i][1].id), 1); x.n--; }
     nomFill(c); Snd.sfx('click'); renderPanel(); return nomAutoToast(c);
   }
-  const order = c.type === 'pres' ? ss : [...ss].sort((a, b) => regSupport(b[2]) - regSupport(a[2]));
+  const order = c.type === 'pres' ? ss : [...ss].sort((a, b) => pubReg(b[2]) - pubReg(a[2]));
   order.forEach(([o, f, k]) => { const p = ps.length ? bestAt(ps, k) : null; o[f] = p?.id ?? ''; if (p) ps.splice(ps.indexOf(p), 1); });
   nomFill(c); Snd.sfx('click'); renderPanel(); nomAutoToast(c);
 }
