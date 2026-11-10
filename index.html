@@ -4954,7 +4954,7 @@ function pOrg() {
       <div class="split2 regkv"><div><table class="kv"><tbody>
         <tr><th>선거인 수</th><td class="num">약 ${nf(Math.round(r.voters * 100))}만 명</td></tr>
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
-        <tr><th>우리 당 지지</th><td class="num">${pubReg(r.k).toFixed(1)}% <span class="muted small">±${pubErr(pubReg(r.k), S.pub.reg[r.k].n).toFixed(1)}%p</span><div class="muted small">최근 4주 여론조사 · ${nf(S.pub.reg[r.k].n)}명</div></td></tr>
+        <tr><th>지지율</th><td class="num">${pubReg(r.k).toFixed(1)}% <span class="muted small">±${pubErr(pubReg(r.k), S.pub.reg[r.k].n).toFixed(1)}%p</span></td></tr>
         <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
         <tr><th>다른 당 지지</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${pubReg(r.k, id).toFixed(1)}%</span>`).join('')}</div></td></tr>
       </tbody></table></div><div><table class="kv"><tbody>
