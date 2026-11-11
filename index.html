@@ -4377,7 +4377,9 @@ const rNew = x => x.d > (turnStart ? turnStart.day : S.day) - TURN && x.d > (rOp
 // 지방 정부 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
-const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; if (x.done) return '<button class="btn desbtn" disabled title="행정 사업이나 시·도당 대응으로 이미 성공한 현안입니다">해결됨</button>'; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
+// 현안이 될 수 없는 소식: 시·도당 대응에 대한 반응, 선거 당선·임명·지지 선언 같은 인사 소식
+const noDes = x => /시·도당|당선|임명|취임|지지 선언/.test(x.t);
+const desBtn = x => { if (!x.id || S.day - x.d >= 35 || noDes(x)) return ''; if (x.done) return '<button class="btn desbtn" disabled title="행정 사업이나 시·도당 대응으로 이미 성공한 현안입니다">해결됨</button>'; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
   return `<button class="btn desbtn" data-des="${x.id}" aria-pressed="${on}" ${full ? `disabled title="이 지역은 ${desMax}건까지 지정할 수 있습니다"` : ''}>${on ? '지정됨' : '현안 지정'}</button>`; };
 // 광역단체장 직명(특별·광역시는 시장, 도는 도지사)
 const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: '대구광역시장', incheon: '인천광역시장', daejeon: '대전광역시장', ulsan: '울산광역시장', sejong: '세종특별자치시장',
@@ -4417,7 +4419,7 @@ const resolveNews = nid => { const n = S.rnews.find(x => x.id === nid); if (n) n
 function toggleDes(nid) {
   const i = S.rdes.findIndex(x => x.nid === nid);
   if (i >= 0) S.rdes.splice(i, 1);
-  else { const n = S.rnews.find(x => x.id === nid); if (!n || n.done || desOf(n.k).length >= desMax) return; S.rdes.push({ nid, k: n.k, t: n.t, d: n.d, rid: n.r || 0 }); }
+  else { const n = S.rnews.find(x => x.id === nid); if (!n || n.done || noDes(n) || desOf(n.k).length >= desMax) return; S.rdes.push({ nid, k: n.k, t: n.t, d: n.d, rid: n.r || 0 }); }
   renderAll();
 }
 // 매 턴 지역 소식: 현안처럼 보이는 소식(65%만 실제 문제) · 동네 소식 · 지역 일반 · 단체장 평가. 5주 넘게 방치된 실제 문제는 그 지역 지사 책임론
