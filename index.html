@@ -1138,6 +1138,7 @@ function migrate(o) {
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
+  o.results = trimResults(o.results || []);
   o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; delete o.agenda; delete o.agUsed; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.blun ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= []; o.byes ??= []; o.vacant ??= []; o.prList ??= []; o.gact ??= {}; o.byes.forEach(b => b.kind ??= 'mp'); o.vacant.forEach(v => v.kind ??= 'mp');
@@ -1474,9 +1475,14 @@ function regDeadline(c) {
     if (w > 0) { earn(w, '보조금'); addLog(`여성추천보조금 ${won(w)} 수령 (지역구 여성 후보 ${pct(c.reg.womenRatio, 0)}, 정치자금법 제26조).`, 'ok'); }
   }
 }
+// 지난 선거 결과는 종류별로 최근 몇 번만 보관(저장 파일이 끝없이 커지지 않게)
+const RES_KEEP = { pres: 3, nat: 5, gov: 5, bye: 3 };
+const resOf = r => /대통령/.test(r.name) ? 'pres' : r.bye ? 'bye' : /국회의원/.test(r.name) ? 'nat' : 'gov';
+const trimResults = a => { const left = { ...RES_KEEP }, out = []; for (let i = a.length; i--;) if (left[resOf(a[i])]-- > 0) out.unshift(a[i]); return out; };
+function addResult(r) { S.results.push(r); S.results = trimResults(S.results); return r; }
 function resolveElection(c) {
   const e = c, lines = [], jr = S.byes.filter(b => b.with === c.key).map(byeResolve); // 같은 날 치르는 보궐선거도 함께 개표
-  let refund = 0, html = '', races = [];
+  let refund = 0, html = '', races = [], psum; // psum: 정당별 요약 [정당, 지역구(또는 단체장), 비례, 득표율]
   if (c.type === 'nat') {
     const g = simGeneral(c);
     const before = seatTotal('P');
@@ -1504,6 +1510,7 @@ function resolveElection(c) {
     }
     const now = seatTotal('P');
     S.buzz += (now - before) / 8;
+    psum = partyOrder().map(id => [id, sum(Object.values(S.seats[id].d)), S.seats[id].pr, g.pv[id] || 0]);
     html = natResultHTML(g, c);
     lines.push(`${c.name} 결과: ${S.party.name} ${now}석 (지역구 ${now - S.seats.P.pr}, 비례 ${S.seats.P.pr}) · 비례 득표 ${pct(g.pv.P)}`);
   } else if (c.type === 'gov') {
@@ -1521,6 +1528,7 @@ function resolveElection(c) {
       g.mine.forEach(d => { refund += d.cost * L.refundRate(d.share); if (d.win && d.pid != null) { const p = person(d.pid); if (p) p.role = `${RK[d.k].n} 시·도지사`; } });
     }
     S.pgov = Object.fromEntries((c.reg ? g.mine : []).filter(d => d.win && d.pid == null).map(d => [d.k, { n: d.name, g: d.g, a: d.age, s: d.sk }])); pgovSync(S);
+    psum = partyOrder().map(id => [id, R.filter(r => g.win[r.k] === id).length]).filter(x => x[1]);
     html = govResultHTML(g);
     R.forEach(r => rnews(r.k, `${r.n} 시·도지사 선거: ${S.gov[r.k] === 'P' ? `${govName(r.k) || '우리 당 후보'}(${S.party.name})` : `${S.rgov[r.k].n}(${pn(S.rgov[r.k].p)})`} 당선`));
     lines.push(`${c.name} 결과: ${S.party.name} 광역단체장 ${govCount('P')}곳`);
@@ -1547,7 +1555,7 @@ function resolveElection(c) {
     html += `<p class="ok"><b>기탁금 반환·선거비용 보전 예정: ${won(refund)}</b> (30일 후 지급, 득표율 15% 이상 전액·10% 이상 절반 — 공직선거법 제57조·제122조의2)</p>`;
   } else if (c.reg) html += `<p class="muted">득표율 10% 미만 지역은 기탁금이 국고에 귀속되고 선거비용도 보전되지 않습니다.</p>`;
   lines.forEach(t => addLog(t, 'ok'));
-  S.results.push({ d: S.day, name: c.name, t: lines.join(' '), races });
+  addResult({ d: S.day, name: c.name, t: lines.join(' '), races, psum });
   S.done[c.key] = true; delete S.camps[c.key];
   checkAch();
   Snd.sfx('win');
@@ -3030,17 +3038,17 @@ function byeResolve(b) {
   if (gov) rnews(b.k, `${label}: ${winner} 당선`);
   S.byes = S.byes.filter(x => x !== b);
   addLog(msg, win === 'P' ? 'ok' : '');
-  S.results.push({ d: S.day, name: label, t: msg, bye: 1, joint: byeWith(b)?.name, races: [{ k: b.k, n: label, e, t, bad: bl.bad, c: row }] });
+  const res = addResult({ d: S.day, name: label, t: msg, bye: 1, joint: byeWith(b)?.name, races: [{ k: b.k, n: label, e, t, bad: bl.bad, c: row }] });
   figSync(S); checkAch();
-  return { i: S.results.length - 1, k: b.k, label, winner, mine: !!lp, won: win === 'P', share: v.P };
+  return { res, k: b.k, label, winner, mine: !!lp, won: win === 'P', share: v.P };
 }
-const byeSummary = (rs, btn) => `<div class="tblwrap"><table><thead><tr><th>선거</th><th>당선</th><th>우리 후보</th>${btn ? '<th></th>' : ''}</tr></thead><tbody>${rs.map(x => `<tr><td>${esc(x.label)}</td><td>${esc(x.winner)}</td><td>${x.mine ? (x.won ? '<b class="ok">당선</b>' : `낙선 (${pct(x.share)})`) : '-'}</td>${btn ? `<td><button class="btn" data-bres="${x.i}">상세 보기</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+const byeSummary = (rs, btn) => `<div class="tblwrap"><table><thead><tr><th>선거</th><th>당선</th><th>우리 후보</th>${btn ? '<th></th>' : ''}</tr></thead><tbody>${rs.map(x => `<tr><td>${esc(x.label)}</td><td>${esc(x.winner)}</td><td>${x.mine ? (x.won ? '<b class="ok">당선</b>' : `낙선 (${pct(x.share)})`) : '-'}</td>${btn ? `<td><button class="btn" data-bres="${rs.indexOf(x)}">상세 보기</button></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
 function byeReport(rs) {
   if (!rs.length) return;
   Snd.sfx(rs.some(x => x.won) ? 'win' : 'click');
-  if (rs.length === 1) return resultModal(S.results[rs[0].i]);
+  if (rs.length === 1) return resultModal(rs[0].res);
   openModal({ title: `보궐선거 개표 결과 (${rs.length}곳)`, wide: true, html: `${byeSummary(rs, true)}<p class="small muted">상세 보기를 누르면 후보별 득표를 볼 수 있습니다. 나중에는 '선거' 탭의 지난 선거 결과에서 볼 수 있습니다.</p>`, buttons: [{ t: '확인', pri: true }],
-    onOpen: m => m.querySelectorAll('[data-bres]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.bres])) });
+    onOpen: m => m.querySelectorAll('[data-bres]').forEach(b => b.onclick = () => resultModal(rs[+b.dataset.bres].res)) });
 }
 // ----- 보궐·공석 화면 -----
 const BYE_STEPS = ['공고', '공천·등록', '선거운동', '투표'];
@@ -5095,7 +5103,7 @@ function pElec() {
   if (!camps.length) html += `<div class="card"><h2>공천 일정</h2><p class="empty">진행 중인 공천이 없습니다. 선거일 ${LAW.nomDays}일 전부터 공천을 시작할 수 있습니다.<br>다음 선거: ${ups[0] ? `${ups[0].name} (${fdate(ups[0].day)}, D-${ups[0].day - S.day})` : '-'}</p></div>`;
   for (const c of camps) html += campCard(c) + rvCard(c);
   html += byesHTML();
-  const RES_CAT = [['pres', '대통령선거'], ['nat', '국회의원선거'], ['gov', '전국동시지방선거'], ['bye', '보궐선거']], resOf = r => /대통령/.test(r.name) ? 'pres' : r.bye ? 'bye' : /국회의원/.test(r.name) ? 'nat' : 'gov';
+  const RES_CAT = [['pres', '대통령선거'], ['nat', '국회의원선거'], ['gov', '전국동시지방선거'], ['bye', '보궐선거']];
   const rows = S.results.map((r, i) => [r, i]).filter(([r]) => resOf(r) === resCat);
   html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<div class="filters chips" role="group" aria-label="선거 종류">${RES_CAT.map(([k, n]) => `<button class="btn${resCat === k ? ' pri' : ''}" data-rescat="${k}" aria-pressed="${resCat === k}">${n} <span class="num">${S.results.filter(r => resOf(r) === k).length}</span></button>`).join('')}</div>${rows.length ? `<ul class="log">${rows.map(([r, i]) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다.</p>` : '<p class="empty">이 종류의 선거는 아직 치르지 않았습니다.</p>'}` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
   return html;
@@ -5270,7 +5278,8 @@ function resultModal(r, keep) {
   if (!keep || !regs.some(q => q.k === resReg)) resReg = regs.length > 1 ? regs[0].k : 'all'; // 전체 보기 없음: 처음엔 첫 지역(대선은 전국)
   const races = r.races.filter(x => (resReg === 'all' || kOf(x) === resReg) && (!resMine || x.c.some(c => c[0] === 'P')));
   const chip = (k, n) => `<button class="btn${resReg === k ? ' pri' : ''}" data-rreg="${k}" aria-pressed="${resReg === k}">${n}</button>`;
-  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 후보를 누르면 출마 당시 프로필을 볼 수 있습니다.</p>
+  const ps = !r.psum ? '' : `<div class="tblwrap" style="margin-bottom:10px"><table><thead><tr><th>정당</th><th class="r">${resOf(r) === 'gov' ? '광역단체장' : '지역구'}</th>${resOf(r) === 'nat' ? '<th class="r">비례</th><th class="r">합계</th><th class="r">비례 득표율</th>' : ''}</tr></thead><tbody>${r.psum.map(([id, a, b, v]) => `<tr><td><span class="legend"><span><i style="background:${col(id)}"></i>${esc(pn(id))}</span></span></td><td class="r num">${a}</td>${b != null ? `<td class="r num">${b}</td><td class="r num"><b>${a + b}</b></td><td class="r num">${pct(v)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+  openModal({ title: r.name, wide: true, html: `<p class="small muted">${fdate(r.d)} · 후보를 누르면 출마 당시 프로필을 볼 수 있습니다.</p>${ps}
     ${regs.length > 1 ? `<div class="filters chips" role="group" aria-label="지역 선택">${regs.map(q => chip(q.k, q.n)).join('')}</div>` : ''}
     <label class="small" style="display:flex;align-items:center;gap:6px;margin-bottom:10px"><input type="checkbox" data-rmine ${resMine ? 'checked' : ''}> 우리 당이 출마한 곳만 보기</label>
     <div style="max-height:56vh;overflow:auto">${races.length ? races.map(x => `<section class="rrace"><h3>${esc(x.n)}</h3>${head(x)}<div class="rcands">${x.c.map((y, i) => cand(y, i, nat && x.k !== 'nat' ? '1위' : '당선')).join('')}</div></section>`).join('') : '<p class="empty">조건에 맞는 선거구가 없습니다.</p>'}</div>`, buttons: [{ t: '닫기' }],
