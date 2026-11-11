@@ -17,7 +17,7 @@
 | `logic.js` | 순수 규칙: 법정 수치, 선거 일정, 비례 의석·보조금 배분, 기탁금 |
 | `art.js` | SVG 그래픽: 시·도 지도, 인물 초상, 탭별 장면 |
 | `test.js` | `logic.js` 점검 |
-| `manifest.webmanifest`, `sw.js`, `icon-*.png` | 웹앱 설치 정보, 오프라인 캐시, 아이콘 |
+| `manifest.webmanifest`, `sw.js`, `asset/icon-*.png` | 웹앱 설치 정보, 오프라인 캐시, 아이콘 (`asset/`) |
 
 지도는 통계청 2013년 시·도 경계([southkorea-maps](https://github.com/southkorea/southkorea-maps))를 단순화했고, 광주·전남은 전남광주통합특별시로 합쳤습니다(16개 시·도).
 

@@ -1,6 +1,6 @@
 // 오프라인 실행용: 네트워크 우선(배포하면 바로 새 버전), 끊기면 캐시
 const C = 'party-tycoon';
-const FILES = ['./', 'index.html', 'logic.js', 'art.js', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-180.png', 'icon-maskable.png'];
+const FILES = ['./', 'index.html', 'logic.js', 'art.js', 'manifest.webmanifest', 'asset/icon-192.png', 'asset/icon-512.png', 'asset/icon-180.png', 'asset/icon-maskable.png'];
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(C).then(c => c.addAll(FILES))); });
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
 self.addEventListener('fetch', e => {
