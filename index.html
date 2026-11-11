@@ -290,6 +290,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .bsplit{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:14px}
 .bsplit>section+section{border-left:1px solid var(--border);padding-left:20px}
 .bsplit h3{margin-bottom:8px}.bsplit h4{font-size:13px;font-weight:700;color:var(--muted);margin:12px 0 4px}.bsplit h3+h4{margin-top:0}
+.bpol{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;align-items:start}.bpol>div{min-width:0}
+@media (max-width:900px){.bpol{grid-template-columns:1fr}}
 @media (max-width:640px){.bsplit{grid-template-columns:1fr}.bsplit>section+section{border-left:0;padding-left:0;border-top:1px solid var(--border);padding-top:14px}}
 .modal>h2{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;font-size:18px;margin:0 -20px 14px;padding:14px 20px;background:var(--hud);color:var(--on-hud);border-bottom:2px solid var(--gold2)}
 .modal>h2 .info{color:var(--on-hud-muted);border-color:var(--on-hud-muted)}
@@ -1943,11 +1945,11 @@ function brief(t) {
   S.briefs.push(r); if (S.briefs.length > 104) S.briefs.shift(); save();
   const wk = S.wire.filter(x => x.d > S.day - TURN);
   const pol = Object.entries(WIRE_C).map(([c, n]) => { const ls = [...wk.filter(x => x.c === c).map(x => x.t), ...(c === 'hall' ? t.notes : [])];
-    return ls.length ? `<h4>${c === 'reg' ? '지역 소식' : n}</h4>${noteList(ls)}` : ''; }).join('');
+    return ls.length ? `<div><h4>${c === 'reg' ? '지역 소식' : n}</h4>${noteList(ls)}</div>` : ''; }).join('');
   openModal({
-    title: `${turnNo()}턴 · 주간 브리핑`, wide: true,
+    title: `${turnNo()}턴 · 주간 브리핑`, wide: 'x',
     html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>${briefPills(r)}
-      <div class="bsplit"><section><h3>헤드라인 뉴스</h3>${newsList()}</section><section><h3>정치 뉴스</h3>${pol || '<p class="empty">이번 주 정치 소식이 없습니다.</p>'}</section></div>`,
+      <div class="bsplit"><section><h3>헤드라인 뉴스</h3>${newsList()}</section><section><h3>정치 뉴스</h3>${pol ? `<div class="bpol">${pol}</div>` : '<p class="empty">이번 주 정치 소식이 없습니다.</p>'}</section></div>`,
     buttons: [{ t: '확인', pri: true }, { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
   });
 }
