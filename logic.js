@@ -168,6 +168,30 @@
   const candScore = p => p ? CW.skill * cl((p.skill - 60) / 40, -1.25, 1) - CW.rec * Math.min(3, p.rec?.length || 0)
     + CW.integ * cl(((p.integ ?? 60) - 60) / 40, -1.25, 1) + CW.fame * cl((p.fame - 30) / 40, -0.75, 1.5) : 0;
 
-  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore };
+  // 지지층 5계층 [충성, 우호, 중립, 적대, 혐오] 비중(합 1). 계층마다 사건에 흔들리는 정도가 다름: 중립이 가장 크고, 다음이 우호·적대
+  // 악재엔 충성층이 거의 안 흔들리고(이미 등 돌린 혐오층도), 호재엔 혐오층이 거의 안 넘어옴
+  const TIERS = ['충성', '우호', '중립', '적대', '혐오'];
+  const TIER_NEG = [0.2, 0.7, 1, 0.7, 0.3], TIER_POS = [0.3, 0.7, 1, 0.7, 0.2];
+  const TIER_REF = [0.05, 0.15, 0.6, 0.15, 0.05]; // 이 분포일 때 배율 1
+  const tierW = (t, w) => t.reduce((a, x, i) => a + x * w[i], 0);
+  // 신뢰 변화 배율: 중립층이 두꺼운 당일수록 크게, 충성(악재)·혐오(호재)가 두꺼울수록 작게
+  const tierMul = (t, d) => { const w = d < 0 ? TIER_NEG : TIER_POS; return tierW(t, w) / tierW(TIER_REF, w); };
+  // 사건 하나에 계층이 한 칸씩 이동: 악재(d<0)면 혐오 쪽으로, 호재면 충성 쪽으로. 흔들리는 정도가 큰 계층일수록 많이 움직임(신뢰 1당 1%, 한 번에 최대 30%)
+  function tierShift(t, d, rate = 0.01) {
+    const w = d < 0 ? TIER_NEG : TIER_POS, p = Math.min(0.3, Math.abs(d) * rate), o = t.slice();
+    for (let i = 0; i < 5; i++) { const j = d < 0 ? i + 1 : i - 1; if (j < 0 || j > 4) continue; const m = t[i] * p * w[i]; o[i] -= m; o[j] += m; }
+    return o;
+  }
+  // 평소엔 양 끝 계층이 천천히 중립 쪽으로 돌아옴(하루 r)
+  function tierRelax(t, r = 0.0015) {
+    const o = t.slice(), mv = (i, j) => { const m = t[i] * r; o[i] -= m; o[j] += m; };
+    mv(0, 1); mv(1, 2); mv(3, 2); mv(4, 3);
+    return o;
+  }
+  // 지지율이 따라가는 속도 배율: 충성층이 두꺼우면 덜 빠지고(다른 당으로 덜 넘어감), 혐오층이 두꺼우면 덜 오름
+  const tierSup = (t, up) => cl((1 - 2 * t[up ? 4 : 0]) / 0.9, 0.3, 1.2);
+
+  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
+    TIERS, tierMul, tierShift, tierRelax, tierSup };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

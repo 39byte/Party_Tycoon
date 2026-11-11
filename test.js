@@ -81,4 +81,13 @@ assert.strictEqual(L.candScore({ skill: 60, integ: 60, fame: 30, rec: [] }), 0);
 const bad = Math.log(0.6) + L.candScore({ skill: 25, integ: 20, fame: 5, rec: ['a', 'b'] }), avg = Math.log(0.25);
 assert(bad < avg, '지지율 60% 당의 형편없는 후보가 25% 당의 평범한 후보에게 져야 함');
 
+// 지지층 계층: 비중 합 유지, 악재는 혐오층을, 호재는 충성층을 두껍게. 충성층 두꺼우면 악재 배율↓, 혐오층 두꺼우면 호재 배율↓
+const T0 = [0.05, 0.15, 0.6, 0.15, 0.05], tsum = t => t.reduce((a, b) => a + b, 0);
+const tb = L.tierShift(T0, -5), tg = L.tierShift(T0, 5);
+assert(Math.abs(tsum(tb) - 1) < 1e-9 && Math.abs(tsum(tg) - 1) < 1e-9 && Math.abs(tsum(L.tierRelax(tb)) - 1) < 1e-9);
+assert(tb[4] > T0[4] && tb[0] < T0[0] && tg[0] > T0[0] && tg[4] < T0[4]);
+assert(Math.abs(L.tierMul(T0, -1) - 1) < 1e-9 && Math.abs(L.tierMul(T0, 1) - 1) < 1e-9);
+assert(L.tierMul([0.4, 0.2, 0.3, 0.05, 0.05], -1) < 1 && L.tierMul([0.05, 0.05, 0.3, 0.2, 0.4], 1) < 1);
+assert(L.tierSup([0.3, 0.2, 0.4, 0.05, 0.05], false) < L.tierSup(T0, false));
+
 console.log('ok');
