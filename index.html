@@ -2571,7 +2571,7 @@ function govRun(k, pj, auto) {
   else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
   // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
   if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
-    need.forEach(x => wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov')); }
+    need.forEach(x => { resolveNews(x.nid); wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov'); }); }
   S.ops[k] = clamp(opsUp('P', k, before, S.ops[k] - before), 5, 95); wire(`${auto ? '[자동] ' : ''}${msg}`, 'gov');
   later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도
   if (!ok) blunAdd(k, 'P', msg);
@@ -2610,7 +2610,7 @@ function autoGov() {
     const c = 0.4 + (govPerson(k)?.skill ?? 50) / 200; // 판단이 맞을 확률: 역량 40 → 60%, 80 → 80%. 맞으면 진짜 문제는 짚고 헛짚을 소식은 거름
     for (const x of recent(k).reverse()) {
       if (desOf(k).length >= desMax) break;
-      if (x.aj || S.rdes.some(d => d.nid === x.id) || !issueHint(x)?.pj) continue;
+      if (x.aj || x.done || S.rdes.some(d => d.nid === x.id) || !issueHint(x)?.pj) continue;
       x.aj = 1; // 한 소식은 한 번만 판단
       if ((rnd() < c) === !!x.r) S.rdes.push({ nid: x.id, k, t: x.t, d: x.d, rid: x.r || 0 });
     }
@@ -4376,7 +4376,7 @@ const rNew = x => x.d > (turnStart ? turnStart.day : S.day) - TURN && x.d > (rOp
 // 지방 정부 탭 지역 순서: 특별시 → 광역시 → 특별자치시 → 도(행정구역 표준 순서)
 const R_ADM = ['seoul', 'busan', 'daegu', 'incheon', 'daejeon', 'ulsan', 'sejong', 'gyeonggi', 'gangwon', 'chungbuk', 'chungnam', 'jeonbuk', 'jeonnam', 'gyeongbuk', 'gyeongnam', 'jeju'].map(k => RK[k]);
 // 지역 소식의 '현안 지정' 버튼(최근 5주 소식만)
-const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
+const desBtn = x => { if (!x.id || S.day - x.d >= 35) return ''; if (x.done) return '<button class="btn desbtn" disabled title="행정 사업이나 시·도당 대응으로 이미 성공한 현안입니다">해결됨</button>'; const on = S.rdes.some(d => d.nid === x.id), full = !on && desOf(x.k).length >= desMax;
   return `<button class="btn desbtn" data-des="${x.id}" aria-pressed="${on}" ${full ? `disabled title="이 지역은 ${desMax}건까지 지정할 수 있습니다"` : ''}>${on ? '지정됨' : '현안 지정'}</button>`; };
 // 광역단체장 직명(특별·광역시는 시장, 도는 도지사)
 const GOVT = { seoul: '서울특별시장', busan: '부산광역시장', daegu: '대구광역시장', incheon: '인천광역시장', daejeon: '대전광역시장', ulsan: '울산광역시장', sejong: '세종특별자치시장',
@@ -4411,10 +4411,12 @@ const pjAdj = (k, pj) => sum(desOf(k).map(x => (realOf(x) || {}).pj === pj ? 0.1
 const shortT = x => x.t.replace(RK[x.k].n + ' ', '');
 // 현안 지정·해제(지역당 3건까지)
 const desMax = 3;
+// 행정 사업이나 시·도당 대응으로 성공한 현안: 지정에서 빠지고, 그 소식은 다시 지정할 수 없음(한쪽이 성공하면 다른 쪽도 못 함)
+const resolveNews = nid => { const n = S.rnews.find(x => x.id === nid); if (n) n.done = 1; S.rdes = S.rdes.filter(x => x.nid !== nid); };
 function toggleDes(nid) {
   const i = S.rdes.findIndex(x => x.nid === nid);
   if (i >= 0) S.rdes.splice(i, 1);
-  else { const n = S.rnews.find(x => x.id === nid); if (!n || desOf(n.k).length >= desMax) return; S.rdes.push({ nid, k: n.k, t: n.t, d: n.d, rid: n.r || 0 }); }
+  else { const n = S.rnews.find(x => x.id === nid); if (!n || n.done || desOf(n.k).length >= desMax) return; S.rdes.push({ nid, k: n.k, t: n.t, d: n.d, rid: n.r || 0 }); }
   renderAll();
 }
 // 매 턴 지역 소식: 현안처럼 보이는 소식(65%만 실제 문제) · 동네 소식 · 지역 일반 · 단체장 평가. 5주 넘게 방치된 실제 문제는 그 지역 지사 책임론
@@ -4446,7 +4448,7 @@ function partyRespond(nid) {
   if (!x || x.party || !S.chapters[x.k] || left || S.ap < 1 || S.money < 3e6) return;
   const n = RK[x.k].n; x.party = true; S.ap--; spend(3e6, '활동');
   if (luck(real && real.pj ? 0.6 : 0.25)) {
-    const m = Math.round(rr(100, 300)); S.members[x.k] += m; S.trust += 0.3;
+    const m = Math.round(rr(100, 300)); S.members[x.k] += m; S.trust += 0.3; resolveNews(nid);
     rnews(x.k, `${S.party.name} ${n}시·도당, '${shortT(x)}' 현장 대응… 주민 호응`);
     info('시·도당 현장 대응', `${n}시·도당이 '${shortT(x)}' 현장을 찾아 대안을 냈습니다. 주민 호응이 좋아 당원 ${m}명이 늘었습니다.`, false);
   } else {
@@ -5423,7 +5425,7 @@ function pAdmin() {
   const iss = R_ADM.flatMap(r => desOf(r.k)).filter(x => admReg === 'all' || x.k === admReg).sort((a, b) => b.d - a.d);
   const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 · 행정 행동력 1" ${why('govern', x.k) ? 'disabled' : ''}>행정 사업</button>` : ''}${S.chapters[x.k] && !x.party ? `<button class="btn" data-presp="${x.nid}" title="행동력 1 · 300만" ${left || S.ap < 1 || S.money < 3e6 ? 'disabled' : ''}>시·도당 대응</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
   const issCard = `<div class="card" style="margin-bottom:14px"><h2>지역 현안 <span class="pill">${iss.length}건</span></h2>
-    <p class="tip">지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 우리 시·도당이 있는 곳은 현장 대응(행동력 1·300만)으로 당원을 늘릴 수 있지만, 헛짚으면 잘 안 먹힙니다. 지정은 5주가 지나면 정리됩니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다.${admReg === 'all' ? '' : ' 아래 지역 소식에서 고른 지역만 보입니다.'}</p>
+    <p class="tip">지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 우리 시·도당이 있는 곳은 현장 대응(행동력 1·300만)으로 당원을 늘릴 수 있지만, 헛짚으면 잘 안 먹힙니다. 행정 사업이나 시·도당 대응 중 하나라도 성공한 현안은 해결된 것으로 정리되어 다시 지정하거나 대응할 수 없습니다. 지정은 5주가 지나면 정리됩니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다.${admReg === 'all' ? '' : ' 아래 지역 소식에서 고른 지역만 보입니다.'}</p>
     ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 · ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음${x.party ? ' · 시·도당 대응함' : ''}${S.gov[x.k] === 'P' ? ' · 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="empty" style="padding:2px 0;margin:0">지정한 현안이 없습니다. 지역 소식에서 '현안 지정'을 눌러 담으세요.</p>`}</div>`;
   const k = admReg === 'all' ? null : admReg, g = k && S.rgov[k];
   if (rOpen?.k !== k) rOpen = k && { k, seen: S.rseen[k] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
