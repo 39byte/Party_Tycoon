@@ -1138,7 +1138,6 @@ function migrate(o) {
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
   o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
-  o.results = trimResults(o.results || []);
   o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; delete o.agenda; delete o.agUsed; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.blun ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= []; o.byes ??= []; o.vacant ??= []; o.prList ??= []; o.gact ??= {}; o.byes.forEach(b => b.kind ??= 'mp'); o.vacant.forEach(v => v.kind ??= 'mp');
@@ -1475,11 +1474,8 @@ function regDeadline(c) {
     if (w > 0) { earn(w, '보조금'); addLog(`여성추천보조금 ${won(w)} 수령 (지역구 여성 후보 ${pct(c.reg.womenRatio, 0)}, 정치자금법 제26조).`, 'ok'); }
   }
 }
-// 지난 선거는 전부 한 줄 기록으로 남기되, 선거구별 상세(races·psum)는 종류별로 최근 몇 번만 보관(저장 파일이 끝없이 커지지 않게)
-const RES_KEEP = { pres: 3, nat: 5, gov: 5, bye: 3 };
 const resOf = r => /대통령/.test(r.name) ? 'pres' : r.bye ? 'bye' : /국회의원/.test(r.name) ? 'nat' : 'gov';
-const trimResults = a => { const left = { ...RES_KEEP }; for (let i = a.length; i--;) if (left[resOf(a[i])]-- <= 0) { delete a[i].races; delete a[i].psum; } return a; };
-function addResult(r) { S.results.push(r); trimResults(S.results); return r; }
+function addResult(r) { S.results.push(r); return r; }
 function resolveElection(c) {
   const e = c, lines = [], jr = S.byes.filter(b => b.with === c.key).map(byeResolve); // 같은 날 치르는 보궐선거도 함께 개표
   let refund = 0, html = '', races = [], psum; // psum: 정당별 요약 [정당, 지역구(또는 단체장), 비례, 득표율]
@@ -5267,7 +5263,7 @@ function distEdit(c, k) {
 let resReg = 'all', resMine = false; // 선거 결과 팝업: 지역 필터 · 우리 당 출마 지역만
 function resultModal(r, keep) {
   if (!r) return;
-  if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">오래된 선거라 선거구별 상세 기록은 지웠습니다. 상세 기록은 종류별로 최근 대선 3번·총선 5번·지선 5번·보궐선거 3번까지만 보관합니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
+  if (!r.races) return openModal({ title: r.name, html: `<p>${esc(r.t)}</p><p class="tip">이 선거는 선거구별 상세 기록이 남아 있지 않습니다. 상세 기록 기능이 생기기 전에 치른 선거입니다.</p>`, buttons: [{ t: '닫기', pri: true }] });
   const col = id => id === 'O' ? '#64748B' : pc(id);
   // 후보 카드: 얼굴·정당·득표율 막대, 누르면 그때 프로필(능력치·전과)
   // 대선은 첫 칸(전국)이 '당선', 지역은 '1위'
