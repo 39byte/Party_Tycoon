@@ -1200,9 +1200,9 @@ function defSup(o) {
   for (const id of RW_IDS) Object.defineProperty(rw, id, { enumerable: true, get: () => vAvg(k => o.rwr[id][k]), set(v) { const m = Math.max(0.5, v) / rw[id]; for (const r of R) o.rwr[id][r.k] *= m; } });
   Object.defineProperty(o, 'rw', { configurable: true, enumerable: false, value: rw });
 }
-// 발표 여론조사(플레이어가 보는 값): 매주 진짜 민심에서 1,000명을 시·도 선거인 비례로 뽑아 물음(무작위 표본 → 표본오차).
+// 발표 여론조사(플레이어가 보는 값): 매주 진짜 민심에서 2,500명(주간 정당 지지율 조사 규모 근사)을 시·도 선거인 비례로 뽑아 물음(무작위 표본 → 표본오차).
 // 전국 = 이번 주 지역 표본을 선거인 비중으로 가중, 지역 = 최근 4주 표본을 합친 값(실제 조사의 월간 통합처럼. 그래도 작은 시·도는 크게 출렁임)
-const POLL_N = 1000, POLL_POOL = 4;
+const POLL_N = 2500, POLL_POOL = 4;
 function pollTake() {
   const wk = Object.fromEntries(R.map(r => {
     const q = regPoll(r.k), c = Object.fromEntries(QIDS.map(id => [id, 0]));
