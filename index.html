@@ -3084,7 +3084,8 @@ function rvPick(c, k, id, used, pr, need) {
   // 사직하고 나오는 현직도 후보가 될 수 있음: 지선엔 그 당 현직 의원, 총선(지역구)엔 그 당 광역단체장
   const mp = !pr && (c.type === 'gov' || c.type === 'nat') && id in (S.fpool || {}) ? S.figs.filter(f => f.party === id && (c.type === 'gov' ? (f.pos === 'd' || f.pos === 'pr') : f.pos === 'gov' && !S.gact[f.k]) && !used.has(f.id) && !f.ban && f.age >= LAW.age[kd]).reduce((a, f) => !a || slotScore(f, k) > slotScore(a, k) ? f : a, null) : null;
   const mr = (c.mpRun ??= {}); // 현직은 인재풀 후보보다 조금이라도 나을 때만, 한 정당이 한 선거에 1명까지(보궐선거가 너무 잦지 않게)
-  if (mp && b !== cur && (mr[id] || 0) < 1 && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, c.type === 'gov' ? '광역단체장 출마 사직' : '총선 출마 사직'); return mp; }
+  if (mp && !(id in mr) && c.type === 'gov') mr[id] = rnd() < 0.9 ? 1 : 0; // 지선에 의원직 던지고 나오는 일은 드묾: 정당·선거마다 10%만 허용
+  if (mp &&b !== cur && (mr[id] || 0) < 1 && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, c.type === 'gov' ? '광역단체장 출마 사직' : '총선 출마 사직'); return mp; }
   poolTake(id, b);
   const f = b === cur ? cur : genFig(S, id, pr ? b.home || figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
