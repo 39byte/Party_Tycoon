@@ -1075,10 +1075,9 @@ const trustUp = (d, t, soft) => {
   return x - t;
 };
 // 지지층 계층은 지역마다(S.rtier[당][지역] = [충성, 우호, 중립, 적대, 혐오] 비중). 그 지역 사건 크기를 계층 배율만큼 키우거나 줄이고(L.tierMul), 사건마다 그 지역 계층을 한 칸씩 옮김(L.tierShift)
-// 전국 계층은 지역 계층을 선거인 비중으로 합친 값(tierNat). 무소속(O)은 없음
+// 진짜 계층은 플레이어에게 안 보이고, 화면엔 매주 여론조사로 발표한 값(S.pub.tier, pollTier)만 나옴. 무소속(O)은 없음
 const tierOf = (id, k) => S?.rtier?.[id]?.[k];
 const tierHit = (id, k, d) => { const t = tierOf(id, k); if (t && d) S.rtier[id][k] = L.tierShift(t, d); };
-const tierNat = id => S.rtier[id] && L.TIERS.map((_, i) => vAvg(k => S.rtier[id][k][i]));
 const trustScale = (d, t, id = 'P', k) => { const tt = tierOf(id, k); if (tt) d *= L.tierMul(tt, d); return d > 0 ? trustUp(d, t, id === 'P' ? TRUST_SOFT_P : TRUST_SOFT) : d * TRUST_DOWN; };
 function defTrust(o) {
   Object.defineProperty(o, 'trust', {
@@ -1129,6 +1128,7 @@ function migrate(o) {
       defSup(o); if (!o.pub) pollTake();
     } finally { S = prev; }
   } else defSup(o);
+  if (!o.pub.tier) { const prev = S; S = o; try { pollTier(); } finally { S = prev; } } // 옛 저장: 지지층 조사가 없던 발표
   // 옛 저장 파일: 예전 등록 마감(대선·총선 23일, 지선 19일 전)으로 이미 정산한 공천은 다시 정산하지 않음
   for (const c of Object.values(o.camps || {})) c.settled ??= c.day - o.day < { pres: 23, nat: 23, gov: 19 }[c.type] - 1;
   o.ap ??= AP; o.news ??= []; o.cases ??= []; o.bills ??= []; o.laws ??= []; if (!o.passed2) { // 옛 저장 파일: 당 기록의 '… 국회 통과' 줄에서 모든 당의 통과 법안을 되살림
@@ -1214,6 +1214,20 @@ function pollTake() {
   const now = Object.fromEntries(R.map(r => [r.k, pct(wk[r.k])]));
   S.pub = { d: S.day, ...Object.fromEntries(QIDS.map(id => [id, vAvg(k => now[k][id])])),
     reg: Object.fromEntries(R.map(r => [r.k, pct(Object.fromEntries(QIDS.map(id => [id, sum(S.pubs.map(w => w[r.k][id]))])))])) };
+  pollTier();
+}
+// 지지층 조사: 같은 표본에게 각 당에 대한 태도(충성~혐오)를 물음. 지지율처럼 전국 = 이번 주 지역 표본을 선거인 비중으로 가중(지역 계층의 합산),
+// 지역 = 최근 4주 표본을 합친 값(작은 시·도는 표본이 적어 크게 출렁임)
+function pollTier() {
+  const ids = Object.keys(S.rtier), frac = c => { const n = sum(c); return c.map(x => x / n); };
+  const draw = t => { let x = rnd(); const i = t.findIndex(p => (x -= p) < 0); return i < 0 ? 4 : i; };
+  const wk = Object.fromEntries(R.map(r => { const n = Math.max(1, Math.round(POLL_N * r.voters / VSUM));
+    return [r.k, Object.fromEntries(ids.map(id => { const c = [0, 0, 0, 0, 0]; for (let i = 0; i < n; i++) c[draw(S.rtier[id][r.k])]++; return [id, c]; }))]; }));
+  S.tpubs = [...(S.tpubs || []), wk].slice(-POLL_POOL);
+  S.pub.tier = {
+    nat: Object.fromEntries(ids.map(id => [id, L.TIERS.map((_, i) => vAvg(k => frac(wk[k][id])[i]))])),
+    reg: Object.fromEntries(R.map(r => [r.k, Object.fromEntries(ids.map(id => [id, frac(L.TIERS.map((_, i) => sum(S.tpubs.map(w => w[r.k][id][i]))))]))])),
+  };
 }
 const pubReg = (k, id = 'P') => S.pub.reg[k][id];
 // 발표 여론조사의 결정층 몫(무당층 뺀 비율). natShares()의 발표판
@@ -3302,8 +3316,8 @@ function negOutModal(oid) {
 }
 // 지지층 띠: 충성(당 색) · 우호(옅은 당 색) · 중립 · 적대(옅은 빨강) · 혐오(빨강)
 const TIER_C = ['var(--pc)', 'color-mix(in srgb,var(--pc) 45%,transparent)', 'transparent', 'color-mix(in srgb,var(--danger) 40%,transparent)', 'var(--danger)'];
-// t: 계층 비중(생략하면 그 당 전국 계층)
-const tierBar = (id, t = tierNat(id)) => { const txt = L.TIERS.map((n, i) => `${n} ${Math.round(t[i] * 100)}`).join(' · ');
+// t: 발표된 계층 비중(생략하면 그 당 전국 조사)
+const tierBar = (id, t = S.pub.tier.nat[id]) => { const txt = L.TIERS.map((n, i) => `${n} ${Math.round(t[i] * 100)}`).join(' · ');
   return `<div class="tierbar" style="--pc:${pc(id)}" role="img" aria-label="지지층 ${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div><div class="small muted">${txt}</div>`; };
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
 let negF = 'all', outF = 'all', mpPage = 0, outPage = 0;
@@ -3336,7 +3350,7 @@ function negCard() {
   // 정당: 정당마다 카드 한 장, 한 줄에 나란히(좁으면 줄바꿈)
   const parties = `<div class="card"><h2>정당</h2><div class="ptys">
     ${parts.map(id => `<div class="pty" style="--pc:${pc(id)}"><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${S.pacts[id] > S.day ? ' <span class="pill">공조 중</span>' : ''}${Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id))}</div>
-      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]} · 인지도 <b class="num">${S.rfame[id].toFixed(0)}</b> · 신뢰 <b class="num">${trAvg(id).toFixed(1)}</b></div>${S.rtier[id] ? tierBar(id) : ''}${relBar(S.rel[id])}</div>`).join('')}
+      <div class="small muted">의석 <b class="num">${seatTotal(id)}</b>석 · ${IDEO[Math.round(RIV[id].ideo)]} · 인지도 <b class="num">${S.rfame[id].toFixed(0)}</b> · 신뢰 <b class="num">${trAvg(id).toFixed(1)}</b></div>${S.pub.tier.nat[id] ? tierBar(id) : ''}${relBar(S.rel[id])}</div>`).join('')}
     </div></div>`;
   const [mpShow, mq, mn] = negPage(mps, mpPage), [outShow, oq, on] = negPage(outs, outPage); mpPage = mq; outPage = oq;
   const chips = (at, cur, xs) => `<div class="filters chips" role="group" aria-label="소속 필터">${xs.map(([k, n]) => `<button class="btn${cur === k ? ' pri' : ''}" data-${at}="${k}" aria-pressed="${cur === k}">${esc(n)}</button>`).join('')}</div>`;
@@ -4984,7 +4998,7 @@ function pOrg() {
         <tr><th>지역구 의석</th><td>${r.seats}석</td></tr>
         <tr><th>지지율</th><td class="num">${pubReg(r.k).toFixed(1)}% <span class="muted small">±${pubErr(pubReg(r.k), S.pub.reg[r.k].n).toFixed(1)}%p</span></td></tr>
         <tr><th>신뢰도</th><td class="num">${S.rtrust[r.k].toFixed(1)}<div class="muted small">전국 평균 ${S.trust.toFixed(1)}</div></td></tr>
-        <tr><th>지지층 (%)</th><td>${tierBar('P', S.rtier.P[r.k])}</td></tr>
+        <tr><th>지지층 (%)</th><td>${tierBar('P', S.pub.tier.reg[r.k].P)}</td></tr>
         <tr><th>다른 당<br>지지율</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${pubReg(r.k, id).toFixed(1)}%</span>`).join('')}</div></td></tr>
       </tbody></table></div><div><table class="kv"><tbody>
         <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
@@ -5582,7 +5596,7 @@ function pGuide() {
       <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 45일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 90일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
-      <li><b>지지층</b>은 지역마다 충성·우호·중립·적대·혐오 5계층으로 나뉘고, 전국 지지층은 지역 지지층을 선거인 수대로 합친 값입니다. 처음엔 노선과 맞는 지역일수록 충성층이, 어긋나는 지역일수록 혐오층이 두껍습니다. 중립층이 당의 결정에 가장 크게 흔들리고, 다음이 우호·적대층입니다. 충성층이 두꺼울수록 악재에도 신뢰가 덜 깎이고 지지율이 덜 빠지며, 혐오층이 두꺼울수록 좋은 일을 해도 신뢰와 지지율이 잘 오르지 않습니다. 실책이 쌓이면 혐오층이, 좋은 평가가 쌓이면 충성층이 두꺼워지고, 시간이 지나면 양 끝은 천천히 중립 쪽으로 돌아옵니다.</li>
+      <li><b>지지층</b>은 지역마다 충성·우호·중립·적대·혐오 5계층으로 나뉘고, 전국 지지층은 지역 지지층을 선거인 수대로 합친 값입니다. 지지율처럼 실제 계층은 알 수 없고, 매주 여론조사로 발표된 값만 보입니다(지역은 최근 4주 조사를 합친 값이라 작은 시·도일수록 오차가 큽니다). 처음엔 노선과 맞는 지역일수록 충성층이, 어긋나는 지역일수록 혐오층이 두껍습니다. 중립층이 당의 결정에 가장 크게 흔들리고, 다음이 우호·적대층입니다. 충성층이 두꺼울수록 악재에도 신뢰가 덜 깎이고 지지율이 덜 빠지며, 혐오층이 두꺼울수록 좋은 일을 해도 신뢰와 지지율이 잘 오르지 않습니다. 실책이 쌓이면 혐오층이, 좋은 평가가 쌓이면 충성층이 두꺼워지고, 시간이 지나면 양 끝은 천천히 중립 쪽으로 돌아옵니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
       <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
     ${sec('자금', `<ul><li>수입: 매달 당비·후원금, 후원의 밤(연간 모금한도 있음), 정식 정당이 의석이나 득표를 얻으면 분기별 경상보조금과 선거보조금이 들어옵니다.</li>
