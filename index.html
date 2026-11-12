@@ -2566,7 +2566,7 @@ function govRun(k, pj, auto) {
     else { S.ops[k] -= 2; ok = false; msg = `${n} 돌봄센터 위탁업체 선정을 두고 특혜 논란이 일었습니다.`; }
   } else if (pj === 'biz') {
     if (rnd() < pr(0.5)) { S.ops[k] += 8; S.fame += 1; msg = `${n}에 대기업 공장 유치 성공! 일자리 수천 개가 생깁니다.`; }
-    else { S.ops[k] += 1; ok = false; msg = `${n} 투자 유치 협상이 결렬됐습니다.`; }
+    else { S.ops[k] -= 1; ok = false; msg = `${n} 투자 유치 협상이 결렬됐습니다.`; }
   } else if (luck(pr(0.7))) { S.ops[k] += 2; S.trust += 1; msg = `${n} 재난·안전 점검을 마쳤습니다. 꼼꼼한 행정이라는 평가입니다.`; }
   else { S.ops[k] -= 1; ok = false; msg = `점검을 마친 ${n} 시설에서 곧바로 사고가 나 "형식적 점검"이라는 비판을 받았습니다.`; }
   // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
@@ -2589,10 +2589,10 @@ function rgovRun() {
     if (rnd() < clamp(0.43 - sk / 400, 0.26, 0.43)) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
     else if (pj === 'dev') [d, t] = rnd() < pr(0.65) ? [7, `${w}, ${n} 개발사업 순조롭게 착공`] : [-3, `${n} 개발사업 주민 반발로 지연… ${w} 곤혹`];
     else if (pj === 'care') [d, t] = rnd() < pr(0.75) ? [3.5, `${w}, 돌봄센터 확충에 주민 호응`] : [-2, `${n} 돌봄센터 위탁업체 특혜 논란`];
-    else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [1, `${n} 투자 유치 협상 결렬`];
+    else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [-1, `${n} 투자 유치 협상 결렬`];
     else [d, t] = rnd() < pr(0.7) ? [2, `${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`] : [-1, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`];
     g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (d <= 1) blunAdd(k, g.p, t);
-    later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 투자 유치 결렬(+1)·실패·찐빠는 실패 보도
+    later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 실패·찐빠는 실패 보도
   }
 }
 // 행정 사업 자동화(S.autoK[지역], 지사마다 따로 켬): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
