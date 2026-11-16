@@ -222,7 +222,18 @@
   // 지지율이 따라가는 속도 배율: 충성층이 두꺼우면 덜 빠지고(다른 당으로 덜 넘어감), 혐오층이 두꺼우면 덜 오름
   const tierSup = (t, up) => cl((1 - 2 * t[up ? 4 : 0]) / 0.9, 0.3, 1.2);
 
+  // 다른 당 주간 방침: tools/jeff에서 Jeff(jeff.routing.tools)가 고른 확률을 softmax 회귀로 배운 가중치(RIV_W, fit.py가 채움). 없으면 null
+  // c: 다음 선거까지 주(wk), 선거운동기간(camp 0/1), 의석, 전국 지지율(%), 4주 변화(%p), 다른 당 최고와의 차(%p), 대통령 배출(pres 0/1), 대통령 지지율, 최근 악재 뒤 주(hit)
+  const POSTURES = ['campaign', 'policy', 'attack', 'coalition', 'lowkey'];
+  const rivalFeat = c => [1, Math.min(c.wk, 52) / 52, c.wk <= 6 ? 1 : 0, c.camp, c.seats / 300, c.seats < 20 ? 1 : 0, c.sup / 50, c.trend / 5, c.gap / 10, c.pres, c.pres ? (c.appr - 50) / 20 : 0, c.hit <= 4 ? 1 : 0];
+  const RIV_W = [[2.027,-1.755,0.108,-0.627,0.411,-0.346,0.237,0.018,-0.006,-0.571,-0.999,-1.798],[-0.168,1.552,-0.339,-0.173,-0.022,-0.029,0.205,0.041,-0.066,0.003,0.178,-0.274],[-0.889,-0.431,0.217,0.572,0.092,-0.428,-0.319,-0.046,-0.131,-0.206,-0.149,-0.221],[0.248,0.113,0.069,0.166,-1.654,0.941,0.06,-0.024,-0.065,-0.467,0.163,-0.904],[-1.218,0.521,-0.056,0.062,1.172,-0.139,-0.182,0.012,0.268,1.241,0.808,3.198]]; // fit.py: 3000건, 검증 일치 82%
+  const rivalPolicy = (f, W = RIV_W) => {
+    if (!W) return null; // 학습 전: 방침 없음(예전 행동 그대로)
+    const z = W.map(w => w.reduce((s, x, i) => s + x * f[i], 0)), m = Math.max(...z), e = z.map(x => Math.exp(x - m)), s = e.reduce((a, b) => a + b, 0);
+    return e.map(x => x / s);
+  };
+
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, POSTURES, rivalFeat, rivalPolicy };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

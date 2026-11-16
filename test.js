@@ -103,4 +103,15 @@ assert(tc.A[3] + tc.A[4] >= tc.B[0] + tc.C[0] - 0.01 && tc.B[3] + tc.B[4] >= tc.
 const same = { B: [0.3, 0.3, 0.3, 0.05, 0.05], C: [0.3, 0.3, 0.3, 0.05, 0.05] };
 assert.deepStrictEqual(L.tierCross(same, IDEO), same); // 같은 진영끼리는 그대로
 
+// 다른 당 주간 방침: 가중치 없으면 null(예전 행동). 있으면 확률 합 1, 선거 2주 전 열세면 선거 먼 때보다 유세·공세 쪽, 정책은 덜
+const rc = o => L.rivalFeat({ wk: 40, camp: 0, seats: 120, sup: 28, trend: 0, gap: -3, pres: 0, appr: 40, hit: 99, ...o });
+const near = rc({ wk: 2, camp: 1, trend: -2 }), far = rc({});
+assert.strictEqual(L.rivalPolicy(near, null), null);
+const pNear = L.rivalPolicy(near), pFar = L.rivalPolicy(far), pi = k => L.POSTURES.indexOf(k);
+if (pNear) {
+  assert(Math.abs(pNear.reduce((a, b) => a + b) - 1) < 1e-9);
+  assert(pNear[pi('campaign')] + pNear[pi('attack')] > pFar[pi('campaign')] + pFar[pi('attack')]);
+  assert(pFar[pi('policy')] > pNear[pi('policy')]);
+}
+
 console.log('ok');
