@@ -4,3 +4,4 @@ desktop/node_modules/
 desktop/dist/
 tools/jeff/.venv/
 tools/jeff/__pycache__/
+tools/jeff/data/ctx.jsonl

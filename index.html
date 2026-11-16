@@ -1804,7 +1804,7 @@ const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ide
 const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
 // 다른 당 주간 방침(L.POSTURES): 매주 L.rivalPolicy 확률로 고르되 절반은 지난 방침 유지. 방침은 아래 행동 확률만 바꾸고 효과 식은 그대로
 // RIV_MIX: 0이면 방침이 행동에 영향 없음, 1이면 POST_FX 그대로. POST_FX 배율: [선거운동 비중, 방송 광고, 네거티브 공세, 호재 보도, 실언]
-const RIV_MIX = 0.6;
+const RIV_MIX = +(/[?&]dev\b/.test(location.search) && location.search.match(/[?&]mix=([\d.]+)/)?.[1] || 0.6); // ?dev&mix=0: 밸런스 비교용
 const POST_FX = { campaign: [1.15, 1.25, 1, 1, 1], policy: [0.6, 0.8, 0.6, 1.4, 1], attack: [1, 1, 1.7, 0.8, 1.3], coalition: [0.9, 1, 0.4, 1.1, 1], lowkey: [0.8, 0.7, 0.4, 0.9, 0.5] };
 const POST_WIRE = { campaign: '선거 총력 체제 돌입', policy: '민생 정책 행보에 집중', attack: '공세 수위 끌어올려', coalition: '연대·협력 행보 강화', lowkey: '몸 낮추기… 당분간 말 아껴' };
 const postFx = (id, i) => 1 + RIV_MIX * ((POST_FX[S.rplan?.[id]?.k]?.[i] ?? 1) - 1);
@@ -1817,11 +1817,12 @@ const rivCtx = id => {
 };
 function rivPlan(id) {
   const c = rivCtx(id), f = L.rivalFeat(c), p = L.rivalPolicy(f), pl = (S.rplan ??= {});
-  if (JLOG) JLOG.push({ id, ideo: RIV[id].ideo, ...c, f });
-  if (!p || (pl[id] && rnd() < 0.5)) return;
-  let x = rnd(); const k = L.POSTURES.find((_, i) => (x -= p[i]) < 0) || L.POSTURES[0];
-  if (pl[id] && pl[id].k !== k) wire(`${pn(id)}, ${POST_WIRE[k]}`);
-  pl[id] = { k, d: S.day };
+  if (p && !(pl[id] && rnd() < 0.5)) {
+    let x = rnd(); const k = L.POSTURES.find((_, i) => (x -= p[i]) < 0) || L.POSTURES[0];
+    if (pl[id] && pl[id].k !== k) wire(`${pn(id)}, ${POST_WIRE[k]}`);
+    pl[id] = { k, d: S.day };
+  }
+  if (JLOG) JLOG.push({ id, ideo: RIV[id].ideo, ...c, f, k: pl[id]?.k });
 }
 function rivalWeek() {
   const camps = Object.values(S.camps).filter(inCampaign);

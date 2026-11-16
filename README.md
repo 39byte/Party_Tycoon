@@ -18,6 +18,7 @@
 | `logic.js` | 순수 규칙: 법정 수치, 선거 일정, 비례 의석·보조금 배분, 기탁금 |
 | `art.js` | SVG 그래픽: 시·도 지도, 인물 초상, 탭별 장면 |
 | `test.js` | `logic.js` 점검 |
+| `tools/jeff/` | 개발용(게임엔 안 쓰임): 다른 당 주간 방침을 Jeff 결정 모델로 라벨링해 `logic.js`의 `RIV_W`로 학습. 순서 `collect.py` → `label.py` → `fit.py`, 비교 `balance.py` |
 | `manifest.webmanifest`, `sw.js`, `asset/icon-*.png` | 웹앱 설치 정보, 오프라인 캐시, 아이콘 (`asset/`) |
 | `desktop/` | 윈도우 앱(Electron): `main.js`가 루트 `index.html`을 창으로 띄움, `package.json`에 빌드 설정 |
 
