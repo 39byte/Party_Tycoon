@@ -8,6 +8,7 @@
   - 안드로이드 크롬: 메뉴 ⋮ → 홈 화면에 추가 / iOS 사파리: 공유 → 홈 화면에 추가
   - 배포: GitHub 저장소 Settings → Pages → Branch `main` / `(root)`. main에 push하면 1~2분 뒤 반영.
 - 로컬: `index.html`을 브라우저로 열어도 됩니다. 설치·빌드·외부 라이브러리 없음.
+- **윈도우 앱(exe):** `cd desktop && npm install`, 실행은 `npm start`, 배포 파일은 `npm run dist` → `desktop/dist/`에 설치판 `PartyTycoon-Setup-<버전>.exe`와 설치 없이 쓰는 `PartyTycoon-Portable-<버전>.exe`. 게임 파일은 루트 것을 그대로 묶으므로 웹과 따로 고칠 것 없음. 버전은 `desktop/package.json`의 `version`. 세이브는 `%APPDATA%\정당 키우기`(브라우저와 별개라 옮기려면 파일 내보내기/불러오기). F11 전체 화면. 코드 서명이 없어 첫 실행 때 Windows 보호 경고 → 추가 정보 → 실행.
 - 매 턴 localStorage에 자동 저장. 설정에서 파일 내보내기/불러오기, 크롬·엣지는 저장 폴더 지정 가능. 사파리 등 폴더를 고를 수 없는 브라우저는 매 턴 브라우저 안(IndexedDB)에 세이브를 쌓고(최근 20개) 설정 → 자동 저장 목록에서 불러오기·내보내기(iOS는 공유 → 파일에 저장). 설정 → 게임 데이터 지우기로 이 브라우저의 게임 데이터만 삭제.
 - 규칙 테스트: `node test.js`
 
@@ -18,6 +19,7 @@
 | `art.js` | SVG 그래픽: 시·도 지도, 인물 초상, 탭별 장면 |
 | `test.js` | `logic.js` 점검 |
 | `manifest.webmanifest`, `sw.js`, `asset/icon-*.png` | 웹앱 설치 정보, 오프라인 캐시, 아이콘 (`asset/`) |
+| `desktop/` | 윈도우 앱(Electron): `main.js`가 루트 `index.html`을 창으로 띄움, `package.json`에 빌드 설정 |
 
 지도는 통계청 2013년 시·도 경계([southkorea-maps](https://github.com/southkorea/southkorea-maps))를 단순화했고, 광주·전남은 전남광주통합특별시로 합쳤습니다(16개 시·도).
 

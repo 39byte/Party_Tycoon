@@ -1,0 +1,48 @@
+{
+  "name": "party-tycoon",
+  "productName": "정당 키우기",
+  "version": "1.0.0",
+  "description": "턴제 정치 시뮬레이션",
+  "author": "Han Jiwon",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win"
+  },
+  "build": {
+    "appId": "io.github.39byte.partytycoon",
+    "files": [
+      "main.js",
+      {
+        "from": "..",
+        "to": ".",
+        "filter": [
+          "index.html",
+          "logic.js",
+          "art.js",
+          "asset/icon-*.png"
+        ]
+      }
+    ],
+    "win": {
+      "icon": "../asset/icon-512.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "PartyTycoon-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "PartyTycoon-Portable-${version}.${ext}"
+    }
+  },
+  "devDependencies": {
+    "electron": "^45.3.3",
+    "electron-builder": "^26.18.0"
+  }
+}
