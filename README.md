@@ -8,7 +8,7 @@
   - 안드로이드 크롬: 메뉴 ⋮ → 홈 화면에 추가 / iOS 사파리: 공유 → 홈 화면에 추가
   - 배포: GitHub 저장소 Settings → Pages → Branch `main` / `(root)`. main에 push하면 1~2분 뒤 반영.
 - 로컬: `index.html`을 브라우저로 열어도 됩니다. 설치·빌드·외부 라이브러리 없음.
-- **윈도우 앱(exe):** [Releases](https://github.com/39byte/Party_Tycoon/releases/latest)에서 받기. 빌드는 `cd desktop && npm install`, 실행은 `npm start`, 배포 파일은 `npm run dist` → `desktop/dist/`에 설치판 `PartyTycoon-Setup-<버전>.exe`와 설치 없이 쓰는 `PartyTycoon-Portable-<버전>.exe`. 게임 파일은 루트 것을 그대로 묶으므로 웹과 따로 고칠 것 없음. 버전은 `desktop/package.json`의 `version`. 세이브는 `%APPDATA%\정당 키우기`(브라우저와 별개라 옮기려면 파일 내보내기/불러오기). F11 전체 화면. 코드 서명이 없어 첫 실행 때 Windows 보호 경고 → 추가 정보 → 실행.
+- **윈도우 앱(exe):** [Releases](https://github.com/39byte/Party_Tycoon/releases/latest)에서 받기. 빌드는 `cd desktop && npm install`, 실행은 `npm start`, 배포 파일은 `npm run dist` → `desktop/dist/`에 설치판 `PartyTycoon-Setup-<버전>.exe`와 설치 없이 쓰는 `PartyTycoon-Portable-<버전>.exe`. 게임 파일은 루트 것을 그대로 묶으므로 웹과 따로 고칠 것 없음. 버전은 릴리스 태그를 따름(아래 개발 규칙). 세이브는 `%APPDATA%\정당 키우기`(브라우저와 별개라 옮기려면 파일 내보내기/불러오기). F11 전체 화면. 코드 서명이 없어 첫 실행 때 Windows 보호 경고 → 추가 정보 → 실행.
 - 매 턴 localStorage에 자동 저장. 설정에서 파일 내보내기/불러오기, 크롬·엣지는 저장 폴더 지정 가능. 사파리 등 폴더를 고를 수 없는 브라우저는 매 턴 브라우저 안(IndexedDB)에 세이브를 쌓고(최근 20개) 설정 → 자동 저장 목록에서 불러오기·내보내기(iOS는 공유 → 파일에 저장). 설정 → 게임 데이터 지우기로 이 브라우저의 게임 데이터만 삭제.
 - 규칙 테스트: `node test.js`
 
@@ -45,6 +45,19 @@
 - 자금 마이너스 120일 지속
 
 새 게임은 단계별 튜토리얼로 시작합니다(첫 화면에서 건너뛰기 가능, 가이드 탭에서 다시 보기). 창당 초기엔 아직 쓸 수 없는 탭(선거·교섭·법원·국회·청와대·지방 정부)이 숨겨져 있다가 조건을 채우면 열리며 사용법을 안내합니다. 자세한 설명과 지금 할 일은 게임 안 **가이드** 탭에 있습니다. 변경 내역은 `git log`를 보세요.
+
+## 개발 규칙
+
+GitHub Flow + [SemVer](https://semver.org/lang/ko/) + [Conventional Commits](https://www.conventionalcommits.org/ko/).
+
+- **main = 배포본.** main에 들어가면 웹에 바로 반영되므로 직접 push하지 않습니다. 브랜치 → PR → CI(`node test.js`) 통과 → Squash merge → 브랜치 삭제.
+- **브랜치:** `feat/`, `fix/`, `tune/`(밸런스), `docs/`, `chore/` + 짧은 영문 이름. 예: `feat/rival-weekly-plan`
+- **커밋·PR 제목:** `type: 한국어 요약`. 예: `fix: 탄핵 인용 뒤 조기 대선 날짜가 밀리는 문제`
+- **버전:** `vMAJOR.MINOR.PATCH`
+  - MAJOR: 기존 세이브를 못 불러오게 되는 변경
+  - MINOR: 새 기능·콘텐츠
+  - PATCH: 버그 수정·밸런스·문구
+- **릴리스:** main에서 `git tag vX.Y.Z && git push origin vX.Y.Z` → GitHub Actions(`.github/workflows/release.yml`)가 테스트, exe 빌드, 릴리스 생성과 업로드를 처리. 설명은 `.github/release-notes.md`에 병합된 PR 목록이 자동으로 붙음. 버전은 태그에서 정해지므로 `desktop/package.json`은 고치지 않아도 됨.
 
 ## 참고
 
