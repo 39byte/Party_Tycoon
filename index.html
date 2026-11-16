@@ -2140,7 +2140,7 @@ function accuseFile(t, ks) {
   if (pres) c.ev *= 0.7; // 살아 있는 권력 수사는 더 조심스러움
   if (t.party in S.rel) relAdd(t.party, -10, `${t.name} 고발`);
   wire(`${S.party.name}, ${t.role} ${t.name} '${ch.n}' 혐의로 검찰 고발`);
-  const msg = `${t.role} ${t.name}을(를) '${ch.n}' 혐의로 고발했습니다(${ch.law}). 검찰 처분은 몇 주 뒤 나옵니다.`;
+  const msg = `${!t.party || t.party === 'O' ? '무소속' : pn(t.party) + ' 소속'} ${t.role} ${t.name}을(를) '${ch.n}' 혐의로 고발했습니다. 검찰 처분은 몇 주 뒤 나옵니다.`;
   addLog(msg); toast(msg); Snd.sfx('ok'); renderAll();
 }
 // 결과에 따른 여론: 상대 당이면 신뢰 격차만큼 세기가 달라짐(atkMul·gapHit). 우리 당 사람이면 자정 노력과 의혹 확인이 엇갈림
