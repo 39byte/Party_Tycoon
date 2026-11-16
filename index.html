@@ -1702,8 +1702,6 @@ function monthly(dt) {
   earn(tm * (S.up.digital ? 0.35 : 0.25) * 1000, '당비');
   raiseFunds(S.fame * S.fame * 1.5e4);
   spend(officeCost(), '운영비');
-  const nch = Object.keys(S.chapters).length;
-  if (nch) spend(nch * 3e6, '시·도당');
   const upm = sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
   if (upm) spend(upm, '시설');
   if (dt.getUTCMonth() === 0) S.pool.forEach(p => p.age++);
@@ -3409,7 +3407,7 @@ const UPS = [
 const ACT = {
   recruit: { n: '당원 모집 캠페인', c: () => 1e7, cd: 7, reg: true, d: '해당 지역 당원을 모집합니다. 지역 지지율이 높을수록 효과적.' },
   volunteer: { n: '지역 봉사활동', c: () => 5e6, cd: 7, reg: true, d: '신뢰 상승 + 소수 당원 확보.' },
-  chapter: { n: '시·도당 창당대회', c: () => 2e7, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조). 월 유지비 300만.' },
+  chapter: { n: '시·도당 창당대회', c: () => 2e7, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조).' },
   rally: { n: '거리 유세', c: () => 2e7, cd: 1, reg: true, camp: true, d: '공식 선거운동기간에만 가능. 해당 지역 득표력 상승(그 지역 신뢰도가 높을수록 효과 큼).' },
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다. 이번 주 헤드라인에 없는 분야를 발표하거나, 노선과 맞지 않는 분야를 45일 안에 거듭 발표하면 역풍을 맞아 신뢰가 떨어집니다.' },
@@ -5340,9 +5338,9 @@ function pFin() {
   const cats = [...new Set([...Object.keys(last), ...Object.keys(cur)])];
   const sh = subsidyFrac(), q = LAW.voters * LAW.subsidyUnit / 4 * sh;
   const y = L.dayToDate(S.day).getUTCFullYear(), raised = S.fund.year === y ? S.fund.raised : 0, cap = fundCap();
-  const monthlyOut = officeCost() + Object.keys(S.chapters).length * 3e6 + sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
+  const monthlyOut = officeCost() + sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
   return `<div class="grid">
-    <div class="card"><h2>자금</h2><p style="font-size:26px;font-weight:800;margin:0" class="num ${S.money < 0 ? 'bad' : ''}">${won(S.money)}</p><p class="small muted">고정 지출 월 ${won(monthlyOut)}</p><p class="tip">고정 지출은 중앙당 사무처·시·도당·시설 비용입니다. 사무처 비용은 당원·의석 수에 비례해 늘어납니다.</p>${S.money < 0 ? `<p class="bad small">적자 ${S.negDays}일째 — 120일을 넘기면 해산</p>` : ''}</div>
+    <div class="card"><h2>자금</h2><p style="font-size:26px;font-weight:800;margin:0" class="num ${S.money < 0 ? 'bad' : ''}">${won(S.money)}</p><p class="small muted">고정 지출 월 ${won(monthlyOut)}</p><p class="tip">고정 지출은 중앙당 사무처·시설 비용입니다. 사무처 비용은 당원·의석 수에 비례해 늘어납니다.</p>${S.money < 0 ? `<p class="bad small">적자 ${S.negDays}일째 — 120일을 넘기면 해산</p>` : ''}</div>
     <div class="card"><h2>국고보조금</h2><p>배분율 <b class="num">${pct(sh, 2)}</b> · 분기 예상 <b class="num">${won(q)}</b></p><p class="tip">2·5·8·11월 15일 지급. 교섭단체(20석) 정당이 50%를 균등 분배하고, 5석 이상 정당 5%, 득표율 2% 이상 정당 2%, 나머지는 의석·득표 비율(정치자금법 제27조).${S.phase !== 'reg' ? ' 등록 전 정당은 받을 수 없습니다.' : !S.everNat ? ' 아직 국회의원선거에 참여하지 않아 0입니다.' : ''}</p></div>
     <div class="card"><h2>후원회 모금 (${y}년)</h2><div class="bar"><i style="width:${Math.min(100, raised / cap * 100)}%"></i></div><p class="small num">${won(raised)} / 한도 ${won(cap)}</p><p class="tip">${S.phase === 'prep' ? '창당준비위원회 후원회는 중앙당 한도의 절반' : '중앙당후원회 연 50억, 후보를 추천한 선거가 있는 해 2배(제13조)'}(정치자금법 제12조). 개인 1인 연 2천만원 한도(제11조).</p></div>
     <div class="card span-2"><h2>월별 수입·지출</h2>${cats.length ? `<div class="tblwrap"><table><thead><tr><th>항목</th><th class="r">지난달</th><th class="r">이번 달(진행 중)</th></tr></thead><tbody>${cats.map(k => `<tr><td>${k}</td><td class="r num ${(last[k] || 0) < 0 ? 'bad' : ''}">${won(last[k] || 0)}</td><td class="r num ${(cur[k] || 0) < 0 ? 'bad' : ''}">${won(cur[k] || 0)}</td></tr>`).join('')}
@@ -5640,7 +5638,7 @@ function pGuide() {
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
       <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
     ${sec('자금', `<ul><li>수입: 매달 당비·후원금, 후원의 밤(연간 모금한도 있음), 정식 정당이 의석이나 득표를 얻으면 분기별 경상보조금과 선거보조금이 들어옵니다.</li>
-      <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
+      <li>지출: 매달 사무처 운영비(규모에 비례)와 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
     ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거·지방선거·대통령선거는 각각 2년마다이고 약 8개월 간격으로 번갈아 열립니다(총선 → 대선 → 지선 순). 대통령은 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
@@ -5814,7 +5812,7 @@ const TUT = {
     { at: '#stats', t: '상단 현황판', d: '턴·행동력·날짜·자금·당원·지지율·의석 같은 핵심 숫자가 언제나 여기에 떠 있습니다. 1턴은 1주(7일)예요.' },
     { at: '#stats .stat:nth-child(2)', t: '행동력', d: `매 턴 행동력 ${AP}을 받습니다. 활동·교섭 하나에 1씩 쓰고, <b>남은 행동력은 다음 턴으로 넘어가지 않으니</b> 매 턴 다 쓰는 게 이득이에요. 공식 선거운동기간엔 1을 더 받습니다.` },
     { at: '#stats .stat:nth-child(3)', t: '창당 기한', d: `창준위는 ${LAW.prepDays}일(약 ${Math.ceil(LAW.prepDays / TURN)}턴) 안에 정식 정당으로 등록해야 합니다. 기한을 넘기면 해산(게임 오버)! 아래 D-day를 자주 확인하세요.` },
-    { at: '#stats .stat:nth-child(4)', t: '자금', d: '활동마다 돈이 들고, 매달 사무처·시·도당 유지비가 빠져나갑니다. 자금이 마이너스인 채로 120일이 지나면 해산하니 바닥나지 않게 관리하세요.' },
+    { at: '#stats .stat:nth-child(4)', t: '자금', d: '활동마다 돈이 들고, 매달 사무처 운영비·시설 유지비가 빠져나갑니다. 자금이 마이너스인 채로 120일이 지나면 해산하니 바닥나지 않게 관리하세요.' },
     { at: '#nav', t: '메뉴', d: '탭을 눌러 화면을 바꿉니다. 지금은 창당 단계라 <b>쓸 수 있는 탭만</b> 보여요. 정당 등록, 국회의원·단체장 배출 같은 조건을 채우면 선거·교섭·국회 등 새 탭이 열리고, 그때마다 사용법을 다시 알려 드립니다.' },
     { tab: 'home', at: '#main .grid.home .card', t: '본부: 창당 진행 상황', d: '창당까지 할 일이 체크리스트로 나옵니다. ① 결성 신고(완료) ② <b>시·도당 5곳 창당</b>(각 당원 1,000명) ③ 선관위 등록 신청. 지금 목표는 ②예요.' },
     { tab: 'home', at: '#regParty', t: '등록 신청 버튼', d: '시·도당이 5곳이 되면 이 버튼이 켜집니다. 눌러서 정식 정당이 되어야 선거에 후보를 내고 교섭·고발도 할 수 있어요.' },
@@ -5823,7 +5821,7 @@ const TUT = {
     { tab: 'org', at: '#main .mapbox', t: '전국 지도', d: '색이 진할수록 우리 당 지지가 높은 지역입니다. 별은 창당 본거지, 깃발은 시·도당이에요. 지역을 누르면 그 지역 정보가 나오고, +/− 버튼이나 휠·두 손가락으로 확대할 수 있습니다.' },
     { tab: 'org', at: '#main .mapwrap > .card:nth-child(2)', t: '지역 정보', d: '선택한 지역의 지지율·신뢰도·당원 수입니다. 본거지엔 발기인 200명이 있어요. 당원 1,000명을 채우면 그 지역에 시·도당을 창당할 수 있습니다.' },
     { tab: 'org', at: '#main [data-act="recruit"]', tap: 1, t: '당원 모집 캠페인', d: '당원을 모으는 핵심 활동입니다. 자금 1,000만 원과 행동력 1을 쓰고, 1턴 뒤에 다시 할 수 있어요. 그 지역 지지율이 높을수록 많이 모입니다. 이번 튜토리얼에선 <b>행동력 3을 모두</b> 직접 써 볼 거예요. 첫 번째입니다.', do: '실행을 눌러 보세요. 확인 창이 뜨면 한 번 더 실행을 누르면 됩니다.' },
-    { tab: 'org', at: up('#main [data-act="chapter"]', '.act'), t: '시·도당 창당대회', d: '그 지역 당원이 1,000명을 넘으면 이 버튼이 켜집니다. 창당 뒤엔 월 300만 원 유지비가 들어요. 본거지 말고도 지지가 높은 지역 4곳을 골라 당원을 모으세요.' },
+    { tab: 'org', at: up('#main [data-act="chapter"]', '.act'), t: '시·도당 창당대회', d: '그 지역 당원이 1,000명을 넘으면 이 버튼이 켜집니다. 본거지 말고도 지지가 높은 지역 4곳을 골라 당원을 모으세요.' },
     { tab: 'org', at: up('#main [data-act="volunteer"]', '.act'), t: '지역 봉사활동', d: '그 지역 신뢰도를 올리고 당원도 조금 늡니다. 신뢰가 높은 지역일수록 당원 모집과 선거 득표가 잘 됩니다.' },
     { at: nb('act'), tap: 1, t: '활동 탭', d: '전국 단위 활동과 당 시설이 모여 있습니다.', do: '활동 탭을 눌러 보세요.' },
     { tab: 'act', at: '#main [data-act="online"]', tap: 1, t: '온라인·SNS 홍보', d: '전국 인지도를 올립니다. 인지도가 높아야 당원 모집과 지지율이 따라와요. 두 번째 행동력을 여기에 써 봅시다.', do: '온라인·SNS 홍보의 실행을 눌러 보세요.' },
