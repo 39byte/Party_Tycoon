@@ -93,5 +93,14 @@ assert(L.tierSup([0.3, 0.2, 0.4, 0.05, 0.05], false) < L.tierSup(T0, false));
 let ta = [0.15, 0.2, 0.5, 0.14, 0.01]; for (let i = 0; i < 365; i++) ta = L.tierAnchor(ta, 3);
 assert(Math.abs(tsum(ta) - 1) < 1e-9 && ta[0] < 0.03 && ta[4] > ta[0]);
 assert.deepStrictEqual(L.tierAnchor(T0, 40), T0); // 지지율 높으면 그대로
+// 당끼리: 반대 진영 호감층 합 ≤ 1, 충성층 합 ≤ 1, 반대 진영 충성층은 상대 당을 싫어하게. 같은 진영은 함께 좋아해도 됨
+let tc = { A: [0.5, 0.2, 0.2, 0.05, 0.05], B: [0.3, 0.2, 0.4, 0.05, 0.05], C: [0.3, 0.3, 0.3, 0.05, 0.05] };
+const IDEO = { A: -1, B: 1, C: 0.5 }, like = t => t[0] + t[1];
+for (let i = 0; i < 365; i++) tc = L.tierCross(tc, IDEO);
+for (const id in tc) assert(Math.abs(tsum(tc[id]) - 1) < 1e-9 && Math.min(...tc[id]) >= 0);
+assert(like(tc.A) + like(tc.B) <= 1 + 1e-9 && like(tc.A) + like(tc.C) <= 1 + 1e-9 && tc.A[0] + tc.B[0] + tc.C[0] <= 1 + 1e-9);
+assert(tc.A[3] + tc.A[4] >= tc.B[0] + tc.C[0] - 0.01 && tc.B[3] + tc.B[4] >= tc.A[0] - 0.01);
+const same = { B: [0.3, 0.3, 0.3, 0.05, 0.05], C: [0.3, 0.3, 0.3, 0.05, 0.05] };
+assert.deepStrictEqual(L.tierCross(same, IDEO), same); // 같은 진영끼리는 그대로
 
 console.log('ok');

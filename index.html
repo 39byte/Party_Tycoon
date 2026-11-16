@@ -1666,6 +1666,7 @@ function daily() {
   for (const id of TR_IDS) S.rfame[id] = clamp(Math.max(S.rfame[id] * 0.997, fameFloor(id)), 0, 100); // 다른 당도 같은 식
   for (const r of R) { S.rtrust[r.k] += (50 - S.rtrust[r.k]) * 0.002; for (const id of TR_IDS) S.rtr[id][r.k] += (50 - S.rtr[id][r.k]) * 0.002; }
   for (const id in S.rtier) for (const r of R) S.rtier[id][r.k] = L.tierAnchor(L.tierRelax(S.rtier[id][r.k]), id === 'P' ? S.rsup[r.k] : S.rwr[id][r.k]); // 지지율에 맞게 계층을 끌어당김
+  for (const r of R) { const ts = L.tierCross(Object.fromEntries(Object.keys(S.rtier).map(id => [id, S.rtier[id][r.k]])), Object.fromEntries(Object.keys(S.rtier).map(id => [id, id === 'P' ? S.party.ideo : RIV[id].ideo]))); for (const id in ts) S.rtier[id][r.k] = ts[id]; } // 지역 안에서 당끼리 계층을 맞춤
   S.buzz *= 0.97;
   // 국정 지지율이 취임 때보다 높으면 여당(우리 당)에 보탬, 낮으면 짐
   const P_ = S.president; P_.appr = clamp(P_.appr + (apprTarget() - P_.appr) * 0.01 + gauss() * 0.12, 5, 90);
