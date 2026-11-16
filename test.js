@@ -89,5 +89,9 @@ assert(tb[4] > T0[4] && tb[0] < T0[0] && tg[0] > T0[0] && tg[4] < T0[4]);
 assert(Math.abs(L.tierMul(T0, -1) - 1) < 1e-9 && Math.abs(L.tierMul(T0, 1) - 1) < 1e-9);
 assert(L.tierMul([0.4, 0.2, 0.3, 0.05, 0.05], -1) < 1 && L.tierMul([0.05, 0.05, 0.3, 0.2, 0.4], 1) < 1);
 assert(L.tierSup([0.3, 0.2, 0.4, 0.05, 0.05], false) < L.tierSup(T0, false));
+// 지지율에 맞춤: 지지율 3%인데 충성 15%·혐오 1%면 오래 지나 충성은 지지율 안으로, 혐오는 충성보다 두껍게
+let ta = [0.15, 0.2, 0.5, 0.14, 0.01]; for (let i = 0; i < 365; i++) ta = L.tierAnchor(ta, 3);
+assert(Math.abs(tsum(ta) - 1) < 1e-9 && ta[0] < 0.03 && ta[4] > ta[0]);
+assert.deepStrictEqual(L.tierAnchor(T0, 40), T0); // 지지율 높으면 그대로
 
 console.log('ok');

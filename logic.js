@@ -188,10 +188,19 @@
     mv(0, 1); mv(1, 2); mv(3, 2); mv(4, 3);
     return o;
   }
+  // 지지율(%)과 계층을 맞춤(하루에 어긋난 몫의 r씩): 충성층은 지지자 안에서만 나옴(지지율의 80%까지, 넘는 몫은 우호층으로),
+  // 지지율이 낮을수록 혐오층이 충성층보다 두꺼워야 함(지지율 10%면 같게, 3%면 1.35배, 30% 이상은 제한 없음. 모자란 몫은 중립층에서)
+  function tierAnchor(t, sup, r = 0.05) {
+    const o = t.slice(), cap = sup / 100 * 0.8;
+    if (o[0] > cap) { const m = (o[0] - cap) * r; o[0] -= m; o[1] += m; }
+    const need = o[0] * cl(1.5 - sup / 20, 0, 1.5) - o[4];
+    if (need > 0) { const m = Math.min(need * r, o[2]); o[2] -= m; o[4] += m; }
+    return o;
+  }
   // 지지율이 따라가는 속도 배율: 충성층이 두꺼우면 덜 빠지고(다른 당으로 덜 넘어감), 혐오층이 두꺼우면 덜 오름
   const tierSup = (t, up) => cl((1 - 2 * t[up ? 4 : 0]) / 0.9, 0.3, 1.2);
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierSup };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierSup };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
