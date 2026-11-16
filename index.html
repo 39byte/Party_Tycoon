@@ -1802,12 +1802,34 @@ const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P',
 const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), leanOf(r)) * (1.5 - S.rtr[id][r.k] / 100));
 // 그 선거에 우리 후보가 그 지역에 나왔는지
 const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
+// 다른 당 주간 방침(L.POSTURES): 매주 L.rivalPolicy 확률로 고르되 절반은 지난 방침 유지. 방침은 아래 행동 확률만 바꾸고 효과 식은 그대로
+// RIV_MIX: 0이면 방침이 행동에 영향 없음, 1이면 POST_FX 그대로. POST_FX 배율: [선거운동 비중, 방송 광고, 네거티브 공세, 호재 보도, 실언]
+const RIV_MIX = 0.6;
+const POST_FX = { campaign: [1.15, 1.25, 1, 1, 1], policy: [0.6, 0.8, 0.6, 1.4, 1], attack: [1, 1, 1.7, 0.8, 1.3], coalition: [0.9, 1, 0.4, 1.1, 1], lowkey: [0.8, 0.7, 0.4, 0.9, 0.5] };
+const POST_WIRE = { campaign: '선거 총력 체제 돌입', policy: '민생 정책 행보에 집중', attack: '공세 수위 끌어올려', coalition: '연대·협력 행보 강화', lowkey: '몸 낮추기… 당분간 말 아껴' };
+const postFx = (id, i) => 1 + RIV_MIX * ((POST_FX[S.rplan?.[id]?.k]?.[i] ?? 1) - 1);
+// ?dev: 방침 결정 상황을 쌓아 tools/jeff/collect.py가 가져감
+const JLOG = /[?&]dev\b/.test(location.search) ? [] : null;
+const rivCtx = id => {
+  const e = nextElection(), sup = S.pub[id], old = S.hist[Math.max(0, S.hist.length - 5)]?.[id] ?? sup;
+  return { wk: e ? (e.day - S.day) / 7 : 52, type: e?.type || '', camp: Object.values(S.camps).some(inCampaign) ? 1 : 0, seats: seatTotal(id), sup, trend: sup - old,
+    gap: sup - Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => S.pub[x])), pres: S.president.party === id ? 1 : 0, appr: S.president.appr, hit: (S.day - (S.rhit?.[id] ?? -999)) / 7 };
+};
+function rivPlan(id) {
+  const c = rivCtx(id), f = L.rivalFeat(c), p = L.rivalPolicy(f), pl = (S.rplan ??= {});
+  if (JLOG) JLOG.push({ id, ideo: RIV[id].ideo, ...c, f });
+  if (!p || (pl[id] && rnd() < 0.5)) return;
+  let x = rnd(); const k = L.POSTURES.find((_, i) => (x -= p[i]) < 0) || L.POSTURES[0];
+  if (pl[id] && pl[id].k !== k) wire(`${pn(id)}, ${POST_WIRE[k]}`);
+  pl[id] = { k, d: S.day };
+}
 function rivalWeek() {
   const camps = Object.values(S.camps).filter(inCampaign);
   for (const id of TR_IDS) {
+    rivPlan(id);
     if (!seatTotal(id) && rnd() < 0.25) continue; // 원외 정당은 가끔 쉼
     for (let i = 0, n = seatTotal(id) >= LAW.caucus ? 4 : 3; i < n; i++) {
-      const camp = camps.length && rnd() < 0.8, k = rivPick(id, camp).k;
+      const camp = camps.length && rnd() < Math.min(0.95, 0.8 * postFx(id, 0)), k = rivPick(id, camp).k;
       rfameAdd(id, 0.3); // 우리 봉사활동·거리 유세와 같음
       if (camp) {
         const m = 0.5 + S.rtr[id][k] / 100; // 우리 거리 유세와 같은 식
@@ -1815,18 +1837,18 @@ function rivalWeek() {
       } else trustAt(k, 0.8, id);
     }
     // 방송 광고: 우리와 같은 식(최대 +9%). 교섭단체는 거의 매주, 작은 당은 가끔. 대선에 후보가 없으면 안 함
-    for (const c of camps) if ((c.type !== 'pres' || (c.rivals[id] && uniId(c) !== id)) && rnd() < (seatTotal(id) >= LAW.caucus ? 0.8 : 0.4)) { const rn = (c.rn ??= {}); rn[id] = Math.min(0.09, (rn[id] || 0) + 0.025 * (1 - (rn[id] || 0) / 0.09) + 0.001); }
+    for (const c of camps) if ((c.type !== 'pres' || (c.rivals[id] && uniId(c) !== id)) && rnd() < (seatTotal(id) >= LAW.caucus ? 0.8 : 0.4) * postFx(id, 1)) { const rn = (c.rn ??= {}); rn[id] = Math.min(0.09, (rn[id] || 0) + 0.025 * (1 - (rn[id] || 0) / 0.09) + 0.001); }
     // 네거티브 공세: 우리 후보가 나온 지역 중 우리 몫이 그 당의 0.8배 이상인 곳
     for (const c of camps) {
       const hot = R.filter(r => myRun(c, r.k) && rivShare('P', r.k) >= 0.8 * rivShare(id, r.k));
-      if (!hot.length || rnd() >= 0.5) continue;
+      if (!hot.length || rnd() >= 0.5 * postFx(id, 2)) continue;
       const r = pick(hot);
       c.boost.reg[r.k] = Math.max(-0.15, (c.boost.reg[r.k] || 0) - 0.04); S.buzz -= 0.5; // 우리 유세가 없으면 마이너스까지
       relAdd(id, -1, `${r.n} 네거티브 공세`); wire(`${pn(id)}, ${r.n}서 ${S.party.name} 겨냥 네거티브 공세`);
     }
     const vol = RIV[id].vol || 1;
-    if (rnd() < 0.3) { trustAll(id, 1.5); rfameAdd(id, 1); S.rw[id] += 0.3 * vol; wire(`${pn(id)} ${pick(RIV_GOOD)}`); }
-    if (rnd() < 0.06) { const hit = rr(2.5, 5.5); S.rw[id] = Math.max(1, S.rw[id] - hit * 0.5 * vol); trustAll(id, -hit * 0.3); wire(`${pn(id)} ${pick(RIV_GAFFE)}`); }
+    if (rnd() < 0.3 * postFx(id, 3)) { trustAll(id, 1.5); rfameAdd(id, 1); S.rw[id] += 0.3 * vol; wire(`${pn(id)} ${pick(RIV_GOOD)}`); }
+    if (rnd() < 0.06 * postFx(id, 4)) { const hit = rr(2.5, 5.5); S.rw[id] = Math.max(1, S.rw[id] - hit * 0.5 * vol); trustAll(id, -hit * 0.3); (S.rhit ??= {})[id] = S.day; wire(`${pn(id)} ${pick(RIV_GAFFE)}`); }
   }
 }
 
@@ -2288,8 +2310,8 @@ function rivalBill(notes, who) {
   const by = who || (gov ? S.president.party : ids.find((id, i) => (x -= w[i]) < 0));
   const pool = RBILLS.filter(r => Math.abs(r.side - RIV[by].ideo) <= 1 && !(r.big && seatTotal(by) < 20) && !S.bills.some(b => b.t === r.t) && !S.rdone.some(x => x.t === r.t && S.day - x.d < RB_AGAIN));
   if (!pool.length) return;
-  // 우리처럼 노선 궁합으로 고름: 궁합 높은 분야·노선 가까운 법안 위주, 궁합 낮은(<1) 분야는 드물게
-  const ide = RIV[by].ideo, ws = pool.map(r => { const f = ISSUES.find(i => i.k === r.issue).fit[Math.round(ide) + 1]; return f ** 4 * (f < 1 ? 0.3 : 1) * (1.2 - Math.abs(r.side - ide)); });
+  // 우리처럼 노선 궁합으로 고름: 궁합 높은 분야·노선 가까운 법안 위주, 궁합 낮은(<1) 분야는 드물게. 이번 주 헤드라인에 자주 나온 분야일수록 더(한 건당 +30%)
+  const ide = RIV[by].ideo, ws = pool.map(r => { const f = ISSUES.find(i => i.k === r.issue).fit[Math.round(ide) + 1]; return f ** 4 * (f < 1 ? 0.3 : 1) * (1.2 - Math.abs(r.side - ide)) * (1 + 0.3 * S.news.filter(n => n.i === r.issue).length); });
   let y = rnd() * sum(ws);
   const r = pool.find((_, i) => (y -= ws[i]) < 0) || pool[0], mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
   const pop = clamp(0.5 + (r.issue === S.issue ? 0.05 : 0) + gauss() * 0.15, 0.15, 0.85), poll = Math.round(clamp(pop + gauss() * 0.05, 0.05, 0.95) * 100);
@@ -2802,7 +2824,7 @@ function incReport() {
     if (!w) return false; // 그 사이 명부에서 빠짐(낙선·은퇴)
     const h = x.k === 'party' ? `[단독] ${w}, ${x.d}는 의혹 보도… 당은 "사실무근"` : incT(x).h(w);
     if (me) { S.trust -= 2; S.buzz -= 1; addLog(`[보도] ${h}`, 'bad'); toast(`영입하기 전 일이 터졌습니다: ${h}`, 'bad'); }
-    else { S.rw[x.party] -= incT(x).pen; trustAll(x.party, -incT(x).pen * 0.5); if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: h, k: x.k }); } }
+    else { S.rw[x.party] -= incT(x).pen; trustAll(x.party, -incT(x).pen * 0.5); (S.rhit ??= {})[x.party] = S.day; if (f) { f.hit = S.day; (f.news ??= []).push({ d: S.day, t: h, k: x.k }); } }
     wire(h);
     const told = talkers().flatMap(p => (p.talk || []).filter(y => y.iid === x.id).map(y => (y.hit = 1, p)));
     if (told.length) { const msg = `${told[0].name}에게 들었던 얘기가 현실이 됐습니다. ${h}`; addLog(msg); toast(msg); }
