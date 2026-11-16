@@ -2,3 +2,5 @@ save/
 music/
 desktop/node_modules/
 desktop/dist/
+tools/jeff/.venv/
+tools/jeff/__pycache__/
