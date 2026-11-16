@@ -188,10 +188,41 @@
     mv(0, 1); mv(1, 2); mv(3, 2); mv(4, 3);
     return o;
   }
+  // 지지율(%)과 계층을 맞춤(하루에 어긋난 몫의 r씩): 충성층은 지지자 안에서만 나옴(지지율의 80%까지, 넘는 몫은 우호층으로),
+  // 지지율이 낮을수록 혐오층이 충성층보다 두꺼워야 함(지지율 10%면 같게, 3%면 1.35배, 30% 이상은 제한 없음. 모자란 몫은 중립층에서)
+  function tierAnchor(t, sup, r = 0.05) {
+    const o = t.slice(), cap = sup / 100 * 0.8;
+    if (o[0] > cap) { const m = (o[0] - cap) * r; o[0] -= m; o[1] += m; }
+    const need = o[0] * cl(1.5 - sup / 20, 0, 1.5) - o[4];
+    if (need > 0) { const m = Math.min(need * r, o[2]); o[2] -= m; o[4] += m; }
+    return o;
+  }
+  // 한 지역 안에서 당끼리 계층을 맞춤(ts = {당: 계층}, ideo = {당: 노선}). 노선 부호가 반대면 반대 진영, 중도(0)는 어느 쪽과도 반대 아님
+  // ① 충성은 한 당에만: 충성층 합이 1을 넘으면 넘는 비율만큼 우호층으로
+  // ② 반대 진영 두 당을 동시에 좋아할(충성+우호) 수 없음: 두 당의 호감층 합이 1을 넘으면 넘는 몫을 호감층 크기 비례로 중립층으로(우호부터, 모자라면 충성)
+  // ③ 한 당의 충성층은 반대 진영 당들을 싫어함: 반대 진영 충성층 합만큼은 적대+혐오가 되도록 하루에 모자란 몫의 r씩 적대층으로(중립층부터, 모자라면 우호·충성층에서)
+  // 같은 진영 여러 당을 함께 좋아하거나, 여러 당을 함께 싫어하거나, 어느 당도 좋아하지 않는 건 막지 않음
+  function tierCross(ts, ideo, r = 0.05) {
+    const ids = Object.keys(ts), o = Object.fromEntries(ids.map(id => [id, ts[id].slice()]));
+    const opp = (a, b) => ideo[a] * ideo[b] < 0, like = t => t[0] + t[1];
+    const L0 = ids.reduce((a, id) => a + o[id][0], 0);
+    if (L0 > 1) for (const id of ids) { const m = o[id][0] * (1 - 1 / L0); o[id][0] -= m; o[id][1] += m; }
+    const drop = (t, m) => { const a = Math.min(m, t[1]); t[1] -= a; t[0] -= m - a; t[2] += m; };
+    for (const a of ids) for (const b of ids) if (a < b && opp(a, b)) {
+      const la = like(o[a]), lb = like(o[b]), ex = la + lb - 1;
+      if (ex > 0) { drop(o[a], ex * la / (la + lb)); drop(o[b], ex * lb / (la + lb)); }
+    }
+    for (const y of ids) {
+      const need = ids.filter(x => opp(x, y)).reduce((a, x) => a + ts[x][0], 0) - o[y][3] - o[y][4];
+      let m = need * r;
+      if (need > 0) for (const i of [2, 1, 0]) { const a = Math.min(m, o[y][i]); o[y][i] -= a; o[y][3] += a; m -= a; }
+    }
+    return o;
+  }
   // 지지율이 따라가는 속도 배율: 충성층이 두꺼우면 덜 빠지고(다른 당으로 덜 넘어감), 혐오층이 두꺼우면 덜 오름
   const tierSup = (t, up) => cl((1 - 2 * t[up ? 4 : 0]) / 0.9, 0.3, 1.2);
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierSup };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

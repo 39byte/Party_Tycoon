@@ -1270,7 +1270,7 @@ function pf(id, k) {
 const regSupport = (k, id = 'P') => regPoll(k)[id];
 // 행정 지지도 상승 억제: 시작점 = 90 − OPS_CORE_K × 그 지역에서 단체장 당과 노선이 반대인 정당의 코어층(충성층) 비율(%, 유권자 대비 = 지지율 × 충성 비중). 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
 // 다른 당 지사는 시작점 +5(조금 덜 억제). 오를 때 속도는 단체장 당의 그 지역 지지층 계층이 정함(opsUp: 충성층이 두꺼우면 잘 오르고 혐오층이 두꺼우면 덜 오름)
-const OPS_CORE_K = 6, OPS_CAP_MIN = 10; // 초기 분포에서 서울·세종은 예전(지지율 합 기준)과 비슷하고, 양극화된 지역은 더 낮음(하한 10)
+const OPS_CORE_K = 9, OPS_CAP_MIN = 10; // 반대 노선 코어층 1%p당 시작점 −9(양극화된 지역일수록 크게 낮음, 하한 10)
 const opsSoft = (id, k) => {
   const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
   const sh = Object.fromEntries(ids.map(x => [x, ns[x] * pf(x, k)])), tot = sum(ids.map(x => sh[x]));
@@ -1665,7 +1665,8 @@ function daily() {
   S.fame = clamp(Math.max(S.fame - S.fame * 0.003, fameFloor('P')), 0, 100);
   for (const id of TR_IDS) S.rfame[id] = clamp(Math.max(S.rfame[id] * 0.997, fameFloor(id)), 0, 100); // 다른 당도 같은 식
   for (const r of R) { S.rtrust[r.k] += (50 - S.rtrust[r.k]) * 0.002; for (const id of TR_IDS) S.rtr[id][r.k] += (50 - S.rtr[id][r.k]) * 0.002; }
-  for (const id in S.rtier) for (const r of R) S.rtier[id][r.k] = L.tierRelax(S.rtier[id][r.k]);
+  for (const id in S.rtier) for (const r of R) S.rtier[id][r.k] = L.tierAnchor(L.tierRelax(S.rtier[id][r.k]), id === 'P' ? S.rsup[r.k] : S.rwr[id][r.k]); // 지지율에 맞게 계층을 끌어당김
+  for (const r of R) { const ts = L.tierCross(Object.fromEntries(Object.keys(S.rtier).map(id => [id, S.rtier[id][r.k]])), Object.fromEntries(Object.keys(S.rtier).map(id => [id, id === 'P' ? S.party.ideo : RIV[id].ideo]))); for (const id in ts) S.rtier[id][r.k] = ts[id]; } // 지역 안에서 당끼리 계층을 맞춤
   S.buzz *= 0.97;
   // 국정 지지율이 취임 때보다 높으면 여당(우리 당)에 보탬, 낮으면 짐
   const P_ = S.president; P_.appr = clamp(P_.appr + (apprTarget() - P_.appr) * 0.01 + gauss() * 0.12, 5, 90);
