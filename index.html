@@ -1804,7 +1804,8 @@ function tick() {
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
-  if (seatTotal('P') > 0 && S.day === auditWin()?.[0]) S.queue.push({ ev: 'audit' });
+  const aw = auditWin();
+  if (aw && S.day === aw[0] && S.audW?.[0] !== aw[0]) { S.audW = aw; if (seatTotal('P') > 0) S.queue.push({ ev: 'audit' }); } // 시작한 국감 기간은 고정
   if (S.day % TURN === 0) { rivalWeek(); auditRiv(); }
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
@@ -3565,11 +3566,12 @@ function questionRun(k, mp) {
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 국정감사: 앞 선거와 다음 선거 사이 3:2 지점을 가운데로 4주(선거철과 겹치지 않게). [시작일, 끝날 다음 날]
+// 국정감사: 앞 선거와 다음 선거 사이 3:2 지점을 가운데로 4주(선거철과 겹치지 않게). 선거 간격이 180일 미만이면 없음. [시작일, 끝날 다음 날]
 const AUDIT_DAYS = 28;
 const auditWin = () => {
   const prev = SCHED.filter(e => e.day <= S.day).at(-1)?.day ?? 0, next = SCHED.find(e => e.day > S.day)?.day;
-  if (next == null) return null;
+  if (S.audW?.[0] > prev) return S.audW; // 이번 선거 사이에 이미 열린 국감: 일정이 바뀌어도(궐위 대선 등) 다시 열리지 않음
+  if (next == null || next - prev < 180) return null; // 선거 간격이 짧으면(궐위 대선 등) 국감 건너뜀 — 직전 국감과 연달아·선거철과 겹치지 않게
   const a = prev + Math.round((next - prev) * 0.6 - AUDIT_DAYS / 2);
   return [a, a + AUDIT_DAYS];
 };
