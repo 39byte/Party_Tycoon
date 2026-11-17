@@ -3416,7 +3416,7 @@ const ACT = {
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
   accuse: { n: '고발장 제출', c: () => 5e6, cd: 7, d: '현직 의원·단체장·대통령·원외 인사·등록 후보를 검찰에 고발합니다(형사소송법 제234조). 교섭에서 들은 얘기가 근거가 됩니다.' },
   talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 2 * TURN, d: '후보 최대 25명 중 원하는 만큼 영입합니다. 청렴도·전과도 미리 볼 수 있습니다.' },
-  fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
+  fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '지지자들의 소액 후원을 모으는 합법적인 핵심 수입원입니다. 비용 없이 큰돈이 들어오니 다시 열릴 때마다 챙기세요. 중앙당(창준위)후원회 모금이라 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승(선거기간 중 최대 2번). 다른 당도 방송 광고를 합니다.' },
   bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면 역풍을 맞습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관 중 한 명을 골라 질문합니다. 우리 의원과 상대 장관의 역량 차이로 성패가 갈리고, 민심이 쏠린 쟁점의 담당 장관을 짚으면 효과가 큽니다. 야당이면 정부를 몰아붙이고, 여당이면 정책을 점검합니다.' },
@@ -5344,7 +5344,7 @@ function pFin() {
   return `<div class="grid">
     <div class="card"><h2>자금</h2><p style="font-size:26px;font-weight:800;margin:0" class="num ${S.money < 0 ? 'bad' : ''}">${won(S.money)}</p><p class="small muted">고정 지출 월 ${won(monthlyOut)}</p><p class="tip">고정 지출은 중앙당 사무처·시설 비용입니다. 사무처 비용은 당원·의석 수에 비례해 늘어납니다.</p>${S.money < 0 ? `<p class="bad small">적자 ${S.negDays}일째 — 120일을 넘기면 해산</p>` : ''}</div>
     <div class="card"><h2>국고보조금</h2><p>배분율 <b class="num">${pct(sh, 2)}</b> · 분기 예상 <b class="num">${won(q)}</b></p><p class="tip">2·5·8·11월 15일 지급. 교섭단체(20석) 정당이 50%를 균등 분배하고, 5석 이상 정당 5%, 득표율 2% 이상 정당 2%, 나머지는 의석·득표 비율(정치자금법 제27조).${S.phase !== 'reg' ? ' 등록 전 정당은 받을 수 없습니다.' : !S.everNat ? ' 아직 국회의원선거에 참여하지 않아 0입니다.' : ''}</p></div>
-    <div class="card"><h2>후원회 모금 (${y}년)</h2><div class="bar"><i style="width:${Math.min(100, raised / cap * 100)}%"></i></div><p class="small num">${won(raised)} / 한도 ${won(cap)}</p><p class="tip">${S.phase === 'prep' ? '창당준비위원회 후원회는 중앙당 한도의 절반' : '중앙당후원회 연 50억, 후보를 추천한 선거가 있는 해 2배(제13조)'}(정치자금법 제12조). 개인 1인 연 2천만원 한도(제11조).</p></div>
+    <div class="card"><h2>후원회 모금 (${y}년)</h2><div class="bar"><i style="width:${Math.min(100, raised / cap * 100)}%"></i></div><p class="small num">${won(raised)} / 한도 ${won(cap)}</p><p class="tip">지지자들의 합법적인 소액 후원으로, 활동 탭 '후원의 밤'을 열 때마다 들어옵니다. ${S.phase === 'prep' ? '창당준비위원회 후원회는 중앙당 한도의 절반' : '중앙당후원회 연 50억, 후보를 추천한 선거가 있는 해 2배(제13조)'}(정치자금법 제12조). 개인 1인 연 2천만원 한도(제11조).</p></div>
     <div class="card span-2"><h2>월별 수입·지출</h2>${cats.length ? `<div class="tblwrap"><table><thead><tr><th>항목</th><th class="r">지난달</th><th class="r">이번 달(진행 중)</th></tr></thead><tbody>${cats.map(k => `<tr><td>${k}</td><td class="r num ${(last[k] || 0) < 0 ? 'bad' : ''}">${won(last[k] || 0)}</td><td class="r num ${(cur[k] || 0) < 0 ? 'bad' : ''}">${won(cur[k] || 0)}</td></tr>`).join('')}
       <tr><th>합계</th><th class="r num">${won(sum(Object.values(last)))}</th><th class="r num">${won(sum(Object.values(cur)))}</th></tr></tbody></table></div>` : '<p class="empty">아직 기록이 없습니다.</p>'}</div>
     <div class="card"><h2>입금 예정</h2>${S.pending.length ? `<ul class="log">${S.pending.map(p => `<li><time>${fdate(p.d)}</time><span>${esc(p.t)} <b class="num">${won(p.amt)}</b></span></li>`).join('')}</ul>` : '<p class="empty">없음</p>'}
@@ -5579,6 +5579,7 @@ function nextSteps() {
   if (S.over) return [['게임이 끝났습니다. 설정에서 새 게임을 시작하세요.', '', true]];
   const out = [];
   if (S.money < 0) out.push([`자금이 바닥났습니다(${S.negDays}일째). 120일 안에 흑자로 돌리지 못하면 해산합니다. 후원의 밤으로 모금하세요.`, 'act', true]);
+  if (S.money >= 0 && !why('fund') && fundCap() > (S.fund.year === L.dayToDate(S.day).getUTCFullYear() ? S.fund.raised : 0)) out.push(['후원의 밤을 열 수 있습니다. 지지자 후원을 비용 없이 모으는 합법적인 주 수입원이니 열릴 때마다 챙기세요.', 'act']);
   if (S.grace != null) out.push([`정당 등록요건 미달: ${fdate(S.grace)}까지 시·도당 5곳(각 당원 1,000명)을 회복하세요.`, 'org', true]);
   if (S.phase === 'reg' && S.day - S.lastPart > 3 * 365) out.push([`4년간 선거에 나가지 않으면 등록이 취소됩니다(${fdate(S.lastPart + 4 * 365)}까지). 다음 선거에 후보를 내세요.`, 'elec', true]);
   if (S.phase === 'prep') {
@@ -5829,7 +5830,7 @@ const TUT = {
     { tab: 'act', at: '#main [data-act="online"]', tap: 1, t: '온라인·SNS 홍보', d: '전국 인지도를 올립니다. 인지도가 높아야 당원 모집과 지지율이 따라와요. 두 번째 행동력을 여기에 써 봅시다.', do: '온라인·SNS 홍보의 실행을 눌러 보세요.' },
     { tab: 'act', at: up('#main [data-act="policy"]', '.act'), t: '정책 발표', d: '분야를 골라 정책을 발표합니다. <b>뉴스 헤드라인의 쟁점을 맞히면</b> 지지율이 크게 오르고, 헤드라인에 없는 분야나 노선과 맞지 않는 분야를 거듭 내면 역풍을 맞아요.' },
     { tab: 'act', at: up('#main [data-act="media"]', '.act'), t: '언론 인터뷰', d: '무료지만 결과는 대표 역량에 달렸습니다. 인지도·신뢰가 오를 수도, 말실수로 떨어질 수도 있어요.' },
-    { tab: 'act', at: up('#main [data-act="fund"]', '.act'), t: '후원의 밤', d: '비용 없이 후원금을 모읍니다. 연간 한도가 있고 재사용까지 오래 걸리니, 자금이 빠듯할 때 잊지 말고 챙기세요.' },
+    { tab: 'act', at: up('#main [data-act="fund"]', '.act'), t: '후원의 밤', d: '정치자금법에 따른 합법적인 후원 모금으로, 초반 가장 큰 수입원입니다. 비용 없이 돈이 들어오니 다시 열릴 때마다(30일) 꼭 챙기세요. 연간 한도가 있습니다.' },
     { tab: 'act', at: '#main .bell', t: '재사용 알림', d: '종을 켜 두면 재사용 대기가 끝났을 때 메뉴의 \'활동\' 옆에 숫자로 알려 줍니다.' },
     { tab: 'act', at: up('#main .acts.ups', '.card'), t: '당 시설·조직', d: '한 번 설치하면 계속 효과를 내는 시설입니다. 대신 설치비와 매달 유지비가 드니 자금에 여유가 생기면 고르세요.' },
     { at: nb('people'), tap: 1, t: '인재 탭', d: '선거에 내보낼 인재를 모으고 관리합니다.', do: '인재 탭을 눌러 보세요.' },
