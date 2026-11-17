@@ -463,6 +463,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .pty{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-top:4px solid var(--pc);border-radius:var(--r);background:var(--surface)}
 .pty-h{display:flex;align-items:center;gap:8px;font-size:16px}
 .pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.pollsplit{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr)} .pollsplit>div{min-width:0;padding:0 16px} .pollsplit>div:first-child{padding-left:0} .pollsplit>div+div{border-left:1px solid var(--border);padding-right:0} .pollsplit h3{font-size:14px;margin:0 0 8px}
+@media (max-width:900px){.pollsplit{grid-template-columns:1fr;gap:14px}.pollsplit>div{padding:0}.pollsplit>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
 .pty.ruling{border:4px solid var(--pc)} .pty.allied{border:2px solid var(--pc);border-top-width:4px}
 .pty .negcell{margin-left:auto;flex:none}
 /* 정당 카드 교섭 버튼: 작게, 안쪽 여백을 줄여 글자가 버튼을 더 채움. 별은 윤곽선 없이 */
@@ -4919,6 +4921,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-neg]').forEach(b => b.onclick = () => negModal(b.dataset.neg));
   m.querySelectorAll('[data-negmp]').forEach(b => b.onclick = () => negMpModal(+b.dataset.negmp));
   m.querySelector('[data-seatd]')?.addEventListener('toggle', e => seatOpen = e.target.open);
+  m.querySelector('[data-polld]')?.addEventListener('toggle', e => pollOpen = e.target.open);
   m.querySelector('[data-gmapd]')?.addEventListener('toggle', e => { if (gmapOpen !== e.target.open) { gmapOpen = e.target.open; renderPanel(); } });
   m.querySelectorAll('[data-rescat]').forEach(b => b.onclick = () => { resCat = b.dataset.rescat; renderAll(); });
   m.querySelectorAll('[data-res]').forEach(b => b.onclick = () => resultModal(S.results[+b.dataset.res]));
@@ -5060,12 +5063,12 @@ function pParty() {
         ${me ? `<tr><th>당원</th><td class="num">${totalMembers().toLocaleString()}명</td></tr>` : `<tr><th>우리와 관계</th><td>${relBar(S.rel[id])}</td></tr>`}
       </tbody></table></div>`; };
   return `<div class="stack">
-      <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:stretch">
-        <div class="card" style="flex:2 1 320px;margin-top:0"><h2>정당 지지율 추이 (주별)</h2>${pollChart(ban)}</div>
-        <div class="card" style="flex:1 1 200px;margin-top:0"><h2>현재 여론</h2>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
+      <details class="card seatd" data-polld ${pollOpen ? 'open' : ''}><summary><h2>정당별 지지율</h2></summary><div class="pollsplit">
+        <div><h3>지지율 추이 (주별)</h3>${pollChart(ban)}</div>
+        <div><h3>현재 여론</h3>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
           ${['P', 'B', 'A', 'C', 'D', 'O'].filter(id => !ban || id === 'P').sort((a, b) => q[b] - q[a]).map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
           ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}<div class="small muted">매주 ${nf(POLL_N)}명 무작위 조사 · 95% 신뢰수준 ±${pubErr(50, POLL_N).toFixed(1)}%p</div></div>
-      </div>
+      </div></details>
     <div class="card"><h2>정당별 현황</h2>${reg && (left || S.ap < 1) ? `<p class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}<div class="ptys">${ids.map(card).join('')}</div>
       <p class="tip">${reg ? `교섭 버튼으로 회동·법안 공조·선거 연대를 제안합니다(협상가: ${esc(leader().name)} 대표, 역량 ${leader().skill}). 결과는 대표 역량, 노선 차이, 그동안의 관계에 따라 달라집니다. 별을 켠 정당은 앞으로 오고, 다시 교섭할 수 있게 되면 메뉴의 '정당' 옆에 숫자로 알려 줍니다.` : '정식 정당으로 등록하면 다른 정당과 교섭할 수 있습니다.'}</p></div>
     ${S.figs.length || S.outs.length ? `<div class="card dircard">${dirCard()}</div>` : ''}
@@ -5452,7 +5455,7 @@ function pCourt() {
     </div><div class="card" style="margin-top:14px"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 · ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 1심 판결이 나오면 여기에 남습니다.</p>'}</div>`;
 }
 // 의회: 교섭 · 법안·대정부 질문 · 다른 당/정부 동향
-let seatOpen = false;
+let seatOpen = false, pollOpen = true; // 접이식 카드 펼침 상태(다시 그려도 유지)
 function pOffice() {
   const seats = seatTotal('P');
   // 법안 한 건: 제목·정보 / 예상 찬성 막대 / 당론·협상 버튼을 위아래로(반쪽 폭에도 들어가게)
