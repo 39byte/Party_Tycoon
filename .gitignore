@@ -4,7 +4,6 @@ desktop/node_modules/
 desktop/dist/
 
 # 플레이에 필요 없는 문서·개발 도구
-README.md
 .claude/
 tools/
 *.png
