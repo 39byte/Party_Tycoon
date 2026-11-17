@@ -405,6 +405,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* 그림은 오른쪽 아래에 맞춰 통째로 줄여 넣고(잘림 없음), 빈 왼쪽은 하늘·땅 색으로 이어 줌 */
 .scene::before{content:"";position:absolute;left:0;right:0;bottom:0;height:12%;background:var(--gnd);border-top:2px solid var(--gnd2)}
 .scene .scn{position:absolute;inset:0;width:100%;height:100%}
+/* 넓은 화면: 그림띠는 본문 폭의 절반(제목이 들어갈 만큼은 확보) */
+@media (min-width:901px){.scene{width:min(100%,max(50%,560px))}}
 .scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:10px 16px;color:#fff}
 /* 제목은 그림 위 단색 반투명 판에 */
 .scene-t>div{align-self:flex-start;padding:8px 14px;border-radius:10px;background:rgba(10,18,36,.72)}
