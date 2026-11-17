@@ -290,8 +290,8 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .meter{display:flex;align-items:center;gap:8px}.meter .bar{flex:1}
 .tierbar{position:relative;display:flex;height:10px;margin-top:6px;border-radius:99px;overflow:hidden;background:var(--surface2);box-shadow:inset 0 1px 2px rgba(2,6,23,.25)}
 .tierbar i{display:block;height:100%}
-/* 20% 눈금(연한 회색), 50%는 진하게. 계층 색 위에서도 보이게 맨 위 층에 */
-.tierbar::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(241,245,249,.95) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px)),repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(203,213,225,.6) calc(20% - 1px) 20%)}
+/* 10% 눈금(연한 회색), 50%는 진하게. 계층 색 위에서도 보이게 맨 위 층에 */
+.tierbar::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(241,245,249,.95) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px)),repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(203,213,225,.6) calc(10% - 1px) 10%)}
 /* 마우스를 올리거나 포커스하면 바로 계층 비율(툴팁 상자는 .tipbox 재사용, 위치는 placeTip) */
 .tierw{position:relative}.tierw .tierbar{cursor:help}
 .tierw:hover .tipbox,.tierw:focus-within .tipbox{visibility:visible;opacity:1;transition:none}
