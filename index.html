@@ -462,7 +462,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* 청와대: 대통령 초상 + 정보 */
 .presbox{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
 .presbox>.face{align-self:flex-start}
-.apprw{flex:0 1 460px;min-width:0;min-height:200px;display:flex;flex-direction:column;border-left:1px solid var(--border);padding-left:20px;margin-left:4px}
+/* 대통령(정보 + 아래 지지율 추이) | 내각(2열). 좁으면 위아래로 */
+.presgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);align-items:start}
+.presgrid .pcards{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:1100px){.presgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.presgrid .pcards{grid-template-columns:minmax(0,1fr)}}
+.apprw{min-width:0;min-height:200px;display:flex;flex-direction:column;border-top:1px solid var(--border);padding-top:12px;margin-top:14px}
 .apprc{flex:1;position:relative;min-height:150px}
 .apprc>svg{position:absolute;inset:0;width:100%;height:100%}
 .presbox .face{border-radius:22px}
@@ -5406,7 +5411,7 @@ function pOffice() {
 // 청와대: 대통령 정보·국정 지지율 · 집권 시 거부권 처리 방식
 function pPres() {
   const P = S.president, me = P.pid != null && person(P.pid), ne = SCHED.find(e => e.type === 'pres' && e.day >= S.day && !S.done[e.key]), days = S.day - P.since;
-  return `<div class="card"><h2>대통령</h2><div class="presbox">${face(me || { name: P.name, age: 62 }, pc(P.party), 112)}
+  return `<div class="presgrid"><div class="card"><h2>대통령</h2><div class="presbox">${face(me || { name: P.name, age: 62 }, pc(P.party), 112)}
     <div class="presinfo"><div class="small muted">${P.acting ? '대통령 권한대행' : '대한민국 대통령'}</div><div class="presname">${esc(P.name)}</div>
       <div class="btns" style="gap:6px"><span class="pill" style="border-color:${pc(P.party)};color:${pc(P.party)}">${esc(pn(P.party))}</span>${ruling() ? '<span class="pill ok">우리 당 집권</span>' : ''}${P.acting ? '<span class="pill warn">조기 대선 국면</span>' : ''}</div>
       <div class="tblwrap"><table class="kv"><tbody>
@@ -5418,8 +5423,8 @@ function pPres() {
         ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
-      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div>
-    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc">${apprChart()}</div></div>`}</div></div>${!P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
+      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div></div>
+    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc">${apprChart()}</div></div>`}</div>${!P.acting ? cabCard() : ''}</div>`;
 }
 function fitAppr() {
   const c = document.querySelector('.apprc'); if (!c || !c.clientWidth || !c.clientHeight) return;
@@ -5809,13 +5814,13 @@ function newGameModal() {
 // ---------- 튜토리얼 ----------
 // 새 게임(S.tut 있음)에서만: 조건을 채우기 전엔 탭을 숨기고, 열릴 때 사용법을 짚어 줌. 예전 세이브는 S.tut이 없어 모든 탭이 열려 있음
 const LOCK = { elec: () => S.phase === 'reg', neg: () => S.phase === 'reg', court: () => S.phase === 'reg' || S.cases.length > 0, office: () => seatTotal('P') > 0, pres: () => seatTotal('P') > 0 || ruling(), admin: () => govCount('P') > 0 };
-const tabOk = k => !S?.tut || !LOCK[k] || !!S.tut.open[k];
+const tabOk = k => k === 'pres' || !S?.tut || !LOCK[k] || !!S.tut.open[k]; // 청와대 탭은 처음부터 열람 가능(활동은 버튼마다 조건). LOCK.pres는 활동 안내 시점
 // 한 번 열린 탭은 계속 열림. 튜토리얼을 건너뛰었으면 알림만, 아니면 그 탭 안내를 줄 세움
 function tutUnlock() {
   if (!S?.tut) return;
   for (const k in LOCK) if (!S.tut.open[k] && LOCK[k]()) {
     S.tut.open[k] = 1;
-    if (S.tut.off) toast(`조건을 채워 '${TABS.find(t => t[0] === k)[1]}' 탭이 열렸습니다.`, 'sys', '새 기능');
+    if (S.tut.off) toast(k === 'pres' ? '조건을 채워 청와대 활동을 쓸 수 있습니다.' : `조건을 채워 '${TABS.find(t => t[0] === k)[1]}' 탭이 열렸습니다.`, 'sys', '새 기능');
     else S.tut.q.push(k);
   }
 }
@@ -5885,7 +5890,7 @@ const TUT = {
     { tab: 'office', at: '#main .billsplit > section:first-child', t: '법안과 당론', d: '다른 당·정부 법안엔 찬성·반대·자유투표로 당론을 정하고, 표 단속으로 우리 의원 이탈을 막습니다. 예상 찬성 막대가 통과선을 넘는지 보세요.' },
   ],
   pres: [
-    { at: nb('pres'), tap: 1, t: '청와대 탭이 열렸습니다', d: '대통령과 국정 지지율을 볼 수 있습니다.', do: '청와대 탭을 눌러 보세요.' },
+    { at: nb('pres'), tap: 1, t: '청와대 활동이 열렸습니다', d: '이제 청와대 탭에서 영수회담 같은 활동을 할 수 있습니다.', do: '청와대 탭을 눌러 보세요.' },
     { tab: 'pres', at: '#main .presbox', t: '대통령과 국정 지지율', d: '국정 지지율은 임기 말로 갈수록 떨어지고 여당 지지율에 영향을 줍니다. 야당이면 영수회담을 제안할 수 있고, 집권하면 내각을 지명하고 다른 당 법안의 공포·거부를 고릅니다.' },
   ],
   admin: [
