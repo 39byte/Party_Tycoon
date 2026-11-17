@@ -352,6 +352,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 .sloganrow{display:flex;align-items:center;gap:8px;margin:8px 0}.sloganrow p{margin:0;min-width:0}.sloganrow .ib{margin-left:auto;flex:none;border:0;background:none;box-shadow:none}.sloganrow .ib .ic{opacity:.5;transition:opacity .15s}.sloganrow .ib:hover .ic,.sloganrow .ib:focus-visible .ic{opacity:1}.sloganrow .ib:hover{background:var(--surface2)}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
+.imgpick{display:flex;gap:10px;flex-wrap:wrap}
+.imgpick label{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border:2px solid var(--border);border-radius:12px;cursor:pointer;font-size:13px}
+.imgpick label:has(input:checked){border-color:var(--primary2)}
+.imgpick label:has(input:focus-visible){outline:2px solid var(--primary2);outline-offset:2px}
+.imgpick input[type=radio]{position:absolute;opacity:0}
+.imgpick .noimg{display:grid;place-items:center;width:56px;height:56px;background:var(--surface2);color:var(--muted);font-size:26px}
 .swatches label{cursor:pointer}
 .swatches input{position:absolute;opacity:0}
 .swatches span{display:block;width:34px;height:34px;border-radius:8px;border:3px solid transparent}
@@ -4933,8 +4939,6 @@ function bindPanel(m) {
   m.querySelectorAll('[data-distc]').forEach(b => b.onclick = () => distModal(S.camps[b.dataset.distc], b.dataset.distk));
   m.querySelectorAll('[data-prc]').forEach(b => b.onclick = () => prModal(S.camps[b.dataset.prc]));
   m.querySelector('[data-partyedit]')?.addEventListener('click', partyEdit);
-  m.querySelector('[data-limg]')?.addEventListener('change', e => leaderImg(e.target.files[0]));
-  m.querySelector('[data-limgdel]')?.addEventListener('click', () => { delete S.party.img; save(); renderAll(); });
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
   m.querySelectorAll('[data-rvpg]').forEach(b => b.onclick = () => { rvPg[b.closest('[data-rvpgk]').dataset.rvpgk] = +b.dataset.rvpg; renderAll(); });
@@ -4996,15 +5000,15 @@ const partyNameErr = name => {
   return !name ? '정당 이름을 입력하세요.' : clash ? `기존 등록 정당 '${clash.name}'과(와) 뚜렷이 구별되지 않습니다 (정당법 제41조).` : '';
 };
 // 본부 탭 연필 버튼: 당 이름·슬로건·색 바꾸기
-// 당 대표 사진: 가운데를 정사각형으로 잘라 128px WEBP로 줄여 저장(세이브 크기 억제)
-function leaderImg(file) {
+// 당 대표 사진: 가운데를 정사각형으로 잘라 128px WEBP로 줄여 done(dataURL)에 넘김(세이브 크기 억제)
+function leaderImg(file, done) {
   if (!file) return;
   if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { Snd.sfx('bad'); return toast('JPG, PNG, WEBP 파일만 올릴 수 있습니다.', 'sys', '대표 사진'); }
   const url = URL.createObjectURL(file), im = new Image();
   im.onload = () => {
     const n = 128, cv = Object.assign(document.createElement('canvas'), { width: n, height: n }), d = Math.min(im.width, im.height);
     cv.getContext('2d').drawImage(im, (im.width - d) / 2, (im.height - d) / 2, d, d, 0, 0, n, n);
-    URL.revokeObjectURL(url); S.party.img = cv.toDataURL('image/webp', 0.85); save(); renderAll(); Snd.sfx('ok');
+    URL.revokeObjectURL(url); done(cv.toDataURL('image/webp', 0.85));
   };
   im.onerror = () => { URL.revokeObjectURL(url); Snd.sfx('bad'); toast('이미지를 읽을 수 없습니다.', 'sys', '대표 사진'); };
   im.src = url;
@@ -5013,18 +5017,26 @@ function partyEdit() {
   openModal({ title: '당 정보 변경', html: `<form id="pe" style="display:flex;flex-direction:column;gap:12px">
       <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="${esc(S.party.name)}" autocomplete="off"><span class="h" id="peErr" role="alert"></span></label>
       <label class="f">슬로건<input type="text" name="slogan" maxlength="30" placeholder="선택 사항" value="${esc(S.party.slogan||'')}" autocomplete="off"></label>
+      <div class="f">대표 사진<div class="imgpick">
+        <label><input type="radio" name="imgmode" value="def" ${S.party.img ? '' : 'checked'}>${ART.face({ name: leader().name, gender: leader().gender, age: leader().age }, S.party.color, 56)}<span>기본 그림</span></label>
+        <label><input type="radio" name="imgmode" value="up" ${S.party.img ? 'checked' : ''}><span id="peImg">${S.party.img ? `<img class="face" src="${S.party.img}" width="56" height="56" alt="">` : '<span class="face noimg">+</span>'}</span><span>사진 업로드</span></label>
+        <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" id="peFile" hidden aria-label="대표 사진 파일 고르기">
+      </div><span class="h">JPG | PNG | WEBP. 업로드 칸을 다시 누르면 다른 사진으로 바꿉니다.</span></div>
       <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c]) => `<label><input type="radio" name="color" value="${c}" ${c === S.party.color ? 'checked' : ''}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
       <div class="btns" style="align-items:center"><p class="small muted" style="margin:0 auto 0 0;flex:1 1 200px">지난 로그와 선거 기록의 글에는 예전 당명이 그대로 남습니다.</p><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div></form>`,
     onOpen: m => {
       m.querySelector('[data-pecancel]').onclick = closeModal;
-      const f = m.querySelector('#pe');
+      const f = m.querySelector('#pe'), fi = m.querySelector('#peFile'), up = f.querySelector('[name=imgmode][value=up]');
+      let img = S.party.img; // 저장 누르기 전까지는 미리보기만
+      up.parentElement.onclick = e => { e.preventDefault(); fi.click(); }; // 업로드 칸은 누를 때마다 파일 선택, 고르면 그때 선택됨
+      fi.onchange = () => leaderImg(fi.files[0], u => { img = u; up.checked = true; m.querySelector('#peImg').innerHTML = `<img class="face" src="${u}" width="56" height="56" alt="">`; fi.value = ''; });
       f.onsubmit = e => {
         e.preventDefault();
         const v = Object.fromEntries(new FormData(f)), name = v.name.trim(), err = partyNameErr(name);
         if (err) { const x = m.querySelector('#peErr'); x.textContent = err; x.className = 'h bad'; Snd.sfx('bad'); return; }
-        const old = S.party.name; S.party.name = name; S.party.slogan = v.slogan.trim(); if (v.color) S.party.color = v.color;
+        const old = S.party.name; if (v.imgmode === 'up' && img) S.party.img = img; else delete S.party.img; S.party.name = name; S.party.slogan = v.slogan.trim(); if (v.color) S.party.color = v.color;
         if (name !== old) addLog(`당명을 '${old}'에서 '${name}'(으)로 바꿨습니다.`, 'ok');
-        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} | 당 이름·슬로건·색을 저장했습니다.`, 'ok', '당 정보 변경');
+        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} | 당 정보를 저장했습니다.`, 'ok', '당 정보 변경');
       };
     } });
 }
@@ -5032,7 +5044,7 @@ function pHome() {
   let status;
   if (S.phase === 'prep') {
     const ok = chaptersOk(), left = LAW.prepDays - S.day;
-    status = `<h2>창당 진행 상황</h2><div class="leader"><label class="facebtn" title="대표 사진 올리기 (JPG | PNG | WEBP)">${face(leader(), S.party.color, 64)}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-limg hidden aria-label="당 대표 사진 올리기"></label><div><b style="font-size:17px">${esc(leader().name)}</b> <span class="pill">창당준비위원장</span><div class="small muted">${esc(S.party.name)} | ${IDEO[S.party.ideo]} | 발기인 ${LAW.founders}명</div>${S.party.img ? ' <button class="lnk small" data-limgdel>사진 지우기</button>' : ''}</div></div><ul class="check">
+    status = `<h2>창당 진행 상황</h2><div class="leader">${face(leader(), S.party.color, 64)}<div><b style="font-size:17px">${esc(leader().name)}</b> <span class="pill">창당준비위원장</span><div class="small muted">${esc(S.party.name)} | ${IDEO[S.party.ideo]} | 발기인 ${LAW.founders}명</div></div></div><ul class="check">
       <li><span class="st done">✓</span><div><b>중앙당창당준비위원회 결성 신고</b><div class="small muted">발기인 200명 이상 (정당법 제6조)</div></div></li>
       <li><span class="st ${ok >= 5 ? 'done' : ''}">${ok >= 5 ? '✓' : ok}</span><div><b>시·도당 5곳 이상 창당</b> <span class="pill">${ok}/5</span><div class="small muted">각 시·도당 당원 1,000명 이상 (정당법 제17조·제18조). '조직·지역' 탭에서 당원을 모집하고 창당대회를 여세요.</div></div></li>
       <li><span class="st">3</span><div><b>중앙선관위에 정당 등록 신청</b><div class="small ${left < 45 ? 'bad' : 'muted'}">기한까지 ${left}일 (결성신고 후 6개월, 정당법 제8조)</div><button class="btn pri" id="regParty" style="margin-top:6px" ${ok < 5 ? 'disabled' : ''}>등록 신청</button></div></li></ul>`;
@@ -5040,7 +5052,7 @@ function pHome() {
     const L_ = leader();
     status = `<h2>${esc(S.party.name)} <span class="pill">${IDEO[S.party.ideo]}</span> <span class="pill${ruling() ? ' ok' : ''}">${ruling() ? '여당' : '야당'}</span></h2>
       <div class="sloganrow">${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}<button class="ib" data-partyedit aria-label="당 정보 변경" title="당 정보 변경">${icon('i-pencil')}</button></div>
-      <div class="leader"><label class="facebtn" title="대표 사진 올리기 (JPG | PNG | WEBP)">${face(L_, S.party.color, 72)}<input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-limg hidden aria-label="당 대표 사진 올리기"></label><div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 | ${esc(homeTxt(L_))} | 역량 ${L_.skill} | 청렴 ${L_.integ}</div>${S.party.img ? ' <button class="lnk small" data-limgdel>사진 지우기</button>' : ''}</div></div>
+      <div class="leader">${face(L_, S.party.color, 72)}<div><b style="font-size:17px">${esc(L_.name)}</b> <span class="pill">당 대표</span><div class="small muted">${L_.age}세 | ${esc(homeTxt(L_))} | 역량 ${L_.skill} | 청렴 ${L_.integ}</div></div></div>
       <div class="tblwrap"><table><tbody>
       <tr><th>당 대표</th><td>${esc(L_.name)} (${L_.age}세)</td><th>등록일</th><td>${fdate(S.regDay)}</td></tr>
       <tr><th>인지도</th><td class="num">${S.fame.toFixed(1)}</td><th>신뢰도</th><td class="num">${S.trust.toFixed(1)}</td></tr>
