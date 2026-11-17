@@ -86,6 +86,18 @@ main{padding:18px;min-width:0}
 .navsep{border:0;border-top:1px solid rgba(255,255,255,.1);margin:6px 8px}
 .navsep.wide{margin-top:22px}
 @media (max-width:900px){.navsep{display:none}}
+/* 넓은 화면: 메뉴를 2열 정사각 카드로, 본문을 스크롤해도 메뉴는 제자리 */
+@media (min-width:901px){
+  nav{display:grid;grid-template-columns:1fr 1fr;align-content:start;gap:6px;position:sticky;top:var(--top-h,58px);align-self:start;height:calc(100dvh - var(--top-h,58px));overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+  nav::-webkit-scrollbar{display:none}
+  /* 카드 높이: 정사각(86px)을 기본으로, 창이 낮으면 메뉴 8줄이 화면에 들어가게 줄임(넘치면 스크롤바 없이 휠로) */
+  nav button{position:relative;flex-direction:column;justify-content:center;gap:4px;height:clamp(58px,calc((100dvh - var(--top-h,58px) - 108px) / 8),86px);min-height:0;padding:6px 4px;text-align:center;font-size:12.5px;line-height:1.2;word-break:keep-all}
+  nav button .ic{width:24px;height:24px}
+  nav button[aria-current="page"]{box-shadow:inset 0 -3px 0 var(--gold)}
+  nav .badge{position:absolute;top:5px;right:5px;margin:0}
+  nav .navsep{grid-column:1/-1;margin:4px 8px}
+  nav .navsep.wide{margin-top:14px}
+}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .span-2{grid-column:span 2} .span-3{grid-column:1/-1}
 /* 좌우 분할: 한 칸이 360px보다 좁아지면 한 줄로 쌓임 */
@@ -148,6 +160,8 @@ main{padding:18px;min-width:0}
 .act h3{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* 활동 탭: 가로로 길고 낮은 카드. 설명·비용은 왼쪽, 실행 버튼은 오른쪽 */
 .acts.wide{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.slotg{margin-top:10px;border:1px solid var(--border);border-radius:10px;padding:8px 12px}.slotg summary{cursor:pointer;display:flex;align-items:center;gap:8px}
+.audrow{grid-column:1/-1;display:grid} /* 국회 의회 활동: 국정감사 카드는 첫 줄을 가로지름 */
 @media (max-width:1180px){.acts.wide{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:720px){.acts.wide{grid-template-columns:1fr}}
 /* 당 시설·조직: 1행 4열(좁으면 2열·1열) */
@@ -274,8 +288,13 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .bn.warn b{background:var(--gold);color:var(--on-gold)}
 @keyframes pulse{50%{box-shadow:0 0 0 4px rgba(220,38,38,.35)}}
 .meter{display:flex;align-items:center;gap:8px}.meter .bar{flex:1}
-.tierbar{display:flex;height:10px;margin-top:6px;border-radius:99px;overflow:hidden;background:var(--surface2);box-shadow:inset 0 1px 2px rgba(2,6,23,.25)}
+.tierbar{position:relative;display:flex;height:10px;margin-top:6px;border-radius:99px;overflow:hidden;background:var(--surface2);box-shadow:inset 0 1px 2px rgba(2,6,23,.25)}
 .tierbar i{display:block;height:100%}
+/* 10% 눈금(연한 회색), 50%는 진하게. 계층 색 위에서도 보이게 맨 위 층에 */
+.tierbar::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(241,245,249,.95) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px)),repeating-linear-gradient(90deg,transparent 0 calc(10% - 1px),rgba(203,213,225,.6) calc(10% - 1px) 10%)}
+/* 마우스를 올리거나 포커스하면 바로 계층 비율(툴팁 상자는 .tipbox 재사용, 위치는 placeTip) */
+.tierw{position:relative}.tierw .tierbar{cursor:help}
+.tierw:hover .tipbox,.tierw:focus-within .tipbox{visibility:visible;opacity:1;transition:none}
 
 /* modal & toast */
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px;z-index:50;animation:fade .18s ease-out}
@@ -389,17 +408,18 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
   --sea:#0A1830; --land:#25344F; --map-line:#0A1830;
 }}
 /* 탭 장면: 위쪽 그림 띠 + 왼쪽 제목 */
-.scene{position:relative;height:112px;border-radius:var(--r);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky1)}
+.scene{position:relative;height:56px;border-radius:var(--r);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky1)}
 /* 그림은 오른쪽 아래에 맞춰 통째로 줄여 넣고(잘림 없음), 빈 왼쪽은 하늘·땅 색으로 이어 줌 */
 .scene::before{content:"";position:absolute;left:0;right:0;bottom:0;height:12%;background:var(--gnd);border-top:2px solid var(--gnd2)}
 .scene .scn{position:absolute;inset:0;width:100%;height:100%}
-.scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;gap:2px;padding:10px 16px;color:#fff}
+.scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;padding:6px 10px;color:#fff}
 /* 제목은 그림 위 단색 반투명 판에 */
-.scene-t>div{align-self:flex-start;padding:8px 14px;border-radius:10px;background:rgba(10,18,36,.72)}
-.scene-t h1{font-size:20px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+/* 그림띠가 낮아서 제목과 부제를 한 줄로 */
+.scene-t>div{align-self:flex-start;display:flex;align-items:baseline;gap:10px;max-width:100%;padding:4px 12px;border-radius:8px;background:rgba(10,18,36,.72)}
+.scene-t h1{flex:none;font-size:17px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .scene-t h1::before{content:"";width:10px;height:10px;transform:rotate(45deg);background:var(--gold);flex:none}
-.scene-t p{margin:0;font-size:13.5px;opacity:.92;max-width:46ch}
-@media (max-width:600px){.scene{height:84px;margin-bottom:10px}.scene-t{padding:8px 10px}.scene-t>div{padding:6px 10px}.scene-t h1{font-size:17px}.scene-t p{font-size:11.5px}}
+.scene-t p{margin:0;min-width:0;font-size:13px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-width:600px){.scene{height:42px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
 .scn .far rect{fill:var(--far)} .scn .mid{fill:var(--mid)} .scn .wd{fill:var(--wd)} .scn .wl{fill:var(--wl)}
 .scn .bld{fill:var(--bld)} .scn .bld2{fill:var(--bld2)} .scn .wall{fill:var(--wall)} .scn .col{fill:var(--col)} .scn .glass{fill:var(--glass)}
 .scn .gnd{fill:var(--gnd)} .scn .gnd2{fill:var(--gnd2)} .scn .tree circle{fill:var(--tree)} .scn .trunk{fill:var(--trunk)} .scn .door{fill:var(--door)}
@@ -448,7 +468,14 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* 청와대: 대통령 초상 + 정보 */
 .presbox{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
 .presbox>.face{align-self:flex-start}
-.apprw{flex:0 1 460px;min-width:0;min-height:200px;display:flex;flex-direction:column;border-left:1px solid var(--border);padding-left:20px;margin-left:4px}
+/* 대통령(정보 + 아래 지지율 추이) | 내각(2열). 좁으면 위아래로 */
+.presgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);align-items:stretch}
+/* 대통령 칸은 내각 칸 높이까지 늘리고, 남는 높이는 지지율 추이 그래프가 채움 */
+.presgrid>.card:first-child{display:flex;flex-direction:column}.presgrid>.card:first-child>.apprw{flex:1}
+.presgrid .pcards{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (max-width:1100px){.presgrid{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:600px){.presgrid .pcards{grid-template-columns:minmax(0,1fr)}}
+.apprw{min-width:0;min-height:200px;display:flex;flex-direction:column;border-top:1px solid var(--border);padding-top:12px;margin-top:14px}
 .apprc{flex:1;position:relative;min-height:150px}
 .apprc>svg{position:absolute;inset:0;width:100%;height:100%}
 .presbox .face{border-radius:22px}
@@ -1702,8 +1729,6 @@ function monthly(dt) {
   earn(tm * (S.up.digital ? 0.35 : 0.25) * 1000, '당비');
   raiseFunds(S.fame * S.fame * 1.5e4);
   spend(officeCost(), '운영비');
-  const nch = Object.keys(S.chapters).length;
-  if (nch) spend(nch * 3e6, '시·도당');
   const upm = sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
   if (upm) spend(upm, '시설');
   if (dt.getUTCMonth() === 0) S.pool.forEach(p => p.age++);
@@ -1732,8 +1757,7 @@ function monthly(dt) {
   // 대통령도 정책을 낸다(우리가 집권하면 우리 몫)
   if (!ruling() && rnd() < 0.4) S.queue.push({ ev: 'policy' });
   // 원외 인사도 조금씩 바뀜(은퇴·새 인물). 영입으로 줄면 새 인물이 채움
-  // 국회 일정: 10월 국정감사, 12월 예산안
-  if (seatTotal('P') > 0 && dt.getUTCMonth() === 9) S.queue.push({ ev: 'audit' });
+  // 국회 일정: 12월 예산안(국정감사는 선거 사이 일정을 따라 tick에서)
   if (seatTotal('P') > 0 && dt.getUTCMonth() === 11) S.queue.push({ ev: 'budget' });
   // 다른 당 정치인·정당에 새 사건(보도는 몇 주~몇 달 뒤)
   for (let i = 0; i < 2; i++) { const f = pick(S.figs); if (f && rnd() < (100 - f.integ) / 100) incNew(S, f, rr(21, 150)); }
@@ -1780,6 +1804,7 @@ function tick() {
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
+  if (seatTotal('P') > 0 && S.day === auditWin()?.[0]) S.queue.push({ ev: 'audit' });
   if (S.day % TURN === 0) { rivalWeek(); auditRiv(); }
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
@@ -2142,7 +2167,7 @@ function accuseFile(t, ks) {
   if (pres) c.ev *= 0.7; // 살아 있는 권력 수사는 더 조심스러움
   if (t.party in S.rel) relAdd(t.party, -10, `${t.name} 고발`);
   wire(`${S.party.name}, ${t.role} ${t.name} '${ch.n}' 혐의로 검찰 고발`);
-  const msg = `${t.role} ${t.name}을(를) '${ch.n}' 혐의로 고발했습니다(${ch.law}). 검찰 처분은 몇 주 뒤 나옵니다.`;
+  const msg = `${!t.party || t.party === 'O' ? '무소속' : pn(t.party) + ' 소속'} ${t.role} ${t.name}을(를) '${ch.n}' 혐의로 고발했습니다. 검찰 처분은 몇 주 뒤 나옵니다.`;
   addLog(msg); toast(msg); Snd.sfx('ok'); renderAll();
 }
 // 결과에 따른 여론: 상대 당이면 신뢰 격차만큼 세기가 달라짐(atkMul·gapHit). 우리 당 사람이면 자정 노력과 의혹 확인이 엇갈림
@@ -2510,10 +2535,12 @@ function setStance(id, s) {
 }
 const BILL_OFF_DAYS = 90; // 법안은 노선 밖 연속 발의를 보는 기간이 정책 발표(45일)보다 김
 const billFit = k => ISSUES.find(x => x.k === k).fit[S.party.ideo + 1];
+// 분야의 노선 쏠림(issueSide): 진보 궁합 − 보수 궁합이 0.15 이상이면 진보(1), −0.15 이하면 보수(−1), 아니면 0
+const issueSide = k => { const f = ISSUES.find(x => x.k === k).fit, d = f[2] - f[0]; return d >= 0.15 ? 1 : d <= -0.15 ? -1 : 0; };
 function billModal() {
   const fit = i => billFit(i.k);
   openModal({
-    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 재적의원 ${seatsNow()}명의 과반인 찬성 ${passNeed()}표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다. 민심이 쏠린 쟁점의 법안은 반응이 크고, 이번 주 헤드라인에 없는 분야나 노선과 먼 분야를 거듭 발의하면 역풍을 맞습니다.${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
+    title: '법안 발의', html: `<p class="small muted">상임위 심사(3주)와 본회의(2주)를 거칩니다. 재적의원 ${seatsNow()}명의 과반인 찬성 ${passNeed()}표가 필요하고, 다른 당 의원들은 노선과 법안 성격에 따라 찬반을 정합니다. 민심이 쏠린 쟁점의 법안은 반응이 크고, 이번 주 헤드라인에 없는 분야나 노선과 먼 분야를 거듭 발의하면 역풍을 맞습니다.${S.party.ideo === 0 ? ' 중도 정당은 한쪽 노선 법안만 거듭 내도 역풍을 맞습니다.' : ''}${seatTotal('P') < 10 ? ' 우리 당 의원이 10명 미만이라 다른 당 의원의 공동발의 서명을 받아야 합니다.' : ''}</p>
       <div class="split2 pol bill"><div><h3>이번 주 헤드라인</h3>${newsList()}</div><div><h3>발의할 법안</h3>${[...ISSUES].sort((x, y) => fit(y) - fit(x)).map(i => `<details style="margin-bottom:8px"><summary style="cursor:pointer;font-weight:700;padding:6px 0">${i.n} <small class="muted">노선 궁합 ${fit(i) >= 1.2 ? '매우 좋음' : fit(i) >= 1.05 ? '좋음' : fit(i) >= 1 ? '보통' : '낮음'}</small></summary><div class="choices g2">${BILLS[i.k].map(t => `<button class="btn" data-bill="${i.k}|${esc(t)}" ${S.bills.some(x => x.t === t) ? 'disabled' : ''}>${esc(t)}${S.bills.some(x => x.t === t) ? '<small>계류 중</small>' : ''}</button>`).join('')}</div></details>`).join('')}</div></div>`, wide: true,
     buttons: [{ t: '취소' }],
     onOpen: m => (m.classList.add('polm'), m).querySelectorAll('[data-bill]').forEach(b => b.onclick = () => {
@@ -2525,6 +2552,12 @@ function billModal() {
       if (f < 1) S.billOff.push(S.day);
       const nOff = f < 1 ? S.billOff.length : 0, stray = S.news.some(n => n.i) && !S.news.some(n => n.i === issue || n.a?.includes(issue)), bad = [];
       if (nOff >= 3) { S.trust = clamp(S.trust - Math.min(4, nOff - 2), 0, 100); bad.push('노선과 동떨어진 법안만 낸다는 지지층 반발이 나왔습니다.'); }
+      // 중도 정당: 90일 안에 한쪽 노선 법안이 반대쪽보다 3건 이상 많아지면 역풍(반대쪽 법안을 내면 상쇄)
+      const ln = S.party.ideo === 0 ? issueSide(issue) : 0;
+      S.billSide = (S.billSide || []).filter(x => S.day - x.d < BILL_OFF_DAYS);
+      if (ln) S.billSide.push({ d: S.day, s: ln });
+      const nSide = ln ? sum(S.billSide.map(x => x.s * ln)) : 0;
+      if (nSide >= 3) { S.trust = clamp(S.trust - Math.min(4, nSide - 2), 0, 100); bad.push(`중도를 내세우면서 ${ln > 0 ? '진보' : '보수'} 쪽 법안만 낸다는 비판이 나왔습니다.`); }
       if (stray) { S.trust = clamp(S.trust - 0.75, 0, 100); bad.push('지금 여론과 동떨어진 법안이라는 비판이 나왔습니다.'); }
       if (seatTotal('P') < 10 && rnd() < 0.3) return info('법안 발의 무산', `공동발의 서명 10명을 채우지 못해 '${t}' 발의가 무산됐습니다.`, true);
       S.bills.push({ id: ++S.seq, t, issue, stage: 0, tries: 0, next: S.day + 21, appeal: rr(-0.1, 0.25) + (hotI ? 0.05 : 0) });
@@ -3105,11 +3138,7 @@ function rvPick(c, k, id, used, pr, need) {
   let b = id in (S.fpool || {}) ? poolBest(id, kd, sk, need) : bestCand([...(cur ? [cur] : []), ...Array.from({ length: RV_HOPE }, () => figSpec('cand'))]);
   if (!b) b = cur || figSpec('cand', need ? { gender: need } : undefined); // 풀이 바닥났을 때만
   else if (cur && b !== cur && slotScore(cur, sk) + INCUMB >= slotScore(b, sk)) b = cur;
-  // 사직하고 나오는 현직도 후보가 될 수 있음: 지선엔 그 당 현직 의원, 총선(지역구)엔 그 당 광역단체장
-  const mp = !pr && (c.type === 'gov' || c.type === 'nat') && id in (S.fpool || {}) ? S.figs.filter(f => f.party === id && (c.type === 'gov' ? (f.pos === 'd' || f.pos === 'pr') : f.pos === 'gov' && !S.gact[f.k]) && !used.has(f.id) && !f.ban && f.age >= LAW.age[kd]).reduce((a, f) => !a || slotScore(f, k) > slotScore(a, k) ? f : a, null) : null;
-  const mr = (c.mpRun ??= {}); // 현직은 인재풀 후보보다 조금이라도 나을 때만, 한 정당이 한 선거에 1명까지(보궐선거가 너무 잦지 않게)
-  if (mp && !(id in mr) && c.type === 'gov') mr[id] = rnd() < 0.97 ? 1 : 0; // 지선에 의원직 던지고 나오는 일은 드묾: 정당·선거마다 3%만 허용
-  if (mp &&b !== cur && (mr[id] || 0) < 1 && slotScore(mp, k) > slotScore(b, k) + 0.1) { mr[id] = (mr[id] || 0) + 1; used.add(mp.id); figRun(mp, k, c.type === 'gov' ? '광역단체장 출마 사직' : '총선 출마 사직'); return mp; }
+  // 다른 당 현직 의원·광역단체장은 서로의 자리에 사직하고 나오지 않음(보궐선거가 너무 잦지 않게). 대선만 예외(presMP)
   poolTake(id, b);
   const f = b === cur ? cur : genFig(S, id, pr ? b.home || figHome(id) : k, 'cand', b); used.add(f.id); return f;
 }
@@ -3351,7 +3380,7 @@ function negOutModal(oid) {
 const TIER_C = ['var(--pc)', 'color-mix(in srgb,var(--pc) 45%,transparent)', 'transparent', 'color-mix(in srgb,var(--danger) 40%,transparent)', 'var(--danger)'];
 // t: 발표된 계층 비중(생략하면 그 당 전국 조사)
 const tierBar = (id, t = S.pub.tier.nat[id]) => { const txt = L.TIERS.map((n, i) => `${n} ${Math.round(t[i] * 100)}`).join(' · ');
-  return `<div class="tierbar" style="--pc:${pc(id)}" role="img" aria-label="지지층 ${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div><div class="small muted">${txt}</div>`; };
+  return `<div class="tierw"><div class="tierbar" style="--pc:${pc(id)}" role="img" tabindex="0" aria-label="지지층 ${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div><span class="tipbox" aria-hidden="true">${txt}</span></div>`; };
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
 let negF = 'all', outF = 'all', mpPage = 0, outPage = 0;
 const NEG_PER = 5; // 교섭 탭 인물 한 쪽에 5명
@@ -3409,18 +3438,18 @@ const UPS = [
 const ACT = {
   recruit: { n: '당원 모집 캠페인', c: () => 1e7, cd: 7, reg: true, d: '해당 지역 당원을 모집합니다. 지역 지지율이 높을수록 효과적.' },
   volunteer: { n: '지역 봉사활동', c: () => 5e6, cd: 7, reg: true, d: '신뢰 상승 + 소수 당원 확보.' },
-  chapter: { n: '시·도당 창당대회', c: () => 2e7, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조). 월 유지비 300만.' },
+  chapter: { n: '시·도당 창당대회', c: () => 2e7, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조).' },
   rally: { n: '거리 유세', c: () => 2e7, cd: 1, reg: true, camp: true, d: '공식 선거운동기간에만 가능. 해당 지역 득표력 상승(그 지역 신뢰도가 높을수록 효과 큼).' },
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다. 이번 주 헤드라인에 없는 분야를 발표하거나, 노선과 맞지 않는 분야를 45일 안에 거듭 발표하면 역풍을 맞아 신뢰가 떨어집니다.' },
   media: { n: '언론 인터뷰', c: () => 0, cd: 10, d: '대표 역량에 따라 인지도·신뢰가 오르거나 말실수로 떨어집니다.' },
   accuse: { n: '고발장 제출', c: () => 5e6, cd: 7, d: '현직 의원·단체장·대통령·원외 인사·등록 후보를 검찰에 고발합니다(형사소송법 제234조). 교섭에서 들은 얘기가 근거가 됩니다.' },
   talent: { n: '인재 영입 탐색', c: () => 1e7, cd: 2 * TURN, d: '후보 최대 25명 중 원하는 만큼 영입합니다. 청렴도·전과도 미리 볼 수 있습니다.' },
-  fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '중앙당(창준위)후원회 모금. 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
+  fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '지지자들의 소액 후원을 모으는 합법적인 핵심 수입원입니다. 비용 없이 큰돈이 들어오니 다시 열릴 때마다 챙기세요. 중앙당(창준위)후원회 모금이라 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승(선거기간 중 최대 2번). 다른 당도 방송 광고를 합니다.' },
-  bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면 역풍을 맞습니다.' },
+  bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면(중도 정당은 한쪽 노선 법안만 거듭 내면) 역풍을 맞습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관 중 한 명을 골라 질문합니다. 우리 의원과 상대 장관의 역량 차이로 성패가 갈리고, 민심이 쏠린 쟁점의 담당 장관을 짚으면 효과가 큽니다. 야당이면 정부를 몰아붙이고, 여당이면 정책을 점검합니다.' },
-  audit: { n: '국정감사', c: () => 0, cd: 7, seat: true, d: '10월 국정감사에서 다른 당 단체장의 행정 실책을 추궁합니다. 상대는 반박하거나 사과합니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴으로 겨룹니다.' },
+  audit: { n: '국정감사', c: () => 0, cd: 7, seat: true, d: '국정감사(선거와 선거 사이, 4주간)에서 다른 당 단체장의 행정 실책을 추궁합니다. 상대는 반박하거나 사과합니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴으로 겨룹니다.' },
   govern: { n: '행정 역점사업', c: () => 0, cd: 7, // 지역×사업별 재사용 대기
     d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
 };
@@ -3434,7 +3463,7 @@ function why(key, k) {
   if (key === 'tvad' && activeCamps().every(c => (c.tv || 0) >= 2)) return '이번 선거기간 방송 광고 2회를 모두 썼습니다';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
   if (key === 'question' && (S.president.acting || !CAB.some(c => cabM(c.k)))) return '질문할 국무위원이 없습니다';
-  if (key === 'audit' && !auditOn()) return '매년 10월 국정감사 기간에만 가능';
+  if (key === 'audit' && !auditOn()) return (w => w && w[0] > S.day ? `국정감사 기간(${fdate(w[0])}부터 4주)에만 가능` : '국정감사 기간에만 가능')(auditWin());
   if (key === 'audit' && !audTargets().length) return '따질 행정 실책이 없습니다';
   if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
@@ -3527,9 +3556,17 @@ function questionRun(k, mp) {
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 국정감사(10월): 행정 실책을 짚으면 방어 측은 반박 또는 사과. 반박은 질의자 역량 vs 방어자 역량·청렴(65:35)
+// 국정감사: 앞 선거와 다음 선거 사이 3:2 지점을 가운데로 4주(선거철과 겹치지 않게). [시작일, 끝날 다음 날]
+const AUDIT_DAYS = 28;
+const auditWin = () => {
+  const prev = SCHED.filter(e => e.day <= S.day).at(-1)?.day ?? 0, next = SCHED.find(e => e.day > S.day)?.day;
+  if (next == null) return null;
+  const a = prev + Math.round((next - prev) * 0.6 - AUDIT_DAYS / 2);
+  return [a, a + AUDIT_DAYS];
+};
+// 국정감사: 행정 실책을 짚으면 방어 측은 반박 또는 사과. 반박은 질의자 역량 vs 방어자 역량·청렴(65:35)
 // 사과: 방어 측 신뢰도 −1·행정 지지도 −1 / 반박 성공: 공격 측 신뢰도 −0.5(방어자가 15 이상 앞서면 15%로 역공: −2) / 반박 실패: 방어 측 신뢰도 −3·행정 지지도 −3
-const auditOn = () => L.dayToDate(S.day).getUTCMonth() === 9;
+const auditOn = () => { const w = auditWin(); return !!w && S.day >= w[0] && S.day < w[1]; };
 const audDef = p => 0.65 * (p?.skill ?? 50) + 0.35 * (p?.integ ?? 60);
 const audOdds = (att, def) => clamp(0.5 + (def - att) / 80, 0.1, 0.9);
 const audTargets = () => S.blun.filter(b => !b.used && b.p !== 'P' && S.rgov[b.k]?.p === b.p);
@@ -3572,7 +3609,7 @@ function auditRun(id, mp) {
 // 국감 질의자: 그 당 의원 중 역량 상위 15명 중 무작위(의원이 없으면 null)
 const audAtk = id => { const top = S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')).sort((a, b) => b.skill - a.skill).slice(0, 15); return top.length ? pick(top) : null; };
 const audIds = () => TR_IDS.filter(id => S.figs.some(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')));
-// 다른 당의 추궁: 10월 턴마다 ① 우리 행정 실책이 있으면 50%로 한 건(우리가 반박/사과 선택) ② 다른 당끼리도 50%로 한 건(AI끼리 결판, 소식으로만)
+// 다른 당의 추궁: 국정감사 기간 턴마다 ① 우리 행정 실책이 있으면 50%로 한 건(우리가 반박/사과 선택) ② 다른 당끼리도 50%로 한 건(AI끼리 결판, 소식으로만)
 function auditRiv() {
   if (!auditOn()) return;
   const bs = S.blun.filter(b => !b.used && b.p === 'P' && S.gov[b.k] === 'P'), b = bs.length && pick(bs), ids = audIds();
@@ -4277,7 +4314,7 @@ const XEV = {
     const gov = Object.keys(S.ops);
     gov.forEach(k => opsAdd(k, rr(-4, 2))); // 우리 시·도도 피감기관
     const n = audTargets().length;
-    info('국정감사 시작', `국회 국정감사가 시작됐습니다. 이번 달 동안 국회 탭에서 다른 당 단체장의 행정 실책을 추궁할 수 있습니다${n ? `(따질 거리 ${n}건)` : ''}. 다른 당도 우리 단체장의 행정 실책을 파고들 테니, 반박할지 사과할지 정해야 합니다.${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`, false);
+    info('국정감사 시작', `국회 국정감사가 시작됐습니다. 4주 동안 국회 탭 의회 활동에서 다른 당 단체장의 행정 실책을 추궁할 수 있습니다${n ? `(따질 거리 ${n}건)` : ''}. 다른 당도 우리 단체장의 행정 실책을 파고들 테니, 반박할지 사과할지 정해야 합니다.${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`, false);
   },
   // 다른 당이 우리 단체장의 행정 실책을 추궁: 반박(역량·청렴 vs 상대 질의자 역량) 또는 사과
   auditHit: q => {
@@ -4564,7 +4601,7 @@ function loadText(t) {
   catch (e) { toast('올바른 저장 파일이 아닙니다.', 'sys', '불러오기 실패'); }
 }
 window.addEventListener('beforeunload', save);
-// 폴더 자동 저장(크롬·엣지 File System Access API): 고른 폴더의 save/에 매 턴 새 JSON을 만들고 최근 SAVE_MAX개만 남김
+// 폴더 자동 저장(크롬·엣지 File System Access API): 고른 폴더의 save/정당이름/에 매 턴 새 JSON을 만들고 정당마다 최근 SAVE_MAX개만 남김
 // 폴더 핸들은 IndexedDB에 둬서 다음에 열면 권한만 다시 받음(턴 종료 누를 때)
 let saveDir = null;
 const SAVE_MAX = 20;
@@ -4586,14 +4623,14 @@ async function saveToDir() {
   if (!saveDir || !S) return;
   try {
     if (await saveDir.queryPermission({ mode: 'readwrite' }) !== 'granted') return;
-    const name = saveName(new Date().toISOString());
-    const w =await (await saveDir.getFileHandle(name, { create: true })).createWritable();
+    const name = saveName(new Date().toISOString()), dir = await saveDir.getDirectoryHandle(fsSafe(S.party.name), { create: true }); // 정당별 하위 폴더
+    const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
     await w.write(JSON.stringify(S)); await w.close();
-    // 세이브 파일은 최대 SAVE_MAX개, 넘치면 가장 오래된 것부터 삭제
+    // 세이브 파일은 정당마다 최대 SAVE_MAX개, 넘치면 가장 오래된 것부터 삭제
     const files = [];
-    for await (const [n, h] of saveDir.entries()) if (h.kind === 'file' && n.startsWith('정당키우기_') && n.endsWith('.json')) files.push({ n, t: (await h.getFile()).lastModified });
+    for await (const [n, h] of dir.entries()) if (h.kind === 'file' && n.startsWith('정당키우기_') && n.endsWith('.json')) files.push({ n, t: (await h.getFile()).lastModified });
     files.sort((a, b) => a.t - b.t);
-    for (const f of files.slice(0, Math.max(0, files.length - SAVE_MAX))) await saveDir.removeEntry(f.n);
+    for (const f of files.slice(0, Math.max(0, files.length - SAVE_MAX))) await dir.removeEntry(f.n);
   } catch (e) { toast('설정에서 폴더를 다시 고르세요.', 'sys', '폴더 자동 저장 실패'); }
 }
 // 이 브라우저의 게임 데이터(진행 중 세이브·설정·자동 저장 목록·저장 폴더 지정)만 지우고 새로고침. 오프라인용 게임 파일 캐시, 같은 주소의 다른 사이트 데이터, 폴더에 저장된 파일은 그대로
@@ -4603,26 +4640,33 @@ function wipeData() {
   if (!window.indexedDB) return location.reload();
   const r = indexedDB.deleteDatabase('party-tycoon'); r.onsuccess = r.onerror = r.onblocked = () => location.reload();
 }
-const saveName = iso => `정당키우기_${S.party.name}_${fdate(S.day).slice(0, 10)}_${iso.replace(/[:.]/g, '-')}.json`.replace(/[\\/:*?"<>|]/g, '_');
-// 사파리 등 폴더를 고를 수 없는 브라우저: 같은 방식(매 턴 새 세이브, 최근 SAVE_MAX개)으로 브라우저 안(IndexedDB 'slot:시각' 키)에 저장
+const fsSafe = n => n.replace(/[\\/:*?"<>|]/g, '_');
+const saveName = iso => fsSafe(`정당키우기_${S.party.name}_${fdate(S.day).slice(0, 10)}_${iso.replace(/[:.]/g, '-')}.json`);
+// 자동 저장 세이브의 정당 이름(옛 세이브는 파일 이름에서 읽음)
+const slotParty = x => x.party ?? /^정당키우기_(.*)_\d{4}\.\d\d\.\d\d_/.exec(x.name)?.[1] ?? '';
+// 사파리 등 폴더를 고를 수 없는 브라우저: 같은 방식(매 턴 새 세이브, 정당마다 최근 SAVE_MAX개)으로 브라우저 안(IndexedDB 'slot:시각' 키)에 저장
 const SLOTS = window.indexedDB && !window.showDirectoryPicker ? IDBKeyRange.bound('slot:', 'slot;') : null;
 async function saveToSlots() {
   if (!SLOTS || !S) return;
   try {
     const k = 'slot:' + new Date().toISOString();
-    await kv('readwrite', s => s.put({ k, name: saveName(k.slice(5)), data: JSON.stringify(S) }, k));
-    const ks = await kv('readonly', s => s.getAllKeys(SLOTS)); // 키가 시각순으로 정렬됨
+    await kv('readwrite', s => s.put({ k, name: saveName(k.slice(5)), party: S.party.name, data: JSON.stringify(S) }, k));
+    // ponytail: 정리할 때 세이브를 전부 읽음(정당 수 × SAVE_MAX개). 느려지면 정당 이름을 키에 넣어 범위로 읽기
+    const ks = (await kv('readonly', s => s.getAll(SLOTS))).filter(x => slotParty(x) === S.party.name).map(x => x.k); // 키가 시각순으로 정렬됨
     for (const old of ks.slice(0, Math.max(0, ks.length - SAVE_MAX))) await kv('readwrite', s => s.delete(old));
   } catch (e) { toast('브라우저 저장 공간이 부족할 수 있습니다. 파일로 내보내 두세요.', 'sys', '자동 저장 실패'); }
 }
 // 세이브 목록. 내보내기는 공유 시트(iOS '파일에 저장'으로 원하는 폴더) → 안 되면 다운로드
-// ponytail: 열 때 세이브를 전부 읽음(최대 SAVE_MAX개). 공유는 클릭 직후 동기로 불러야 사파리가 막지 않아서
+// 정당별로 묶어 보여 줌(지금 정당이 맨 위, 나머지는 최근에 저장한 순). ponytail: 열 때 세이브를 전부 읽음. 공유는 클릭 직후 동기로 불러야 사파리가 막지 않아서
 async function slotsModal() {
   let list = [];
   try { list = (await kv('readonly', s => s.getAll(SLOTS))).reverse(); } catch (e) { }
   openModal({
     title: '자동 저장 목록', wide: true,
-    html: list.length ? `<p class="small muted">최신순, 최근 ${SAVE_MAX}개. 불러오면 지금 진행 상황은 이 세이브로 바뀝니다.</p>${list.map((x, i) => `<div class="row" style="justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><span class="small" style="word-break:break-all">${esc(x.name.replace(/^정당키우기_|\.json$/g, ''))}</span><span class="btns"><button class="btn" data-ld="${i}">불러오기</button><button class="btn" data-sh="${i}">내보내기</button></span></div>`).join('')}` : '<p>아직 자동 저장된 세이브가 없습니다. 턴을 종료하면 저장됩니다.</p>',
+    html: list.length ? `<p class="small muted">정당마다 최신순, 최근 ${SAVE_MAX}개. 불러오면 지금 진행 상황은 이 세이브로 바뀝니다.</p>${[...new Set(list.map(slotParty))].sort((a, b) => (b === S?.party.name) - (a === S?.party.name)).map((pty, gi) => {
+      const xs = list.map((x, i) => [x, i]).filter(([x]) => slotParty(x) === pty);
+      return `<details class="slotg" ${gi ? '' : 'open'}><summary><b>${esc(pty || '이름 없음')}</b> <span class="pill">${xs.length}개</span></summary>${xs.map(([x, i]) => `<div class="row" style="justify-content:space-between;align-items:center;gap:8px;margin-top:8px"><span class="small" style="word-break:break-all">${esc(x.name.replace(/^정당키우기_|\.json$/g, '').replace(fsSafe(pty) + '_', ''))}</span><span class="btns"><button class="btn" data-ld="${i}">불러오기</button><button class="btn" data-sh="${i}">내보내기</button></span></div>`).join('')}</details>`;
+    }).join('')}` : '<p>아직 자동 저장된 세이브가 없습니다. 턴을 종료하면 저장됩니다.</p>',
     buttons: [{ t: '닫기', pri: true }],
     onOpen: m => {
       m.querySelectorAll('[data-ld]').forEach(b => b.onclick = () => loadText(list[b.dataset.ld].data));
@@ -4782,8 +4826,8 @@ function placeTip(b) {
   box.style.top = (r.bottom + 8 + box.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - box.offsetHeight - 8) : r.bottom + 8) + 'px';
 }
 document.addEventListener('click', e => { const b = e.target.closest?.('[data-gall]'); if (b) document.querySelectorAll('.guide details').forEach(d => d.open = b.dataset.gall === '1'); });
-document.addEventListener('pointerover', e => { const b = e.target.closest?.('.info'); if (b) placeTip(b); });
-document.addEventListener('focusin', e => { if (e.target.classList?.contains('info')) placeTip(e.target); });
+document.addEventListener('pointerover', e => { const b = e.target.closest?.('.info, .tierbar'); if (b) placeTip(b); });
+document.addEventListener('focusin', e => { if (e.target.classList?.contains('info') || e.target.classList?.contains('tierbar')) placeTip(e.target); });
 document.addEventListener('click', e => { const b = e.target.closest?.('.info'); if (b) b.focus(); }); // 사파리는 탭으로 버튼에 포커스가 안 감
 // 화면 배치(1~3열)에 따라 맨 윗줄이 바뀌므로 그려진 위치로 고름
 function markLead() {
@@ -5340,11 +5384,11 @@ function pFin() {
   const cats = [...new Set([...Object.keys(last), ...Object.keys(cur)])];
   const sh = subsidyFrac(), q = LAW.voters * LAW.subsidyUnit / 4 * sh;
   const y = L.dayToDate(S.day).getUTCFullYear(), raised = S.fund.year === y ? S.fund.raised : 0, cap = fundCap();
-  const monthlyOut = officeCost() + Object.keys(S.chapters).length * 3e6 + sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
+  const monthlyOut = officeCost() + sum(UPS.filter(u => S.up[u.k]).map(u => u.m));
   return `<div class="grid">
-    <div class="card"><h2>자금</h2><p style="font-size:26px;font-weight:800;margin:0" class="num ${S.money < 0 ? 'bad' : ''}">${won(S.money)}</p><p class="small muted">고정 지출 월 ${won(monthlyOut)}</p><p class="tip">고정 지출은 중앙당 사무처·시·도당·시설 비용입니다. 사무처 비용은 당원·의석 수에 비례해 늘어납니다.</p>${S.money < 0 ? `<p class="bad small">적자 ${S.negDays}일째 — 120일을 넘기면 해산</p>` : ''}</div>
+    <div class="card"><h2>자금</h2><p style="font-size:26px;font-weight:800;margin:0" class="num ${S.money < 0 ? 'bad' : ''}">${won(S.money)}</p><p class="small muted">고정 지출 월 ${won(monthlyOut)}</p><p class="tip">고정 지출은 중앙당 사무처·시설 비용입니다. 사무처 비용은 당원·의석 수에 비례해 늘어납니다.</p>${S.money < 0 ? `<p class="bad small">적자 ${S.negDays}일째 — 120일을 넘기면 해산</p>` : ''}</div>
     <div class="card"><h2>국고보조금</h2><p>배분율 <b class="num">${pct(sh, 2)}</b> · 분기 예상 <b class="num">${won(q)}</b></p><p class="tip">2·5·8·11월 15일 지급. 교섭단체(20석) 정당이 50%를 균등 분배하고, 5석 이상 정당 5%, 득표율 2% 이상 정당 2%, 나머지는 의석·득표 비율(정치자금법 제27조).${S.phase !== 'reg' ? ' 등록 전 정당은 받을 수 없습니다.' : !S.everNat ? ' 아직 국회의원선거에 참여하지 않아 0입니다.' : ''}</p></div>
-    <div class="card"><h2>후원회 모금 (${y}년)</h2><div class="bar"><i style="width:${Math.min(100, raised / cap * 100)}%"></i></div><p class="small num">${won(raised)} / 한도 ${won(cap)}</p><p class="tip">${S.phase === 'prep' ? '창당준비위원회 후원회는 중앙당 한도의 절반' : '중앙당후원회 연 50억, 후보를 추천한 선거가 있는 해 2배(제13조)'}(정치자금법 제12조). 개인 1인 연 2천만원 한도(제11조).</p></div>
+    <div class="card"><h2>후원회 모금 (${y}년)</h2><div class="bar"><i style="width:${Math.min(100, raised / cap * 100)}%"></i></div><p class="small num">${won(raised)} / 한도 ${won(cap)}</p><p class="tip">지지자들의 합법적인 소액 후원으로, 활동 탭 '후원의 밤'을 열 때마다 들어옵니다. ${S.phase === 'prep' ? '창당준비위원회 후원회는 중앙당 한도의 절반' : '중앙당후원회 연 50억, 후보를 추천한 선거가 있는 해 2배(제13조)'}(정치자금법 제12조). 개인 1인 연 2천만원 한도(제11조).</p></div>
     <div class="card span-2"><h2>월별 수입·지출</h2>${cats.length ? `<div class="tblwrap"><table><thead><tr><th>항목</th><th class="r">지난달</th><th class="r">이번 달(진행 중)</th></tr></thead><tbody>${cats.map(k => `<tr><td>${k}</td><td class="r num ${(last[k] || 0) < 0 ? 'bad' : ''}">${won(last[k] || 0)}</td><td class="r num ${(cur[k] || 0) < 0 ? 'bad' : ''}">${won(cur[k] || 0)}</td></tr>`).join('')}
       <tr><th>합계</th><th class="r num">${won(sum(Object.values(last)))}</th><th class="r num">${won(sum(Object.values(cur)))}</th></tr></tbody></table></div>` : '<p class="empty">아직 기록이 없습니다.</p>'}</div>
     <div class="card"><h2>입금 예정</h2>${S.pending.length ? `<ul class="log">${S.pending.map(p => `<li><time>${fdate(p.d)}</time><span>${esc(p.t)} <b class="num">${won(p.amt)}</b></span></li>`).join('')}</ul>` : '<p class="empty">없음</p>'}
@@ -5380,21 +5424,19 @@ function pOffice() {
     <h3 style="margin-top:32px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? `우리 당이 집권 중입니다. 반대 당론 법안이 통과되면 공포와 거부권 중에서 고릅니다. 재의결선은 ${twoThirds()}표이고, 청와대 탭에서 자동 처리를 켤 수 있습니다.` : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
 </section>
-    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
-      <p class="tip">매년 10월 국정감사에선 다른 당 단체장의 행정 실책을 추궁하고, 우리 단체장도 추궁받습니다. 12월엔 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
+    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${auditOn() ? `<div class="audrow">${actBtn('audit', undefined, true, true)}</div>` : ''}${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
+      <p class="tip">선거와 선거 사이(앞 선거에서 5분의 3쯤 지난 때) 4주간 열리는 국정감사에선 다른 당 단체장의 행정 실책을 추궁하고, 우리 단체장도 추궁받습니다. 12월엔 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
     <h3 style="margin:28px 0 10px">최근 법안</h3>${(xs => xs.length ? voteList(xs) : '<p class="small muted">아직 표결된 법안이 없습니다.</p>')(recentBills())}</section></div></div>`;
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도
   // 맨 위: 의석 분포(접고 펼치기, 상태는 탭을 다시 그려도 유지)
   const seatd = `<details class="card seatd" data-seatd ${seatOpen ? 'open' : ''}><summary><h2>국회 의석 분포 (재적 ${LAW.totalSeats - Math.max(0, vacN())}석${vacN() > 0 ? ` · 공석 ${vacN()}` : ''})</h2></summary>${hemicycle()}<p class="tip">의장석에서 바라본 배치입니다. 의석은 국회의장이 교섭단체와 협의해 정하며(국회법 제3조), 관례대로 원내 제1당은 가운데, 제2당은 오른쪽, 20석 미만 정당과 무소속은 왼쪽에 앉습니다.</p></details>`;
-  // 국정감사 카드: 10월 국정감사 기간에만, 1·2열을 모두 가로지르는 한 줄로 맨 위에
-  const audit = seats && auditOn() ? `<div class="acts wide" style="grid-template-columns:1fr">${actBtn('audit', undefined, true, true)}</div>` : '';
-  return `<div class="stack">${seatd}${audit}${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}</div></div>`;
+  return `<div class="stack">${seatd}${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}</div></div>`;
 }
 // 청와대: 대통령 정보·국정 지지율 · 집권 시 거부권 처리 방식
 function pPres() {
   const P = S.president, me = P.pid != null && person(P.pid), ne = SCHED.find(e => e.type === 'pres' && e.day >= S.day && !S.done[e.key]), days = S.day - P.since;
-  return `<div class="card"><h2>대통령</h2><div class="presbox">${face(me || { name: P.name, age: 62 }, pc(P.party), 112)}
+  return `<div class="presgrid"><div class="card"><h2>대통령</h2><div class="presbox">${face(me || { name: P.name, age: 62 }, pc(P.party), 112)}
     <div class="presinfo"><div class="small muted">${P.acting ? '대통령 권한대행' : '대한민국 대통령'}</div><div class="presname">${esc(P.name)}</div>
       <div class="btns" style="gap:6px"><span class="pill" style="border-color:${pc(P.party)};color:${pc(P.party)}">${esc(pn(P.party))}</span>${ruling() ? '<span class="pill ok">우리 당 집권</span>' : ''}${P.acting ? '<span class="pill warn">조기 대선 국면</span>' : ''}</div>
       <div class="tblwrap"><table class="kv"><tbody>
@@ -5406,8 +5448,8 @@ function pPres() {
         ${me ? `<tr><th>역량 · 청렴</th><td class="num">${me.skill} · ${me.integ}</td></tr>` : ''}
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
-      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div>
-    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc">${apprChart()}</div></div>`}</div></div>${!P.acting ? `<div style="margin-top:14px">${cabCard()}</div>` : ''}`;
+      ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div></div>
+    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc">${apprChart()}</div></div>`}</div>${!P.acting ? cabCard() : ''}</div>`;
 }
 function fitAppr() {
   const c = document.querySelector('.apprc'); if (!c || !c.clientWidth || !c.clientHeight) return;
@@ -5579,6 +5621,7 @@ function nextSteps() {
   if (S.over) return [['게임이 끝났습니다. 설정에서 새 게임을 시작하세요.', '', true]];
   const out = [];
   if (S.money < 0) out.push([`자금이 바닥났습니다(${S.negDays}일째). 120일 안에 흑자로 돌리지 못하면 해산합니다. 후원의 밤으로 모금하세요.`, 'act', true]);
+  if (S.money >= 0 && !why('fund') && fundCap() > (S.fund.year === L.dayToDate(S.day).getUTCFullYear() ? S.fund.raised : 0)) out.push(['후원의 밤을 열 수 있습니다. 지지자 후원을 비용 없이 모으는 합법적인 주 수입원이니 열릴 때마다 챙기세요.', 'act']);
   if (S.grace != null) out.push([`정당 등록요건 미달: ${fdate(S.grace)}까지 시·도당 5곳(각 당원 1,000명)을 회복하세요.`, 'org', true]);
   if (S.phase === 'reg' && S.day - S.lastPart > 3 * 365) out.push([`4년간 선거에 나가지 않으면 등록이 취소됩니다(${fdate(S.lastPart + 4 * 365)}까지). 다음 선거에 후보를 내세요.`, 'elec', true]);
   if (S.phase === 'prep') {
@@ -5633,14 +5676,14 @@ function pGuide() {
       <li>성향이 맞는 지역부터 공략하세요. 진보는 호남, 보수는 영남, 중도는 수도권·충청이 유리합니다.</li></ul>`)}
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
       <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 신뢰도 20 미만에서는 0.5배, 20~30에서는 0.4배만 오르고, 30을 넘으면(0.6배에서 시작해) 높아질수록 오르기가 점점 어려워집니다(50이면 절반 이하, 70이면 5분의 1). 다른 당은 이 곡선이 40부터 시작됩니다.</li>
-      <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 45일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 90일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
+      <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 45일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 90일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 중도 정당은 90일 안에 한쪽(진보 또는 보수) 노선 법안이 반대쪽보다 세 건 이상 많아지면 역풍을 맞습니다. 반대쪽 법안을 내면 상쇄됩니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
       <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li><b>지지층</b>은 지역마다 충성·우호·중립·적대·혐오 5계층으로 나뉘고, 전국 지지층은 지역 지지층을 선거인 수대로 합친 값입니다. 지지율처럼 실제 계층은 알 수 없고, 매주 여론조사로 발표된 값만 보입니다(지역은 최근 4주 조사를 합친 값이라 작은 시·도일수록 오차가 큽니다). 처음엔 노선과 맞는 지역일수록 충성층이, 어긋나는 지역일수록 혐오층이 두껍습니다. 중립층이 당의 결정에 가장 크게 흔들리고, 다음이 우호·적대층입니다. 충성층이 두꺼울수록 악재에도 신뢰가 덜 깎이고 지지율이 덜 빠지며, 혐오층이 두꺼울수록 좋은 일을 해도 신뢰와 지지율이 잘 오르지 않습니다. 행정 지지도에도 이어집니다. 단체장의 행정 지지도가 오를 수 있는 한계는 그 지역에서 반대 노선 정당의 충성층(코어층)이 두꺼울수록 낮아지고, 오르는 속도는 단체장 당의 그 지역 충성층이 두꺼울수록 빠르고 혐오층이 두꺼울수록 느립니다. 실책이 쌓이면 혐오층이, 좋은 평가가 쌓이면 충성층이 두꺼워지고, 시간이 지나면 양 끝은 천천히 중립 쪽으로 돌아옵니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
       <li>선거일 전 ${LAW.pollBan}일부터는 여론조사 공표가 금지되어 내부조사 수치만 보입니다.</li></ul>`)}
     ${sec('자금', `<ul><li>수입: 매달 당비·후원금, 후원의 밤(연간 모금한도 있음), 정식 정당이 의석이나 득표를 얻으면 분기별 경상보조금과 선거보조금이 들어옵니다.</li>
-      <li>지출: 매달 사무처 운영비(규모에 비례), 시·도당 곳당 300만 원, 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
+      <li>지출: 매달 사무처 운영비(규모에 비례)와 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
     ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거·지방선거·대통령선거는 각각 2년마다이고 약 8개월 간격으로 번갈아 열립니다(총선 → 대선 → 지선 순). 대통령은 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
@@ -5682,7 +5725,7 @@ function pGuide() {
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
       <li>조기 대선 뒤 1년 안의 정기 대선은 열리지 않고, 그 뒤로는 원래 순환대로 이어집니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
-      <li>매년 10월 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙고, 다른 당끼리도 서로 추궁합니다(소식 탭에서 결과 확인). 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
+      <li>선거와 선거 사이(앞 선거에서 5분의 3쯤 지난 때) 4주간 열리는 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙고, 다른 당끼리도 서로 추궁합니다(소식 탭에서 결과 확인). 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
@@ -5732,7 +5775,7 @@ function settingsModal() {
       <div class="row"><label class="small"><input type="checkbox" id="sCost" ${s.skipCost ? '' : 'checked'}> 비용·행동력 확인 창 보기</label></div>
       <h3 style="margin-top:16px">저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
       <div class="btns"><button class="btn" id="sExp">파일로 내보내기</button><button class="btn" id="sImp">파일 불러오기</button><button class="btn danger" id="sNew">새 게임</button><button class="btn danger" id="sWipe">게임 데이터 지우기</button></div>
-      <p class="small muted" style="margin-top:8px">${SLOTS ? `이 브라우저는 폴더를 직접 고를 수 없어, 매 턴 브라우저 안에 세이브를 새로 만들고 최근 ${SAVE_MAX}개만 남깁니다. 목록에서 불러오거나 '파일' 앱 등으로 내보낼 수 있습니다.` : !window.showDirectoryPicker ? '이 브라우저는 폴더 자동 저장을 지원하지 않습니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/정당키우기_${esc(S.party.name)}_날짜_시각.json (매 턴 새 파일, 최근 ${SAVE_MAX}개만 남김, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 매 턴 자동 저장합니다.'}</p>
+      <p class="small muted" style="margin-top:8px">${SLOTS ? `이 브라우저는 폴더를 직접 고를 수 없어, 매 턴 브라우저 안에 세이브를 새로 만들고 정당마다 최근 ${SAVE_MAX}개만 남깁니다. 목록에서 불러오거나 '파일' 앱 등으로 내보낼 수 있습니다.` : !window.showDirectoryPicker ? '이 브라우저는 폴더 자동 저장을 지원하지 않습니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/${esc(fsSafe(S.party.name))}/정당키우기_${esc(S.party.name)}_날짜_시각.json (정당마다 하위 폴더, 매 턴 새 파일, 정당마다 최근 ${SAVE_MAX}개만 남김, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 정당별로 나눠 매 턴 자동 저장합니다.'}</p>
       ${window.showDirectoryPicker ? `<div class="btns"><button class="btn" id="sDir">${saveDir ? '저장 폴더 바꾸기' : '저장 폴더 고르기'}</button></div>` : SLOTS ? '<div class="btns"><button class="btn" id="sSlots">자동 저장 목록</button></div>' : ''}
       <h3 style="margin-top:16px">단축키</h3><p class="small muted">Space 턴 종료</p>`,
     buttons: [{ t: '닫기', pri: true }],
@@ -5796,13 +5839,13 @@ function newGameModal() {
 // ---------- 튜토리얼 ----------
 // 새 게임(S.tut 있음)에서만: 조건을 채우기 전엔 탭을 숨기고, 열릴 때 사용법을 짚어 줌. 예전 세이브는 S.tut이 없어 모든 탭이 열려 있음
 const LOCK = { elec: () => S.phase === 'reg', neg: () => S.phase === 'reg', court: () => S.phase === 'reg' || S.cases.length > 0, office: () => seatTotal('P') > 0, pres: () => seatTotal('P') > 0 || ruling(), admin: () => govCount('P') > 0 };
-const tabOk = k => !S?.tut || !LOCK[k] || !!S.tut.open[k];
+const tabOk = k => k === 'pres' || !S?.tut || !LOCK[k] || !!S.tut.open[k]; // 청와대 탭은 처음부터 열람 가능(활동은 버튼마다 조건). LOCK.pres는 활동 안내 시점
 // 한 번 열린 탭은 계속 열림. 튜토리얼을 건너뛰었으면 알림만, 아니면 그 탭 안내를 줄 세움
 function tutUnlock() {
   if (!S?.tut) return;
   for (const k in LOCK) if (!S.tut.open[k] && LOCK[k]()) {
     S.tut.open[k] = 1;
-    if (S.tut.off) toast(`조건을 채워 '${TABS.find(t => t[0] === k)[1]}' 탭이 열렸습니다.`, 'sys', '새 기능');
+    if (S.tut.off) toast(k === 'pres' ? '조건을 채워 청와대 활동을 쓸 수 있습니다.' : `조건을 채워 '${TABS.find(t => t[0] === k)[1]}' 탭이 열렸습니다.`, 'sys', '새 기능');
     else S.tut.q.push(k);
   }
 }
@@ -5814,7 +5857,7 @@ const TUT = {
     { at: '#stats', t: '상단 현황판', d: '턴·행동력·날짜·자금·당원·지지율·의석 같은 핵심 숫자가 언제나 여기에 떠 있습니다. 1턴은 1주(7일)예요.' },
     { at: '#stats .stat:nth-child(2)', t: '행동력', d: `매 턴 행동력 ${AP}을 받습니다. 활동·교섭 하나에 1씩 쓰고, <b>남은 행동력은 다음 턴으로 넘어가지 않으니</b> 매 턴 다 쓰는 게 이득이에요. 공식 선거운동기간엔 1을 더 받습니다.` },
     { at: '#stats .stat:nth-child(3)', t: '창당 기한', d: `창준위는 ${LAW.prepDays}일(약 ${Math.ceil(LAW.prepDays / TURN)}턴) 안에 정식 정당으로 등록해야 합니다. 기한을 넘기면 해산(게임 오버)! 아래 D-day를 자주 확인하세요.` },
-    { at: '#stats .stat:nth-child(4)', t: '자금', d: '활동마다 돈이 들고, 매달 사무처·시·도당 유지비가 빠져나갑니다. 자금이 마이너스인 채로 120일이 지나면 해산하니 바닥나지 않게 관리하세요.' },
+    { at: '#stats .stat:nth-child(4)', t: '자금', d: '활동마다 돈이 들고, 매달 사무처 운영비·시설 유지비가 빠져나갑니다. 자금이 마이너스인 채로 120일이 지나면 해산하니 바닥나지 않게 관리하세요.' },
     { at: '#nav', t: '메뉴', d: '탭을 눌러 화면을 바꿉니다. 지금은 창당 단계라 <b>쓸 수 있는 탭만</b> 보여요. 정당 등록, 국회의원·단체장 배출 같은 조건을 채우면 선거·교섭·국회 등 새 탭이 열리고, 그때마다 사용법을 다시 알려 드립니다.' },
     { tab: 'home', at: '#main .grid.home .card', t: '본부: 창당 진행 상황', d: '창당까지 할 일이 체크리스트로 나옵니다. ① 결성 신고(완료) ② <b>시·도당 5곳 창당</b>(각 당원 1,000명) ③ 선관위 등록 신청. 지금 목표는 ②예요.' },
     { tab: 'home', at: '#regParty', t: '등록 신청 버튼', d: '시·도당이 5곳이 되면 이 버튼이 켜집니다. 눌러서 정식 정당이 되어야 선거에 후보를 내고 교섭·고발도 할 수 있어요.' },
@@ -5823,13 +5866,13 @@ const TUT = {
     { tab: 'org', at: '#main .mapbox', t: '전국 지도', d: '색이 진할수록 우리 당 지지가 높은 지역입니다. 별은 창당 본거지, 깃발은 시·도당이에요. 지역을 누르면 그 지역 정보가 나오고, +/− 버튼이나 휠·두 손가락으로 확대할 수 있습니다.' },
     { tab: 'org', at: '#main .mapwrap > .card:nth-child(2)', t: '지역 정보', d: '선택한 지역의 지지율·신뢰도·당원 수입니다. 본거지엔 발기인 200명이 있어요. 당원 1,000명을 채우면 그 지역에 시·도당을 창당할 수 있습니다.' },
     { tab: 'org', at: '#main [data-act="recruit"]', tap: 1, t: '당원 모집 캠페인', d: '당원을 모으는 핵심 활동입니다. 자금 1,000만 원과 행동력 1을 쓰고, 1턴 뒤에 다시 할 수 있어요. 그 지역 지지율이 높을수록 많이 모입니다. 이번 튜토리얼에선 <b>행동력 3을 모두</b> 직접 써 볼 거예요. 첫 번째입니다.', do: '실행을 눌러 보세요. 확인 창이 뜨면 한 번 더 실행을 누르면 됩니다.' },
-    { tab: 'org', at: up('#main [data-act="chapter"]', '.act'), t: '시·도당 창당대회', d: '그 지역 당원이 1,000명을 넘으면 이 버튼이 켜집니다. 창당 뒤엔 월 300만 원 유지비가 들어요. 본거지 말고도 지지가 높은 지역 4곳을 골라 당원을 모으세요.' },
+    { tab: 'org', at: up('#main [data-act="chapter"]', '.act'), t: '시·도당 창당대회', d: '그 지역 당원이 1,000명을 넘으면 이 버튼이 켜집니다. 본거지 말고도 지지가 높은 지역 4곳을 골라 당원을 모으세요.' },
     { tab: 'org', at: up('#main [data-act="volunteer"]', '.act'), t: '지역 봉사활동', d: '그 지역 신뢰도를 올리고 당원도 조금 늡니다. 신뢰가 높은 지역일수록 당원 모집과 선거 득표가 잘 됩니다.' },
     { at: nb('act'), tap: 1, t: '활동 탭', d: '전국 단위 활동과 당 시설이 모여 있습니다.', do: '활동 탭을 눌러 보세요.' },
     { tab: 'act', at: '#main [data-act="online"]', tap: 1, t: '온라인·SNS 홍보', d: '전국 인지도를 올립니다. 인지도가 높아야 당원 모집과 지지율이 따라와요. 두 번째 행동력을 여기에 써 봅시다.', do: '온라인·SNS 홍보의 실행을 눌러 보세요.' },
     { tab: 'act', at: up('#main [data-act="policy"]', '.act'), t: '정책 발표', d: '분야를 골라 정책을 발표합니다. <b>뉴스 헤드라인의 쟁점을 맞히면</b> 지지율이 크게 오르고, 헤드라인에 없는 분야나 노선과 맞지 않는 분야를 거듭 내면 역풍을 맞아요.' },
     { tab: 'act', at: up('#main [data-act="media"]', '.act'), t: '언론 인터뷰', d: '무료지만 결과는 대표 역량에 달렸습니다. 인지도·신뢰가 오를 수도, 말실수로 떨어질 수도 있어요.' },
-    { tab: 'act', at: up('#main [data-act="fund"]', '.act'), t: '후원의 밤', d: '비용 없이 후원금을 모읍니다. 연간 한도가 있고 재사용까지 오래 걸리니, 자금이 빠듯할 때 잊지 말고 챙기세요.' },
+    { tab: 'act', at: up('#main [data-act="fund"]', '.act'), t: '후원의 밤', d: '정치자금법에 따른 합법적인 후원 모금으로, 초반 가장 큰 수입원입니다. 비용 없이 돈이 들어오니 다시 열릴 때마다(30일) 꼭 챙기세요. 연간 한도가 있습니다.' },
     { tab: 'act', at: '#main .bell', t: '재사용 알림', d: '종을 켜 두면 재사용 대기가 끝났을 때 메뉴의 \'활동\' 옆에 숫자로 알려 줍니다.' },
     { tab: 'act', at: up('#main .acts.ups', '.card'), t: '당 시설·조직', d: '한 번 설치하면 계속 효과를 내는 시설입니다. 대신 설치비와 매달 유지비가 드니 자금에 여유가 생기면 고르세요.' },
     { at: nb('people'), tap: 1, t: '인재 탭', d: '선거에 내보낼 인재를 모으고 관리합니다.', do: '인재 탭을 눌러 보세요.' },
@@ -5868,11 +5911,11 @@ const TUT = {
   ],
   office: [
     { at: nb('office'), tap: 1, t: '국회 탭이 열렸습니다', d: '첫 국회의원을 배출했습니다! 이제 의회에서 싸울 수 있어요.', do: '국회 탭을 눌러 보세요.' },
-    { tab: 'office', at: up('#main [data-act="bill"]', 'section'), t: '의회 활동', d: '법안 발의(본회의 과반 통과), 대정부 질문, 10월 국정감사에 참여합니다. 민심이 쏠린 쟁점의 법안일수록 통과 효과가 커요.' },
+    { tab: 'office', at: up('#main [data-act="bill"]', 'section'), t: '의회 활동', d: '법안 발의(본회의 과반 통과), 대정부 질문, 선거 사이에 열리는 국정감사에 참여합니다. 민심이 쏠린 쟁점의 법안일수록 통과 효과가 커요.' },
     { tab: 'office', at: '#main .billsplit > section:first-child', t: '법안과 당론', d: '다른 당·정부 법안엔 찬성·반대·자유투표로 당론을 정하고, 표 단속으로 우리 의원 이탈을 막습니다. 예상 찬성 막대가 통과선을 넘는지 보세요.' },
   ],
   pres: [
-    { at: nb('pres'), tap: 1, t: '청와대 탭이 열렸습니다', d: '대통령과 국정 지지율을 볼 수 있습니다.', do: '청와대 탭을 눌러 보세요.' },
+    { at: nb('pres'), tap: 1, t: '청와대 활동이 열렸습니다', d: '이제 청와대 탭에서 영수회담 같은 활동을 할 수 있습니다.', do: '청와대 탭을 눌러 보세요.' },
     { tab: 'pres', at: '#main .presbox', t: '대통령과 국정 지지율', d: '국정 지지율은 임기 말로 갈수록 떨어지고 여당 지지율에 영향을 줍니다. 야당이면 영수회담을 제안할 수 있고, 집권하면 내각을 지명하고 다른 당 법안의 공포·거부를 고릅니다.' },
   ],
   admin: [
