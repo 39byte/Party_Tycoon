@@ -379,7 +379,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .btns .push{margin-left:auto}
 /* 카드 제목 오른쪽 끝: 스위치 · (i) */
 .h2r{margin-left:auto;display:inline-flex;align-items:center;gap:6px}
-.ralerts{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px 16px;margin-top:12px}
+.ralerts{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px 24px;margin-top:12px}.ralerts .sw{justify-content:space-between}
 .sw{display:inline-flex;align-items:center;gap:8px;min-height:32px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
 .sw input{appearance:none;position:relative;width:38px;height:22px;margin:0;border-radius:99px;background:var(--border);cursor:pointer;transition:background .15s}
 .sw input::after{content:"";position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:transform .15s}
@@ -537,7 +537,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .pager .btn{border-color:transparent;box-shadow:none}.pager .btn:not(.pri){background:none}.pager .btn:not(.pri):not(:disabled):hover{background:var(--surface2)} /* 쪽 버튼은 윤곽선 없이 */
 .psort{margin:0;grid-column:1}
 /* 작은 필터 버튼(인재 정렬·지역 소식 지역·원내 의원 소속): 같은 크기·간격 */
-.chips{gap:4px}.chips:not(.psort){margin-bottom:14px}.follow .chips{margin-bottom:22px}.chips .btn{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
+.chips{gap:4px}.chips:not(.psort){margin-bottom:14px}.follow .chips{margin-bottom:22px}.chips .btn,.btn.sm{min-height:28px;padding:2px 9px;font-size:12px;border-radius:7px}
 .phead{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center;margin-bottom:14px}.phead h2{margin:0}.pact{display:flex;align-items:center;gap:10px;grid-column:2;grid-row:1/3;align-self:end} /* 영입 버튼 아래끝을 정렬 버튼과 맞춤 */.pact p{margin:0;max-width:280px;text-align:right}
 .pcard{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
 .pcard .who h3{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
@@ -4941,9 +4941,13 @@ function bindPanel(m) {
   m.querySelectorAll('[data-outpage]').forEach(b => b.onclick = () => { outPage = +b.dataset.outpage; renderPanel(); });
   m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
   m.querySelectorAll('[data-ralert]').forEach(b => b.onclick = () => openModal({ title: '지역 소식 알림 설정',
-    html: `<p class="small muted">끈 지역은 새 소식이 나와도 지역 버튼의 점과 지방 정부 탭 배지를 띄우지 않습니다.</p><div class="ralerts">${R_ADM.map(r => `<label class="sw">${r.n}<input type="checkbox" role="switch" data-rmute="${r.k}" ${S.rmute?.[r.k] ? '' : 'checked'}></label>`).join('')}</div>`,
+    html: `<div class="btns"><button class="btn sm" data-rall="1">전체 켜기</button><button class="btn sm" data-rall="">전체 끄기</button></div><p class="small muted" style="margin-top:10px">끈 지역은 새 소식이 나와도 지역 버튼의 점과 지방 정부 탭 배지를 띄우지 않습니다.</p><div class="ralerts">${R_ADM.map(r => `<label class="sw">${r.n}<input type="checkbox" role="switch" data-rmute="${r.k}" ${S.rmute?.[r.k] ? '' : 'checked'}></label>`).join('')}</div>`,
     buttons: [{ t: '닫기', pri: true }],
-    onOpen: md => md.querySelectorAll('[data-rmute]').forEach(c => c.onchange = () => { const k = c.dataset.rmute; S.rmute ??= {}; if (c.checked) delete S.rmute[k]; else S.rmute[k] = 1; Snd.sfx('click'); save(); renderPanel(); renderNav(); }) }));
+    onOpen: md => {
+      const set = (k, on) => { S.rmute ??= {}; if (on) delete S.rmute[k]; else S.rmute[k] = 1; }, done = () => { Snd.sfx('click'); save(); renderPanel(); renderNav(); };
+      md.querySelectorAll('[data-rmute]').forEach(c => c.onchange = () => { set(c.dataset.rmute, c.checked); done(); });
+      md.querySelectorAll('[data-rall]').forEach(b => b.onclick = () => { const on = !!b.dataset.rall; md.querySelectorAll('[data-rmute]').forEach(c => { c.checked = on; set(c.dataset.rmute, on); }); done(); });
+    } }));
   m.querySelectorAll('[data-presp]').forEach(b => b.onclick = () => partyRespond(+b.dataset.presp));
   m.querySelectorAll('[data-autogov]').forEach(b => b.onchange = () => { S.autoK = b.checked ? Object.fromEntries(Object.keys(S.ops).map(k => [k, 1])) : {}; Snd.sfx('click'); save(); renderAll(); });
   m.querySelectorAll('[data-autok]').forEach(b => b.onchange = () => { const k = b.dataset.autok; S.autoK ??= {}; if (b.checked) S.autoK[k] = 1; else delete S.autoK[k]; Snd.sfx('click'); save(); renderAll(); });
@@ -5557,7 +5561,7 @@ function pAdmin() {
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
   const head = k ? `<p class="small" style="margin-top:12px"><b>${RK[k].n}</b> · ${GOVT[k]} ${S.gov[k] === 'P' ? `${esc(govName(k))} (${esc(S.party.name)}) · 행정 지지도 ${Math.round(S.ops[k])}` : g ? `${esc(g.n)} (${esc(pn(g.p))}) · 행정 지지도 ${Math.round(g.o)}` : '공석'}${S.gact?.[k] ? ' · <b class="warn">권한대행 체제</b>' : ''} · 우리 당 지역 지지율 ${pubReg(k).toFixed(1)}% · 당원 ${S.members[k].toLocaleString()}명</p>` : '';
   // 좌: 지역 현안·행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
-  return `${govMapCard()}<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식<span class="h2r"><button class="btn" data-ralert>알림 설정</button></span></h2>
+  return `${govMapCard()}<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식<span class="h2r"><button class="btn sm" data-ralert>알림 설정</button></span></h2>
     <div class="filters chips" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
     ${head}${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${rNew(x) ? '<span class="pill ok">NEW</span> ' : ''}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
