@@ -3452,7 +3452,7 @@ const UPS = [
 const ACT = {
   recruit: { n: '당원 모집 캠페인', c: () => 1e7, cd: 7, reg: true, d: '해당 지역 당원을 모집합니다. 지역 지지율이 높을수록 효과적.' },
   volunteer: { n: '지역 봉사활동', c: () => 5e6, cd: 7, reg: true, d: '신뢰 상승 + 소수 당원 확보.' },
-  chapter: { n: '시·도당 창당대회', c: () => 2e7, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조).' },
+  chapter: { n: '시·도당 창당대회', c: () => 5e6, cd: 0, reg: true, d: '당원 1,000명 이상이면 시·도당을 창당·등록합니다(정당법 제18조).' },
   rally: { n: '거리 유세', c: () => 2e7, cd: 1, reg: true, camp: true, d: '공식 선거운동기간에만 가능. 해당 지역 득표력 상승(그 지역 신뢰도가 높을수록 효과 큼).' },
   online: { n: '온라인·SNS 홍보', c: () => 1.5e7, cd: 5, d: '인지도 상승. 인터넷·SNS 선거운동은 상시 허용(공직선거법 제59조).' },
   policy: { n: '정책 발표', c: () => 5e6, cd: 14, d: '분야를 골라 정책을 발표합니다. 뉴스로 민심이 쏠린 쟁점을 짚어내면 효과가 큽니다. 이번 주 헤드라인에 없는 분야를 발표하거나, 노선과 맞지 않는 분야를 45일 안에 거듭 발표하면 역풍을 맞아 신뢰가 떨어집니다.' },
@@ -4400,6 +4400,7 @@ const XEV = {
     }
     const t = pick(RGOV_PROJ), ok = rnd() < 0.55 + ((fig(g.fid)?.skill ?? 50) - 50) / 250, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
     wr(`${w}, '${t}' 역점사업 발표`);
+    if (!S.chapters[k]) return; // 입장을 낼 우리 시·도당이 없으면 소식만
     showEvent({ title: `${n} 지사 역점사업 발표`, body: () => `${who}가 <b>${t}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
       ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ · 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
         { t: '견제한다', s: '예산 낭비·졸속 추진 지적 · 실패하면 반사이익', run: () => { relAdd(id, -4, `${n} '${t}' 견제`); S.fame += 0.5; res(-1); return '예산 낭비라며 재검토를 요구했습니다.'; } },
@@ -5107,7 +5108,7 @@ function pOrg() {
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
         ${byeInfo(r.k) ? `<tr><th>공석·보궐</th><td><b class="warn">${byeInfo(r.k, '<br>')}</b></td></tr>` : ''}
       </tbody></table></div></div>
-      ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${Math.min(S.members[r.k], 1000).toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
+      ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${S.members[r.k].toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
       <div class="acts n2" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${cs ? actBtn('rally', r.k) : ''}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}</div>
     </div></div>`;
 }
