@@ -5045,7 +5045,9 @@ function pHome() {
   let status;
   if (S.phase === 'prep') {
     const ok = chaptersOk(), left = LAW.prepDays - S.day;
-    status = `<h2>창당 진행 상황</h2><div class="leader">${face(leader(), S.party.color, 64)}<div><b style="font-size:17px">${esc(leader().name)}</b> <span class="pill">창당준비위원장</span><div class="small muted">${esc(S.party.name)} | ${IDEO[S.party.ideo]} | 발기인 ${LAW.founders}명</div></div></div><ul class="check">
+    status = `<h2>창당 진행 상황</h2>
+      <div class="sloganrow">${S.party.slogan ? `<p class="muted">"${esc(S.party.slogan)}"</p>` : ''}<button class="ib" data-partyedit aria-label="당 정보 변경" title="당 정보 변경">${icon('i-pencil')}</button></div>
+      <div class="leader">${face(leader(), S.party.color, 64)}<div><b style="font-size:17px">${esc(leader().name)}</b> <span class="pill">창당준비위원장</span><div class="small muted">${esc(S.party.name)} | ${IDEO[S.party.ideo]} | 발기인 ${LAW.founders}명</div></div></div><ul class="check">
       <li><span class="st done">✓</span><div><b>중앙당창당준비위원회 결성 신고</b><div class="small muted">발기인 200명 이상 (정당법 제6조)</div></div></li>
       <li><span class="st ${ok >= 5 ? 'done' : ''}">${ok >= 5 ? '✓' : ok}</span><div><b>시·도당 5곳 이상 창당</b> <span class="pill">${ok}/5</span><div class="small muted">각 시·도당 당원 1,000명 이상 (정당법 제17조·제18조). '조직·지역' 탭에서 당원을 모집하고 창당대회를 여세요.</div></div></li>
       <li><span class="st">3</span><div><b>중앙선관위에 정당 등록 신청</b><div class="small ${left < 45 ? 'bad' : 'muted'}">기한까지 ${left}일 (결성신고 후 6개월, 정당법 제8조)</div><button class="btn pri" id="regParty" style="margin-top:6px" ${ok < 5 ? 'disabled' : ''}>등록 신청</button></div></li></ul>`;
