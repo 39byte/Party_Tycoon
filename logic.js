@@ -219,6 +219,14 @@
     }
     return o;
   }
+  // 다른 당 법안 당론의 지지층 효과. op: 당론이 여론과 맞는 정도(0~1, 0이면 효과 없음) → 혐오→적대, 적대→중립으로 끌어당김(최대 7%)
+  // ln: 당론이 노선과 맞는 정도(0~1) → 우호→충성으로 굳히지만 적대→혐오도 굳음(최대 5%)
+  function tierVote(t, op, ln) {
+    const o = t.slice(), mv = (i, j, p) => { const m = t[i] * p; o[i] -= m; o[j] += m; };
+    if (op > 0) { mv(4, 3, op * 0.07); mv(3, 2, op * 0.07); }
+    if (ln > 0) { mv(1, 0, ln * 0.05); mv(3, 4, ln * 0.05); }
+    return o;
+  }
   // 지지율이 따라가는 속도 배율: 충성층이 두꺼우면 덜 빠지고(다른 당으로 덜 넘어감), 혐오층이 두꺼우면 덜 오름
   const tierSup = (t, up) => cl((1 - 2 * t[up ? 4 : 0]) / 0.9, 0.3, 1.2);
 
@@ -234,6 +242,6 @@
   };
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, POSTURES, rivalFeat, rivalPolicy };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

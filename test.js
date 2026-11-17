@@ -115,3 +115,10 @@ if (pNear) {
 }
 
 console.log('ok');
+
+// 법안 당론 지지층: 여론 맞음 → 적대·혐오가 줄고, 노선 맞음 → 충성·혐오가 늘고, 둘 다 0이면 그대로. 합은 1 유지
+{ const t0 = [0.1, 0.2, 0.4, 0.2, 0.1], s = t => t.reduce((a, b) => a + b, 0);
+  const p = L.tierVote(t0, 1, 0), q = L.tierVote(t0, 0, 1);
+  assert(p[4] < t0[4] && p[3] + p[4] < t0[3] + t0[4] && Math.abs(s(p) - 1) < 1e-9);
+  assert(q[0] > t0[0] && q[4] > t0[4] && Math.abs(s(q) - 1) < 1e-9);
+  assert.deepStrictEqual(L.tierVote(t0, 0, 0), t0); }

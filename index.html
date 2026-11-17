@@ -1804,7 +1804,8 @@ function tick() {
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
-  if (seatTotal('P') > 0 && S.day === auditWin()?.[0]) S.queue.push({ ev: 'audit' });
+  const aw = auditWin();
+  if (aw && S.day === aw[0] && S.audW?.[0] !== aw[0]) { S.audW = aw; S.audQ = []; if (seatTotal('P') > 0) S.queue.push({ ev: 'audit' }); } // 시작한 국감 기간은 고정
   if (S.day % TURN === 0) { rivalWeek(); auditRiv(); }
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
@@ -2497,8 +2498,17 @@ function rivalVote(b, y, notes, roll) {
   } else { voteLog(b, roll, pass ? '가결' : '부결'); if (!pass) passLog(b, '부결'); }
   if (pass && !ask) notes.push(rivalLaw(b, y));
   else if (y < passNeed()) { S.rw[b.by] -= 0.3; notes.push(`${who} '${b.t}' 본회의 부결 (찬성 ${Math.round(y)}표)`); }
-  if (!s) return;
+  if (!s) return; // 자유투표: 신뢰·관계·지지층 효과 없음
   S.trust += s * (b.pop - 0.5) * 6;
+  // 지지층: 여론과 맞는 당론은 적대·혐오층을 끌어오고, 노선과 맞는 당론은 충성·우호층과 함께 적대·혐오층도 굳힘(L.tierVote)
+  const dist = Math.abs(S.party.ideo - b.side), op = clamp(s * (b.pop - 0.5) * 2, 0, 1), ln = clamp(s * (1 - dist), 0, 1);
+  for (const r of R) { const t = tierOf('P', r.k); if (t) S.rtier.P[r.k] = L.tierVote(t, op, ln); }
+  // 노선이 다른 법안에 90일 안에 3번째 찬성부터 지지층 비판(법안 발의 역풍과 같은 규칙)
+  if (s > 0 && dist >= 1) {
+    S.voteOff = (S.voteOff || []).filter(d => S.day - d < BILL_OFF_DAYS); S.voteOff.push(S.day);
+    const nOff = S.voteOff.length;
+    if (nOff >= 3) { S.trust = clamp(S.trust - Math.min(4, nOff - 2), 0, 100); notes.push(`'${b.t}' 찬성 당론에 노선이 다른 법안만 밀어준다는 지지층 비판이 나왔습니다`); }
+  }
   relAdd(b.by, s * 6, `'${b.t}' ${s > 0 ? '찬성' : '반대'} 당론`);
   if (Math.abs(y - passNeed()) < seats) { S.fame += 1; notes.push(`우리 당 ${seats}석이 '${b.t}' 표결의 캐스팅보트였습니다`); }
 }
@@ -3465,6 +3475,7 @@ function why(key, k) {
   if (key === 'question' && (S.president.acting || !CAB.some(c => cabM(c.k)))) return '질문할 국무위원이 없습니다';
   if (key === 'audit' && !auditOn()) return (w => w && w[0] > S.day ? `국정감사 기간(${fdate(w[0])}부터 4주)에만 가능` : '국정감사 기간에만 가능')(auditWin());
   if (key === 'audit' && !audTargets().length) return '따질 행정 실책이 없습니다';
+  if (key === 'audit' && !audAskers().length) return '이번 국정감사에서 모든 의원이 질의를 마쳤습니다';
   if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
@@ -3524,8 +3535,10 @@ function doAct(key, k) {
 // 대정부 질문: 질문자는 우리 당 의원 중에서 고름(기본 최고 역량, 의원이 없으면 대표). 성공률은 질문자와 장관의 역량 차이. 핵심 쟁점 담당 장관이면 효과 1.5배
 const qAskers = () => { const xs = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill); return xs.length ? xs : [leader()]; };
 const qOdds = (mp, m) => clamp(0.55 + (mp.skill - m.skill) / 80, 0.15, 0.9);
+// 대정부 질문자는 다른 의원이 3번 질문해야 다시 질문(의원이 적으면 다른 의원 수만큼만 기다림 — 막히지 않게)
+const qFree = () => { const xs = qAskers(), n = Math.min(3, xs.length - 1), recent = n > 0 ? (S.qLast || []).slice(-n) : []; return xs.filter(p => !recent.includes(p.id)); };
 function questionModal() {
-  const xs = qAskers(), opp = !ruling(), hot = CAB.find(c => c.is.includes(S.issue));
+  const xs = qFree(), opp = !ruling(), hot = CAB.find(c => c.is.includes(S.issue));
   openModal({ title: '대정부 질문', wide: true, html: `<p><label>질문자 <select data-qmp aria-label="질문할 의원">${xs.map(p => `<option value="${p.id}">${esc(p.name)} (역량 ${p.skill} · 인지도 ${Math.round(p.fame)})</option>`).join('')}</select></label></p><p>${opp ? `${esc(pn(S.president.party))} 정부의 국무위원을 몰아세웁니다. 성공하면 국정 지지율과 여당 지지율이 깎이고, 약한 장관은 경질될 수도 있습니다.` : '우리 정부 국무위원에게 정책을 따져 묻습니다. 성공하면 "건강한 여당"이라는 평과 함께 국정 신뢰가 오릅니다.'} 민심이 쏠린 쟁점(${ISSUES.find(i => i.k === S.issue).n})의 담당 장관을 짚으면 효과가 큽니다.</p>
     <div class="pcards">${CAB.map(c => { const m = cabM(c.k), col = m && (m.party ? pc(m.party) : S.party.color);
       return `<div class="pcard"><div><b>${c.n}</b>${c === hot ? ' <span class="pill warn">핵심 쟁점</span>' : ''}</div>${m ? `<div class="who">${face(m, col, 48)}<div><h3>${esc(m.name)}</h3><div class="small muted">역량 ${m.skill}</div></div></div><div class="small muted">성공 가능성 <b data-qodds="${m.skill}">${Math.round(qOdds(xs[0], m) * 100)}</b>%</div><button class="btn pri" data-qk="${c.k}">질문</button>` : '<p class="empty">공석</p>'}</div>`; }).join('')}</div>`,
@@ -3538,7 +3551,7 @@ function questionModal() {
 function questionRun(k, mp) {
   const c = CAB.find(x => x.k === k), m = cabM(k), opp = !ruling(), mul = c.is.includes(S.issue) ? 1.5 : 1, pp = S.president.party;
   if (!m) return;
-  closeModal(); S.ap--; S.cd.question = S.day + ACT.question.cd;
+  closeModal(); S.ap--; S.cd.question = S.day + ACT.question.cd; S.qLast = [...(S.qLast || []), mp.id].slice(-3);
   const who = `${c.n} ${m.name}`;
   let msg, ok = rnd() < qOdds(mp, m);
   if (ok) {
@@ -3556,11 +3569,12 @@ function questionRun(k, mp) {
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 국정감사: 앞 선거와 다음 선거 사이 3:2 지점을 가운데로 4주(선거철과 겹치지 않게). [시작일, 끝날 다음 날]
+// 국정감사: 앞 선거와 다음 선거 사이 3:2 지점을 가운데로 4주(선거철과 겹치지 않게). 선거 간격이 180일 미만이면 없음. [시작일, 끝날 다음 날]
 const AUDIT_DAYS = 28;
 const auditWin = () => {
   const prev = SCHED.filter(e => e.day <= S.day).at(-1)?.day ?? 0, next = SCHED.find(e => e.day > S.day)?.day;
-  if (next == null) return null;
+  if (S.audW?.[0] > prev) return S.audW; // 이번 선거 사이에 이미 열린 국감: 일정이 바뀌어도(궐위 대선 등) 다시 열리지 않음
+  if (next == null || next - prev < 180) return null; // 선거 간격이 짧으면(궐위 대선 등) 국감 건너뜀 — 직전 국감과 연달아·선거철과 겹치지 않게
   const a = prev + Math.round((next - prev) * 0.6 - AUDIT_DAYS / 2);
   return [a, a + AUDIT_DAYS];
 };
@@ -3579,22 +3593,23 @@ function audResolve(b, atk, att, def, rebut) {
   if (rnd() < audOdds(att, def)) { if (def - att >= 15 && rnd() < 0.15) { tr(atk, -2); return 'back'; } tr(atk, -0.5); return 'ok'; }
   tr(b.p, -3); ops(-3); return 'fail';
 }
+const audAskers = () => qAskers().filter(p => !S.audQ?.includes(p.id)); // 질의자는 국감 한 번에 한 번씩만
 function auditModal() {
-  const xs = qAskers(), bs = audTargets().reverse();
+  const xs = audAskers(), bs = audTargets().reverse().sort((a, b) => audDef(audDp(a)) - audDef(audDp(b))); // 방어력 낮을수록 공세 성공률 높음
   openModal({ title: '국정감사', wide: true, html: `<p><label>질의자 <select data-amp aria-label="질의할 의원">${xs.map(p => `<option value="${p.id}">${esc(p.name)} (역량 ${p.skill} · 인지도 ${Math.round(p.fame)})</option>`).join('')}</select></label></p>
     <p>다른 당 단체장의 행정 실책을 추궁합니다. 상대가 사과하면 그 당 신뢰도가 조금 깎이고, 반박에 실패하면 크게 깎입니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴(65:35)으로 겨루고, 상대가 훨씬 뛰어나면 오히려 역공을 당할 수 있습니다.</p>
     <div class="pcards">${bs.map(b => { const d = audDp(b), def = audDef(d);
-      return `<div class="pcard"><div><b>${AREA(b.k)}</b> <span class="small muted">${fdate(b.d)}</span></div><div class="who">${d ? face(d, pc(b.p), 48) : ''}<div><h3>${esc(S.rgov[b.k].n)}</h3><div class="small muted">${esc(pn(b.p))} · 방어력 ${Math.round(def)}</div></div></div><p class="small">${esc(b.t)}</p><div class="small muted">상대 반박 성공 <b data-aodds="${def}">${Math.round(audOdds(xs[0].skill, def) * 100)}</b>%</div><button class="btn pri" data-ab="${b.id}">추궁</button></div>`; }).join('')}</div>`,
+      return `<div class="pcard"><div><b>${AREA(b.k)}</b> <span class="small muted">${fdate(b.d)}</span></div><div class="who">${d ? face(d, pc(b.p), 48) : ''}<div><h3>${esc(S.rgov[b.k].n)}</h3><div class="small muted">${esc(pn(b.p))} · 방어력 ${Math.round(def)}</div></div></div><p class="small">${esc(b.t)}</p><div class="small muted" style="margin-top:auto">공세 성공률 <b data-aodds="${def}">${100 - Math.round(audOdds(xs[0].skill, def) * 100)}</b>%</div><button class="btn pri" data-ab="${b.id}">추궁</button></div>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }], onOpen: el => {
       const sel = el.querySelector('[data-amp]'), mp = () => xs.find(p => p.id === +sel.value);
-      sel.onchange = () => el.querySelectorAll('[data-aodds]').forEach(b => b.textContent = Math.round(audOdds(mp().skill, +b.dataset.aodds) * 100));
+      sel.onchange = () => el.querySelectorAll('[data-aodds]').forEach(b => b.textContent = 100 - Math.round(audOdds(mp().skill, +b.dataset.aodds) * 100));
       el.querySelectorAll('[data-ab]').forEach(b => b.onclick = () => auditRun(+b.dataset.ab, mp()));
     } });
 }
 // 우리가 추궁: 상대 단체장(AI)은 반박 성공률 +10%p 확률로 반박을 고름
 function auditRun(id, mp) {
   const b = S.blun.find(x => x.id === id); if (!b) return;
-  closeModal(); S.ap--; S.cd.audit = S.day + ACT.audit.cd;
+  closeModal(); S.ap--; S.cd.audit = S.day + ACT.audit.cd; (S.audQ ||= []).push(mp.id);
   const d = audDp(b), def = audDef(d), odds = audOdds(mp.skill, def), who = `${GOVT[b.k]} ${S.rgov[b.k].n}(${pn(b.p)})`;
   const r = audResolve(b, 'P', mp.skill, def, rnd() < odds + 0.1);
   let msg;
@@ -5421,7 +5436,7 @@ function pOffice() {
     <section><h3>우리 법안</h3>${!seats ? '<p class="empty">국회의원을 배출하면 법안을 발의할 수 있습니다.</p>' : mine.length ? `${list(mine)}
       <p class="tip">예상 찬성은 각 당의 노선과 법안 성격으로 추정한 값입니다. 다른 당은 상임위를 통과해 본회의에 오를 때 당론을 정하니, 법안 협조 요청은 그 전에 해 두는 게 좋습니다. 통과엔 재적의원 ${seatsNow()}명의 과반인 ${passNeed()}표가 필요합니다. ${ruling() ? '' : `대통령 쪽 당이 반대하는 법안은 거부권에 막힐 수 있습니다(재의결엔 3분의 2인 ${twoThirds()}표).`}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
 
-    <h3 style="margin-top:32px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
+    <h3 style="margin-top:32px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고 적대·혐오층을 끌어오며, 노선과 맞는 당론은 충성·우호층을 굳히지만 적대·혐오층도 굳힙니다. 노선이 다른 법안에 거듭 찬성하면 지지층 비판이 나옵니다. 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? `우리 당이 집권 중입니다. 반대 당론 법안이 통과되면 공포와 거부권 중에서 고릅니다. 재의결선은 ${twoThirds()}표이고, 청와대 탭에서 자동 처리를 켤 수 있습니다.` : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
 </section>
     <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${auditOn() ? `<div class="audrow">${actBtn('audit', undefined, true, true)}</div>` : ''}${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
@@ -5739,7 +5754,7 @@ function pGuide() {
       <li>선거운동기간, 후보 등록 마감, 탄핵심판, 국정감사 같은 큰 일정은 화면 맨 위 배너에 뜹니다. 누르면 관련 탭으로 갑니다.</li></ul>`)}
     <h3 class="gh">그 밖의 흐름</h3>
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
-      <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속(법안마다 한 번)으로 우리 의원의 이탈표를 줄일 수 있습니다. 다른 당 의원 표는 교섭 탭의 법안 협조 요청으로 움직입니다. 다른 당도 법안이 본회의에 오를 때 당론을 정하고, 당론이 있어도 일부 의원은 이탈표를 던집니다. 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
+      <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속(법안마다 한 번)으로 우리 의원의 이탈표를 줄일 수 있습니다. 다른 당 의원 표는 교섭 탭의 법안 협조 요청으로 움직입니다. 다른 당도 법안이 본회의에 오를 때 당론을 정하고, 당론이 있어도 일부 의원은 이탈표를 던집니다. 여론과 맞는 당론은 신뢰를 올리고 적대·혐오층을 끌어오며, 노선과 맞는 당론은 충성·우호층을 굳히는 대신 적대·혐오층도 굳힙니다. 노선이 다른 법안에 90일 안에 세 번째 찬성부터 지지층 비판이 나옵니다. 자유투표는 이런 효과가 없습니다. 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
       <li>후원 한도, 보조금 배분, 검찰 수사권처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
       <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
       <li>우리 당이 집권하면 반대 당론이거나 노선과 어긋나는 법안이 통과될 때 공포와 거부권 중에서 직접 고릅니다. 청와대 탭에서 자동 처리를 켜면 반대 당론 법안이 3분의 2 미만으로 통과될 때 바로 행사합니다. 거부권은 여론이 원하는 법안일수록 국정 지지율을 깎고, 국회가 3분의 2로 재의결하면 타격이 더 큽니다.</li>
