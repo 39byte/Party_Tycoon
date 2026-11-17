@@ -5455,7 +5455,7 @@ function pCourt() {
     </div><div class="card" style="margin-top:14px"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 · ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 1심 판결이 나오면 여기에 남습니다.</p>'}</div>`;
 }
 // 의회: 교섭 · 법안·대정부 질문 · 다른 당/정부 동향
-let seatOpen = false, pollOpen = true; // 접이식 카드 펼침 상태(다시 그려도 유지)
+let seatOpen = false, pollOpen = false; // 접이식 카드 펼침 상태(다시 그려도 유지)
 function pOffice() {
   const seats = seatTotal('P');
   // 법안 한 건: 제목·정보 / 예상 찬성 막대 / 당론·협상 버튼을 위아래로(반쪽 폭에도 들어가게)
