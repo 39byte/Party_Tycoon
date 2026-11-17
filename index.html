@@ -5615,7 +5615,7 @@ function bannerItems() {
   if (ruling() && !S.president.acting && CAB.some(c => !cabP(c.k))) out.push(['내각', `내각 공석 ${CAB.filter(c => !cabP(c.k)).length}자리 | 청와대 탭에서 지명하세요`, 'pres', 'warn']);
   if (S.later.some(x => x.q.ev === 'court')) out.push(['탄핵', '헌법재판소 대통령 탄핵심판 진행 중', 'office', 'warn']);
   else if (S.president.acting) out.push(['정국', `${presT()} 체제 | 조기 대선 국면`, 'elec', 'warn']);
-  if (seatTotal('P') && L.dayToDate(S.day).getUTCMonth() === 9) out.push(['국회', '국정감사 기간', 'office', '']);
+  if (seatTotal('P') && auditOn()) out.push(['국회', `국정감사 기간 | ${fdate(auditWin()[1] - 1)}까지`, 'office', '']);
   if (S.phase === 'prep' && LAW.prepDays - S.day <= 45) out.push(['창당', `창당 기한 D-${Math.max(0, LAW.prepDays - S.day)}`, 'home', 'warn']);
   return out;
 }
