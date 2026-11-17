@@ -237,6 +237,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .log li{padding:6px 0;border-bottom:1px solid var(--border);font-size:14px;display:flex;gap:10px}
 .log li time{color:var(--muted);font-size:12.5px;white-space:nowrap;padding-top:1px}
 .log li.bad{color:var(--danger)} .log li.ok{color:var(--ok)}
+.log.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px} @media (max-width:640px){.log.g2{grid-template-columns:1fr}}
 .pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
 .pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--danger)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px}
@@ -5587,7 +5588,7 @@ function pAdmin() {
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
       <p class="tip">행정 지지도는 당선 때 득표율에서 출발하고 가만두면 그 지역 우리 당 지지율 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있으며, 단체장 역량이 높을수록 성공률이 오릅니다.</p></div>`
     : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
-  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${fig(g.fid) ? `<button class="facebtn" data-pinfo="f${g.fid}" aria-label="${esc(g.n)} 정보 보기" title="인물 정보">${face(fig(g.fid), pc(g.p), 40)}</button>` : face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${GOVT[r.k]} ${esc(g.n)}</b> <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
+  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log g2">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${fig(g.fid) ? `<button class="facebtn" data-pinfo="f${g.fid}" aria-label="${esc(g.n)} 정보 보기" title="인물 정보">${face(fig(g.fid), pc(g.p), 40)}</button>` : face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${GOVT[r.k]} ${esc(g.n)}</b> <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
       <p class="tip">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
   const iss = R_ADM.flatMap(r => desOf(r.k)).filter(x => admReg === 'all' || x.k === admReg).sort((a, b) => b.d - a.d);
   const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 | 행정 행동력 1" ${why('govern', x.k) ? 'disabled' : ''}>행정 사업</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
