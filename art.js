@@ -111,6 +111,8 @@
     // 의회: 돔 + 열주
     office: (c, o, r) => `<ellipse cx="800" cy="80" rx="74" ry="44" class="dome"/><rect x="726" y="74" width="148" height="12" class="bld"/><path d="M726 80a74 44 0 0 1 148 0" class="domel"/>${colonnade(800, 300, 60, 10)}${flag(798, 6, c, 30)}${tree(590)}${tree(1010)}${tree(1060, .9)}`,
     // 교섭: 회담장 + 두 깃발 + 악수
+    // 정당: 여러 당 깃발이 나란히, 우리 당 깃발이 가운데 크게
+    party: (c, o, r) => `${[620, 700, 860, 940].map((x, i) => flag(x, 92 + (i % 2) * 10, 'var(--other)', 60)).join('')}${flag(770, 56, c, 100)}`,
     neg: (c, o, r) => `${tower(650, 60, 300, GY - 60, r)}<rect x="650" y="60" width="300" height="${GY - 60}" class="glass"/>${flag(600, 80, c)}${flag(990, 80, 'var(--other)')}
       ${person(770, 1.2, c)}${person(830, 1.2, 'var(--other)')}<path d="M780 ${GY - 26}q20 -6 40 0" stroke-width="7" stroke-linecap="round" class="hand"/>`,
     // 행정: 시청(시계탑) + 고층
