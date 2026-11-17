@@ -126,7 +126,7 @@
     law: (c, o, r) => `${colonnade(820, 260, 64, 7, 'ped')}<g transform="translate(620 ${GY})" class="scale"><rect x="-3" y="-90" width="6" height="90"/><rect x="-26" y="-6" width="52" height="6"/><path d="M-40 -84h80" stroke-width="4"/><path d="M-40 -84l-12 30h24zM40 -84l-12 30h24z" fill="none" stroke-width="2"/><path d="M-54 -54a14 6 0 0 0 28 0zM26 -54a14 6 0 0 0 28 0z"/></g>${tree(1050)}`,
     // 소식: 방송탑 + 언론사
     log: (c, o, r) => `<path d="M890 176L900 60h8L918 176z" class="bld"/><rect x="884" y="50" width="40" height="20" rx="4" class="bld2"/><rect x="901" y="22" width="6" height="30" class="pole"/><circle cx="904" cy="22" r="4" style="fill:${c}"/>
-      ${tower(640, 70, 200, GY - 70, r)}<rect x="660" y="80" width="160" height="22" style="fill:${c}"/><text x="740" y="96" class="stxt">속보 · 정치</text><path d="M980 120a24 24 0 0 1 40 -20z" class="bld2"/>${tower(960, 120, 100, GY - 120, r)}${tree(1110)}`,
+      ${tower(640, 70, 200, GY - 70, r)}<rect x="660" y="80" width="160" height="22" style="fill:${c}"/><text x="740" y="96" class="stxt">속보 | 정치</text><path d="M980 120a24 24 0 0 1 40 -20z" class="bld2"/>${tower(960, 120, 100, GY - 120, r)}${tree(1110)}`,
     // 가이드: 언덕 위 기와 지붕(목표: 집권)
     // 청와대: 잔디 언덕 위 푸른 기와 본관 + 깃대
     pres: (c, o, r) => `<path d="M540 176Q800 96 1120 176z" class="mtn2"/><rect x="700" y="96" width="220" height="56" class="wall"/>${win(712, 104, 196, 40, 9, 1, r)}
