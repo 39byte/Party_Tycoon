@@ -2634,7 +2634,7 @@ function govModal(k) {
     }),
   });
 }
-// 자동화 찐빠: 단체장에게 맡긴 사업이 엇나감(행정 지지도 −2~5). 역량이 높아도 26%는 남음
+// 자동화 행정 실책: 단체장에게 맡긴 사업이 엇나감(행정 지지도 −2~5). 역량이 높아도 26%는 남음
 const GOV_FLOP = [
   k => `보고서만 보고 결재한 ${govWho(k)}의 사업이 현장과 동떨어져 '탁상행정' 뭇매를 맞았습니다.`,
   k => `${RK[k].n} 사업 예산이 엉뚱한 곳에 집행돼 감사에서 지적받았습니다.`,
@@ -2646,7 +2646,7 @@ const GOV_FLOP = [
 // 행정 실책 장부 S.blun [{ id, k, p, t, d, used }]: 국정감사에서 추궁할 거리. 1년·40건까지
 const blunAdd = (k, p, t) => { S.blun = S.blun.filter(x => S.day - x.d < 365).slice(-39); S.blun.push({ id: ++S.seq, k, p, t, d: S.day }); };
 // 역점사업 한 건 실행(행정 행동력 1). 창에서 고르든 자동화든 여기로
-// 자동화(auto)는 직접 챙기지 않으니 성공률 −20%p, 찐빠 확률 43−역량/4 %(역량 50 → 30.5%, 68 이상 → 26%). 역량 60~70이면 행정 지지도가 대체로 제자리
+// 자동화(auto)는 직접 챙기지 않으니 성공률 −20%p, 행정 실책 확률 43−역량/4 %(역량 50 → 30.5%, 68 이상 → 26%). 역량 60~70이면 행정 지지도가 대체로 제자리
 function govRun(k, pj, auto) {
   const n = RK[k].n;
   S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
@@ -2673,7 +2673,7 @@ function govRun(k, pj, auto) {
   if (!ok) blunAdd(k, 'P', msg);
   return { k, msg, ok };
 }
-// 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. 우리 자동화와 같은 셈법(성공률 −20%p, 찐빠 43−역량/4 %)이라 역량 높으면 오르고 낮으면 깎임
+// 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. 우리 자동화와 같은 셈법(성공률 −20%p, 행정 실책 43−역량/4 %)이라 역량 높으면 오르고 낮으면 깎임
 // 그 지역 악재(rcur bad)가 걸린 사업은 피함. 지사 역량은 명부(fig)의 skill
 function rgovRun() {
   for (const k in S.rgov) {
@@ -2688,7 +2688,7 @@ function rgovRun() {
     else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [-1, `${n} 투자 유치 협상 결렬`];
     else [d, t] = rnd() < pr(0.7) ? [2, `${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`] : [-1, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`];
     g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (d <= 1) blunAdd(k, g.p, t);
-    later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 실패·찐빠는 실패 보도
+    later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 실패·행정 실책는 실패 보도
   }
 }
 // 행정 사업 자동화(S.autoK[지역], 지사마다 따로 켬): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
@@ -5545,7 +5545,7 @@ function pAdmin() {
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
   const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span>
       <span class="h2r"><label class="sw">전체 자동화<input type="checkbox" role="switch" data-autogov ${govs.every(autoOn) ? 'checked' : ''}></label></span></h2>
-      <p class="tip">지사마다 따로 켤 수 있습니다(제목 오른쪽은 한꺼번에). 켠 지사는 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다. 끈 지사는 직접 챙기고, 직접 쓰고 남은 행정 행동력은 켠 지사들 몫입니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 찐빠를 냅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠깁니다.</p>
+      <p class="tip">지사마다 따로 켤 수 있습니다(제목 오른쪽은 한꺼번에). 켠 지사는 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다. 끈 지사는 직접 챙기고, 직접 쓰고 남은 행정 행동력은 켠 지사들 몫입니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠깁니다.</p>
       <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
       <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${govPerson(k) ? `<button class="facebtn" data-pinfo="g${k}" aria-label="${esc(govName(k))} 정보 보기" title="인물 정보">${face(govPerson(k), S.party.color, 48)}</button>` : face({ name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} | 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} | 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 | 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}<label class="sw">자동화<input type="checkbox" role="switch" data-autok="${k}" aria-label="${esc(govName(k))} 행정 자동화" ${autoOn(k) ? 'checked' : ''}></label>
         ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
