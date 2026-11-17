@@ -290,8 +290,11 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .meter{display:flex;align-items:center;gap:8px}.meter .bar{flex:1}
 .tierbar{position:relative;display:flex;height:10px;margin-top:6px;border-radius:99px;overflow:hidden;background:var(--surface2);box-shadow:inset 0 1px 2px rgba(2,6,23,.25)}
 .tierbar i{display:block;height:100%}
-/* 20% 눈금(연한 회색), 50%는 진하게 */
-.tierbar::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(148,163,184,.95) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px)),repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(148,163,184,.4) calc(20% - 1px) 20%)}
+/* 20% 눈금(연한 회색), 50%는 진하게. 계층 색 위에서도 보이게 맨 위 층에 */
+.tierbar::after{content:'';position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent calc(50% - 1px),rgba(241,245,249,.95) calc(50% - 1px) calc(50% + 1px),transparent calc(50% + 1px)),repeating-linear-gradient(90deg,transparent 0 calc(20% - 1px),rgba(203,213,225,.6) calc(20% - 1px) 20%)}
+/* 마우스를 올리거나 포커스하면 바로 계층 비율(툴팁 상자는 .tipbox 재사용, 위치는 placeTip) */
+.tierw{position:relative}.tierw .tierbar{cursor:help}
+.tierw:hover .tipbox,.tierw:focus-within .tipbox{visibility:visible;opacity:1;transition:none}
 
 /* modal & toast */
 .scrim{position:fixed;inset:0;background:rgba(2,6,23,.62);backdrop-filter:blur(3px);display:grid;place-items:center;padding:16px;z-index:50;animation:fade .18s ease-out}
@@ -3377,7 +3380,7 @@ function negOutModal(oid) {
 const TIER_C = ['var(--pc)', 'color-mix(in srgb,var(--pc) 45%,transparent)', 'transparent', 'color-mix(in srgb,var(--danger) 40%,transparent)', 'var(--danger)'];
 // t: 발표된 계층 비중(생략하면 그 당 전국 조사)
 const tierBar = (id, t = S.pub.tier.nat[id]) => { const txt = L.TIERS.map((n, i) => `${n} ${Math.round(t[i] * 100)}`).join(' · ');
-  return `<div class="tierbar" style="--pc:${pc(id)}" role="img" aria-label="지지층 ${txt}" title="${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div>`; };
+  return `<div class="tierw"><div class="tierbar" style="--pc:${pc(id)}" role="img" tabindex="0" aria-label="지지층 ${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div><span class="tipbox" aria-hidden="true">${txt}</span></div>`; };
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
 let negF = 'all', outF = 'all', mpPage = 0, outPage = 0;
 const NEG_PER = 5; // 교섭 탭 인물 한 쪽에 5명
@@ -4823,8 +4826,8 @@ function placeTip(b) {
   box.style.top = (r.bottom + 8 + box.offsetHeight > innerHeight - 8 ? Math.max(8, r.top - box.offsetHeight - 8) : r.bottom + 8) + 'px';
 }
 document.addEventListener('click', e => { const b = e.target.closest?.('[data-gall]'); if (b) document.querySelectorAll('.guide details').forEach(d => d.open = b.dataset.gall === '1'); });
-document.addEventListener('pointerover', e => { const b = e.target.closest?.('.info'); if (b) placeTip(b); });
-document.addEventListener('focusin', e => { if (e.target.classList?.contains('info')) placeTip(e.target); });
+document.addEventListener('pointerover', e => { const b = e.target.closest?.('.info, .tierbar'); if (b) placeTip(b); });
+document.addEventListener('focusin', e => { if (e.target.classList?.contains('info') || e.target.classList?.contains('tierbar')) placeTip(e.target); });
 document.addEventListener('click', e => { const b = e.target.closest?.('.info'); if (b) b.focus(); }); // 사파리는 탭으로 버튼에 포커스가 안 감
 // 화면 배치(1~3열)에 따라 맨 윗줄이 바뀌므로 그려진 위치로 고름
 function markLead() {
