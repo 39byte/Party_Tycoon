@@ -461,10 +461,14 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .rel .meter{white-space:nowrap}
 .ptys{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr))}
 .pty{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-top:4px solid var(--pc);border-radius:var(--r);background:var(--surface)}
-.pty-h{display:flex;align-items:flex-start;gap:8px;font-size:16px}
-.pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;padding-top:6px}
+.pty-h{display:flex;align-items:center;gap:8px;font-size:16px}
+.pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
 .pty.ruling{border:4px solid var(--pc)} .pty.allied{border:2px solid var(--pc);border-top-width:4px}
 .pty .negcell{margin-left:auto;flex:none}
+/* 정당 카드 교섭 버튼: 작게, 안쪽 여백을 줄여 글자가 버튼을 더 채움. 별은 윤곽선 없이 */
+.pty .negcell{gap:2px} .pty .negcell .btn{min-height:30px;padding:2px 9px;font-size:14.5px;border-radius:8px}
+.pty .negcell .ib.fav{min-width:30px;height:30px;padding:0;border:0;background:none;box-shadow:none}
+@media (pointer:coarse){.pty .negcell .btn{min-height:36px} .pty .negcell .ib.fav{min-width:36px;height:36px}}
 .pty .kv{width:100%} .pty .kv th{width:84px;font-weight:600}
 .tpie{display:flex;align-items:center;gap:12px} .tpie .pie{flex:none;width:76px;height:76px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--border)}
 .tpie .legend{flex-direction:column;gap:2px;font-size:12.5px}
