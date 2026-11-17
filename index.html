@@ -1836,7 +1836,7 @@ function tick() {
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
   const aw = auditWin();
-  if (aw && S.day === aw[0] && S.audW?.[0] !== aw[0]) { S.audW = aw; S.audQ = []; if (seatTotal('P') > 0) S.queue.push({ ev: 'audit' }); } // 시작한 국감 기간은 고정
+  if (aw && S.day === aw[0] && S.audW?.[0] !== aw[0]) { S.audW = aw; S.audQ = []; S.audT = []; if (seatTotal('P') > 0) S.queue.push({ ev: 'audit' }); } // 시작한 국감 기간은 고정
   if (S.day % TURN === 0) { rivalWeek(); auditRiv(); }
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
@@ -3506,7 +3506,7 @@ function why(key, k) {
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
   if (key === 'question' && (S.president.acting || !CAB.some(c => cabM(c.k)))) return '질문할 국무위원이 없습니다';
   if (key === 'audit' && !auditOn()) return (w => w && w[0] > S.day ? `국정감사 기간(${fdate(w[0])}부터 4주)에만 가능` : '국정감사 기간에만 가능')(auditWin());
-  if (key === 'audit' && !audTargets().length) return '따질 행정 실책이 없습니다';
+  if (key === 'audit' && !audGroups().length) return '따질 행정 실책이 없습니다';
   if (key === 'audit' && !audAskers().length) return '이번 국정감사에서 모든 의원이 질의를 마쳤습니다';
   if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
@@ -3624,24 +3624,33 @@ function audResolve(b, atk, att, def, rebut) {
   tr(b.p, -3); ops(-3); return 'fail';
 }
 const audAskers = () => qAskers().filter(p => !S.audQ?.includes(p.id)); // 질의자는 국감 한 번에 한 번씩만
+// 우리가 추궁할 단체장별 묶음: 실책 1건 늘 때마다 방어력 −5. 이번 국감에 이미 추궁한 단체장(S.audT)은 빠짐
+const audGroups = () => {
+  const m = {};
+  audTargets().filter(b => !S.audT?.includes(b.k)).forEach(b => (m[b.k] ||= []).push(b));
+  return Object.entries(m).map(([k, bs]) => ({ k, bs: bs.reverse(), def: Math.max(0, audDef(audDp(bs[0])) - 5 * (bs.length - 1)) })).sort((a, b) => a.def - b.def); // 방어력 낮을수록 공세 성공률 높음
+};
 function auditModal() {
-  const xs = audAskers(), bs = audTargets().reverse().sort((a, b) => audDef(audDp(a)) - audDef(audDp(b))); // 방어력 낮을수록 공세 성공률 높음
+  const xs = audAskers(), gs = audGroups();
   openModal({ title: '국정감사', wide: true, html: `<p><label>질의자 <select data-amp aria-label="질의할 의원">${xs.map(p => `<option value="${p.id}">${esc(p.name)} (역량 ${p.skill} | 인지도 ${Math.round(p.fame)})</option>`).join('')}</select></label></p>
     <p>다른 당 단체장의 행정 실책을 추궁합니다. 상대가 사과하면 그 당 신뢰도가 조금 깎이고, 반박에 실패하면 크게 깎입니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴(65:35)으로 겨루고, 상대가 훨씬 뛰어나면 오히려 역공을 당할 수 있습니다.</p>
-    <div class="pcards">${bs.map(b => { const d = audDp(b), def = audDef(d);
-      return `<div class="pcard"><div><b>${AREA(b.k)}</b> <span class="small muted">${fdate(b.d)}</span></div><div class="who">${d ? face(d, pc(b.p), 48) : ''}<div><h3>${esc(S.rgov[b.k].n)}</h3><div class="small muted">${esc(pn(b.p))} | 방어력 ${Math.round(def)}</div></div></div><p class="small">${esc(b.t)}</p><div class="small muted" style="margin-top:auto">공세 성공률 <b data-aodds="${def}">${100 - Math.round(audOdds(xs[0].skill, def) * 100)}</b>%</div><button class="btn pri" data-ab="${b.id}">추궁</button></div>`; }).join('')}</div>`,
+    <p class="small muted">단체장마다 한 번만 추궁할 수 있고, 행정 실책이 많을수록(1건 늘 때마다 방어력 −5) 몰아붙이기 쉽습니다.</p>
+    <div class="pcards">${gs.map(({ k, bs, def }) => { const d = audDp(bs[0]), p = bs[0].p;
+      return `<div class="pcard"><div><b>${AREA(k)}</b> <span class="small muted">행정 실책 ${bs.length}건</span></div><div class="who">${d ? face(d, pc(p), 48) : ''}<div><h3>${esc(S.rgov[k].n)}</h3><div class="small muted">${esc(pn(p))} | 방어력 ${Math.round(def)}</div></div></div><ul class="small" style="margin:0;padding-left:18px">${bs.map(b => `<li>${esc(b.t)} <span class="muted" style="white-space:nowrap">${fdate(b.d)}</span></li>`).join('')}</ul><div class="small muted" style="margin-top:auto">공세 성공률 <b data-aodds="${def}">${100 - Math.round(audOdds(xs[0].skill, def) * 100)}</b>%</div><button class="btn pri" data-ab="${k}">추궁</button></div>`; }).join('')}</div>`,
     buttons: [{ t: '취소' }], onOpen: el => {
       const sel = el.querySelector('[data-amp]'), mp = () => xs.find(p => p.id === +sel.value);
       sel.onchange = () => el.querySelectorAll('[data-aodds]').forEach(b => b.textContent = 100 - Math.round(audOdds(mp().skill, +b.dataset.aodds) * 100));
-      el.querySelectorAll('[data-ab]').forEach(b => b.onclick = () => auditRun(+b.dataset.ab, mp()));
+      el.querySelectorAll('[data-ab]').forEach(b => b.onclick = () => auditRun(b.dataset.ab, mp()));
     } });
 }
 // 우리가 추궁: 상대 단체장(AI)은 반박 성공률 +10%p 확률로 반박을 고름
-function auditRun(id, mp) {
-  const b = S.blun.find(x => x.id === id); if (!b) return;
-  closeModal(); S.ap--; S.cd.audit = S.day + ACT.audit.cd; (S.audQ ||= []).push(mp.id);
-  const d = audDp(b), def = audDef(d), odds = audOdds(mp.skill, def), who = `${GOVT[b.k]} ${S.rgov[b.k].n}(${pn(b.p)})`;
+function auditRun(k, mp) {
+  const g = audGroups().find(x => x.k === k); if (!g) return;
+  const b = g.bs[0], def = g.def, d = audDp(b);
+  closeModal(); S.ap--; S.cd.audit = S.day + ACT.audit.cd; (S.audQ ||= []).push(mp.id); (S.audT ||= []).push(k);
+  const odds = audOdds(mp.skill, def), who = `${GOVT[k]} ${S.rgov[k].n}(${pn(b.p)})`;
   const r = audResolve(b, 'P', mp.skill, def, rnd() < odds + 0.1);
+  g.bs.forEach(x => x.used = 1); // 그 단체장의 실책은 한꺼번에 따짐
   let msg;
   if (r === 'sorry') { S.fame = clamp(S.fame + 1, 0, 100); pFame(mp, 1.5); msg = `${mp.name} 의원의 국감 질의에 ${who}이(가) 행정 실책을 인정하고 사과했습니다.`; }
   else if (r === 'fail') { S.fame = clamp(S.fame + 2, 0, 100); S.trust = clamp(S.trust + 0.5, 0, 100); pFame(mp, 2.5); msg = `${mp.name} 의원의 송곳 질의에 ${who}의 반박이 무너졌습니다. 그 당 신뢰도가 크게 흔들립니다.`; }
