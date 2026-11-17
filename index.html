@@ -1969,7 +1969,7 @@ function endTurn(sure) {
   const ap = Snd.set.confAp ? S.ap : 0, aap = Snd.set.confAap && !anyAuto() ? S.aap : 0; // 자동화한 지사가 있으면 남은 행정 행동력은 자동화 몫
   if (sure !== true && (ap > 0 || aap > 0)) return openModal({ title: '턴을 종료할까요?',
     html: `<p>${[ap ? `행동력 <b>${ap}</b>` : '', aap ? `행정 행동력 <b>${aap}</b>` : ''].filter(Boolean).join(', ')}이(가) 남아 있습니다. 남은 행동력은 다음 턴으로 넘어가지 않습니다.</p><p class="small muted">이 확인은 설정에서 끌 수 있습니다.</p>`,
-    buttons: [{ t: '계속 행동하기' }, { t: '턴 종료', pri: true, fn: () => endTurn(true) }] });
+    buttons: [{ t: '계속 행동하기', pri: true }, { t: '턴 종료', fn: () => endTurn(true) }] });
   Snd.sfx('click');
   // 권한 요청은 사용자 입력 중에만 됨. 이미 허용됐으면 창 없이 넘어감
   if (saveDir) saveDir.requestPermission({ mode: 'readwrite' }).catch(() => { });
