@@ -463,7 +463,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .pty{display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid var(--border);border-top:4px solid var(--pc);border-radius:var(--r);background:var(--surface)}
 .pty-h{display:flex;align-items:flex-start;gap:8px;font-size:16px}
 .pty-n{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0;padding-top:6px}
-.pty.allied{border:4px solid var(--pc)}
+.pty.ruling{border:4px solid var(--pc)} .pty.allied{border:2px solid var(--pc);border-top-width:4px}
 .pty .negcell{margin-left:auto;flex:none}
 .pty .kv{width:100%} .pty .kv th{width:84px;font-weight:600}
 .tpie{display:flex;align-items:center;gap:12px} .tpie .pie{flex:none;width:76px;height:76px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--border)}
@@ -5042,8 +5042,9 @@ function pParty() {
   const q = S.pub, ban = pollBanned(), reg = S.phase === 'reg', star = k => S.watch[k] ? 0 : 1;
   const ids = ['P', ...['A', 'B', 'C', 'D'].sort((x, y) => star('neg:' + x) - star('neg:' + y))]; // 우리 당 먼저, 별 켠 당이 앞으로
   const card = id => { const me = id === 'P';
-    const pact = !me && S.pacts[id] > S.day; // 법안 공조 중: 카드 윤곽선 전체를 그 당 색으로
-    return `<div class="pty${pact ? ' allied' : ''}" style="--pc:${pc(id)}"${pact ? ' title="법안 공조 중"' : ''}><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${me ? ' <span class="pill">우리 당</span>' : ''}${S.president.party === id ? ' <span class="pill">여당</span>' : ''}${pact ? '<span class="sr">법안 공조 중</span>' : ''}${!me && Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${!me && reg ? negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id)) : ''}</div>
+    // 카드 윤곽선 전체를 그 당 색으로: 여당은 상단 띠 두께, 법안 공조 중은 얇게(둘 다면 여당 표시)
+    const gov = S.president.party === id, pact = !me && S.pacts[id] > S.day, mark = [gov && '여당', pact && '법안 공조 중'].filter(Boolean).join(' · ');
+    return `<div class="pty${gov ? ' ruling' : pact ? ' allied' : ''}" style="--pc:${pc(id)}"${mark ? ` title="${mark}"` : ''}><div class="pty-h"><span class="pty-n"><b>${esc(pn(id))}</b>${me ? ' <span class="pill">우리 당</span>' : ''}${mark ? `<span class="sr">${mark}</span>` : ''}${!me && Object.values(S.camps).some(c => c.ally === id) ? ' <span class="pill">선거 연대</span>' : ''}</span>${!me && reg ? negBtn(`data-neg="${id}"`, 'neg:' + id, pn(id)) : ''}</div>
       ${tierPie(id)}
       <table class="kv"><tbody>
         <tr><th>지지율</th><td class="num">${ban && !me ? '공표 금지' : q[id].toFixed(1) + '%'}</td></tr>
