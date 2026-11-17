@@ -466,7 +466,9 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .presbox{display:flex;gap:20px;align-items:stretch;flex-wrap:wrap}
 .presbox>.face{align-self:flex-start}
 /* 대통령(정보 + 아래 지지율 추이) | 내각(2열). 좁으면 위아래로 */
-.presgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);align-items:start}
+.presgrid{display:grid;gap:14px;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);align-items:stretch}
+/* 대통령 칸은 내각 칸 높이까지 늘리고, 남는 높이는 지지율 추이 그래프가 채움 */
+.presgrid>.card:first-child{display:flex;flex-direction:column}.presgrid>.card:first-child>.apprw{flex:1}
 .presgrid .pcards{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media (max-width:1100px){.presgrid{grid-template-columns:minmax(0,1fr)}}
 @media (max-width:600px){.presgrid .pcards{grid-template-columns:minmax(0,1fr)}}
