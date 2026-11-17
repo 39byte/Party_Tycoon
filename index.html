@@ -2000,12 +2000,16 @@ function brief(t) {
   const r = { d: S.day, news: S.news, notes: t.notes, dm: S.money - t.money, dmem: totalMembers() - t.mem, dsup: S.pub.P - t.sup };
   S.briefs.push(r); if (S.briefs.length > 104) S.briefs.shift(); save();
   const wk = S.wire.filter(x => x.d > S.day - TURN);
-  const pol = Object.entries(WIRE_C).map(([c, n]) => { const ls = [...wk.filter(x => x.c === c).map(x => x.t), ...(c === 'hall' ? t.notes : [])];
-    return ls.length ? `<div><h4>${c === 'reg' ? '지역 소식' : n}</h4>${noteList(ls)}</div>` : ''; }).join('');
+  // 브리핑엔 국회·청와대 주요 소식만 분야별 최근 4건. 지방 정부·지역과 나머지는 소식 탭에서
+  let more = 0;
+  const pol = ['hall', 'pres'].map(c => { const ls = [...(c === 'hall' ? t.notes : []), ...wk.filter(x => x.c === c).map(x => x.t).reverse()];
+    more += Math.max(0, ls.length - 4);
+    return ls.length ? `<div><h4>${WIRE_C[c]}</h4>${noteList(ls.slice(0, 4))}</div>` : ''; }).join('');
+  more += wk.filter(x => x.c === 'gov' || x.c === 'reg').length;
   openModal({
     title: `${turnNo()}턴 · 주간 브리핑`, wide: 'x',
     html: `<p class="small muted" style="margin-top:-6px">${fdate(S.day)}</p>${briefPills(r)}
-      <div class="bsplit"><section><h3>헤드라인 뉴스</h3>${newsList()}</section><section><h3>정치 뉴스</h3>${pol ? `<div class="bpol">${pol}</div>` : '<p class="empty">이번 주 정치 소식이 없습니다.</p>'}</section></div>`,
+      <div class="bsplit"><section><h3>헤드라인 뉴스</h3>${newsList()}</section><section><h3>정치 뉴스</h3>${pol ? `<div class="bpol">${pol}</div>` : '<p class="empty">이번 주 주요 정치 소식이 없습니다.</p>'}${more ? `<p class="small muted">지방 정부·지역 등 소식 ${more}건 더 — 소식 탭에서 볼 수 있습니다.</p>` : ''}</section></div>`,
     buttons: [{ t: '확인', pri: true }, { t: '지난 소식 보기', fn: () => { tab = 'log'; renderAll(); } }],
   });
 }
