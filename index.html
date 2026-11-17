@@ -353,6 +353,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .sloganrow{display:flex;align-items:center;gap:8px;margin:8px 0}.sloganrow p{margin:0;min-width:0}.sloganrow .ib{margin-left:auto;flex:none;border:0;background:none;box-shadow:none}.sloganrow .ib .ic{opacity:.5;transition:opacity .15s}.sloganrow .ib:hover .ic,.sloganrow .ib:focus-visible .ic{opacity:1}.sloganrow .ib:hover{background:var(--surface2)}
 .swatches{display:flex;gap:8px;flex-wrap:wrap}
 .imgpick{display:flex;gap:10px;flex-wrap:wrap}
+.imghint{display:block;margin-top:8px;font-size:11px;font-weight:400;color:var(--muted);line-height:1.5}
 .imgpick label{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 12px;border:2px solid var(--border);border-radius:12px;cursor:pointer;font-size:13px}
 .imgpick label:has(input:checked){border-color:var(--primary2)}
 .imgpick label:has(input:focus-visible){outline:2px solid var(--primary2);outline-offset:2px}
@@ -5021,7 +5022,7 @@ function partyEdit() {
         <label><input type="radio" name="imgmode" value="def" ${S.party.img ? '' : 'checked'}>${ART.face({ name: leader().name, gender: leader().gender, age: leader().age }, S.party.color, 56)}<span>기본 그림</span></label>
         <label><input type="radio" name="imgmode" value="up" ${S.party.img ? 'checked' : ''}><span id="peImg">${S.party.img ? `<img class="face" src="${S.party.img}" width="56" height="56" alt="">` : '<span class="face noimg">+</span>'}</span><span>사진 업로드</span></label>
         <input type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" id="peFile" hidden aria-label="대표 사진 파일 고르기">
-      </div><span class="h">JPG | PNG | WEBP. 업로드 칸을 다시 누르면 다른 사진으로 바꿉니다.</span></div>
+      </div><span class="imghint">.jpg, .png, .webp 지원<br>업로드 칸을 다시 누르면 다른 사진으로 바꿉니다.</span></div>
       <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c]) => `<label><input type="radio" name="color" value="${c}" ${c === S.party.color ? 'checked' : ''}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
       <div class="btns" style="align-items:center"><p class="small muted" style="margin:0 auto 0 0;flex:1 1 200px">지난 로그와 선거 기록의 글에는 예전 당명이 그대로 남습니다.</p><button type="button" class="btn" data-pecancel>취소</button><button class="btn pri">저장</button></div></form>`,
     onOpen: m => {
