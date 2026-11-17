@@ -2809,7 +2809,7 @@ const cabN = f => CAB.find(c => c.k === f.cab)?.n || '장관';
 function rcabSync(o) {
   const pr = o.president, id = pr.party, on = id !== 'P' && o.fpool?.[id], cab = on ? (pr.rcab ??= {}) : (pr.rcab = {});
   o.figs.filter(f => f.pos === 'min' && !(on && f.party === id && cab[f.cab] === f.id) && !(id === 'P' && pr.xpm === f.id)).forEach(f => figDrop(o, f));
-  if (on) for (const c of CAB) if (!figOf(o, cab[c.k])) { const b = poolBest(id, 'nat', null); if (b) { poolTake(id, b); const f = genFig(o, id, b.home || figHome(id), 'min', b); f.cab = c.k; cab[c.k] = f.id; } }
+  if (on) for (const c of CAB) if (!figOf(o, cab[c.k])) { const b = poolBest(id, 'nat', null, null, o); if (b) { poolTake(id, b, o); const f = genFig(o, id, b.home || figHome(id), 'min', b); f.cab = c.k; cab[c.k] = f.id; } }
 }
 function poolSync(o) {
   o.fpool ??= {};
@@ -3143,8 +3143,8 @@ function vacCard() {
   return `<div class="card"><h2>공석 ${n ? `<span class="pill bad">국회 ${n}석</span>` : ''}${gv ? ` <span class="pill bad">단체장 ${gv}곳</span>` : ''}</h2><ul style="margin:6px 0;padding-left:18px">${rows.join('') || '<li class="muted">-</li>'}</ul><p class="tip">${n ? `국회 공석은 재적 의석(${LAW.totalSeats - n}석)에서 빠지고 표결 정족수에도 영향을 줍니다. 지역구 의원이 물러나면 보궐선거를 하고, 비례대표는 명부 차순위가 승계합니다. ` : ''}${gv ? '단체장이 물러나면 권한대행 체제가 되고 보궐선거를 치릅니다. ' : ''}</p></div>`;
 }
 const slotScore = (p, k) => L.candScore(p) + (k ? Math.log(homeMul(p, k)) : Math.log(1 + (HOME - 1) * (RK[homeOf(p)]?.voters || 0) * 1e6 / LAW.voters));
-const poolBest = (id, kind, k, need) => (S.fpool?.[id] || []).reduce((b, p) => p.ban || p.age < LAW.age[kind] || (need && p.gender !== need) || (b && slotScore(b, k) >= slotScore(p, k)) ? b : p, null);
-function poolTake(id, b) { const pl = S.fpool?.[id], i = pl ? pl.indexOf(b) : -1; if (i >= 0) pl.splice(i, 1); return b; }
+const poolBest = (id, kind, k, need, o = S) => (o.fpool?.[id] || []).reduce((b, p) => p.ban || p.age < LAW.age[kind] || (need && p.gender !== need) || (b && slotScore(b, k) >= slotScore(p, k)) ? b : p, null);
+function poolTake(id, b, o = S) { const pl = o.fpool?.[id], i = pl ? pl.indexOf(b) : -1; if (i >= 0) pl.splice(i, 1); return b; }
 function rvPick(c, k, id, used, pr, need) {
   const cur = S.figs.find(f => f.party === id && (pr ? f.pos === 'pr' : f.k === k && f.pos === (c.type === 'nat' ? 'd' : 'gov')) && !used.has(f.id) && !f.ban && (!need || f.gender === need));
   const kd = nomKind(c), sk = pr ? null : k;
