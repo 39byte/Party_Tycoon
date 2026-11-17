@@ -3461,7 +3461,7 @@ const ACT = {
   fund: { n: '후원의 밤', c: () => 0, cd: 30, d: '지지자들의 소액 후원을 모으는 합법적인 핵심 수입원입니다. 비용 없이 큰돈이 들어오니 다시 열릴 때마다 챙기세요. 중앙당(창준위)후원회 모금이라 법인·단체 기부는 불가(정치자금법 제31조), 연간 한도 있음(제12조).' },
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승(선거기간 중 최대 2번). 다른 당도 방송 광고를 합니다.' },
   bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면(중도 정당은 한쪽 노선 법안만 거듭 내면) 역풍을 맞습니다.' },
-  question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관 중 한 명을 골라 질문합니다. 우리 의원과 상대 장관의 역량 차이로 성패가 갈리고, 민심이 쏠린 쟁점의 담당 장관을 짚으면 효과가 큽니다. 야당이면 정부를 몰아붙이고, 여당이면 정책을 점검합니다.' },
+  question: { n: '대정부 질문', c: () => 0, cd: 5 * TURN, seat: true, d: '본회의에서 국무총리·장관 중 한 명을 골라 질문합니다. 우리 의원과 상대 장관의 역량 차이로 성패가 갈리고, 민심이 쏠린 쟁점의 담당 장관을 짚으면 효과가 큽니다. 야당이면 정부를 몰아붙이고, 여당이면 정책을 점검합니다.' },
   audit: { n: '국정감사', c: () => 0, cd: 7, seat: true, d: '국정감사(선거와 선거 사이, 4주간)에서 다른 당 단체장의 행정 실책을 추궁합니다. 상대는 반박하거나 사과합니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴으로 겨룹니다.' },
   govern: { n: '행정 역점사업', c: () => 0, cd: 7, // 지역×사업별 재사용 대기
     d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
@@ -3538,10 +3538,8 @@ function doAct(key, k) {
 // 대정부 질문: 질문자는 우리 당 의원 중에서 고름(기본 최고 역량, 의원이 없으면 대표). 성공률은 질문자와 장관의 역량 차이. 핵심 쟁점 담당 장관이면 효과 1.5배
 const qAskers = () => { const xs = S.pool.filter(p => /국회의원/.test(p.role)).sort((a, b) => b.skill - a.skill); return xs.length ? xs : [leader()]; };
 const qOdds = (mp, m) => clamp(0.55 + (mp.skill - m.skill) / 80, 0.15, 0.9);
-// 대정부 질문자는 다른 의원이 3번 질문해야 다시 질문(의원이 적으면 다른 의원 수만큼만 기다림 — 막히지 않게)
-const qFree = () => { const xs = qAskers(), n = Math.min(3, xs.length - 1), recent = n > 0 ? (S.qLast || []).slice(-n) : []; return xs.filter(p => !recent.includes(p.id)); };
 function questionModal() {
-  const xs = qFree(), opp = !ruling(), hot = CAB.find(c => c.is.includes(S.issue));
+  const xs = qAskers(), opp = !ruling(), hot = CAB.find(c => c.is.includes(S.issue));
   openModal({ title: '대정부 질문', wide: true, html: `<p><label>질문자 <select data-qmp aria-label="질문할 의원">${xs.map(p => `<option value="${p.id}">${esc(p.name)} (역량 ${p.skill} · 인지도 ${Math.round(p.fame)})</option>`).join('')}</select></label></p><p>${opp ? `${esc(pn(S.president.party))} 정부의 국무위원을 몰아세웁니다. 성공하면 국정 지지율과 여당 지지율이 깎이고, 약한 장관은 경질될 수도 있습니다.` : '우리 정부 국무위원에게 정책을 따져 묻습니다. 성공하면 "건강한 여당"이라는 평과 함께 국정 신뢰가 오릅니다.'} 민심이 쏠린 쟁점(${ISSUES.find(i => i.k === S.issue).n})의 담당 장관을 짚으면 효과가 큽니다.</p>
     <div class="pcards">${CAB.map(c => { const m = cabM(c.k), col = m && (m.party ? pc(m.party) : S.party.color);
       return `<div class="pcard"><div><b>${c.n}</b>${c === hot ? ' <span class="pill warn">핵심 쟁점</span>' : ''}</div>${m ? `<div class="who">${face(m, col, 48)}<div><h3>${esc(m.name)}</h3><div class="small muted">역량 ${m.skill}</div></div></div><div class="small muted">성공 가능성 <b data-qodds="${m.skill}">${Math.round(qOdds(xs[0], m) * 100)}</b>%</div><button class="btn pri" data-qk="${c.k}">질문</button>` : '<p class="empty">공석</p>'}</div>`; }).join('')}</div>`,
@@ -3554,7 +3552,7 @@ function questionModal() {
 function questionRun(k, mp) {
   const c = CAB.find(x => x.k === k), m = cabM(k), opp = !ruling(), mul = c.is.includes(S.issue) ? 1.5 : 1, pp = S.president.party;
   if (!m) return;
-  closeModal(); S.ap--; S.cd.question = S.day + ACT.question.cd; S.qLast = [...(S.qLast || []), mp.id].slice(-3);
+  closeModal(); S.ap--; S.cd.question = S.day + ACT.question.cd;
   const who = `${c.n} ${m.name}`;
   let msg, ok = rnd() < qOdds(mp, m);
   if (ok) {
