@@ -325,7 +325,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .split2{display:grid;grid-template-columns:1fr 1fr;margin-top:12px} .split2>div{min-width:0;padding:0 14px} .split2>div:first-child{padding-left:0} .split2>div+div{border-left:1px solid var(--border);padding-right:0}
 .split2 h3{font-size:14px;margin:0 0 8px} .split2 .choices{margin-top:0}
 .choices.g2{display:grid;grid-template-columns:1fr 1fr}
-.pjgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;margin-top:12px}.pjgrid .choices{margin-top:8px}
+/* 행정 사업 창: 분야 2열. 분야마다 subgrid로 제목·설명·버튼 줄을 옆 열과 같은 높이로 맞춤(--n 줄 = 제목+설명+버튼 최대 개수) */
+.pjgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px 20px;margin-top:12px}.pjgrid>div{display:grid;grid-row:span var(--n);grid-template-rows:subgrid;row-gap:8px}.pjgrid .choices{display:contents}.pjgrid h3,.pjgrid p{margin:0}
 @media (max-width:640px){.split2{grid-template-columns:1fr;gap:14px}.split2>div{padding:0}.split2>div+div{border-left:0;border-top:1px solid var(--border);padding-top:14px}}
 /* 정책 발표: 궁합 설명이 줄바꿈되지 않게 창을 넓히고, 좁으면 위아래로, 더 좁으면 선택지 1열 */
 .modal.polm{max-width:980px}
@@ -2623,7 +2624,7 @@ function govModal(k) {
     tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면(예: 소아과 대기 → 공공 의료 확충) 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> · 단체장 역량 <b class="num">${govPerson(k)?.skill ?? 50}</b> · 남은 행정 행동력 <b class="num">${S.aap}</b></p>
       ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방 정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
-      <div class="pjgrid">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]}</h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
+      <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]}</h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
         return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}<small>${p.d}${c ? ` · <b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b>` : ''}</small></button>`; }).join('')}</div></div>`).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
