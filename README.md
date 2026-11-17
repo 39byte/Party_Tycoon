@@ -49,16 +49,15 @@
 
 ## 개발 규칙
 
-GitHub Flow + [SemVer](https://semver.org/lang/ko/) + [Conventional Commits](https://www.conventionalcommits.org/ko/).
+main 직접 커밋 + [SemVer](https://semver.org/lang/ko/) + [Conventional Commits](https://www.conventionalcommits.org/ko/).
 
-- **main = 배포본.** main에 들어가면 웹에 바로 반영되므로 직접 push하지 않습니다. 브랜치 → PR → CI(`node test.js`) 통과 → Squash merge → 브랜치 삭제.
-- **브랜치:** `feat/`, `fix/`, `tune/`(밸런스), `docs/`, `chore/` + 짧은 영문 이름. 예: `feat/rival-weekly-plan`
-- **커밋·PR 제목:** `type: 한국어 요약`. 예: `fix: 탄핵 인용 뒤 조기 대선 날짜가 밀리는 문제`
+- **main = 배포본.** 브랜치·PR 없이 main에 바로 커밋하고 push합니다. push하면 웹에 바로 반영되므로 `node test.js`를 먼저 돌립니다.
+- **커밋 제목:** `type: 한국어 요약`(`feat`, `fix`, `tune`(밸런스), `docs`, `chore`). 예: `fix: 탄핵 인용 뒤 조기 대선 날짜가 밀리는 문제`
 - **버전:** `vMAJOR.MINOR.PATCH`
   - MAJOR: 기존 세이브를 못 불러오게 되는 변경
   - MINOR: 새 기능·콘텐츠
   - PATCH: 버그 수정·밸런스·문구
-- **릴리스:** main에서 `git tag vX.Y.Z && git push origin vX.Y.Z` → GitHub Actions(`.github/workflows/release.yml`)가 테스트, exe 빌드, 릴리스 생성과 업로드를 처리. 설명은 `.github/release-notes.md`에 병합된 PR 목록이 자동으로 붙음. 버전은 태그에서 정해지므로 `desktop/package.json`은 고치지 않아도 됨.
+- **릴리스:** main에서 `git tag vX.Y.Z && git push origin vX.Y.Z` → GitHub Actions(`.github/workflows/release.yml`)가 테스트, exe 빌드, 릴리스 생성과 업로드를 처리. 설명은 `.github/release-notes.md`에 이전 태그와의 변경 비교 링크가 붙음. 버전은 태그에서 정해지므로 `desktop/package.json`은 고치지 않아도 됨.
 
 ## 참고
 
