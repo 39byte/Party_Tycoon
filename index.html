@@ -158,6 +158,7 @@ main{padding:18px;min-width:0}
 .act h3{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 /* 활동 탭: 가로로 길고 낮은 카드. 설명·비용은 왼쪽, 실행 버튼은 오른쪽 */
 .acts.wide{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.audrow{grid-column:1/-1;display:grid} /* 국회 의회 활동: 국정감사 카드는 첫 줄을 가로지름 */
 @media (max-width:1180px){.acts.wide{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media (max-width:720px){.acts.wide{grid-template-columns:1fr}}
 /* 당 시설·조직: 1행 4열(좁으면 2열·1열) */
@@ -1749,8 +1750,7 @@ function monthly(dt) {
   // 대통령도 정책을 낸다(우리가 집권하면 우리 몫)
   if (!ruling() && rnd() < 0.4) S.queue.push({ ev: 'policy' });
   // 원외 인사도 조금씩 바뀜(은퇴·새 인물). 영입으로 줄면 새 인물이 채움
-  // 국회 일정: 10월 국정감사, 12월 예산안
-  if (seatTotal('P') > 0 && dt.getUTCMonth() === 9) S.queue.push({ ev: 'audit' });
+  // 국회 일정: 12월 예산안(국정감사는 선거 사이 일정을 따라 tick에서)
   if (seatTotal('P') > 0 && dt.getUTCMonth() === 11) S.queue.push({ ev: 'budget' });
   // 다른 당 정치인·정당에 새 사건(보도는 몇 주~몇 달 뒤)
   for (let i = 0; i < 2; i++) { const f = pick(S.figs); if (f && rnd() < (100 - f.integ) / 100) incNew(S, f, rr(21, 150)); }
@@ -1797,6 +1797,7 @@ function tick() {
   if (dt.getUTCDate() === 1) monthly(dt);
   if ([1, 4, 7, 10].includes(dt.getUTCMonth()) && dt.getUTCDate() === 15) quarterly();
   checkGameOver();
+  if (seatTotal('P') > 0 && S.day === auditWin()?.[0]) S.queue.push({ ev: 'audit' });
   if (S.day % TURN === 0) { rivalWeek(); auditRiv(); }
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
@@ -3437,7 +3438,7 @@ const ACT = {
   tvad: { n: '방송 광고', c: () => Object.values(S.camps).some(c => c.type === 'pres' && inCampaign(c)) ? 5e8 : 1e8, cd: 5, camp: true, d: '선거운동기간 전국 득표력 상승(선거기간 중 최대 2번). 다른 당도 방송 광고를 합니다.' },
   bill: { n: '법안 발의', c: () => 3e6, cd: 21, seat: true, d: '상임위·본회의를 거쳐 통과하면 신뢰·인지도가 오르고 지지율에 오래 남습니다. 민심이 쏠린 쟁점의 법안은 효과가 크고, 노선 밖 분야를 거듭 내면 역풍을 맞습니다.' },
   question: { n: '대정부 질문', c: () => 0, cd: 21, seat: true, d: '본회의에서 국무총리·장관 중 한 명을 골라 질문합니다. 우리 의원과 상대 장관의 역량 차이로 성패가 갈리고, 민심이 쏠린 쟁점의 담당 장관을 짚으면 효과가 큽니다. 야당이면 정부를 몰아붙이고, 여당이면 정책을 점검합니다.' },
-  audit: { n: '국정감사', c: () => 0, cd: 7, seat: true, d: '10월 국정감사에서 다른 당 단체장의 행정 실책을 추궁합니다. 상대는 반박하거나 사과합니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴으로 겨룹니다.' },
+  audit: { n: '국정감사', c: () => 0, cd: 7, seat: true, d: '국정감사(선거와 선거 사이, 4주간)에서 다른 당 단체장의 행정 실책을 추궁합니다. 상대는 반박하거나 사과합니다. 반박은 우리 질의자 역량과 상대 단체장의 역량·청렴으로 겨룹니다.' },
   govern: { n: '행정 역점사업', c: () => 0, cd: 7, // 지역×사업별 재사용 대기
     d: '우리 당 단체장이 도 예산으로 사업을 펼칩니다(당 자금 안 듦). 행정 행동력을 씁니다.' },
 };
@@ -3451,7 +3452,7 @@ function why(key, k) {
   if (key === 'tvad' && activeCamps().every(c => (c.tv || 0) >= 2)) return '이번 선거기간 방송 광고 2회를 모두 썼습니다';
   if (a.seat && !seatTotal('P')) return '국회 의석이 있어야 합니다';
   if (key === 'question' && (S.president.acting || !CAB.some(c => cabM(c.k)))) return '질문할 국무위원이 없습니다';
-  if (key === 'audit' && !auditOn()) return '매년 10월 국정감사 기간에만 가능';
+  if (key === 'audit' && !auditOn()) return (w => w && w[0] > S.day ? `국정감사 기간(${fdate(w[0])}부터 4주)에만 가능` : '국정감사 기간에만 가능')(auditWin());
   if (key === 'audit' && !audTargets().length) return '따질 행정 실책이 없습니다';
   if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
@@ -3544,9 +3545,17 @@ function questionRun(k, mp) {
   Snd.sfx(ok ? 'ok' : 'bad'); toast(msg, ok ? 'ok' : 'bad'); addLog(msg, ok ? '' : 'bad');
   checkAch(); renderAll();
 }
-// 국정감사(10월): 행정 실책을 짚으면 방어 측은 반박 또는 사과. 반박은 질의자 역량 vs 방어자 역량·청렴(65:35)
+// 국정감사: 앞 선거와 다음 선거 사이 3:2 지점을 가운데로 4주(선거철과 겹치지 않게). [시작일, 끝날 다음 날]
+const AUDIT_DAYS = 28;
+const auditWin = () => {
+  const prev = SCHED.filter(e => e.day <= S.day).at(-1)?.day ?? 0, next = SCHED.find(e => e.day > S.day)?.day;
+  if (next == null) return null;
+  const a = prev + Math.round((next - prev) * 0.6 - AUDIT_DAYS / 2);
+  return [a, a + AUDIT_DAYS];
+};
+// 국정감사: 행정 실책을 짚으면 방어 측은 반박 또는 사과. 반박은 질의자 역량 vs 방어자 역량·청렴(65:35)
 // 사과: 방어 측 신뢰도 −1·행정 지지도 −1 / 반박 성공: 공격 측 신뢰도 −0.5(방어자가 15 이상 앞서면 15%로 역공: −2) / 반박 실패: 방어 측 신뢰도 −3·행정 지지도 −3
-const auditOn = () => L.dayToDate(S.day).getUTCMonth() === 9;
+const auditOn = () => { const w = auditWin(); return !!w && S.day >= w[0] && S.day < w[1]; };
 const audDef = p => 0.65 * (p?.skill ?? 50) + 0.35 * (p?.integ ?? 60);
 const audOdds = (att, def) => clamp(0.5 + (def - att) / 80, 0.1, 0.9);
 const audTargets = () => S.blun.filter(b => !b.used && b.p !== 'P' && S.rgov[b.k]?.p === b.p);
@@ -3589,7 +3598,7 @@ function auditRun(id, mp) {
 // 국감 질의자: 그 당 의원 중 역량 상위 15명 중 무작위(의원이 없으면 null)
 const audAtk = id => { const top = S.figs.filter(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')).sort((a, b) => b.skill - a.skill).slice(0, 15); return top.length ? pick(top) : null; };
 const audIds = () => TR_IDS.filter(id => S.figs.some(f => f.party === id && (f.pos === 'd' || f.pos === 'pr')));
-// 다른 당의 추궁: 10월 턴마다 ① 우리 행정 실책이 있으면 50%로 한 건(우리가 반박/사과 선택) ② 다른 당끼리도 50%로 한 건(AI끼리 결판, 소식으로만)
+// 다른 당의 추궁: 국정감사 기간 턴마다 ① 우리 행정 실책이 있으면 50%로 한 건(우리가 반박/사과 선택) ② 다른 당끼리도 50%로 한 건(AI끼리 결판, 소식으로만)
 function auditRiv() {
   if (!auditOn()) return;
   const bs = S.blun.filter(b => !b.used && b.p === 'P' && S.gov[b.k] === 'P'), b = bs.length && pick(bs), ids = audIds();
@@ -4294,7 +4303,7 @@ const XEV = {
     const gov = Object.keys(S.ops);
     gov.forEach(k => opsAdd(k, rr(-4, 2))); // 우리 시·도도 피감기관
     const n = audTargets().length;
-    info('국정감사 시작', `국회 국정감사가 시작됐습니다. 이번 달 동안 국회 탭에서 다른 당 단체장의 행정 실책을 추궁할 수 있습니다${n ? `(따질 거리 ${n}건)` : ''}. 다른 당도 우리 단체장의 행정 실책을 파고들 테니, 반박할지 사과할지 정해야 합니다.${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`, false);
+    info('국정감사 시작', `국회 국정감사가 시작됐습니다. 4주 동안 국회 탭 의회 활동에서 다른 당 단체장의 행정 실책을 추궁할 수 있습니다${n ? `(따질 거리 ${n}건)` : ''}. 다른 당도 우리 단체장의 행정 실책을 파고들 테니, 반박할지 사과할지 정해야 합니다.${gov.length ? ` 우리 당 단체장이 있는 ${gov.map(k => RK[k].n).join('·')}도 피감기관이라 진땀을 뺐습니다.` : ''}`, false);
   },
   // 다른 당이 우리 단체장의 행정 실책을 추궁: 반박(역량·청렴 vs 상대 질의자 역량) 또는 사과
   auditHit: q => {
@@ -5397,16 +5406,14 @@ function pOffice() {
     <h3 style="margin-top:32px">다른 당·정부 법안</h3>${theirs.length ? list(theirs) + `<p class="tip">${seats ? '당론을 정하지 않으면 우리 의원들이 각자 판단해 표결합니다(자유투표). 여론과 맞는 당론은 신뢰를 올리고, 발의한 당과의 관계는 찬반에 따라 오르내립니다. 당론을 정해도 노선·여론과 어긋나는 법안이면 우리 의원 일부가 이탈표를 던질 수 있고, 표 단속(법안마다 한 번)으로 이탈을 줄일 수 있습니다.' : '국회 의석이 생기면 당론을 정해 표결에 참여할 수 있습니다.'}</p>` : '<p class="small muted">계류 중인 법안이 없습니다.</p>'}
       <p class="tip">${ruling() ? `우리 당이 집권 중입니다. 반대 당론 법안이 통과되면 공포와 거부권 중에서 고릅니다. 재의결선은 ${twoThirds()}표이고, 청와대 탭에서 자동 처리를 켤 수 있습니다.` : `${presN()}도 수시로 정책을 발표합니다. 입장을 정하면 몇 주 뒤 여론조사로 성패가 갈립니다.`}</p>
 </section>
-    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
-      <p class="tip">매년 10월 국정감사에선 다른 당 단체장의 행정 실책을 추궁하고, 우리 단체장도 추궁받습니다. 12월엔 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
+    <section><h3>의회 활동${seats ? ` <span class="pill">${seats}석</span>` : ''}</h3>${seats ? `<div class="acts" style="margin-top:12px">${auditOn() ? `<div class="audrow">${actBtn('audit', undefined, true, true)}</div>` : ''}${actBtn('bill', undefined, true)}${actBtn('question', undefined, true)}</div>
+      <p class="tip">선거와 선거 사이(앞 선거에서 5분의 3쯤 지난 때) 4주간 열리는 국정감사에선 다른 당 단체장의 행정 실책을 추궁하고, 우리 단체장도 추궁받습니다. 12월엔 예산안 심사가 열립니다.</p>` : '<p class="empty">국회의원을 배출하면 법안 발의, 대정부 질문, 국정감사에 참여할 수 있습니다.</p>'}
     <h3 style="margin:28px 0 10px">최근 법안</h3>${(xs => xs.length ? voteList(xs) : '<p class="small muted">아직 표결된 법안이 없습니다.</p>')(recentBills())}</section></div></div>`;
   const rules = `<div class="card"><h2>바뀐 제도</h2>${fxs.length ? `<ul class="log">${fxs.map(f => `<li><span><b>${esc(f.n)}</b><div class="small muted">${esc(f.t)}${f.until < 1e9 ? ` · ${fdate(f.until)}까지` : ''}</div></span></li>`).join('')}</ul>` : '<p class="small muted">아직 바뀐 제도가 없습니다.</p>'}</div>`;
   // 법안 아래에 바뀐 제도
   // 맨 위: 의석 분포(접고 펼치기, 상태는 탭을 다시 그려도 유지)
   const seatd = `<details class="card seatd" data-seatd ${seatOpen ? 'open' : ''}><summary><h2>국회 의석 분포 (재적 ${LAW.totalSeats - Math.max(0, vacN())}석${vacN() > 0 ? ` · 공석 ${vacN()}` : ''})</h2></summary>${hemicycle()}<p class="tip">의장석에서 바라본 배치입니다. 의석은 국회의장이 교섭단체와 협의해 정하며(국회법 제3조), 관례대로 원내 제1당은 가운데, 제2당은 오른쪽, 20석 미만 정당과 무소속은 왼쪽에 앉습니다.</p></details>`;
-  // 국정감사 카드: 10월 국정감사 기간에만, 1·2열을 모두 가로지르는 한 줄로 맨 위에
-  const audit = seats && auditOn() ? `<div class="acts wide" style="grid-template-columns:1fr">${actBtn('audit', undefined, true, true)}</div>` : '';
-  return `<div class="stack">${seatd}${audit}${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}</div></div>`;
+  return `<div class="stack">${seatd}${bills}<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px;align-items:start">${rules}</div></div>`;
 }
 // 청와대: 대통령 정보·국정 지지율 · 집권 시 거부권 처리 방식
 function pPres() {
@@ -5700,7 +5707,7 @@ function pGuide() {
       <li>헌법재판소가 파면을 결정하면 권한대행 체제가 되고 약 두 달 뒤 조기 대선이 열립니다. 공천 기간이 짧아 미리 대선 후보감(만 ${LAW.age.pres}세 이상)을 준비해 둬야 합니다.</li>
       <li>조기 대선 뒤 1년 안의 정기 대선은 열리지 않고, 그 뒤로는 원래 순환대로 이어집니다.</li></ul>`)}
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
-      <li>매년 10월 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙고, 다른 당끼리도 서로 추궁합니다(소식 탭에서 결과 확인). 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
+      <li>선거와 선거 사이(앞 선거에서 5분의 3쯤 지난 때) 4주간 열리는 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙고, 다른 당끼리도 서로 추궁합니다(소식 탭에서 결과 확인). 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 행정 지지도는 지역 지지율과 재선 가능성에 반영됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
@@ -5886,7 +5893,7 @@ const TUT = {
   ],
   office: [
     { at: nb('office'), tap: 1, t: '국회 탭이 열렸습니다', d: '첫 국회의원을 배출했습니다! 이제 의회에서 싸울 수 있어요.', do: '국회 탭을 눌러 보세요.' },
-    { tab: 'office', at: up('#main [data-act="bill"]', 'section'), t: '의회 활동', d: '법안 발의(본회의 과반 통과), 대정부 질문, 10월 국정감사에 참여합니다. 민심이 쏠린 쟁점의 법안일수록 통과 효과가 커요.' },
+    { tab: 'office', at: up('#main [data-act="bill"]', 'section'), t: '의회 활동', d: '법안 발의(본회의 과반 통과), 대정부 질문, 선거 사이에 열리는 국정감사에 참여합니다. 민심이 쏠린 쟁점의 법안일수록 통과 효과가 커요.' },
     { tab: 'office', at: '#main .billsplit > section:first-child', t: '법안과 당론', d: '다른 당·정부 법안엔 찬성·반대·자유투표로 당론을 정하고, 표 단속으로 우리 의원 이탈을 막습니다. 예상 찬성 막대가 통과선을 넘는지 보세요.' },
   ],
   pres: [
