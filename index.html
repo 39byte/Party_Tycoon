@@ -18,7 +18,7 @@
   --primary:#1E3A8A; --primary2:#2F55C8; --on-primary:#FFFFFF; --accent:#0369A1; --warn:#B45309; --danger:#DC2626; --ok:#15803D;
   --gold:#F2B33D; --gold2:#C27A06; --on-gold:#1C1303;
   --hud:#0E1A33; --hud2:#18294D; --hud-line:#2B3F69; --on-hud:#EAF0FA; --on-hud-muted:#A9B8D2;
-  --ring:#2F55C8; --party:#F59E0B;
+  --ring:#2F55C8; --party:#F59E0B; --loyal:#1D4ED8; --friend:#93B4F5;
   --shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 0 rgba(15,23,42,.06),0 6px 16px -8px rgba(15,23,42,.25);
   --r:12px; --font:"Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
 }
@@ -26,7 +26,7 @@
   --bg:#081020; --surface:#101B31; --surface2:#172540; --fg:#E2E8F0; --muted:#A3B1C6; --border:#283A5E;
   --primary:#2F55C8; --primary2:#4B73E6; --on-primary:#FFFFFF; --accent:#38BDF8; --warn:#FBBF24; --danger:#F87171; --ok:#4ADE80;
   --hud:#060D1C; --hud2:#0F1C36; --hud-line:#22355A;
-  --ring:#7AA2FF; --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 20px -10px rgba(0,0,0,.6);
+  --ring:#7AA2FF; --loyal:#7DB4FF; --friend:#3D6FD6; --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 20px -10px rgba(0,0,0,.6);
 }}
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -3389,11 +3389,11 @@ function negOutModal(oid) {
     onOpen: el => el.querySelectorAll('[data-deal]').forEach(b => b.onclick = () => { const x = deals[+b.dataset.deal]; negotiate('neg:o' + m.id, x.c, negOdds(x.k, m.party, m), x.win, x.lose, m); }),
   });
 }
-// 지지층 띠: 충성(당 색) · 우호(옅은 당 색) · 중립 · 적대(옅은 빨강) · 혐오(빨강)
-const TIER_C = ['var(--pc)', 'color-mix(in srgb,var(--pc) 45%,transparent)', 'transparent', 'color-mix(in srgb,var(--danger) 40%,transparent)', 'var(--danger)'];
+// 지지층 띠: 충성(파랑) · 우호(옅은 파랑) · 중립 · 적대(옅은 빨강) · 혐오(빨강). 당과 상관없이 같은 색
+const TIER_C = ['var(--loyal)', 'var(--friend)', 'transparent', 'color-mix(in srgb,var(--danger) 40%,transparent)', 'var(--danger)'];
 // t: 발표된 계층 비중(생략하면 그 당 전국 조사)
 const tierBar = (id, t = S.pub.tier.nat[id]) => { const txt = L.TIERS.map((n, i) => `${n} ${Math.round(t[i] * 100)}`).join(' · ');
-  return `<div class="tierw"><div class="tierbar" style="--pc:${pc(id)}" role="img" tabindex="0" aria-label="지지층 ${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div><span class="tipbox" aria-hidden="true">${txt}</span></div>`; };
+  return `<div class="tierw"><div class="tierbar" role="img" tabindex="0" aria-label="지지층 ${txt}">${t.map((x, i) => `<i style="width:${x * 100}%;background:${TIER_C[i]}"></i>`).join('')}</div><span class="tipbox" aria-hidden="true">${txt}</span></div>`; };
 const relBar = r => `<div class="meter"><div class="bar"><i style="width:${(r + 100) / 2}%;background:${r >= 20 ? 'var(--ok)' : r <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div><span class="small">${REL_N(r)}</span></div>`;
 let negF = 'all', outF = 'all', mpPage = 0, outPage = 0;
 const NEG_PER = 5; // 교섭 탭 인물 한 쪽에 5명
