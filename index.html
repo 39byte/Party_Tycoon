@@ -5068,7 +5068,7 @@ function pParty() {
           ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}<div class="small muted">매주 ${nf(POLL_N)}명 무작위 조사 · 95% 신뢰수준 ±${pubErr(50, POLL_N).toFixed(1)}%p</div></div>
       </div></details>
     <div class="card"><h2>정당별 현황</h2>${reg && (left || S.ap < 1) ? `<p class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}<div class="ptys">${ids.map(card).join('')}</div>
-      <p class="tip">${reg ? `교섭 버튼으로 회동·법안 공조·선거 연대를 제안합니다(협상가: ${esc(leader().name)} 대표, 역량 ${leader().skill}). 결과는 대표 역량, 노선 차이, 그동안의 관계에 따라 달라집니다. 별을 켠 정당은 앞으로 오고, 다시 교섭할 수 있게 되면 메뉴의 '정당' 옆에 숫자로 알려 줍니다.` : '정식 정당으로 등록하면 다른 정당과 교섭할 수 있습니다.'}</p></div>
+      <p class="tip">${reg ? `교섭 버튼으로 회동·법안 공조를 제안합니다(협상가: ${esc(leader().name)} 대표, 역량 ${leader().skill}). 결과는 대표 역량, 노선 차이, 그동안의 관계에 따라 달라집니다. 별을 켠 정당은 앞으로 오고, 다시 교섭할 수 있게 되면 메뉴의 '정당' 옆에 숫자로 알려 줍니다.` : '정식 정당으로 등록하면 다른 정당과 교섭할 수 있습니다.'}</p></div>
     ${S.figs.length || S.outs.length ? `<div class="card dircard">${dirCard()}</div>` : ''}
   </div>`;
 }
