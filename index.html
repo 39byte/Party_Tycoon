@@ -4470,7 +4470,8 @@ const XEV = {
     if (p.fx) S.fx.push({ ...p.fx, t: p.t, until: S.day + p.fx.days });
     wire(`${presT()}, '${p.t}' 발표${fx ? ` (${fx})` : ''}`, 'pres');
     const res = s => later(rr(21, 35), { ev: 'polRes', t: p.t, pop, s, pr });
-    showEvent({ title: '대통령 정책 발표', body: () => `${presN()}이 <b>${esc(p.t)}</b> 방침을 발표했습니다.${fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
+    const pf = S.figs.find(f => f.name === S.president.name && f.party === pr); // 대선에 나왔던 명부 인물이면 능력치도
+    showEvent({ title: '대통령 정책 발표', html: () => evProf(pf || { name: S.president.name }, pc(pr), [`${pn(pr)} | 대통령${S.president.acting ? ' 권한대행' : ''}`, pf?.job && `출신 직업: ${pf.job}`, `국정 지지율 ${Math.round(S.president.appr)}%`]), body: () => `${presN()}이 <b>${esc(p.t)}</b> 방침을 발표했습니다.${fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
       ch: [{ t: '환영 논평을 낸다', s: `${pn(pr)} 관계↑`, run: () => { relAdd(pr, 5, `'${p.t}' 환영`); res(1); return '정부 정책에 힘을 실었습니다.'; } },
         { t: '비판 논평을 낸다', s: `${pn(pr)} 관계↓`, run: () => { relAdd(pr, -4, `'${p.t}' 비판`); S.fame += 0.5; res(-1); return '정책의 문제점을 조목조목 짚었습니다.'; } },
         { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${p.t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
@@ -4506,7 +4507,8 @@ const XEV = {
     const tc = rgovPick(k, [...new Set(RGOV_PROJ.map(x => x[1]))]), [t] = pick(RGOV_PROJ.filter(x => x[1] === tc)), ok = rnd() < 0.55 + (rgovArea(k, tc) - 50) / 250, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
     wr(`${w}, '${t}' 역점사업 발표`);
     if (!S.chapters[k]) return; // 입장을 낼 우리 시·도당이 없으면 소식만
-    showEvent({ title: `${n} 지사 역점사업 발표`, body: () => `${who}가 <b>${t}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
+    const gf = fig(g.fid);
+    showEvent({ title: `${n} 지사 역점사업 발표`, html: () => evProf(gf || { name: g.n }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(g.o)}`]), body: () => `${who}가 <b>${t}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
       ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ | 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
         { t: '견제한다', s: '예산 낭비·졸속 추진 지적 | 실패하면 반사이익', run: () => { relAdd(id, -4, `${n} '${t}' 견제`); S.fame += 0.5; res(-1); return '예산 낭비라며 재검토를 요구했습니다.'; } },
         { t: '지켜본다', run: () => { res(0); return '입장을 유보했습니다.'; } }] });
@@ -4648,6 +4650,8 @@ function randomEvent() {
   const e = pool.find(e => (x -= e.w) < 0);
   if (e) showEvent(e);
 }
+// 이벤트 창 안 발표자 프로필. 누르는 버튼은 두지 않음(인물 정보 창을 열면 이벤트 창이 닫혀 입장을 못 고름). 청렴은 '?'
+const evProf = (p, col, aff) => `<div class="pcard" style="margin-top:12px"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, true) : ''}</div>`;
 function showEvent(e) {
   if (e.pre) e.pre();
   if (e.id) S.seen[e.id] = true;
