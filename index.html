@@ -3846,6 +3846,14 @@ function nomAuto(key) {
     d.prN = pr.length; d.prIds = pr.map(p => p.id);
     // 돈이 모자라면 나중에 배치한(승산 낮은) 지역구 후보부터 뺌
     for (let i = dist.length - 1; i >= 0 && buildReg(c).out.cost > S.money; i--) { const x = d.reg[dist[i][0].k]; x.ids.splice(x.ids.indexOf(dist[i][1].id), 1); x.n--; }
+    // 비례 득표는 정당 지지율로만 정해지니, 비례에 그 지역구 후보보다 센 인재가 있으면 맞바꿈(비례 여성 수가 줄지 않을 때만). 바꿀 때마다 지역구 점수 합이 늘어 끝남
+    for (let moved = true; moved;) {
+      moved = false;
+      for (const r of R) d.reg[r.k].ids.forEach((id, i, ids) => {
+        const q = person(id), j = d.prIds.findIndex(pid => { const p = person(pid); return (!isF(p) || isF(q)) && scAt(p, r.k) > scAt(q, r.k); });
+        if (j >= 0) { [ids[i], d.prIds[j]] = [d.prIds[j], id]; moved = true; }
+      });
+    }
     nomFill(c); Snd.sfx('click'); renderPanel(); return nomAutoToast(c);
   }
   const order = c.type === 'pres' ? ss : [...ss].sort((a, b) => pubReg(b[2]) - pubReg(a[2]));
