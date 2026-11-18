@@ -2700,7 +2700,7 @@ function govRun(k, pj, auto) {
   else if ((c === 'care' || c === 'safe' ? luck : x => rnd() < x)(pr(p0))) { // 돌봄·안전은 대표 역량 운(luck)을 탐
     S.ops[k] += up * dm * L.styleMul(ap?.st); msg = say(P.ok) + (dm >= 1.1 ? ' 주민들이 기다리던 사업이라 반응이 뜨겁습니다.' : dm < 0 ? ' 그런데 비슷한 사업이 넘쳐 예산 낭비라는 비판이 쏟아졌습니다.' : dm <= 0.6 ? ' 이미 비슷한 사업이 많아 주민 반응은 미지근합니다.' : '');
     if (c === 'dev') S.members[k] += Math.round(rr(200, 600)); else if (c === 'care') S.trust += 0.5; else if (c === 'biz') S.fame += 1; else S.trust += 1;
-  } else { S.ops[k] -= dn * L.styleMul(ap?.st); ok = false; msg = say(P.no) + flopSay(ak, c); }
+  } else { S.ops[k] -= dn * L.flopMul(ak, ap?.st); ok = false; msg = say(P.no) + flopSay(ak, c); }
   // 맞는 현안을 풀면 효과 1.25배, 현안은 해결
   if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.25; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
     need.forEach(x => { resolveNews(x.nid); wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov'); }); }
@@ -2713,7 +2713,7 @@ function govRun(k, pj, auto) {
 // 그 지역 악재(rcur bad)가 걸린 사업은 피함. 지사 역량은 명부(fig)의 skill
 // 다른 당 지사의 분야 성공률(우리 자동화와 같은 셈법: 분야 역량, 자동 −20%p, 악재 −20%p, 전국 쟁점 +5%p)과 효용(L.admU), 효용으로 고르기
 const rgovPr = (k, c) => clamp(PJ_BASE[c][0] + (rgovArea(k, c) - 50) / 250 - 0.2 - (issuesOf(k).some(x => x.bad === c) ? 0.2 : 0) + (PJ_ISSUE[c] === S.issue ? 0.05 : 0), 0.05, 0.95);
-const rgovU = (k, c) => { const ap = rgovAp(k); return L.admU(rgovPr(k, c), PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.st, c); };
+const rgovU = (k, c) => { const ap = rgovAp(k); return L.admU(rgovPr(k, c), PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.apt?.[c], ap?.st, c); };
 const rgovPick = (k, cs) => cs[L.softPick(cs.map(c => rgovU(k, c)), rnd())];
 function rgovRun() {
   for (const k in S.rgov) {
@@ -2725,7 +2725,7 @@ function rgovRun() {
     let d, t, ok = false;
     if (rnd() < clamp(0.43 - sk / 400, 0.26, 0.43)) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
     else if ((ok = rnd() < rgovPr(k, pj))) [d, t] = [up * demMulK(k, pj) * L.styleMul(rgovAp(k)?.st), T[0]];
-    else [d, t] = [-dn * L.styleMul(rgovAp(k)?.st), T[1]];
+    else [d, t] = [-dn * L.flopMul(rgovAp(k)?.apt?.[pj], rgovAp(k)?.st), T[1]];
     g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (ok) facAdd(k, pick(GOV_PROJ.filter(p => p.c === pj)).k); else blunAdd(k, g.p, t);
     later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도(분야별)
   }
@@ -2767,7 +2767,7 @@ function autoGov() {
   // 남는 행정 행동력: 행정 지지도 낮은 지역부터, 효용으로 고른 분야(지역마다 분야당 한 턴에 한 건, 그 분야 첫 세부 사업)
   const catCd = (k, c) => GOV_PROJ.some(p => p.c === c && govCd(k, p.k));
   // 분야 효용(L.admU): 그 분야 첫 세부 사업의 성공률(자동 −20%p) | 수요·공급 | 지사 특기·성향
-  const govU = (k, c) => { const ap = govAp(k), pr = clamp(PJ_BASE[c][0] + pjAdj(k, GOV_PROJ.find(p => p.c === c).k) - 0.2, 0.05, 0.95); return L.admU(pr, PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.st, c); };
+  const govU = (k, c) => { const ap = govAp(k), pr = clamp(PJ_BASE[c][0] + pjAdj(k, GOV_PROJ.find(p => p.c === c).k) - 0.2, 0.05, 0.95); return L.admU(pr, PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.apt?.[c], ap?.st, c); };
   const autoCat = k => { const cs = L.PJ_CATS.filter(c => !catCd(k, c) && !bads[k].includes(c)); return cs.length ? cs[L.softPick(cs.map(c => govU(k, c)), rnd())] : null; };
   while (S.aap >= 1) {
     const c = govs.map(k => [k, autoCat(k)]).filter(c => c[1]).map(([k, c]) => [k, GOV_PROJ.find(p => p.c === c).k]).sort((a, b) => S.ops[a[0]] - S.ops[b[0]])[0];
@@ -5970,7 +5970,7 @@ function pGuide() {
       <li>지방 정부 탭에서는 시·도별 지역 소식(지역 현안, 동네 사건, 재난, 선거 결과)을 왼쪽에서 고른 지사의 지역별로 볼 수 있습니다. 행정 사업 결과·후속 보도·단체장 직무 평가는 소식 탭의 '지방 정부'에 모입니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
       <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 날짜 줄의 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>행정 사업은 돌봄·복지, 안전, 경제·일자리, 개발 네 분야 아래 세부 사업(공공 의료 확충, 재난 대비 강화, 상권·소상공인 지원, 교통망 확충 등)으로 나뉩니다. 성공률과 효과는 분야마다 다르고, 같은 지역의 같은 세부 사업은 한 턴에 한 번입니다.</li>
-      <li>단체장마다 출신(직업)에 따라 잘하는 분야와 서툰 분야가 다릅니다. 네 분야 실력의 평균이 그 사람의 역량이라, 역량이 같아도 고르게 하는 사람이 있고 한 분야만 뛰어난 사람이 있습니다. 이 실력은 프로필에 나오지 않으니 교섭 자리에서 듣는 인물평이나 본인과의 대화로 짐작해야 합니다. 다른 당 지사의 역점사업이 성공할지도 그 지사의 분야 실력에 달렸습니다. 분야 실력은 성공 확률만 바꾸고, 성공·실패 때 지지도가 오르내리는 폭은 바꾸지 않습니다. 사람마다 행정 성향도 달라서, 밀어붙이는 추진형은 성과도 실패도 크고 돌다리도 두들기는 신중형은 오르내림이 작습니다.</li>
+      <li>단체장마다 출신(직업)에 따라 잘하는 분야와 서툰 분야가 다릅니다. 네 분야 실력의 평균이 그 사람의 역량이라, 역량이 같아도 고르게 하는 사람이 있고 한 분야만 뛰어난 사람이 있습니다. 이 실력은 프로필에 나오지 않으니 교섭 자리에서 듣는 인물평이나 본인과의 대화로 짐작해야 합니다. 다른 당 지사의 역점사업이 성공할지도 그 지사의 분야 실력에 달렸습니다. 분야 실력은 성공 확률을 바꾸고 성공했을 때 오르는 폭은 바꾸지 않지만, 잘한다던 분야에서 실패하면 기대가 컸던 만큼 더 크게 비판받습니다(최대 2배). 사람마다 행정 성향도 달라서, 밀어붙이는 추진형은 성과도 실패도 크고 돌다리도 두들기는 신중형은 오르내림이 작습니다.</li>
       <li>제대로 짚은 현안에 맞는 세부 사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚거나 분야만 같고 세부 사업이 다르면 보탬이 없습니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
       <li>지정하지 않았더라도 진짜 문제를 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>

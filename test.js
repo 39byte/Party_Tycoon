@@ -141,14 +141,15 @@ if (pNear) {
   for (let n = 0; n < 12; n++) assert(m(n + 1) < m(n)); // 공백→포화로 갈수록 줄어듦
   const lo = L.demMul({ care: 9 }, { dev: 12 }, 'dev'); assert(lo < -0.6 && lo >= -1); // 최근 12건을 한 분야로 채우면 기본 상승분의 60% 넘게 깎임
   for (let n = 0; n <= 12; n++) { const d = { care: 1 }, u = { dev: n }; assert((L.demLvl(L.demGap(d, u, 'dev')) === 4) === (L.demMul(d, u, 'dev') < 0)); } } // 포화면 반드시 음수, 그 밖엔 음수가 아님
-// 성향: 추진형 1.25배·신중형 0.75배(특기는 성공률에만 들어가고 오르내림 폭엔 없음)
-{ assert.strictEqual(L.styleMul(1), 1.25); assert.strictEqual(L.styleMul(-1), 0.75); assert.strictEqual(L.styleMul(), 1); assert.strictEqual(L.flopMul, undefined); }
+// 성향·역효과: 추진형 1.25배·신중형 0.75배, 약점 분야 실패는 그대로, 특기 20 분야 실패는 2배
+{ assert.strictEqual(L.styleMul(1), 1.25); assert.strictEqual(L.styleMul(-1), 0.75); assert.strictEqual(L.styleMul(), 1);
+  assert.strictEqual(L.flopMul(-10, 0), 1); assert.strictEqual(L.flopMul(20, 0), 2); assert.strictEqual(L.flopMul(20, 1), 2.5); }
 // 분야 선택: 효용이 높은 분야를 더 자주 고르되 독점하지 않음, 추진형은 개발을 신중형보다 높게 침
-{ const us = [L.admU(0.7, 3, 1, 1, 0, 'care'), L.admU(0.5, 8, 1, 1.15, 0, 'biz')], n = [0, 0];
+{ const us = [L.admU(0.7, 3, 1, 1, 0, 0, 'care'), L.admU(0.5, 8, 1, 1.15, 10, 0, 'biz')], n = [0, 0];
   for (let i = 0; i < 1000; i++) n[L.softPick(us, (i + 0.5) / 1000)]++;
   assert(n[1] > n[0] && n[0] > 0);
   assert.strictEqual(L.softPick([1, 1, 1], 0), 0); assert.strictEqual(L.softPick([1, 1, 1], 0.999), 2);
-  assert(L.admU(0.6, 7, 3, 1, 1, 'dev') > L.admU(0.6, 7, 3, 1, -1, 'dev')); }
+  assert(L.admU(0.6, 7, 3, 1, 0, 1, 'dev') > L.admU(0.6, 7, 3, 1, 0, -1, 'dev')); }
 
 console.log('ok');
 
