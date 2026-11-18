@@ -142,31 +142,5 @@
     return sceneCache[key];
   }
 
-  // 지방 정부 도시 판: 7×4 필지, 가운데 시청. facs: 행정 사업 키 배열(오래된 순), 성공할 때마다 빈 필지에 시설이 들어섬
-  const wins = (x, y, w, h, cols, rows) => Array.from({ length: cols * rows }, (_, i) => `<rect x="${x + (i % cols) * w / cols + 1.5}" y="${y + Math.floor(i / cols) * h / rows + 1.5}" width="${w / cols - 3}" height="${h / rows - 3}" fill="var(--wl)" opacity=".75"/>`).join('');
-  const FAC = {
-    hall: c => `<rect x="6" y="18" width="48" height="32" fill="var(--wall)" stroke="var(--bld2)"/>${wins(9, 22, 42, 12, 6, 1)}<rect x="23" y="6" width="14" height="14" fill="var(--bld2)"/><circle cx="30" cy="13" r="4" fill="var(--wall)"/><path d="M30 6V-6" stroke="var(--door)" stroke-width="1.5"/><path d="M30 -6h12v7H30z" fill="${c}"/><rect x="26" y="38" width="8" height="12" fill="var(--door)"/>`,
-    med: () => `<rect x="8" y="12" width="44" height="38" fill="var(--wall)" stroke="var(--bld2)"/><path d="M27 17h6v6h6v6h-6v6h-6v-6h-6v-6h6z" fill="var(--danger)"/><rect x="25" y="40" width="10" height="10" fill="var(--door)"/>`,
-    child: () => `<path d="M6 27L30 9L54 27z" fill="var(--gold)"/><rect x="11" y="27" width="38" height="23" fill="var(--wall)" stroke="var(--bld2)"/><circle cx="21" cy="36" r="4" fill="var(--sky1)"/><rect x="33" y="36" width="9" height="14" fill="var(--door)"/>`,
-    elder: () => `<rect x="4" y="28" width="52" height="22" fill="var(--wall)" stroke="var(--bld2)"/><rect x="2" y="23" width="56" height="6" rx="2" fill="var(--ok)"/>${wins(7, 31, 46, 9, 5, 1)}`,
-    disaster: () => `<rect x="38" y="4" width="10" height="16" fill="var(--danger)"/><rect x="6" y="16" width="44" height="34" fill="var(--danger)"/><rect x="11" y="30" width="15" height="20" fill="var(--wall)"/><rect x="30" y="30" width="15" height="20" fill="var(--wall)"/><path d="M11 35h15M11 40h15M30 35h15M30 40h15" stroke="var(--bld2)"/>`,
-    facility: () => `<rect x="2" y="38" width="56" height="12" fill="var(--door)"/><path d="M9 40v8M18 40v8M27 40v8M36 40v8" stroke="var(--wall)" stroke-width="4"/><rect x="46" y="16" width="3" height="22" fill="var(--door)"/><rect x="42" y="2" width="11" height="18" rx="2" fill="var(--door)"/><circle cx="47.5" cy="7" r="2.2" fill="var(--danger)"/><circle cx="47.5" cy="14" r="2.2" fill="var(--ok)"/><path d="M6 28h14l-7-12z" fill="var(--gold)"/>`,
-    job: () => `<rect x="14" y="2" width="32" height="48" fill="var(--bld)"/>${wins(17, 5, 26, 36, 3, 6)}<rect x="26" y="42" width="8" height="8" fill="var(--door)"/>`,
-    market: () => `<rect x="6" y="26" width="48" height="24" fill="var(--wall)" stroke="var(--bld2)"/><path d="M3 17h54v9H3z" fill="var(--accent)"/><path d="M9 17v9M21 17v9M33 17v9M45 17v9" stroke="var(--wall)" stroke-width="5"/><rect x="12" y="32" width="36" height="8" fill="var(--gold)" opacity=".8"/>`,
-    invest: () => `<path d="M4 50V28l12-9v9l12-9v9l12-9v31z" fill="var(--bld2)"/><rect x="44" y="6" width="7" height="44" fill="var(--bld)"/><circle cx="50" cy="1" r="4" fill="var(--far)" opacity=".8"/><circle cx="56" cy="-4" r="3" fill="var(--far)" opacity=".6"/>${wins(7, 36, 34, 8, 4, 1)}`,
-    trans: () => `<path d="M6 20h48l-6-8H12z" fill="var(--bld)"/><rect x="10" y="20" width="40" height="20" fill="var(--wall)" stroke="var(--bld2)"/>${wins(13, 23, 34, 9, 4, 1)}<path d="M0 44h60M0 49h60" stroke="var(--bld)" stroke-width="2"/><path d="M4 42v9M14 42v9M24 42v9M34 42v9M44 42v9M54 42v9" stroke="var(--trunk)" stroke-width="2"/>`,
-    urban: () => `<rect x="5" y="10" width="22" height="40" fill="var(--bld2)"/>${wins(7, 13, 18, 34, 2, 6)}<rect x="32" y="0" width="23" height="50" fill="var(--bld)"/>${wins(34, 3, 19, 44, 2, 8)}`,
-    lot: (c, r) => r() < .5 ? `<rect x="4" y="42" width="52" height="8" rx="3" fill="var(--gnd2)" opacity=".45"/>` : `<g transform="translate(${16 + r() * 28} 50)"><rect x="-1.5" y="-10" width="3" height="10" fill="var(--trunk)"/><circle cy="-15" r="8" fill="var(--tree)"/></g>`,
-  };
-  function city(k, facs, c) {
-    const C = 7, RW = 4, W = 68, H = 62, mid = C + 3, r = rng(hash(k)); // 시청은 2행 가운데
-    const slots = Array.from({ length: C * RW }, (_, i) => i).filter(i => i !== mid).sort(() => r() - .5), at = {};
-    facs.slice(-slots.length).forEach((f, i) => at[slots[i]] = f);
-    const lots = Array.from({ length: C * RW }, (_, i) => { const x = (i % C) * W + 4, y = Math.floor(i / C) * H + 6, f = i === mid ? 'hall' : at[i] || 'lot';
-      return `<g transform="translate(${x} ${y})">${FAC[f](c, r)}</g>`; }).join('');
-    const roads = Array.from({ length: RW }, (_, i) => `<rect x="0" y="${i * H + 56}" width="${C * W}" height="6" fill="var(--door)" opacity=".28"/>`).join('');
-    return `<svg class="city" viewBox="0 -4 ${C * W} ${RW * H + 4}" role="img" aria-label="시설 ${facs.length}곳이 들어선 도시"><rect y="-4" width="${C * W}" height="${RW * H + 4}" rx="10" fill="var(--gnd)"/>${roads}${lots}</svg>`;
-  }
-
-  G.ART = { map, face, scene, city, MAP };
+  G.ART = { map, face, scene, MAP };
 })(typeof window !== 'undefined' ? window : globalThis);
