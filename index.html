@@ -2709,12 +2709,21 @@ function govRun(k, pj, auto) {
   if (ok) facAdd(k, pj); else blunAdd(k, 'P', msg);
   return { k, msg, ok };
 }
-// 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. 우리 자동화와 같은 셈법(성공률 −20%p, 행정 실책 43−역량/4 %)이라 역량 높으면 오르고 낮으면 깎임
+// 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. Jeff가 운영해 자동화 감점은 없고 성공률·실책은 RG_PR·RG_BLUN(역량 높으면 오르고 낮으면 깎임
 // 그 지역 악재(rcur bad)가 걸린 사업은 피함. 지사 역량은 명부(fig)의 skill
-// 다른 당 지사의 분야 성공률(우리 자동화와 같은 셈법: 분야 역량, 자동 −20%p, 악재 −20%p, 전국 쟁점 +5%p)과 효용(L.admU), 효용으로 고르기
-const rgovPr = (k, c) => clamp(PJ_BASE[c][0] + (rgovArea(k, c) - 50) / 250 - 0.2 - (issuesOf(k).some(x => x.bad === c) ? 0.2 : 0) + (PJ_ISSUE[c] === S.issue ? 0.05 : 0), 0.05, 0.95);
-const rgovU = (k, c) => { const ap = rgovAp(k); return L.admU(rgovPr(k, c), PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.apt?.[c], ap?.st, c); };
-const rgovPick = (k, cs) => cs[L.softPick(cs.map(c => rgovU(k, c)), rnd())];
+// 다른 당 지사의 분야 성공률(분야 역량, RG_PR 보정, 악재 −20%p, 전국 쟁점 +5%p)과 효용(Jeff 가중치, 없으면 L.admU), 효용으로 고르기
+// RG_PR | RG_BLUN: Jeff가 운영하는 다른 당 지사의 성공률 보정 | 행정 실책 확률 [기준, 역량 1당 감소, 하한, 상한]. 다른 당 지사 행정 지지도 평균이 50 안팎이 되게 맞춘 값
+const RG_PR = 0.05, RG_BLUN = [0.1, 1 / 400, 0, 0.1];
+const rgovPr = (k, c) => clamp(PJ_BASE[c][0] + (rgovArea(k, c) - 50) / 250 + RG_PR - (issuesOf(k).some(x => x.bad === c) ? 0.2 : 0) + (PJ_ISSUE[c] === S.issue ? 0.05 : 0), 0.05, 0.95);
+const rgovX = (k, c) => { const ap = rgovAp(k); return { c, p: rgovPr(k, c), up: PJ_BASE[c][1], dn: PJ_BASE[c][2], dm: demMulK(k, c), a: ap?.apt?.[c] || 0, st: ap?.st || 0 }; };
+const rgovU = (k, c) => { const x = rgovX(k, c); return L.admJ(x) ?? L.admU(x.p, x.up, x.dn, x.dm, x.a, x.st, c); }; // Jeff 가중치가 있으면 그걸로
+// ?dev: 분야 고르는 상황을 쌓아 tools/jeff/collect_adm.py가 가져감(Jeff 라벨용)
+const JADM = /[?&]dev\b/.test(location.search) ? [] : null;
+const rgovPick = (k, cs) => {
+  const c = cs[L.softPick(cs.map(c => rgovU(k, c)), rnd())];
+  if (JADM && cs.length > 1) JADM.push({ k, o: S.rgov[k].o, xs: cs.map(c => ({ ...rgovX(k, c), lv: dsLv(k, c), f: L.admFeat(rgovX(k, c)) })), pick: c });
+  return c;
+};
 function rgovRun() {
   for (const k in S.rgov) {
     if (rnd() >= 0.4) continue;
@@ -2723,7 +2732,7 @@ function rgovRun() {
     const [, up, dn] = PJ_BASE[pj], T = { dev: [`${w}, ${n} 개발사업 순조롭게 착공`, `${n} 개발사업 주민 반발로 지연… ${w} 곤혹`], care: [`${w}, 돌봄센터 확충에 주민 호응`, `${n} 돌봄센터 위탁업체 특혜 논란`],
       biz: [`${w}, ${n}에 대기업 공장 유치 성공`, `${n} 투자 유치 협상 결렬`], safe: [`${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`] }[pj];
     let d, t, ok = false;
-    if (rnd() < clamp(0.43 - sk / 400, 0.26, 0.43)) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
+    if (rnd() < clamp(RG_BLUN[0] - sk * RG_BLUN[1], RG_BLUN[2], RG_BLUN[3])) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
     else if ((ok = rnd() < rgovPr(k, pj))) [d, t] = [up * demMulK(k, pj) * L.styleMul(rgovAp(k)?.st), T[0]];
     else [d, t] = [-dn * L.flopMul(rgovAp(k)?.apt?.[pj], rgovAp(k)?.st), T[1]];
     g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (ok) facAdd(k, pick(GOV_PROJ.filter(p => p.c === pj)).k); else blunAdd(k, g.p, t);

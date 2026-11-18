@@ -151,6 +151,11 @@ if (pNear) {
   assert.strictEqual(L.softPick([1, 1, 1], 0), 0); assert.strictEqual(L.softPick([1, 1, 1], 0.999), 2);
   assert(L.admU(0.6, 7, 3, 1, 0, 1, 'dev') > L.admU(0.6, 7, 3, 1, 0, -1, 'dev')); }
 
+// Jeff 분야 고르기: 가중치가 없으면 null(→ admU), 있으면 특징 내적. 득(성공 기대치)에 + 가중치면 득이 큰 분야가 효용도 큼
+{ const x = { c: 'dev', p: 0.6, up: 2.7, dn: 3, dm: 1, a: 0, st: 0 };
+  assert.strictEqual(L.admJ(x, null), null);
+  assert.strictEqual(L.admFeat(x).length, 9);
+  const W = [0, 1, -1, 0, 0, 0, 0, 0, 0]; assert(L.admJ({ ...x, dm: 1.15 }, W) > L.admJ({ ...x, dm: 0.3 }, W)); }
 console.log('ok');
 
 // 법안 당론 지지층: 여론 맞음 → 적대·혐오가 줄고, 노선 맞음 → 충성·혐오가 늘고, 둘 다 0이면 그대로. 합은 1 유지

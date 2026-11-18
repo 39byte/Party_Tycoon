@@ -272,6 +272,11 @@
   // p 성공률, up/dn 성공·실패 폭, dm 수요·공급 배율, a 그 분야 특기, st 성향. Jeff 학습으로 바꿀 땐 이 함수만 갈아 끼움
   const admU = (p, up, dn, dm, a, st, c) => p * up * dm * styleMul(st) - (1 - p) * dn * flopMul(a, st) + 0.5 * (st || 0) * (c === 'dev' || c === 'biz' ? 1 : -1);
   // softmax(온도 T)로 하나 고름(효용이 높을수록 자주, 늘 같은 답은 아님). r: 0~1 난수
+  // 다른 당 지사의 분야 고르기: Jeff(jeff.routing.tools)가 고른 분야 확률을 조건부 로짓으로 배운 가중치(ADM_W, tools/jeff/fit_adm.py가 채움). 없으면 null → admU
+  // x: 그 분야 { c 분야, p 성공률, up/dn 성공·실패 폭, dm 수요·공급 배율, a 특기, st 성향 }. 효용 = ADM_W · admFeat(x), softPick(T = 1)이면 Jeff 확률을 그대로 따라 함
+  const admFeat = x => [x.p, x.p * x.up * x.dm * styleMul(x.st), (1 - x.p) * x.dn * flopMul(x.a, x.st), x.dm, (x.a || 0) / 20, (x.st || 0) * (x.c === 'dev' || x.c === 'biz' ? 1 : -1), x.c === 'care' ? 1 : 0, x.c === 'safe' ? 1 : 0, x.c === 'biz' ? 1 : 0];
+  const ADM_W = null;
+  const admJ = (x, W = ADM_W) => W ? admFeat(x).reduce((s, v, i) => s + v * W[i], 0) : null;
   function softPick(us, r, T = 1) {
     const m = Math.max(...us), e = us.map(u => Math.exp((u - m) / T)); let x = r * e.reduce((a, b) => a + b, 0);
     for (let i = 0; i < e.length; i++) if ((x -= e[i]) < 0) return i;
@@ -279,6 +284,6 @@
   }
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, softPick };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
