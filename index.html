@@ -1126,7 +1126,7 @@ function newState(f) {
   S.gov = simGov(null).win; rgovSync(S);
   figSync(S); // 현직 의원 300명·광역단체장 전원
   const pv = prePres(); poolTake(pv.win, pv.src[pv.win]); // 게임 전 대선 당선자가 현 대통령
-  S.president = { party: pv.win, name: pv.src[pv.win].name, since: -200 }; S.president.appr = S.president.a0 = apprStart(pv.win);
+  S.president = { party: pv.win, name: pv.src[pv.win].name, since: -200, job: pv.src[pv.win].job, ...aptKeep(pv.src[pv.win]) }; S.president.appr = S.president.a0 = apprStart(pv.win);
   rcabSync(S); // 그 당 내각
   S.mps = genMPs(S);
   for (let i = 0; i < 3; i++) S.pool.push(genPerson());
@@ -1628,10 +1628,11 @@ function resolveElection(c) {
     // 기록: 맨 앞 전국(k 'nat'), 이어서 시·도별 개표
     const row = b => { const valid = sum(Object.values(b.v)); return g.ids.map(id => [id, who(id).name, Math.round(b.v[id] / valid * 1000) / 1000, raceProf(who(id)), b.v[id]]).sort((x, y) => y[2] - x[2]); };
     races = [{ k: 'nat', n: '전국', e: LAW.voters, t: g.to, bad: g.bad, c: row({ v: g.votes }) }, ...R.map(r => ({ k: r.k, n: r.n, e: g.regs[r.k].e, t: g.regs[r.k].t, bad: g.regs[r.k].bad, c: row(g.regs[r.k]) }))];
+    const wp = who(g.win), wx = { job: wp?.job, ...aptKeep(wp) }; // 당선인의 출신·숨은 특기는 명부에서 빠지기 전에 받아 둠
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
     if (!S.president.acting) presEnd(false, g.win); // 파면된 대통령은 파면 때 이미 판단함
     const a0 = clamp(g.v[g.win] * 100, 5, 90); // 취임 직후 국정 지지율 = 대선 득표율
-    S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null, appr: a0, a0 };
+    S.president = { party: g.win, name: winName, since: S.day, pid: g.win === 'P' ? c.reg.cand.id : null, appr: a0, a0, ...wx };
     S.pool.forEach(p => { if (p.role === '대통령') p.role = '전직 대통령'; });
     if (g.win === 'P') { const p = c.reg.cand.id != null && person(c.reg.cand.id); if (p) { presSeatLost(p); p.role = '대통령'; p.wasPres = 1; } }
     else { const wf = fig(c.rivals[g.win]?.fid); if (wf && (wf.pos === 'd' || wf.pos === 'pr')) figPresSeat(wf); }
@@ -3351,8 +3352,11 @@ function aptLine(p, who, ok) {
   const [st, wk] = ok ? [cs[0], cs[3]] : [cs[3], pick(cs.slice(0, 3))];
   return who ? `${who} 말이에요, ${PJ_N[st]} 쪽엔 밝은데 ${PJ_N[wk]} 쪽은 영 서툴러요.` : `저야 원래 ${PJ_N[st]} 쪽이 전문이죠. ${PJ_N[wk]} 쪽은 솔직히 잘 몰라요.`;
 }
-// 교섭 자리의 인물평: 다른 당 지사 50% | 대화 상대 본인 30% | 교섭 명단의 다른 의원 20%. 친분만큼 맞음(tp)
+// 교섭 자리의 인물평: 다른 당 대통령 25%, 아니면 다른 당 지사 50% | 대화 상대 본인 30% | 교섭 명단의 다른 의원 20%. 친분만큼 맞음(tp)
+// presAb: 대통령 인물평의 대상 키(임기·이름별, 권한대행은 따로)
+const presAb = () => `pres:${S.president.since}:${S.president.name}`;
 function aptSay(m, tp) {
+  const P = S.president; if (P?.name && P.party !== 'P' && rnd() < 0.25) return aptOf(P) && ['인물평', aptLine(P, `${pn(P.party)} ${P.name} 대통령${P.acting ? ' 권한대행' : ''}`, rnd() < tp), null, 'apt', null, null, presAb()];
   const r = rnd(), me = m.fid != null ? fig(m.fid) : m, gs = Object.keys(S.rgov).filter(k => fig(S.rgov[k].fid) && fig(S.rgov[k].fid) !== me), ms = S.mps.filter(x => x !== m && fig(x.fid));
   const [p, who] = r < 0.5 && gs.length ? (k => [fig(S.rgov[k].fid), govWho(k)])(pick(gs)) : r < 0.8 || !ms.length ? [me, null] : (x => [fig(x.fid), `${x.party === 'O' ? '무소속' : pn(x.party)} ${x.name} 의원`])(pick(ms));
   return aptOf(p) && ['인물평', aptLine(p, who, rnd() < tp), null, 'apt', null, null, S.figs.includes(p) ? p.id : null]; // 끝: 누구 얘기인지(명부 id, 입장 고르는 창에 모아 봄)
@@ -4390,7 +4394,7 @@ function standEv(x) {
   const wait = { t: '나중에 정한다', s: `소식 탭에서 ${last}턴 끝까지 고를 수 있음 | 지나면 입장 없음`, run: () => `'${x.t}' 입장을 미뤘습니다. ${last}턴이 끝나기 전에 소식 탭에서 정하세요.` };
   if (x.kind === 'pol') {
     const { pr, t } = x, pf = S.figs.find(f => f.name === x.nm && f.party === pr); // 대선에 나왔던 명부 인물이면 능력치도
-    return { title: '대통령 정책 발표', side: () => '<h3>발표자</h3>' + evProf(pf || { name: x.nm }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, pf?.job && `출신 직업: ${pf.job}`, `국정 지지율 ${Math.round(x.ap)}%`]) + evTalk(pf?.id), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
+    return { title: '대통령 정책 발표', side: () => '<h3>발표자</h3>' + evProf(pf || { name: x.nm }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, (pf?.job || x.job) && `출신 직업: ${pf?.job || x.job}`, `국정 지지율 ${Math.round(x.ap)}%`]) + evTalk(x.ab ?? pf?.id), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
       ch: [{ t: '환영 논평을 낸다', s: `${pn(pr)} 관계↑`, run: () => { relAdd(pr, 5, `'${t}' 환영`); res(1); return '정부 정책에 힘을 실었습니다.'; } },
         { t: '비판 논평을 낸다', s: `${pn(pr)} 관계↓`, run: () => { relAdd(pr, -4, `'${t}' 비판`); S.fame += 0.5; res(-1); return '정책의 문제점을 조목조목 짚었습니다.'; } },
         { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
@@ -4469,7 +4473,7 @@ const XEV = {
     let day = S.day + 53; while (L.dayToDate(day).getUTCDay() !== 3) day++; // 60일 안의 수요일
     S.presEarly.push(day); rebuildSched(S);
     for (const k in S.camps) if (!SCHED.some(e => e.key === k)) delete S.camps[k]; // 밀려난 정기 대선 공천은 취소
-    S.president = { ...S.president, name: genName(rnd() < 0.3 ? 'F' : 'M'), acting: true };
+    S.president = { ...S.president, name: genName(rnd() < 0.3 ? 'F' : 'M'), acting: true, job: '전직 고위공무원', apt: null, st: null }; // 권한대행(총리)은 특기를 새로
     info('헌법재판소: 탄핵 인용', `헌법재판소가 재판관 전원 일치로 ${fallen} 파면을 결정했습니다. ${presT()}이 국정을 맡고, ${fdate(day)}에 조기 대선이 치러집니다. 공천 기간이 짧으니 서둘러 후보를 정하세요.`, false);
   },
   audit: () => {
@@ -4509,7 +4513,7 @@ const XEV = {
     if (p.on) p.on();
     if (p.fx) S.fx.push({ ...p.fx, t: p.t, until: S.day + p.fx.days });
     wire(`${presT()}, '${p.t}' 발표${fx ? ` (${fx})` : ''}`, 'pres');
-    standAdd({ kind: 'pol', t: p.t, pop, pr, fx, nm: S.president.name, act: S.president.acting, ap: S.president.appr, at: S.day + rr(21, 35) });
+    standAdd({ kind: 'pol', t: p.t, pop, pr, fx, nm: S.president.name, act: S.president.acting, ap: S.president.appr, job: S.president.job, ab: presAb(), at: S.day + rr(21, 35) });
   },
   polRes: q => {
     const v = Math.round(q.pop * 100), d = q.s * (q.pop - 0.5) * 8;
@@ -5947,7 +5951,7 @@ function pGuide() {
       <li>한 번이라도 교섭한 사람은 낙선·임기 만료·제명·탈당 등 어떤 일이 있어도 친분과 대화 내역이 지워지지 않습니다. 직을 잃으면 원외 인사('전 국회의원' 등)로 교섭 명단에 남고, 우리 당에서 제명한 의원은 무소속 의원으로 남습니다.</li>
       <li>개인 친분은 자주 만나지 않으면 시간이 지나며 옅어지고, 그 사람이 속한 당과 우리 당의 관계를 따라갑니다. 당끼리 사이가 좋으면 그 당 사람들과도 가까워지고, 나쁘면 쌓아 둔 친분도 식습니다.</li>
       <li>인물 인지도는 대통령·광역단체장·국회의원·당 대표·선거 후보처럼 정계에서 활동하는 동안 매달 오릅니다(낮을수록 빨리). 대정부 질문·TV 토론에 나선 본인도 이름이 알려집니다. 반년 넘게 활동이 없으면 조금씩 잊힙니다.</li>
-      <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다. 관가·정치인·기자 출신은 다른 당 지사나 의원, 또는 자기 자신에 대한 인물평(잘하는 분야와 서툰 분야, 행정 성향)도 자주 들려줍니다. 친분이 얕으면 엇나간 평일 수 있습니다. 우리 당 인재와는 인재 정보 창에서 직접 대화해(행동력 1, 같은 사람은 4턴에 한 번) 본인 얘기를 들을 수 있는데, 청렴이 낮은 사람일수록 서툰 분야를 잘한다고 자랑합니다.</li>
+      <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다. 관가·정치인·기자 출신은 다른 당 지사나 의원, 또는 자기 자신에 대한 인물평(다른 당 대통령 | 지사 | 의원의 잘하는 분야와 서툰 분야, 행정 성향)도 자주 들려줍니다. 들은 인물평은 대통령 정책 발표 | 지사 역점사업 발표에 입장을 고르는 창에 모여 나옵니다. 친분이 얕으면 엇나간 평일 수 있습니다. 우리 당 인재와는 인재 정보 창에서 직접 대화해(행동력 1, 같은 사람은 4턴에 한 번) 본인 얘기를 들을 수 있는데, 청렴이 낮은 사람일수록 서툰 분야를 잘한다고 자랑합니다.</li>
       <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당은 정당 목록 맨 왼쪽, 의원·원외 인사는 각 목록 맨 위로 올라옵니다.</li>
       <li>원외 인사(전직 의원·장관·단체장, 당협위원장, 시민사회·노동계 인사, 정치 유튜버 등)에게는 지지 선언을 요청하거나 영입을 제안할 수 있습니다. 이름값이 클수록 효과도 크지만 설득하기 어렵습니다. 총선에서 물러난 의원 일부는 원외 인사로 남습니다.</li>
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
