@@ -561,7 +561,8 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .admlist{list-style:none;margin:0;padding:0;display:grid;gap:8px;align-content:start}
 .admside .chips{align-items:center}.admside>.chips{flex-wrap:nowrap;margin:-14px -16px 12px;padding:0 16px;min-height:44px;border-bottom:1px solid var(--border);border-radius:13px 13px 0 0;background:linear-gradient(90deg,rgba(47,85,200,.07),transparent 70%)}.admauto{margin-left:auto;font-size:11.5px;gap:4px;min-height:28px;white-space:nowrap}.admauto input{width:30px;height:18px}.admauto input::after{top:3px;left:3px;width:12px;height:12px}.admauto input:checked::after{transform:translateX(12px)}
 .rnlog li{flex-direction:column;gap:4px}.rnh{display:flex;align-items:center;gap:8px}
-.admlist li{position:relative}.admlist .admk{position:absolute;top:10px;right:10px}.admlist .who{padding-right:64px}
+.admlist li{position:relative}.admlist .admk{position:absolute;top:10px;right:10px}.admlist .who{padding-right:64px;align-items:flex-start}.facesp{width:40px;height:40px;flex:none}
+.admface{position:absolute;top:11px;left:11px;z-index:1;display:block;line-height:0}
 .dsh{display:flex;align-items:center;gap:8px;margin-top:18px}.dsh .btn{margin-left:auto}
 .admtile{display:grid;gap:6px;width:100%;text-align:left;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);cursor:pointer}
 .admtile:hover{border-color:var(--primary2)}.admtile.new{border:2px solid var(--danger);padding:9px}
@@ -5704,9 +5705,10 @@ function pAdmin() {
   // 왼쪽: 지사 목록(우리 당 | 다른 당 분류), 누르면 가운데에 그 지역
   const dot = x => rUnread(x) ? ' <i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : '';
   const tile = (x, inner, extra = '') => `<li><button class="admtile${x === sel ? ' on' : ''}${x !== sel && rUnread(x) ? ' new' : ''}" data-admsel="${x}" aria-pressed="${x === sel}">${inner}</button>${extra}</li>`;
-  const pTile = x => tile(x, `<span class="who">${face(govPerson(x) || { name: RK[x].n }, S.party.color, 40)}<span class="gt"><span class="small muted">${GOVT[x]}${desOf(x).length ? ` | 현안 ${desOf(x).length}` : ''}</span><b>${esc(govName(x))}${dot(x)}</b><span class="small muted">역량 ${govPerson(x)?.skill ?? 50}</span></span></span>${meter(S.ops[x])}`,
-    `<label class="sw admauto admk">자동<input type="checkbox" role="switch" data-autok="${x}" aria-label="${esc(govName(x))} 행정 자동화" ${autoOn(x) ? 'checked' : ''}></label>`);
-  const oTile = x => { const g = S.rgov[x]; return tile(x, `<span class="who">${face(fig(g.fid) || { name: g.n }, pc(g.p), 40)}<span class="gt"><span class="small muted">${GOVT[x]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}${dot(x)}</b></span></span>${meter(g.o, pc(g.p))}`); };
+  const fb = (key, p, c, n) => p ? `<button class="facebtn admface" data-pinfo="${key}" aria-label="${esc(n)} 정보 보기" title="인물 정보">${face(p, c, 40)}</button>` : `<span class="admface">${face({ name: n }, c, 40)}</span>`;
+  const pTile = x => tile(x, `<span class="who"><span class="facesp"></span><span class="gt"><span class="small muted">${GOVT[x]}${desOf(x).length ? ` | 현안 ${desOf(x).length}` : ''}</span><b>${esc(govName(x))}${dot(x)}</b></span></span>${meter(S.ops[x])}`,
+    fb(`g${x}`, govPerson(x), S.party.color, govName(x)) + `<label class="sw admauto admk">자동<input type="checkbox" role="switch" data-autok="${x}" aria-label="${esc(govName(x))} 행정 자동화" ${autoOn(x) ? 'checked' : ''}></label>`);
+  const oTile = x => { const g = S.rgov[x]; return tile(x, `<span class="who"><span class="facesp"></span><span class="gt"><span class="small muted">${GOVT[x]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}${dot(x)}</b></span></span>${meter(g.o, pc(g.p))}`, fb(`f${g.fid}`, fig(g.fid), pc(g.p), g.n)); };
   const side = `<div class="card admside"><div class="filters chips" role="group" aria-label="광역단체장 분류">${[['P', '우리 당', govs.length], ['O', '다른 당', ks.length]].map(([x, n, c]) => `<button class="btn${admSide === x ? ' pri' : ''}" data-admside="${x}" aria-pressed="${admSide === x}" ${c ? '' : 'disabled'}>${n} ${c}</button>`).join('')}${govs.length ? `<label class="sw small admauto">전체 자동화<input type="checkbox" role="switch" data-autogov ${govs.every(autoOn) ? 'checked' : ''}></label>` : ''}</div>
     ${(admSide === 'P' ? govs : ks).length ? `<ul class="admlist follow">${admSide === 'P' ? govs.map(pTile).join('') : ks.map(oTile).join('')}</ul>` : '<p class="small muted">광역단체장이 없습니다.</p>'}<button class="admnew" data-admnew hidden aria-label="새 소식이 나온 지역으로 스크롤" title="새 소식이 나온 지역 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button></div>`;
   // 가운데: 고른 지역의 집무실(단체장·행정 지지도·행동) + 우리 당 지역 정보 + 사업별 수요·공급 + 그 지역 현안
