@@ -29,6 +29,7 @@
   --ring:#7AA2FF; --loyal:#7DB4FF; --friend:#3D6FD6; --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 20px -10px rgba(0,0,0,.6);
 }}
 *{box-sizing:border-box}
+html{color-scheme:light dark}
 html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
 /* 여러 문장 글: 문장 단위로 줄을 바꾸고, 한 줄에 안 들어가는 문장만 띄어쓰기에서 바꿈 (sentWrap) */
@@ -559,7 +560,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .admgrid>.card{margin-top:0}
 .admlist{list-style:none;margin:0;padding:0;display:grid;gap:8px;align-content:start}
 .admside .chips{align-items:center}.admauto{margin-left:auto;font-size:11.5px;gap:4px;min-height:28px;white-space:nowrap}.admauto input{width:30px;height:18px}.admauto input::after{top:3px;left:3px;width:12px;height:12px}.admauto input:checked::after{transform:translateX(12px)}
-.rnlog li{flex-direction:column;gap:4px}.rnh{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.rnlog li{flex-direction:column;gap:4px}.rnh{display:flex;align-items:center;gap:8px}
 .admlist li{position:relative}.admlist .admk{position:absolute;top:10px;right:10px}.admlist .who{padding-right:64px}
 .dsh{display:flex;align-items:center;gap:8px;margin-top:18px}.dsh .btn{margin-left:auto}
 .admtile{display:grid;gap:6px;width:100%;text-align:left;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);cursor:pointer}
@@ -5624,7 +5625,7 @@ function pAdmin() {
   // 가운데: 고른 지역의 집무실(단체장·행정 지지도·행동) + 우리 당 지역 정보 + 사업별 수요·공급 + 그 지역 현안
   const mineK = sel in S.ops, g = S.rgov[sel], col = mineK ? S.party.color : g ? pc(g.p) : 'var(--other)';
   const w = mineK && why('govern', sel);
-  const info = `<p class="small admfac">우리 당 지역 지지율 <b class="num">${pubReg(sel).toFixed(1)}%</b> | 당원 <b class="num">${S.members[sel].toLocaleString()}</b>명 | 시·도당 ${S.chapters[sel] ? '등록됨' : '미창당'}${S.gact?.[sel] ? ' | <b class="warn">권한대행 체제</b>' : ''}</p>`;
+  const info = `<p class="small admfac">우리 당 지역 지지율 <b class="num">${pubReg(sel).toFixed(1)}%</b> | 당원 <b class="num">${S.members[sel].toLocaleString()}</b>명${S.gact?.[sel] ? ' | <b class="warn">권한대행 체제</b>' : ''}</p>`;
   // 분야(대분류)별 수요: 최근 5주 지역 소식(해결 안 된 것)에서 짐작되는 주민 요구 | 공급: 이 지역에서 성공한 사업 수
   const dem = {}, sup = {}; S.rnews.filter(x => x.k === sel && !x.done && S.day - x.d < 35).forEach(x => { const c = PJC[issueHint(x)?.pj]; if (c) dem[c] = (dem[c] || 0) + 1; }); (S.fac?.[sel] || []).forEach(f => sup[PJC[f]] = (sup[PJC[f]] || 0) + 1);
   const dT = sum(Object.values(dem)), sT = sum(Object.values(sup)), dp = x => dT ? Math.round((dem[x] || 0) / dT * 100) : 0, sp = x => sT ? Math.round((sup[x] || 0) / sT * 100) : 0;
