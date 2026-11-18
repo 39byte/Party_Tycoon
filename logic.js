@@ -261,16 +261,14 @@
   const demGap = (dem, sup, c) => share(sup, c, 2) - share(dem, c);
   const DS_LV = ['공백', '부족', '보통', '과잉', '포화'];
   const demLvl = g => g < -0.3 ? 0 : g < -0.1 ? 1 : g <= 0.1 ? 2 : g <= 0.25 ? 3 : 4;
-  // 성공 효과 배율 = 언덕 모양 무리함수 2개: 위쪽 0.5 + k√(0.25 − g), 아래쪽 0.5 − 1.8√(g − 0.25)가 과잉·포화 경계(0.25)에서 만나 거기서 가장 가파름.
-  // 부족 한가운데(g = −0.2)가 1(기본 상승분), 공백 끝 ≈ 1.33, 경계에서 반감(0.5), 포화로 들어가면 음수(지지도가 깎임), 바닥 −1
-  const demMul = (dem, sup, c) => { const g = demGap(dem, sup, c); return g <= 0.25 ? 0.5 + 0.5 / Math.sqrt(0.45) * Math.sqrt(0.25 - g) : Math.max(-1, 0.5 - 1.8 * Math.sqrt(g - 0.25)); };
+  // 성공 효과 배율 = 언덕 모양 무리함수 2개: 위쪽 √((0.25 − g) / 0.45), 아래쪽 −1.8√(g − 0.25)가 과잉·포화 경계(0.25)에서 0으로 만나 거기서 가장 가파름.
+  // 부족 한가운데(g = −0.2)가 1(기본 상승분), 공백은 최대 1.15, 보통 ≈ 0.9~0.58, 과잉 ≈ 0.58~0, 포화는 언제나 음수(지지도가 깎임), 바닥 −1
+  const demMul = (dem, sup, c) => { const g = demGap(dem, sup, c); return g <= 0.25 ? Math.min(1.15, Math.sqrt((0.25 - g) / 0.45)) : Math.max(-1, -1.8 * Math.sqrt(g - 0.25)); };
   // 행정 성향 배율: 추진형(st > 0)은 성공 효과·실패 감점이 모두 크고 신중형은 작음(±25%)
   const styleMul = st => 1 + 0.25 * (st || 0);
-  // 기대치 역효과: 잘한다던 분야(apt > 0)에서 실패하면 감점이 커짐(apt 20이면 2배), 성향 배율도 곱함
-  const flopMul = (a, st) => (1 + Math.max(0, a || 0) / 20) * styleMul(st);
   // 행정 사업 분야 효용(다른 당 지사·우리 자동화 지사가 분야를 고를 때): 기대 행정 지지도 변화 + 성향 선호(추진형은 개발·경제, 신중형은 돌봄·안전 쪽으로 최대 0.5)
-  // p 성공률, up/dn 성공·실패 폭, dm 주민 관심 배율, a 그 분야 특기, st 성향. Jeff 학습으로 바꿀 땐 이 함수만 갈아 끼움
-  const admU = (p, up, dn, dm, a, st, c) => p * up * dm * styleMul(st) - (1 - p) * dn * flopMul(a, st) + 0.5 * (st || 0) * (c === 'dev' || c === 'biz' ? 1 : -1);
+  // p 성공률(특기는 여기에만 들어감), up/dn 성공·실패 폭, dm 수요·공급 배율, st 성향. Jeff 학습으로 바꿀 땐 이 함수만 갈아 끼움
+  const admU = (p, up, dn, dm, st, c) => (p * up * dm - (1 - p) * dn) * styleMul(st) + 0.5 * (st || 0) * (c === 'dev' || c === 'biz' ? 1 : -1);
   // softmax(온도 T)로 하나 고름(효용이 높을수록 자주, 늘 같은 답은 아님). r: 0~1 난수
   function softPick(us, r, T = 1) {
     const m = Math.max(...us), e = us.map(u => Math.exp((u - m) / T)); let x = r * e.reduce((a, b) => a + b, 0);
@@ -279,6 +277,6 @@
   }
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, softPick };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, admU, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
