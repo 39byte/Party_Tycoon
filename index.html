@@ -557,7 +557,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* 지방 정부: 도정 상황실 HUD / 좌 지사 목록 | 가운데 집무실·도시 판 | 우 지역 소식 */
 .admgrid{display:grid;gap:14px;grid-template-columns:290px minmax(0,1fr) minmax(0,340px);align-items:start}
 .admgrid>.card{margin-top:0}
-.admlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.admlist{list-style:none;margin:0;padding:0;display:grid;gap:8px;align-content:start}
 .admside .chips{align-items:center}.admauto{margin-left:auto;font-size:11.5px;gap:4px;min-height:28px;white-space:nowrap}.admauto input{width:30px;height:18px}.admauto input::after{top:3px;left:3px;width:12px;height:12px}.admauto input:checked::after{transform:translateX(12px)}
 .rnlog li{flex-direction:column;gap:4px}.rnh{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .admlist li{position:relative}.admlist .admk{position:absolute;top:10px;right:10px}.admlist .who{padding-right:64px}
@@ -565,15 +565,14 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .admtile{display:grid;gap:6px;width:100%;text-align:left;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);cursor:pointer}
 .admtile:hover{border-color:var(--primary2)}.admtile.on{border-color:var(--primary2);box-shadow:inset 4px 0 0 var(--primary2);background:var(--surface)}
 .admtile .dot{display:inline-block;vertical-align:middle}
-.admstrip{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:4px;padding:10px 12px;border-radius:10px;background:var(--surface2);border-left:5px solid var(--pc)}
-.admm{flex:1;min-width:160px}.admbtn{display:inline-flex;align-items:center;gap:10px}
-.admfac{margin:10px 0 0}
+.admfac{margin:4px 0 0}.isswrap{min-height:186px}
 .pjds{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 16px;margin-top:8px}
 .pjds>div{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:7px;background:var(--surface2);font-size:13px}
 .pjds>div>span:last-child{white-space:nowrap}.pjds>.need{box-shadow:inset 3px 0 0 var(--warn)}.pjds>.need b{color:var(--warn)}
-.admnews{max-height:calc(100dvh - var(--top-h,58px) - 24px);overflow:auto;overscroll-behavior:contain;position:sticky;top:calc(var(--top-h,58px) + 12px)}
-@media (max-width:1180px){.admgrid{grid-template-columns:290px minmax(0,1fr)}.admnews{grid-column:1/-1;position:static;max-height:none}}
-@media (max-width:720px){.admgrid{grid-template-columns:minmax(0,1fr)}.admlist{display:flex;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}.admlist li{flex:0 0 min(230px,78%);scroll-snap-align:start}}
+.admgrid{align-items:stretch}.admnews,.admside{height:0;min-height:100%;overflow:auto;overscroll-behavior:contain}
+.admside{display:flex;flex-direction:column;overflow:hidden}.admside .admlist{flex:1;min-height:0;overflow:auto;padding:2px}
+@media (max-width:1180px){.admgrid{grid-template-columns:290px minmax(0,1fr)}.admnews{grid-column:1/-1;height:auto;max-height:70vh}}
+@media (max-width:720px){.admgrid{grid-template-columns:minmax(0,1fr)}.admside{height:auto;overflow:visible}.admside .admlist{overflow-x:auto}.admlist{display:flex;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}.admlist li{flex:0 0 min(230px,78%);scroll-snap-align:start}}
 .gmap .kmap{display:block;margin:0 auto;width:100%;max-width:420px;max-height:min(620px,75vh)}
 .seatd>summary{cursor:pointer;list-style:none}.seatd>summary::-webkit-details-marker{display:none}.seatd>summary h2{margin:0;display:flex;align-items:center;gap:8px}.seatd>summary h2::before{content:"";width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 2px rgba(242,179,61,.25)}.seatd>summary h2::after{content:'펼치기 ▾';margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}.seatd[open]>summary h2::after{content:'접기 ▴'}.seatd[open]>summary{margin-bottom:10px}
 .rrace{margin-bottom:12px}.rrace h3{font-size:14px;margin:0 0 6px}.rcands{display:grid;align-items:start;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:6px}
@@ -5617,25 +5616,24 @@ function pAdmin() {
   // 왼쪽: 지사 목록(우리 당 | 다른 당 분류), 누르면 가운데에 그 지역
   const dot = x => rUnread(x) ? ' <i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : '';
   const tile = (x, inner, extra = '') => `<li><button class="admtile${x === sel ? ' on' : ''}" data-admsel="${x}" aria-pressed="${x === sel}">${inner}</button>${extra}</li>`;
-  const pTile = x => tile(x, `<span class="who">${face(govPerson(x) || { name: RK[x].n }, S.party.color, 40)}<span class="gt"><span class="small muted">${GOVT[x]}${desOf(x).length ? ` | 현안 ${desOf(x).length}` : ''}</span><b>${esc(govName(x))}</b> <span class="small muted">역량 ${govPerson(x)?.skill ?? 50}</span>${dot(x)}</span></span>${meter(S.ops[x])}`,
+  const pTile = x => tile(x, `<span class="who">${face(govPerson(x) || { name: RK[x].n }, S.party.color, 40)}<span class="gt"><span class="small muted">${GOVT[x]}${desOf(x).length ? ` | 현안 ${desOf(x).length}` : ''}</span><b>${esc(govName(x))}${dot(x)}</b><span class="small muted">역량 ${govPerson(x)?.skill ?? 50}</span></span></span>${meter(S.ops[x])}`,
     `<label class="sw admauto admk">자동<input type="checkbox" role="switch" data-autok="${x}" aria-label="${esc(govName(x))} 행정 자동화" ${autoOn(x) ? 'checked' : ''}></label>`);
-  const oTile = x => { const g = S.rgov[x]; return tile(x, `<span class="who">${face(fig(g.fid) || { name: g.n }, pc(g.p), 40)}<span class="gt"><span class="small muted">${GOVT[x]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}</b>${dot(x)}</span></span>${meter(g.o, pc(g.p))}`); };
+  const oTile = x => { const g = S.rgov[x]; return tile(x, `<span class="who">${face(fig(g.fid) || { name: g.n }, pc(g.p), 40)}<span class="gt"><span class="small muted">${GOVT[x]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}${dot(x)}</b></span></span>${meter(g.o, pc(g.p))}`); };
   const side = `<div class="card admside"><div class="filters chips" role="group" aria-label="광역단체장 분류">${[['P', '우리 당', govs.length], ['O', '다른 당', ks.length]].map(([x, n, c]) => `<button class="btn${admSide === x ? ' pri' : ''}" data-admside="${x}" aria-pressed="${admSide === x}" ${c ? '' : 'disabled'}>${n} ${c}</button>`).join('')}${govs.length ? `<label class="sw small admauto">전체 자동화<input type="checkbox" role="switch" data-autogov ${govs.every(autoOn) ? 'checked' : ''}></label>` : ''}</div>
-    ${(admSide === 'P' ? govs : ks).length ? `<ul class="admlist">${admSide === 'P' ? govs.map(pTile).join('') : ks.map(oTile).join('')}</ul>` : '<p class="small muted">광역단체장이 없습니다.</p>'}</div>`;
+    ${(admSide === 'P' ? govs : ks).length ? `<ul class="admlist follow">${admSide === 'P' ? govs.map(pTile).join('') : ks.map(oTile).join('')}</ul>` : '<p class="small muted">광역단체장이 없습니다.</p>'}</div>`;
   // 가운데: 고른 지역의 집무실(단체장·행정 지지도·행동) + 우리 당 지역 정보 + 사업별 수요·공급 + 그 지역 현안
   const mineK = sel in S.ops, g = S.rgov[sel], col = mineK ? S.party.color : g ? pc(g.p) : 'var(--other)';
   const w = mineK && why('govern', sel);
-  const strip = `<div class="admstrip" style="--pc:${col}"><div class="admm">${mineK ? meter(S.ops[sel]) : g ? meter(g.o, col) : '<span class="small muted">단체장 공석</span>'}</div></div>`;
   const info = `<p class="small admfac">우리 당 지역 지지율 <b class="num">${pubReg(sel).toFixed(1)}%</b> | 당원 <b class="num">${S.members[sel].toLocaleString()}</b>명 | 시·도당 ${S.chapters[sel] ? '등록됨' : '미창당'}${S.gact?.[sel] ? ' | <b class="warn">권한대행 체제</b>' : ''}</p>`;
-  // 수요: 최근 5주 지역 소식(해결 안 된 것)에서 짐작되는 사업별 주민 요구 | 공급: 이 지역에서 성공한 사업 수
-  const dem = {}, sup = {}; S.rnews.filter(x => x.k === sel && !x.done && S.day - x.d < 35).forEach(x => { const pj = issueHint(x)?.pj; if (pj) dem[pj] = (dem[pj] || 0) + 1; }); (S.fac?.[sel] || []).forEach(f => sup[f] = (sup[f] || 0) + 1);
+  // 분야(대분류)별 수요: 최근 5주 지역 소식(해결 안 된 것)에서 짐작되는 주민 요구 | 공급: 이 지역에서 성공한 사업 수
+  const dem = {}, sup = {}; S.rnews.filter(x => x.k === sel && !x.done && S.day - x.d < 35).forEach(x => { const c = PJC[issueHint(x)?.pj]; if (c) dem[c] = (dem[c] || 0) + 1; }); (S.fac?.[sel] || []).forEach(f => sup[PJC[f]] = (sup[PJC[f]] || 0) + 1);
   const dT = sum(Object.values(dem)), sT = sum(Object.values(sup)), dp = x => dT ? Math.round((dem[x] || 0) / dT * 100) : 0, sp = x => sT ? Math.round((sup[x] || 0) / sT * 100) : 0;
-  const ds = `<h3 class="dsh">사업별 수요·공급${mineK ? `<button class="btn pri sm nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}</h3>${w ? `<p class="small warn" style="margin:4px 0 0">${esc(w)}</p>` : ''}<div class="pjds">${GOV_PROJ.map(p => `<div class="${dp(p.k) > sp(p.k) ? 'need' : ''}"><span>${p.n}</span><span class="num">수요 <b>${dp(p.k)}%</b> | 공급 <b>${sp(p.k)}%</b></span></div>`).join('')}</div>`;
+  const ds = `<h3 class="dsh">사업별 수요·공급${mineK ? `<button class="btn pri sm nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}</h3>${w ? `<p class="small warn" style="margin:4px 0 0">${esc(w)}</p>` : ''}<div class="pjds">${Object.keys(PJ_D).map(c => `<div class="${dp(c) > sp(c) ? 'need' : ''}"><span>${PJ_N[c]}</span><span class="num">수요 <b>${dp(c)}%</b> | 공급 <b>${sp(c)}%</b></span></div>`).join('')}</div>`;
   const iss = desOf(sel).sort((a, b) => b.d - a.d);
   const issBtns = x => `${mineK ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
-  const center = `<div class="card admcity"><h2>${RK[sel].n} <span class="small muted">${GOVT[sel]}</span></h2>${strip}${info}
-    <h3 style="margin-top:16px">지역 현안 <span class="pill">${iss.length}건</span></h3>
-    ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1">${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 | ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="small muted">지정한 현안이 없습니다. 지역 소식에서 '현안 지정'을 눌러 담으세요(지역당 ${desMax}건).</p>`}${ds}</div>`;
+  const center = `<div class="card admcity"><h2>${RK[sel].n} <span class="small muted">${GOVT[sel]}</span></h2>${info}${ds}
+    <h3 style="margin-top:18px">지역 현안 <span class="pill">${iss.length}/${desMax}건</span></h3>
+    <div class="isswrap">${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1">${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 | ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="small muted">지정한 현안이 없습니다. 지역 소식에서 '현안 지정'을 눌러 담으세요(지역당 ${desMax}건).</p>`}</div></div>`;
   if (rOpen?.k !== sel) rOpen = { k: sel, seen: S.rseen[sel] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
   S.rseen[sel] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => x.k === sel).slice(-20).reverse();
@@ -5864,9 +5862,9 @@ function pGuide() {
     ${sec('의회·행정 활동', `<ul><li>국회 의석이 생기면 국회 탭에서 법안을 발의하고 대정부 질문을 할 수 있습니다. 법안은 상임위와 본회의(재적 과반 찬성)를 거치고, 대통령 쪽 당이 반대하면 거부권에 막힐 수 있습니다.</li>
       <li>선거와 선거 사이(앞 선거에서 5분의 3쯤 지난 때) 4주간 열리는 국정감사에선 시·도 행정 실책을 두고 여야가 맞붙고, 다른 당끼리도 서로 추궁합니다(소식 탭에서 결과 확인). 추궁받은 쪽은 사과(신뢰도 소폭↓)하거나 반박합니다. 반박은 질의자 역량과 단체장의 역량·청렴(65:35)으로 겨뤄, 실패하면 신뢰도가 크게 떨어지고 방어 쪽이 훨씬 뛰어나면 드물게 질의한 쪽이 역공을 당합니다. 12월 예산안 심사에선 어떤 태도를 취할지 고릅니다. 정부 견제와 탄핵소추, 인사청문회 같은 일도 생깁니다.</li>
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
-      <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 왼쪽 지사 목록('우리 당 | 다른 당'으로 분류)에서 지사를 고르면 가운데에 그 지역의 행정 지지도·우리 당 정보·지역 현안·사업별 수요·공급이, 오른쪽에 그 지역 소식이 나옵니다.</li>
+      <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 왼쪽 지사 목록('우리 당 | 다른 당'으로 분류)에서 지사를 고르면 가운데에 그 지역의 우리 당 정보·사업별 수요·공급·지역 현안이, 오른쪽에 그 지역 소식이 나옵니다.</li>
       <li><b>행정 지지도</b>는 당선 때 득표율에서 출발하고 가만두면 그 지역 우리 당 지지율 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다. 다른 당 지사도 역점사업을 펼치며, 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</li>
-      <li><b>사업별 수요·공급</b>: 수요는 최근 5주 지역 소식에서 짐작되는 주민 요구, 공급은 그 지역에서 성공한 행정 사업이 사업마다 차지하는 비중입니다. 수요 비중이 공급 비중보다 큰 사업은 강조됩니다.</li>
+      <li><b>사업별 수요·공급</b>: 수요는 최근 5주 지역 소식에서 짐작되는 주민 요구, 공급은 그 지역에서 성공한 행정 사업이 분야(돌봄·복지, 안전, 경제·일자리, 개발)마다 차지하는 비중입니다. 수요 비중이 공급 비중보다 큰 분야는 강조됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
       <li>지사 카드 오른쪽 스위치로 지사마다 <b>자동화</b>를 켤 수 있습니다(분류 버튼 옆 '전체 자동화'는 한꺼번에). 켠 지사는 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다. 현안이 진짜 지역 문제인지는 그 지역 단체장 역량만큼 가려냅니다.</li>
       <li>자동화는 직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 그 지역 행정 사업 버튼은 잠깁니다.</li>
