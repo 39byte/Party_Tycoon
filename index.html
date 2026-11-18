@@ -1225,7 +1225,7 @@ function migrate(o) {
     const byName = n => n === '정부' ? 'G' : Object.keys(RIV).find(id => RIV[id].name === n) || 'P';
     o.passed = (o.log || []).flatMap(x => { const m = /^(?:(.+?) )?'(.+)' 국회 통과/.exec(x.t); return m ? [{ t: m[2], d: x.d, by: m[1] ? byName(m[1]) : 'P' }] : []; }).slice(-20);
     o.passed2 = 1; } o.ops ??= {}; o.later ??= []; o.seen ??= {}; o.seq ??= 0; (o.votes || []).forEach(v => v.id ??= ++o.seq); // 옛 표결 기록엔 id가 없음
-  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= [];
+  o.presEarly ??= []; o.rel ??= { A: 0, B: 0, C: 0 }; o.rel.D ??= 0; o.relLog ??= []; o.pacts ??= {}; o.fx ??= []; o.rdone = (o.rdone || []).map(x => typeof x === 'string' ? { t: x, d: 0 } : x) /* 옛 저장: 통과 날짜 모름 → 게임 시작일로 */; o.polUsed ??= []; mergeGJ(o); o.rgov ??= {}; rgovSync(o); pgovSync(o); o.briefs ??= []; o.wire ??= []; o.stand ??= [];
   o.polOff ??= []; o.billOff ??= []; o.president.appr ??= 50; o.president.a0 ??= 58; o.aap ??= 0; delete o.agenda; delete o.agUsed; o.rnews ??= []; o.rseen ??= {}; o.watch ??= {}; o.rcur ??= []; o.rdes ??= []; o.blun ??= []; o.alerts ??= { act: [], neg: [] }; o.alerts.people ??= []; o.alerts.office ??= []; o.alerts.party ??= o.alerts.neg.filter(k => /^neg:[A-D]$/.test(k)); o.alerts.neg = o.alerts.neg.filter(k => !/^neg:[A-D]$/.test(k)); /* 정당 교섭 알림은 정당 탭으로 */ o.alerts.act = o.alerts.act.filter(k => k !== 'talent'); o.outs ??= genOuts(o); if (!o.outNeg) { o.outs.forEach(m => m.neg = 1); o.outNeg = 1; outFill(o); } /* 원래 원외 인사는 교섭 명단에 */
   for (const m of [...o.mps || [], ...o.outs]) { m.fame ??= Math.round(rr(20, 45)); m.integ ??= Math.round(rr(40, 80)); if (!m.rec) Object.assign(m, genRec(m.integ, !m.role || PUBLIC_RX.test(m.role))); } // 옛 저장: 인지도·청렴·전과가 없던 인물
   o.figs ??= []; o.inc ??= []; o.byes ??= []; o.vacant ??= []; o.prList ??= []; o.gact ??= {}; o.byes.forEach(b => b.kind ??= 'mp'); o.vacant.forEach(v => v.kind ??= 'mp');
@@ -2015,7 +2015,7 @@ function runTurn() {
       pollTake(); S.hist.push(snapPoll()); if (S.hist.length > 260) S.hist.shift(); // 지지율 추이: 매주(옛 저장 파일은 그 전까지 월별)
       if (turnNo() % 3 === 0) outFill(S, 1); // 교섭 명단 밖 원외 인사는 3턴마다 새 얼굴로
       if (turnNo() % 2 === 0) S.issue = pick(ISSUES.filter(i => i.k !== S.issue)).k; // 쟁점은 2턴마다 반드시 다른 분야로. 플레이어에겐 뉴스로만 드러남
-      turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews(); rgovRun();
+      turnStart.pactEnd = Object.keys(S.pacts).filter(id => S.pacts[id] <= S.day); turnStart.pactEnd.forEach(id => delete S.pacts[id]); S.news = makeNews(); regionNews(); rgovRun(); standExpire();
       const ready = readyWatched(turnStart.day); addAlerts(ready); save(); saveToDir(); saveToSlots(); renderAll();
       // 배지는 그 탭을 보고 있으면 바로 사라지므로, 어느 탭에 있든 보이게 토스트로도 알림
       if (ready.length) toast(ready.map(k => isNeg(k) ? negLabel(k) : ACT[k].n).join(', '), '', '턴 회복');
@@ -4362,6 +4362,37 @@ function impeachVote(yes) {
   hitPres(3);
   return `탄핵소추안이 찬성 ${v}표로 가결됐습니다. 대통령 직무가 정지되고 헌법재판소 심판이 시작됩니다.`;
 }
+// 입장 대기(S.stand): 대통령 정책 발표 | 다른 당 지사 역점사업. 팝업에서 미루면 소식 탭에서 고름. 나온 턴 포함 2턴 안에 안 고르면 3턴째 시작에 '입장 없음'
+// 결과 날짜(at)는 발표 때 정해 둠 → 늦게 골라도 판정 시기는 그대로
+const STAND_TURNS = 2;
+function standAdd(x) { x.turn = turnNo(); S.stand.push(x); showEvent(standEv(x)); }
+function standRes(x, s) {
+  S.stand = S.stand.filter(y => y !== x);
+  const d = Math.max(1, x.at - S.day);
+  if (x.kind === 'pol') later(d, { ev: 'polRes', t: x.t, pop: x.pop, s, pr: x.pr });
+  else later(d, { ev: 'rgovRes', k: x.k, id: x.id, t: x.t, ok: x.ok, s });
+}
+// 턴 시작: 기한 넘긴 입장 대기는 입장 없음으로
+function standExpire() {
+  S.stand.filter(x => turnNo() >= x.turn + STAND_TURNS).forEach(x => { standRes(x, 0); addLog(`[입장 대기] '${x.t}'에 기한 안에 입장을 내지 않았습니다.`); });
+}
+function standEv(x) {
+  const res = s => standRes(x, s), last = x.turn + STAND_TURNS - 1;
+  const wait = { t: '나중에 정한다', s: `소식 탭에서 ${last}턴 끝까지 고를 수 있음 | 지나면 입장 없음`, run: () => `'${x.t}' 입장을 미뤘습니다. ${last}턴이 끝나기 전에 소식 탭에서 정하세요.` };
+  if (x.kind === 'pol') {
+    const { pr, t } = x, pf = S.figs.find(f => f.name === x.nm && f.party === pr); // 대선에 나왔던 명부 인물이면 능력치도
+    return { title: '대통령 정책 발표', html: () => evProf(pf || { name: x.nm }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, pf?.job && `출신 직업: ${pf.job}`, `국정 지지율 ${Math.round(x.ap)}%`]), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
+      ch: [{ t: '환영 논평을 낸다', s: `${pn(pr)} 관계↑`, run: () => { relAdd(pr, 5, `'${t}' 환영`); res(1); return '정부 정책에 힘을 실었습니다.'; } },
+        { t: '비판 논평을 낸다', s: `${pn(pr)} 관계↓`, run: () => { relAdd(pr, -4, `'${t}' 비판`); S.fame += 0.5; res(-1); return '정책의 문제점을 조목조목 짚었습니다.'; } },
+        { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
+        { t: '입장을 내지 않는다', run: () => { res(0); return '지켜보기로 했습니다.'; } }, wait] };
+  }
+  const { k, id, t } = x, n = RK[k].n, who = `${GOVT[k]} ${esc(x.gn)}(${esc(pn(id))})`, gf = fig(x.fid);
+  return { title: `${n} 지사 역점사업 발표`, html: () => evProf(gf || { name: x.gn }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(x.o)}`]), body: () => `${who}가 <b>${esc(t)}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
+    ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ | 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
+      { t: '견제한다', s: '예산 낭비·졸속 추진 지적 | 실패하면 반사이익', run: () => { relAdd(id, -4, `${n} '${t}' 견제`); S.fame += 0.5; res(-1); return '예산 낭비라며 재검토를 요구했습니다.'; } },
+      { t: '지켜본다', run: () => { res(0); return '입장을 유보했습니다.'; } }, wait] };
+}
 // 정해진 날 큐로 들어오는 국회·사법 일정
 const XEV = {
   exPres: q => {
@@ -4469,13 +4500,7 @@ const XEV = {
     if (p.on) p.on();
     if (p.fx) S.fx.push({ ...p.fx, t: p.t, until: S.day + p.fx.days });
     wire(`${presT()}, '${p.t}' 발표${fx ? ` (${fx})` : ''}`, 'pres');
-    const res = s => later(rr(21, 35), { ev: 'polRes', t: p.t, pop, s, pr });
-    const pf = S.figs.find(f => f.name === S.president.name && f.party === pr); // 대선에 나왔던 명부 인물이면 능력치도
-    showEvent({ title: '대통령 정책 발표', html: () => evProf(pf || { name: S.president.name }, pc(pr), [`${pn(pr)} | 대통령${S.president.acting ? ' 권한대행' : ''}`, pf?.job && `출신 직업: ${pf.job}`, `국정 지지율 ${Math.round(S.president.appr)}%`]), body: () => `${presN()}이 <b>${esc(p.t)}</b> 방침을 발표했습니다.${fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
-      ch: [{ t: '환영 논평을 낸다', s: `${pn(pr)} 관계↑`, run: () => { relAdd(pr, 5, `'${p.t}' 환영`); res(1); return '정부 정책에 힘을 실었습니다.'; } },
-        { t: '비판 논평을 낸다', s: `${pn(pr)} 관계↓`, run: () => { relAdd(pr, -4, `'${p.t}' 비판`); S.fame += 0.5; res(-1); return '정책의 문제점을 조목조목 짚었습니다.'; } },
-        { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${p.t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
-        { t: '입장을 내지 않는다', run: () => { res(0); return '지켜보기로 했습니다.'; } }] });
+    standAdd({ kind: 'pol', t: p.t, pop, pr, fx, nm: S.president.name, act: S.president.acting, ap: S.president.appr, at: S.day + rr(21, 35) });
   },
   polRes: q => {
     const v = Math.round(q.pop * 100), d = q.s * (q.pop - 0.5) * 8;
@@ -4504,14 +4529,10 @@ const XEV = {
           { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { g.o -= 3; relAdd(id, -4, `${GOVT[k]} 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
           { t: '정치 공세는 자제한다', run: () => { S.trust += 0.5; return '수사를 지켜보겠다는 입장만 냈습니다.'; } }] });
     }
-    const tc = rgovPick(k, [...new Set(RGOV_PROJ.map(x => x[1]))]), [t] = pick(RGOV_PROJ.filter(x => x[1] === tc)), ok = rnd() < 0.55 + (rgovArea(k, tc) - 50) / 250, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
+    const tc = rgovPick(k, [...new Set(RGOV_PROJ.map(x => x[1]))]), [t] = pick(RGOV_PROJ.filter(x => x[1] === tc)), ok = rnd() < 0.55 + (rgovArea(k, tc) - 50) / 250;
     wr(`${w}, '${t}' 역점사업 발표`);
     if (!S.chapters[k]) return; // 입장을 낼 우리 시·도당이 없으면 소식만
-    const gf = fig(g.fid);
-    showEvent({ title: `${n} 지사 역점사업 발표`, html: () => evProf(gf || { name: g.n }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(g.o)}`]), body: () => `${who}가 <b>${t}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
-      ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ | 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
-        { t: '견제한다', s: '예산 낭비·졸속 추진 지적 | 실패하면 반사이익', run: () => { relAdd(id, -4, `${n} '${t}' 견제`); S.fame += 0.5; res(-1); return '예산 낭비라며 재검토를 요구했습니다.'; } },
-        { t: '지켜본다', run: () => { res(0); return '입장을 유보했습니다.'; } }] });
+    standAdd({ kind: 'rgov', k, id, t, ok, gn: g.n, fid: g.fid, o: g.o, at: S.day + rr(28, 56) });
   },
   rgovRes: q => {
     const g = S.rgov[q.k], n = RK[q.k].n, d = q.s * (q.ok ? 1 : -1);
@@ -4876,7 +4897,7 @@ function renderNav() {
   const pend = Object.values(S.camps).filter(c => !c.reg && S.day <= c.day - LAW.regDeadline[c.type]).length + S.byes.filter(byeOpenForMe).length;
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => !autoOn(r.k) && rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
-  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, act: S.alerts.act.length, neg: S.alerts.neg.length, party: S.alerts.party.length, people: S.alerts.people.length, office: S.alerts.office.length }, badgeSr = { elec: '공천·후보 등록이 필요한 선거 ', people: '다시 영입할 수 있음 ', office: '다시 할 수 있는 의회 활동 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', party: '다시 교섭할 수 있는 정당 ', neg: '다시 교섭할 수 있는 상대 ' };
+  const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, log: S.stand.length, act: S.alerts.act.length, neg: S.alerts.neg.length, party: S.alerts.party.length, people: S.alerts.people.length, office: S.alerts.office.length }, badgeSr = { log: '입장 대기 ', elec: '공천·후보 등록이 필요한 선거 ', people: '다시 영입할 수 있음 ', office: '다시 할 수 있는 의회 활동 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', party: '다시 교섭할 수 있는 정당 ', neg: '다시 교섭할 수 있는 상대 ' };
   nav.innerHTML = vis.map(([k, n, ic], i) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP || vis[i + 1]?.[0] === 'log' ? `<hr class="navsep${NAV_SEP[k] ?? ' wide'}">` : ''}`).join(''); // 숨긴 탭 뒤 구분선은 '소식' 앞으로
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; Snd.sfx('click'); renderPanel(); renderNav(); nav.querySelector('[aria-current]')?.scrollIntoView({ inline: 'center', block: 'nearest' }); $('#main').focus({ preventScroll: true }); });
 }
@@ -5017,6 +5038,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-lobby]').forEach(b => b.onclick = () => confirmCost(b.dataset.n, 1e7, '행동력', () => lobbyBill(+b.dataset.lobby)));
   m.querySelectorAll('[data-feed]').forEach(b => b.onclick = () => { feedF = b.dataset.feed; feedN = 12; renderAll(); });
   m.querySelectorAll('[data-feedmore]').forEach(b => b.onclick = () => { feedN += 12; renderAll(); });
+  m.querySelectorAll('[data-stand]').forEach(b => b.onclick = () => { const x = S.stand[+b.dataset.stand]; if (x) showEvent(standEv(x)); });
   m.querySelectorAll('[data-roll]').forEach(b => b.onclick = () => rollModal(+b.dataset.roll));
   m.querySelectorAll('[data-stance]').forEach(b => b.onclick = () => { const [id, s] = b.dataset.stance.split('|'); setStance(+id, +s); });
   m.querySelectorAll('[data-neg]').forEach(b => b.onclick = () => negModal(b.dataset.neg));
@@ -5799,6 +5821,7 @@ function pLog() {
   const cards = Object.values(W).sort((a, b) => b.k - a.k).map(card).filter(Boolean);
   return `<div class="card"><h2>소식</h2><p class="tip">턴마다 브리핑, 헤드라인, 국회·청와대·지방 정부·지역 소식, 우리 당 기록을 모았습니다. 지방 정부에는 직접·자동화로 펼친 행정 사업과 후속 보도, 단체장 직무 평가가, 지역 소식에는 지역에서 터진 사고·의혹과 화제가 된 소식이 모입니다. 지난 헤드라인을 이어 보면 민심의 흐름이 보입니다.</p>
     <div class="filters" role="group" aria-label="소식 분류">${FEED_F.map(([k, n]) => `<button class="btn${feedF === k ? ' pri' : ''}" data-feed="${k}" aria-pressed="${feedF === k}">${n}</button>`).join('')}</div></div>
+    ${S.stand.length ? `<section class="card" style="margin-top:14px"><h2>입장 대기 <span class="small muted">${S.stand.length}건</span></h2><p class="tip">미뤄 둔 발표입니다. 기한 턴이 끝날 때까지 입장을 안 내면 '입장 없음'으로 처리됩니다.</p><ul class="log">${S.stand.map((x, i) => `<li><time>${fdate(x.turn ? (x.turn - 1) * TURN : S.day)}</time><span>${x.kind === 'pol' ? '대통령 정책 발표' : `${RK[x.k].n} 지사 역점사업`}: <b>${esc(x.t)}</b> <span class="small muted">${x.turn + STAND_TURNS - 1}턴까지</span></span> <button class="btn pri" data-stand="${i}">입장 정하기</button></li>`).join('')}</ul></section>` : ''}
     ${cards.slice(0, feedN).join('') || '<div class="card" style="margin-top:14px"><p class="empty">아직 소식이 없습니다.</p></div>'}
     ${cards.length > feedN ? `<button class="btn" data-feedmore="1" style="margin-top:14px;width:100%">이전 소식 더 보기 (${cards.length - feedN}턴 남음)</button>` : ''}`;
 }
@@ -5933,7 +5956,7 @@ function pGuide() {
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
       <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속(법안마다 한 번)으로 우리 의원의 이탈표를 줄일 수 있습니다. 다른 당 의원 표는 교섭 탭의 법안 협조 요청으로 움직입니다. 다른 당도 법안이 본회의에 오를 때 당론을 정하고, 당론이 있어도 일부 의원은 이탈표를 던집니다. 여론과 맞는 당론은 신뢰를 올리고 적대·혐오층을 끌어오며, 노선과 맞는 당론은 충성·우호층을 굳히는 대신 적대·혐오층도 굳힙니다. 노선이 다른 법안에 90일 안에 세 번째 찬성부터 지지층 비판이 나옵니다. 자유투표는 이런 효과가 없습니다. 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
       <li>후원 한도, 보조금 배분, 검찰 수사권처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
-      <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
+      <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면(바로 안 고르고 미루면 소식 탭 입장 대기에서 나온 턴 포함 2턴 안에 고를 수 있고, 지나면 입장 없음) 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
       <li>우리 당이 집권하면 반대 당론이거나 노선과 어긋나는 법안이 통과될 때 공포와 거부권 중에서 직접 고릅니다. 청와대 탭에서 자동 처리를 켜면 반대 당론 법안이 3분의 2 미만으로 통과될 때 바로 행사합니다. 거부권은 여론이 원하는 법안일수록 국정 지지율을 깎고, 국회가 3분의 2로 재의결하면 타격이 더 큽니다.</li>
       <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 때 대선 득표율에서 출발해 임기 말로 갈수록 떨어지며(레임덕), 취임 때보다 낮아지면 여당 지지율도 함께 깎입니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 다른 당 대통령은 15% 아래로 떨어지면 촛불 집회가, 10% 아래로 떨어지면 탄핵소추안이 나올 수 있습니다.</li>
       <li><b>국정 지지율</b>: 여당 지지율에 같은 성향(보수·중도·진보) 다른 정당 지지율의 80%를 더한 값 언저리에서 움직이고, 레임덕·신뢰도·대통령과 내각 역량·사건에 따라 오르내립니다. 다른 당이 집권해도 내각이 있어 청와대 탭에서 볼 수 있고, 대정부 질문에서 장관을 골라 상대합니다.</li>
