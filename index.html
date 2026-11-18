@@ -2684,13 +2684,13 @@ function govRun(k, pj, auto) {
   const n = RK[k].n;
   S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
   const a = pjAdj(k, pj) - (auto ? 0.2 : 0), pr = x => clamp(x + a, 0.05, 0.95), before = S.ops[k], need = desOf(k).filter(x => pjHit(realOf(x), pj));
-  const P = GOV_PROJ.find(p => p.k === pj), c = P.c, say = t => t.replace('{n}', n), [p0, up, dn] = PJ_BASE[c], dm = demMulK(k, c);
+  const P = GOV_PROJ.find(p => p.k === pj), c = P.c, say = t => t.replace('{n}', n), [p0, up, dn] = PJ_BASE[c], dm = demMulK(k, c), ap = govAp(k), ak = ap?.apt?.[c] || 0;
   let msg, ok = true;
   if (auto && rnd() < clamp(0.43 - (govPerson(k)?.skill ?? 50) / 400, 0.26, 0.43)) { S.ops[k] -= rr(2, 5); S.trust -= 0.5; ok = false; msg = pick(GOV_FLOP)(k); }
   else if ((c === 'care' || c === 'safe' ? luck : x => rnd() < x)(pr(p0))) { // 돌봄·안전은 대표 역량 운(luck)을 탐
-    S.ops[k] += up * dm; msg = say(P.ok) + (dm >= 1.2 ? ' 주민들이 기다리던 사업이라 반응이 뜨겁습니다.' : dm <= 0.6 ? ' 이미 비슷한 사업이 많아 주민 반응은 미지근합니다.' : '');
+    S.ops[k] += up * dm * L.styleMul(ap?.st); msg = say(P.ok) + (dm >= 1.2 ? ' 주민들이 기다리던 사업이라 반응이 뜨겁습니다.' : dm <= 0.6 ? ' 이미 비슷한 사업이 많아 주민 반응은 미지근합니다.' : '');
     if (c === 'dev') S.members[k] += Math.round(rr(200, 600)); else if (c === 'care') S.trust += 0.5; else if (c === 'biz') S.fame += 1; else S.trust += 1;
-  } else { S.ops[k] -= dn; ok = false; msg = say(P.no); }
+  } else { S.ops[k] -= dn * L.flopMul(ak, ap?.st); ok = false; msg = say(P.no) + flopSay(ak, c); }
   // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
   if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.5; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
     need.forEach(x => { resolveNews(x.nid); wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov'); }); }
@@ -2711,8 +2711,8 @@ function rgovRun() {
       biz: [`${w}, ${n}에 대기업 공장 유치 성공`, `${n} 투자 유치 협상 결렬`], safe: [`${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`] }[pj];
     let d, t, ok = false;
     if (rnd() < clamp(0.43 - sk / 400, 0.26, 0.43)) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
-    else if ((ok = rnd() < pr(p0))) [d, t] = [up * demMulK(k, pj), T[0]];
-    else [d, t] = [-dn, T[1]];
+    else if ((ok = rnd() < pr(p0))) [d, t] = [up * demMulK(k, pj) * L.styleMul(rgovAp(k)?.st), T[0]];
+    else [d, t] = [-dn * L.flopMul(rgovAp(k)?.apt?.[pj], rgovAp(k)?.st), T[1]];
     g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (ok) facAdd(k, pick(GOV_PROJ.filter(p => p.c === pj)).k); else blunAdd(k, g.p, t);
     later(rr(14, 42), { ev: 'admFollow', k, pj, ok }); // 몇 주 뒤 후속 보도(분야별)
   }
@@ -4569,8 +4569,11 @@ function addIssue(k, it, t) {
 const pjHit = (r, pj) => !!r && (r.pj === pj || r.pj === PJC[pj]);
 const pjAdj = (k, pj) => sum(desOf(k).map(x => pjHit(realOf(x), pj) ? 0.15 : 0)) + sum(issuesOf(k).map(x => x.bad === PJC[pj] ? -0.2 : 0)) + (PJ_ISSUE[PJC[pj]] === S.issue ? 0.05 : 0) + (govArea(k, PJC[pj]) - 50) / 250;
 // 분야 역량(역량 + 숨은 특기): 우리 지사(인재풀 사람, 없으면 S.pgov 기록) | 다른 당 지사(명부 인물)
-const govArea = (k, c) => L.areaSkill(govPerson(k)?.skill ?? 50, aptOf(poolGov(S, k) || S.pgov?.[k])?.apt, c);
-const rgovArea = (k, c) => { const f = fig(S.rgov[k]?.fid); return L.areaSkill(f?.skill ?? 50, aptOf(f)?.apt, c); };
+const govAp = k => aptOf(poolGov(S, k) || S.pgov?.[k]), rgovAp = k => aptOf(fig(S.rgov[k]?.fid)); // 특기·성향을 가진 그 사람
+const govArea = (k, c) => L.areaSkill(govPerson(k)?.skill ?? 50, govAp(k)?.apt, c);
+const rgovArea = (k, c) => L.areaSkill(fig(S.rgov[k]?.fid)?.skill ?? 50, rgovAp(k)?.apt, c);
+// 잘한다던 분야에서 실패했을 때 따라붙는 말(특기 10 이상)
+const flopSay = (a, c) => a >= 10 ? ` "${PJ_N[c]}만큼은 자신 있다더니"라는 비아냥까지 나왔습니다.` : '';
 const shortT = x => x.t.replace(RK[x.k].n + ' ', '');
 // 현안 지정·해제(지역당 3건까지)
 const desMax = 3;
@@ -5884,7 +5887,7 @@ function pGuide() {
       <li>지방 정부 탭에서는 시·도별 지역 소식(지역 현안, 동네 사건, 재난, 선거 결과)을 왼쪽에서 고른 지사의 지역별로 볼 수 있습니다. 행정 사업 결과·후속 보도·단체장 직무 평가는 소식 탭의 '지방 정부'에 모입니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
       <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 날짜 줄의 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>행정 사업은 돌봄·복지, 안전, 경제·일자리, 개발 네 분야 아래 세부 사업(공공 의료 확충, 재난 대비 강화, 상권·소상공인 지원, 교통망 확충 등)으로 나뉩니다. 성공률과 효과는 분야마다 다르고, 같은 지역의 같은 세부 사업은 한 턴에 한 번입니다.</li>
-      <li>단체장마다 출신(직업)에 따라 잘하는 분야와 서툰 분야가 다릅니다. 네 분야 실력의 평균이 그 사람의 역량이라, 역량이 같아도 고르게 하는 사람이 있고 한 분야만 뛰어난 사람이 있습니다. 이 실력은 프로필에 나오지 않으니 교섭 자리에서 듣는 인물평이나 본인과의 대화로 짐작해야 합니다. 다른 당 지사의 역점사업이 성공할지도 그 지사의 분야 실력에 달렸습니다.</li>
+      <li>단체장마다 출신(직업)에 따라 잘하는 분야와 서툰 분야가 다릅니다. 네 분야 실력의 평균이 그 사람의 역량이라, 역량이 같아도 고르게 하는 사람이 있고 한 분야만 뛰어난 사람이 있습니다. 이 실력은 프로필에 나오지 않으니 교섭 자리에서 듣는 인물평이나 본인과의 대화로 짐작해야 합니다. 다른 당 지사의 역점사업이 성공할지도 그 지사의 분야 실력에 달렸습니다. 잘한다던 분야에서 실패하면 기대가 컸던 만큼 더 크게 비판받습니다(최대 2배). 사람마다 행정 성향도 달라서, 밀어붙이는 추진형은 성과도 실패도 크고 돌다리도 두들기는 신중형은 오르내림이 작습니다.</li>
       <li>제대로 짚은 현안에 맞는 세부 사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚거나 분야만 같고 세부 사업이 다르면 보탬이 없습니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
       <li>지정하지 않았더라도 진짜 문제를 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>

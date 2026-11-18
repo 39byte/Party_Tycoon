@@ -258,8 +258,12 @@
   // 주민 관심 배율(지방 정부 탭 수요·공급): 분야 수요 비중(최근 소식)이 공급 비중(최근 성공 사업)보다 클수록 성공 효과가 큼(0.4~1.4배). 집계가 비면 네 분야 25%씩
   const share = (o, c) => { const t = Object.values(o).reduce((a, b) => a + b, 0); return t ? (o[c] || 0) / t : 0.25; };
   const demMul = (dem, sup, c) => cl(1 + 1.6 * (share(dem, c) - share(sup, c)), 0.4, 1.4);
+  // 행정 성향 배율: 추진형(st > 0)은 성공 효과·실패 감점이 모두 크고 신중형은 작음(±25%)
+  const styleMul = st => 1 + 0.25 * (st || 0);
+  // 기대치 역효과: 잘한다던 분야(apt > 0)에서 실패하면 감점이 커짐(apt 20이면 2배), 성향 배율도 곱함
+  const flopMul = (a, st) => (1 + Math.max(0, a || 0) / 20) * styleMul(st);
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, demMul };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, demMul, styleMul, flopMul };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

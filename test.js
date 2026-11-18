@@ -131,6 +131,9 @@ if (pNear) {
   assert.strictEqual(L.demMul({ care: 3 }, {}, 'care'), 1.4);
   assert.strictEqual(L.demMul({}, { dev: 5 }, 'dev'), 0.4);
   assert(L.demMul({ dev: 1, care: 1 }, { dev: 1 }, 'care') > L.demMul({ dev: 1, care: 1 }, { dev: 1 }, 'dev')); }
+// 성향·역효과: 추진형 1.25배·신중형 0.75배, 약점 분야 실패는 그대로, 특기 20 분야 실패는 2배
+{ assert.strictEqual(L.styleMul(1), 1.25); assert.strictEqual(L.styleMul(-1), 0.75); assert.strictEqual(L.styleMul(), 1);
+  assert.strictEqual(L.flopMul(-10, 0), 1); assert.strictEqual(L.flopMul(20, 0), 2); assert.strictEqual(L.flopMul(20, 1), 2.5); }
 
 console.log('ok');
 
