@@ -255,8 +255,11 @@
     return { apt: Object.fromEntries(PJ_CATS.map((c, i) => [c, +a[i].toFixed(1)])), st: +cl(g() * 0.5 + ((STYLE_JOB.find(([rx]) => rx.test(j)) || [0, 0])[1]), -1, 1).toFixed(2) };
   }
   const areaSkill = (skill, apt, c) => skill + (apt?.[c] || 0);
+  // 주민 관심 배율(지방 정부 탭 수요·공급): 분야 수요 비중(최근 소식)이 공급 비중(최근 성공 사업)보다 클수록 성공 효과가 큼(0.4~1.4배). 집계가 비면 네 분야 25%씩
+  const share = (o, c) => { const t = Object.values(o).reduce((a, b) => a + b, 0); return t ? (o[c] || 0) / t : 0.25; };
+  const demMul = (dem, sup, c) => cl(1 + 1.6 * (share(dem, c) - share(sup, c)), 0.4, 1.4);
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, demMul };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

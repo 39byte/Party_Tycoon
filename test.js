@@ -126,6 +126,11 @@ if (pNear) {
   assert.strictEqual(L.areaSkill(60, { dev: 8 }, 'dev'), 68);
   assert.strictEqual(L.areaSkill(60, null, 'dev'), 60);
 }
+// 주민 관심 배율: 비면 1, 수요만 많으면 최대 1.4, 공급만 몰리면 최저 0.4
+{ assert.strictEqual(L.demMul({}, {}, 'dev'), 1);
+  assert.strictEqual(L.demMul({ care: 3 }, {}, 'care'), 1.4);
+  assert.strictEqual(L.demMul({}, { dev: 5 }, 'dev'), 0.4);
+  assert(L.demMul({ dev: 1, care: 1 }, { dev: 1 }, 'care') > L.demMul({ dev: 1, care: 1 }, { dev: 1 }, 'dev')); }
 
 console.log('ok');
 
