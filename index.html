@@ -554,6 +554,25 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .pstat{display:grid;grid-template-columns:auto 1fr 28px;gap:4px 8px;align-items:center;font-size:12.5px;color:var(--muted)}
 .pstat b{text-align:right;color:var(--fg)}
 /* 교섭 인물 사진: 누르면 능력치 팝업 */
+/* 지방 정부: 도정 상황실 HUD / 좌 지사 목록 | 가운데 집무실·도시 판 | 우 지역 소식 */
+.admhud{margin-bottom:14px;background:linear-gradient(180deg,var(--hud2),var(--hud));color:var(--on-hud);border-color:var(--hud-line)}
+.admhud .pill{background:transparent;color:var(--on-hud);border-color:var(--hud-line)}.admhud .sw{color:var(--on-hud)}.admhud .tip,.admhud summary{color:var(--on-hud-muted)}
+.admhudr{display:flex;flex-wrap:wrap;align-items:center;gap:8px}.admhudr h2{margin-right:6px}
+.admtips summary{cursor:pointer;margin-top:8px;width:max-content}
+.admgrid{display:grid;gap:14px;grid-template-columns:250px minmax(0,1fr) minmax(0,340px);align-items:start}
+.admgrid>.card{margin-top:0}
+.admlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.admtile{display:grid;gap:6px;width:100%;text-align:left;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);cursor:pointer}
+.admtile:hover{border-color:var(--primary2)}.admtile.on{border-color:var(--primary2);box-shadow:inset 4px 0 0 var(--primary2);background:var(--surface)}
+.admtile .who{position:relative}.admtile .dot{position:absolute;top:0;right:0}
+.admstrip{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin-top:10px;padding:10px 12px;border-radius:10px;background:var(--surface2);border-left:5px solid var(--pc)}
+.admm{flex:1;min-width:160px}.admbtn{display:inline-flex;align-items:center;gap:10px}
+.citywrap{margin-top:12px;border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.city{display:block;width:100%;height:auto}
+.admfac{margin:8px 0 0}
+.admnews{max-height:calc(100dvh - var(--top-h,58px) - 24px);overflow:auto;overscroll-behavior:contain;position:sticky;top:calc(var(--top-h,58px) + 12px)}
+@media (max-width:1180px){.admgrid{grid-template-columns:230px minmax(0,1fr)}.admnews{grid-column:1/-1;position:static;max-height:none}}
+@media (max-width:720px){.admgrid{grid-template-columns:minmax(0,1fr)}.admlist{display:flex;overflow-x:auto;padding-bottom:4px;scroll-snap-type:x mandatory}.admlist li{flex:0 0 min(230px,78%);scroll-snap-align:start}}
 .gmap .kmap{display:block;margin:0 auto;width:100%;max-width:420px;max-height:min(620px,75vh)}
 .seatd>summary{cursor:pointer;list-style:none}.seatd>summary::-webkit-details-marker{display:none}.seatd>summary h2{margin:0;display:flex;align-items:center;gap:8px}.seatd>summary h2::before{content:"";width:8px;height:8px;flex:none;transform:rotate(45deg);background:var(--gold);box-shadow:0 0 0 2px rgba(242,179,61,.25)}.seatd>summary h2::after{content:'펼치기 ▾';margin-left:auto;font-size:12px;font-weight:500;color:var(--muted)}.seatd[open]>summary h2::after{content:'접기 ▴'}.seatd[open]>summary{margin-bottom:10px}
 .rrace{margin-bottom:12px}.rrace h3{font-size:14px;margin:0 0 6px}.rcands{display:grid;align-items:start;grid-template-columns:repeat(auto-fill,minmax(min(240px,100%),1fr));gap:6px}
@@ -814,6 +833,8 @@ const GOV_PROJ = [
   { k: 'urban', c: 'dev', n: '도시 재생·신도시', ok: '{n} 도시 재생 사업이 순조롭게 착공했습니다. 행정 지지도가 크게 올랐습니다.', no: '{n} 개발사업이 주민 반발로 지연되고 있습니다.' },
 ];
 const PJC = Object.fromEntries(GOV_PROJ.map(p => [p.k, p.c])); // 세부 사업 → 분야
+// 행정 사업이 성공하면 그 지역 도시 판(ART.city)에 시설이 들어섬. S.fac[지역] = 사업 키 배열, 필지 27곳을 넘으면 오래된 것부터 헐림
+const facAdd = (k, pj) => { const f = (S.fac ??= {})[k] ??= []; f.push(pj); if (f.length > 27) f.shift(); };
 // 분야 설명(행정 사업 창)
 const PJ_D = { care: '대체로 지지도가 오르지만, 예산 집행이 꼬이면 역풍을 맞습니다.', safe: '작은 성과를 노립니다. "형식적"이라는 비판을 받을 수도 있습니다.', biz: '반반의 확률로 큰 성과를 냅니다.', dev: '성공하면 행정 지지도가 크게 오르지만 실패할 수 있습니다. 개발업자들이 몰려듭니다.' };
 // 지역 소식(지방 정부 탭). {n} 지역 이름
@@ -2674,7 +2695,7 @@ function govRun(k, pj, auto) {
     need.forEach(x => { resolveNews(x.nid); wire(`${govWho(k)}, '${shortT(x)}' 해결 나서… 주민 호평`, 'gov'); }); }
   S.ops[k] = clamp(opsUp('P', k, before, S.ops[k] - before), 5, 95); wire(`${auto ? '[자동] ' : ''}${msg}`, 'gov');
   later(rr(14, 42), { ev: 'admFollow', k, pj: c, ok }); // 몇 주 뒤 후속 보도(분야별)
-  if (!ok) blunAdd(k, 'P', msg);
+  if (ok) facAdd(k, pj); else blunAdd(k, 'P', msg);
   return { k, msg, ok };
 }
 // 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. 우리 자동화와 같은 셈법(성공률 −20%p, 행정 실책 43−역량/4 %)이라 역량 높으면 오르고 낮으면 깎임
@@ -2691,7 +2712,7 @@ function rgovRun() {
     else if (pj === 'care') [d, t] = rnd() < pr(0.75) ? [3.5, `${w}, 돌봄센터 확충에 주민 호응`] : [-2, `${n} 돌봄센터 위탁업체 특혜 논란`];
     else if (pj === 'biz') [d, t] = rnd() < pr(0.5) ? [8, `${w}, ${n}에 대기업 공장 유치 성공`] : [-1, `${n} 투자 유치 협상 결렬`];
     else [d, t] = rnd() < pr(0.7) ? [2, `${w}, 재난·안전 점검 마쳐… "꼼꼼한 행정"`] : [-1, `${n} 점검 시설서 사고… ${w} "형식적 점검" 비판`];
-    g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (d <= 1) blunAdd(k, g.p, t);
+    g.o = clamp(opsUp(g.p, k, before, d), 5, 95); wire(t, 'gov'); if (d <= 1) blunAdd(k, g.p, t); else facAdd(k, pick(GOV_PROJ.filter(p => p.c === pj)).k);
     later(rr(14, 42), { ev: 'admFollow', k, pj, ok: d > 1 }); // 성공은 +2 이상, 실패·행정 실책는 실패 보도
   }
 }
@@ -4966,7 +4987,9 @@ function bindPanel(m) {
   m.querySelectorAll('[data-outf]').forEach(b => b.onclick = () => { outF = b.dataset.outf; outPage = 0; renderPanel(); });
   m.querySelectorAll('[data-mppage]').forEach(b => b.onclick = () => { mpPage = +b.dataset.mppage; renderPanel(); });
   m.querySelectorAll('[data-outpage]').forEach(b => b.onclick = () => { outPage = +b.dataset.outpage; renderPanel(); });
-  m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; renderPanel(); renderNav(); });
+  m.querySelectorAll('[data-areg]').forEach(b => b.onclick = () => { admReg = b.dataset.areg; if (admReg !== 'all') admSel = admReg; renderPanel(); renderNav(); });
+  m.querySelectorAll('[data-admsel]').forEach(b => b.onclick = () => { admSel = admReg = b.dataset.admsel; Snd.sfx('click'); renderPanel(); renderNav(); });
+  m.querySelectorAll('[data-admside]').forEach(b => b.onclick = () => { admSide = b.dataset.admside; renderPanel(); });
   m.querySelectorAll('[data-ralert]').forEach(b => b.onclick = () => openModal({ title: '지역 소식 알림 설정',
     html: `<div class="btns"><button class="btn sm" data-rall="1">전체 켜기</button><button class="btn sm" data-rall="">전체 끄기</button></div><p class="small muted" style="margin-top:10px">끈 지역은 새 소식이 나와도 지역 버튼의 점과 지방 정부 탭 배지를 띄우지 않습니다. 직접 바꾸지 않은 지역은 우리 당 단체장이 있는 곳만 켜집니다.</p><div class="ralerts">${R_ADM.map(r => `<label class="sw">${r.n}<input type="checkbox" role="switch" data-ralk="${r.k}" ${rAlert(r.k) ? 'checked' : ''}></label>`).join('')}</div>`,
     buttons: [{ t: '닫기', pri: true }],
@@ -5575,7 +5598,7 @@ function apprChart(W = 400, H = 180) {
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="국정 지지율 주별 추이">${grid}${xl}<polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></svg>`;
 }
 // 행정: 우리 당 단체장 | 다른 당 단체장 | 지역별 소식
-let admReg = 'all';
+let admReg = 'all', admSel = null, admSide = 'P'; // 지역 소식 필터 | 가운데 집무실 지역 | 왼쪽 목록 분류(P 우리 당, O 다른 당)
 // 교섭: 정당 | 원내 의원 | 원외 인사
 const pNeg = () => negCard();
 // 지방 정부 탭 맨 위 토글: 시·도마다 단체장 당 색으로 칠한 지도
@@ -5587,29 +5610,44 @@ function govMapCard() {
   return `<details class="card seatd" data-gmapd style="margin-bottom:14px" ${gmapOpen ? 'open' : ''}><summary><h2>광역단체장 지도</h2></summary>${gmapOpen ? `<div class="gmap">${ART.map({ fill: col, aria: k => `${RK[k].n}: ${name(k)}` })}</div><div class="legend" style="justify-content:center;margin-top:10px">${legend}</div>` : ''}</details>`;
 }
 function pAdmin() {
-  const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = Object.keys(S.rgov);
+  const govs = R_ADM.filter(r => r.k in S.ops).map(r => r.k), ks = R_ADM.filter(r => S.rgov[r.k]).map(r => r.k);
   const meter = (o, c) => `<div class="meter"><span class="small">행정 지지도</span><div class="bar"><i style="width:${o}%${c ? `;background:${c}` : ''}"></i></div><b class="small num">${Math.round(o)}</b></div>`;
-  const mine = govs.length ? `<div class="card"><h2>행정 운영 <span class="pill">${govs.length}곳</span> <span class="pill">행정 행동력 ${S.aap}/${aapMax()}</span>
-      <span class="h2r"><label class="sw">전체 자동화<input type="checkbox" role="switch" data-autogov ${govs.every(autoOn) ? 'checked' : ''}></label></span></h2>
-      <p class="tip">지사마다 따로 켤 수 있습니다(제목 오른쪽은 한꺼번에). 켠 지사는 행정 사업을 직접 고르지 않고, 턴을 끝낼 때 남은 행정 행동력으로 알아서 진행합니다. 끈 지사는 직접 챙기고, 직접 쓰고 남은 행정 행동력은 켠 지사들 몫입니다.</p><p class="tip">① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다.</p><p class="tip">현안처럼 보이는 소식이 진짜 지역 문제인지는 그 지역 단체장의 역량만큼 가려냅니다. 역량이 낮으면 헛짚은 소식을 담거나 진짜 문제를 놓치기 쉽습니다.</p><p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠깁니다.</p>
-      <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다.</p>
-      <div class="acts gov">${govs.map(k => `<div class="act"><div class="who">${govPerson(k) ? `<button class="facebtn" data-pinfo="g${k}" aria-label="${esc(govName(k))} 정보 보기" title="인물 정보">${face(govPerson(k), S.party.color, 48)}</button>` : face({ name: RK[k].n }, S.party.color, 48)}<div class="gt"><span class="small muted" title="${GOVT[k]} | 역량 ${govPerson(k)?.skill ?? 50}">${GOVT[k]} | 역량 ${govPerson(k)?.skill ?? 50}</span><h3>${esc(govName(k))}</h3></div><button class="btn pri nowrap" data-act="govern" data-k="${k}" title="역점사업 | 행정 행동력 1" ${why('govern', k) ? 'disabled' : ''}>행정 사업</button></div>${meter(S.ops[k])}<label class="sw">자동화<input type="checkbox" role="switch" data-autok="${k}" aria-label="${esc(govName(k))} 행정 자동화" ${autoOn(k) ? 'checked' : ''}></label>
-        ${why('govern', k) ? `<div class="small warn">${esc(why('govern', k))}</div>` : ''}</div>`).join('')}</div>
-      <p class="tip">행정 지지도는 당선 때 득표율에서 출발하고 가만두면 그 지역 우리 당 지지율 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있으며, 단체장 역량이 높을수록 성공률이 오릅니다.</p></div>`
-    : `<div class="card"><h2>행정 운영</h2><p class="empty">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</p></div>`;
-  const rg = ks.length ? `<div class="card" style="margin-top:14px"><h2>다른 당 광역단체장</h2><ul class="log g2">${R_ADM.filter(r => S.rgov[r.k]).map(r => { const g = S.rgov[r.k]; return `<li><span class="who" style="flex:1">${fig(g.fid) ? `<button class="facebtn" data-pinfo="f${g.fid}" aria-label="${esc(g.n)} 정보 보기" title="인물 정보">${face(fig(g.fid), pc(g.p), 40)}</button>` : face({ name: g.n }, pc(g.p), 40)}<span style="flex:1"><b>${GOVT[r.k]} ${esc(g.n)}</b> <span class="small muted">${esc(pn(g.p))}</span>${meter(g.o, pc(g.p))}</span></span></li>`; }).join('')}</ul>
-      <p class="tip">다른 당 지사도 역점사업을 펼칩니다. 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></div>` : '';
-  const iss = R_ADM.flatMap(r => desOf(r.k)).filter(x => admReg === 'all' || x.k === admReg).sort((a, b) => b.d - a.d);
-  const issBtns = x => `${S.gov[x.k] === 'P' ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 | 행정 행동력 1" ${why('govern', x.k) ? 'disabled' : ''}>행정 사업</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
-  const issCard = `<div class="card" style="margin-bottom:14px"><h2>지역 현안 <span class="pill">${iss.length}건</span></h2>
-    <p class="tip">지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업(행정 행동력)으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 행정 사업이 성공한 현안은 해결된 것으로 정리되어 다시 지정하거나 대응할 수 없습니다. 지정은 5주가 지나면 정리됩니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다.${admReg === 'all' ? '' : ' 아래 지역 소식에서 고른 지역만 보입니다.'}</p>
-    ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1"><span class="pill">${RK[x.k].n}</span> ${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 | ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음${S.gov[x.k] === 'P' ? ' | 우리 당 지사' : ''}</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="empty" style="padding:2px 0;margin:0">지정한 현안이 없습니다. 지역 소식에서 '현안 지정'을 눌러 담으세요.</p>`}</div>`;
-  const k = admReg === 'all' ? null : admReg;
+  if (admSide === 'P' ? !govs.length : !ks.length) admSide = govs.length ? 'P' : 'O';
+  const k = admReg === 'all' ? null : admReg, sel = k || (admSel && (admSel in S.ops || S.rgov[admSel]) ? admSel : govs[0] || ks[0] || R_ADM[0].k);
+  // 집무실 HUD: 핵심 수치 한 줄 + 운영 안내는 접어 둠
+  const hud = `<div class="card admhud"><div class="admhudr"><h2>도정 상황실</h2>${govs.length ? `<span class="pill">우리 당 광역단체장 <b class="num">${govs.length}</b>곳</span><span class="pill">행정 행동력 <b class="num">${S.aap}/${aapMax()}</b></span><span class="pill">지정 현안 <b class="num">${S.rdes.length}</b>건</span>
+      <span class="h2r"><label class="sw">전체 자동화<input type="checkbox" role="switch" data-autogov ${govs.every(autoOn) ? 'checked' : ''}></label></span>` : '<span class="small muted">광역단체장을 배출하면 그 지역 행정을 맡아 역점사업을 펼칠 수 있습니다.</span>'}</div>
+    <details class="admtips"><summary class="small">운영 안내</summary>
+      <p class="tip">행정 행동력은 국회·당 활동의 행동력과 따로 매 턴 채워집니다. 단체장이 1명이면 1, 2명마다 1씩 늘어납니다(4명이면 3). 한 지역에서 여러 사업을 펼칠 수 있지만, 같은 지역의 같은 사업은 한 턴에 한 번입니다. 행정 사업이 성공하면 그 지역에 시설이 하나씩 들어섭니다.</p>
+      <p class="tip">행정 지지도는 당선 때 득표율에서 출발하고 가만두면 그 지역 우리 당 지지율 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있으며, 단체장 역량이 높을수록 성공률이 오릅니다.</p>
+      <p class="tip">자동화는 지사마다 따로 켤 수 있습니다(위 스위치는 한꺼번에). 켠 지사는 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터 무난한 사업을 펼칩니다. 악재 소식이 보이는 사업은 피합니다. 현안이 진짜 지역 문제인지는 단체장 역량만큼 가려냅니다.</p>
+      <p class="tip">직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 행정 사업 버튼은 잠깁니다.</p>
+      <p class="tip">지역 현안은 지역 소식에서 '현안 지정'을 눌러 담은 소식입니다(지역당 ${desMax}건, 5주 유지). 진짜 지역 문제인지는 알 수 없습니다. 제대로 짚고 맞는 역점사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 지정하지 않은 진짜 문제도 오래 방치되면 그 지역 지사가 책임론에 시달립니다. 다른 당 지사도 역점사업을 펼치며, 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</p></details></div>`;
+  // 왼쪽: 지사 목록(우리 당 | 다른 당 분류), 누르면 가운데에 그 지역
+  const tile = (x, inner) => `<li><button class="admtile${x === sel ? ' on' : ''}" data-admsel="${x}" aria-pressed="${x === sel}">${inner}</button></li>`;
+  const pTile = x => tile(x, `<span class="who">${face(govPerson(x) || { name: RK[x].n }, S.party.color, 40)}<span class="gt"><span class="small muted">${GOVT[x]}${desOf(x).length ? ` | 현안 ${desOf(x).length}` : ''}${autoOn(x) ? ' | 자동' : ''}</span><b>${esc(govName(x))}</b></span>${rUnread(x) ? '<i class="dot" aria-hidden="true"></i>' : ''}</span>${meter(S.ops[x])}`);
+  const oTile = x => { const g = S.rgov[x]; return tile(x, `<span class="who">${face(fig(g.fid) || { name: g.n }, pc(g.p), 40)}<span class="gt"><span class="small muted">${GOVT[x]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}</b></span></span>${meter(g.o, pc(g.p))}`); };
+  const side = `<div class="card admside"><div class="filters chips" role="group" aria-label="광역단체장 분류">${[['P', '우리 당', govs.length], ['O', '다른 당', ks.length]].map(([x, n, c]) => `<button class="btn${admSide === x ? ' pri' : ''}" data-admside="${x}" aria-pressed="${admSide === x}" ${c ? '' : 'disabled'}>${n} ${c}</button>`).join('')}</div>
+    ${(admSide === 'P' ? govs : ks).length ? `<ul class="admlist">${admSide === 'P' ? govs.map(pTile).join('') : ks.map(oTile).join('')}</ul>` : '<p class="small muted">광역단체장이 없습니다.</p>'}</div>`;
+  // 가운데: 고른 지역의 집무실(단체장·행정 지지도·행동) + 도시 판 + 그 지역 현안
+  const mineK = sel in S.ops, g = S.rgov[sel], col = mineK ? S.party.color : g ? pc(g.p) : 'var(--other)', facs = S.fac?.[sel] || [];
+  const who = mineK ? `<span class="who">${govPerson(sel) ? `<button class="facebtn" data-pinfo="g${sel}" aria-label="${esc(govName(sel))} 정보 보기" title="인물 정보">${face(govPerson(sel), col, 48)}</button>` : face({ name: RK[sel].n }, col, 48)}<span class="gt"><span class="small muted">${GOVT[sel]} | 역량 ${govPerson(sel)?.skill ?? 50}</span><b>${esc(govName(sel))}</b></span></span>`
+    : g ? `<span class="who">${fig(g.fid) ? `<button class="facebtn" data-pinfo="f${g.fid}" aria-label="${esc(g.n)} 정보 보기" title="인물 정보">${face(fig(g.fid), col, 48)}</button>` : face({ name: g.n }, col, 48)}<span class="gt"><span class="small muted">${GOVT[sel]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}</b></span></span>` : '<span class="small muted">단체장 공석</span>';
+  const w = mineK && why('govern', sel);
+  const strip = `<div class="admstrip" style="--pc:${col}">${who}<div class="admm">${mineK ? meter(S.ops[sel]) : g ? meter(g.o, col) : ''}</div>${mineK ? `<span class="admbtn"><label class="sw">자동화<input type="checkbox" role="switch" data-autok="${sel}" aria-label="${esc(govName(sel))} 행정 자동화" ${autoOn(sel) ? 'checked' : ''}></label><button class="btn pri nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button></span>` : ''}</div>${w ? `<p class="small warn" style="margin:6px 0 0">${esc(w)}</p>` : ''}`;
+  const cnt = {}; facs.forEach(f => cnt[f] = (cnt[f] || 0) + 1);
+  const facList = `<p class="small muted admfac">${facs.length ? GOV_PROJ.filter(p => cnt[p.k]).map(p => `${p.n} <b class="num">${cnt[p.k]}</b>`).join(' | ') : '아직 들어선 시설이 없습니다. 행정 사업이 성공하면 빈 필지에 시설이 하나씩 들어섭니다.'}</p>`;
+  const iss = desOf(sel).sort((a, b) => b.d - a.d);
+  const issBtns = x => `${mineK ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
+  const center = `<div class="card admcity"><h2>${RK[sel].n}</h2>${strip}
+    <div class="citywrap">${ART.city(sel, facs, col)}</div>${facList}
+    <h3 style="margin-top:16px">지역 현안 <span class="pill">${iss.length}건</span></h3>
+    ${iss.length ? `<ul class="log">${iss.map(x => `<li><span style="flex:1">${esc(shortT(x))}<div class="small muted">${fdate(x.d)} 보도 | ${Math.max(1, Math.ceil((x.d + 35 - S.day) / TURN))}턴 남음</div></span><span class="negcell">${issBtns(x)}</span></li>`).join('')}</ul>` : `<p class="small muted">지정한 현안이 없습니다. 지역 소식에서 '현안 지정'을 눌러 담으세요(지역당 ${desMax}건).</p>`}</div>`;
   if (rOpen?.k !== k) rOpen = k && { k, seen: S.rseen[k] ?? -1 }; // 열어 둔 동안은 NEW 유지, 다시 열면 꺼짐
   if (k) S.rseen[k] = S.day; // 지역 소식을 열면 읽음
   const items = S.rnews.filter(x => !k || x.k === k).slice(-20).reverse();
-  // 좌: 지역 현안·행정 운영(우리·다른 당 단체장) / 우: 지역 소식. 폭이 좁으면 위아래로 쌓임
-  return `${govMapCard()}<div class="split"><div>${issCard}${mine}${rg}</div><div class="card follow"><h2>지역 소식<span class="h2r"><button class="btn sm" data-ralert>알림 설정</button></span></h2>
+  // 좌: 지사 목록 | 가운데: 고른 지역 | 우: 지역 소식. 좁으면 위아래로 쌓임
+  return `${govMapCard()}${hud}<div class="admgrid">${side}${center}<div class="card follow admnews"><h2>지역 소식<span class="h2r"><button class="btn sm" data-ralert>알림 설정</button></span></h2>
     <div class="filters chips" role="group" aria-label="지역 선택">${[['all', '전체'], ...R_ADM.map(r => [r.k, r.n])].map(([x, n]) => `<button class="btn${admReg === x ? ' pri' : ''}" data-areg="${x}" aria-pressed="${admReg === x}">${n}${x !== 'all' && rUnread(x) ? '<i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : ''}</button>`).join('')}</div>
     ${items.length ? `<ul class="log">${items.map(x => `<li><time>${fdate(x.d)}</time><span style="flex:1">${k ? '' : `<span class="pill">${RK[x.k].n}</span> `}${rNew(x) ? '<span class="pill ok">NEW</span> ' : ''}${esc(x.t)}${x.v ? ' <span class="pill warn">화제</span>' : ''}</span>${desBtn(x)}</li>`).join('')}</ul>` : '<p class="empty">아직 이 지역 소식이 없습니다. 턴이 지나면 쌓입니다.</p>'}</div></div>`;
 }
