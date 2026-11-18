@@ -1838,7 +1838,7 @@ function tick() {
   if (!modalOpen && !S.queue.length && rnd() < 1 / 20) randomEvent();
   const nOff = seatTotal('P') + govCount('P') * 3; // 소속 의원·단체장이 스스로 움직임
   if (nOff && rnd() < Math.min(0.08, 0.01 + nOff * 0.003)) S.queue.push({ ev: 'selfAct' });
-  if (!modalOpen) processQueue();
+  while (!modalOpen && S.queue.length) processQueue(); // 창 안 띄우는 이벤트(후속 보도 등)가 하루 한 칸씩 막아 큰 알림이 몇 주씩 밀리지 않게
   renderTop();
 }
 
@@ -4369,6 +4369,7 @@ const XEV = {
     info('헌법재판소: 탄핵 인용', `헌법재판소가 재판관 전원 일치로 ${fallen} 파면을 결정했습니다. ${presT()}이 국정을 맡고, ${fdate(day)}에 조기 대선이 치러집니다. 공천 기간이 짧으니 서둘러 후보를 정하세요.`, false);
   },
   audit: () => {
+    if (!auditOn()) return; // 대기열에 밀려 국감이 끝난 뒤면 알리지 않음
     S.risks.filter(() => rnd() < 0.1).forEach(k => exposeRisk(k)); // 상대 당도 우리 의혹을 판다
     const gov = Object.keys(S.ops);
     gov.forEach(k => opsAdd(k, rr(-4, 2))); // 우리 시·도도 피감기관
