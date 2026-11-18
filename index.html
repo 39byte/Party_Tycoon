@@ -824,7 +824,7 @@ const GOV_POL = [
   { t: '조직폭력·마약 특별 단속', issue: 'order', pop: 0.65 }, { t: '부담금 정비·규제 일괄 폐지', issue: 'tax', pop: 0.5 },
   { t: '정당 회계 특별 점검 지시', issue: 'reform', pop: 0.6, fx: { k: 'probe', m: 1.5, days: 180, n: '정당 수사 적발률 +50% (6개월)' } },
   { t: '정치후원금 세액공제 축소', issue: 'reform', pop: 0.45, fx: { k: 'funds', m: 0.85, days: 365, n: '후원금 모금 −15% (1년)' } },
-  { t: '지방교부세 감액', issue: 'region', pop: 0.4, hit: '우리 당 시·도 행정 지지도 −4', on: () => { for (const k in S.ops) S.ops[k] = clamp(S.ops[k] - 4, 5, 95); } },
+  { t: '지방교부세 감액', issue: 'region', pop: 0.4, hit: '우리 당 시·도 행정 지지도 −4', on: () => { for (const k in S.ops) opsAdd(k, -4); } },
 ];
 // 다른 당 광역단체장 역점사업: [이름, 분야]. 성패는 그 지사의 분야 역량
 const RGOV_PROJ = [['신공항 유치', 'dev'], ['광역급행철도 조기 착공', 'dev'], ['메가시티 행정통합', 'dev'], ['대규모 산업단지 조성', 'biz'], ['관광 레저 특구 개발', 'biz'],
@@ -847,8 +847,8 @@ const PJC = Object.fromEntries(GOV_PROJ.map(p => [p.k, p.c])); // 세부 사업 
 // 지역별 최근 성공한 행정 사업(지방 정부 탭 '공급'). S.fac[지역] = 사업 키 배열, 최근 FAC_N건만(오래된 사업은 공급에서 빠져 비중이 다시 움직임)
 const FAC_N = 12;
 const facAdd = (k, pj) => { const a = ((S.fac ??= {})[k] ??= []); a.push(pj); a.splice(0, a.length - FAC_N); };
-// 분야별 [기본 성공률, 성공 시 행정 지지도 +, 실패 시 −]. 성공 폭은 수요·공급 배율(L.demMul, 포화면 음수)을 곱함. 상승분은 예전 값(7 | 3.5 | 8 | 2) ÷ 1.3
-const PJ_BASE = { dev: [0.65, 5.4, 3], care: [0.75, 2.7, 2], biz: [0.5, 6.2, 1], safe: [0.7, 1.5, 1] };
+// 분야별 [기본 성공률, 성공 시 행정 지지도 +, 실패 시 −]. 성공 폭은 수요·공급 배율(L.demMul, 포화면 음수)을 곱함. 상승분은 예전 값(7 | 3.5 | 8 | 2) ÷ 2.6
+const PJ_BASE = { dev: [0.65, 2.7, 3], care: [0.75, 1.35, 2], biz: [0.5, 3.1, 1], safe: [0.7, 0.75, 1] };
 // 분야 설명(행정 사업 창)
 const PJ_D = { care: '대체로 지지도가 오르지만, 예산 집행이 꼬이면 역풍을 맞습니다.', safe: '작은 성과를 노립니다. "형식적"이라는 비판을 받을 수도 있습니다.', biz: '반반의 확률로 큰 성과를 냅니다.', dev: '성공하면 행정 지지도가 크게 오르지만 실패할 수 있습니다. 개발업자들이 몰려듭니다.' };
 // 지역 소식(지방 정부 탭). {n} 지역 이름
@@ -1366,7 +1366,7 @@ function pf(id, k) {
 }
 const regSupport = (k, id = 'P') => regPoll(k)[id];
 // 행정 지지도 상승 억제: 시작점 = 90 − OPS_CORE_K × 그 지역에서 단체장 당과 노선이 반대인 정당의 코어층(충성층) 비율(%, 유권자 대비 = 지지율 × 충성 비중). 넘는 몫은 신뢰도와 같은 로그 곡선(TRUST_K). 무소속·중도 단체장은 40
-// 다른 당 지사는 시작점 +5(조금 덜 억제). 오를 때 속도는 단체장 당의 그 지역 지지층 계층이 정함(opsUp: 충성층이 두꺼우면 잘 오르고 혐오층이 두꺼우면 덜 오름)
+// 다른 당 지사는 시작점 +5(조금 덜 억제). 오르내리는 폭은 단체장 당의 그 지역 지지층 계층이 정함(opsUp, 지역 지지율과 같은 L.tierSup: 충성층이 두꺼우면 덜 빠지고 혐오층이 두꺼우면 덜 오름)
 const OPS_CORE_K = 9, OPS_CAP_MIN = 10; // 반대 노선 코어층 1%p당 시작점 −9(양극화된 지역일수록 크게 낮음, 하한 10)
 const opsSoft = (id, k) => {
   const g = id === 'P' ? S.party.ideo : RIV[id]?.ideo ?? 0, ids = ['P', 'A', 'B', 'C', 'D', 'O'], ns = natShares();
@@ -1376,8 +1376,8 @@ const opsSoft = (id, k) => {
   return Math.max(OPS_CAP_MIN, 90 - OPS_CORE_K * sum(ids.filter(x => ideo(x) * g < 0).map(x => sh[x] * S.rtier[x][k][0])) / tot * 100);
 };
 const opsUp = (id, k, x, d) => {
+  const tt = S.rtier[id]?.[k]; if (tt) d *= L.tierSup(tt, d > 0); // 단체장 당의 그 지역 지지층(무소속은 계층 없음). 충성층이 두꺼우면 덜 빠짐
   if (d <= 0) return x + d;
-  const tt = S.rtier[id]?.[k]; if (tt) d *= L.tierSup(tt, true); // 단체장 당의 그 지역 지지층(무소속은 계층 없음)
   const s = opsSoft(id, k) + (id === 'P' ? 0 : 5), u =Math.max(0, Math.min(d, s - x)); x += u; d -= u;
   return d > 0 ? s + TRUST_K * Math.log(Math.exp((x - s) / TRUST_K) + d / TRUST_K) : x;
 };
@@ -2689,7 +2689,7 @@ const GOV_FLOP = [
 // 행정 실책 장부 S.blun [{ id, k, p, t, d, used }]: 국정감사에서 추궁할 거리. 1년·40건까지
 const blunAdd = (k, p, t) => { S.blun = S.blun.filter(x => S.day - x.d < 365).slice(-39); S.blun.push({ id: ++S.seq, k, p, t, d: S.day }); };
 // 역점사업 한 건 실행(행정 행동력 1). 창에서 고르든 자동화든 여기로
-// 자동화(auto)는 직접 챙기지 않으니 성공률 −20%p, 행정 실책 확률 43−역량/4 %(역량 50 → 30.5%, 68 이상 → 26%). 역량 60~70이면 행정 지지도가 대체로 제자리
+// 자동화(auto)는 직접 챙기지 않으니 성공률 −20%p, 행정 실책 확률 43−역량/4 %(역량 50 → 30.5%, 68 이상 → 26%). 성공 상승분이 작아 자동화만으로는 행정 지지도가 대체로 조금씩 떨어짐
 function govRun(k, pj, auto) {
   const n = RK[k].n;
   S.cd[`govern:${k}:${pj}`] = S.day + ACT.govern.cd; S.aap--;
@@ -4115,7 +4115,7 @@ function selfAct() {
     addLog(`[소속 정치인 소식] ${t}. 우리 당 지지율에 호재입니다.`, 'ok'); toast(t, 'ok', '지지율 호재'); return;
   }
   const t = pick(SELF_BAD[kind]).replace('{p}', who), att = attacker(), hit = rr(2.5, 5.5) * gapHit(att);
-  S.buzz -= hit; if (k) trustAt(k, -hit * 0.3); else S.trust -= hit * 0.3; S.rw[att] += 0.8; relAdd(att, -3, `${p.name} 논란 공세`); if (k) S.ops[k] = clamp(S.ops[k] - 3, 5, 95);
+  S.buzz -= hit; if (k) trustAt(k, -hit * 0.3); else S.trust -= hit * 0.3; S.rw[att] += 0.8; relAdd(att, -3, `${p.name} 논란 공세`); if (k && k in S.ops) opsAdd(k, -3);
   wire(`${t}… ${pn(att)} "즉각 사퇴하라"`, k ? 'gov' : 'hall');
   showEvent({ title: '소속 정치인 논란', body: () => `<div class="leader">${face(p, S.party.color, 56)}<div><b>${esc(p.name)}</b> <span class="pill">${esc(p.role)}</span><div class="small muted">역량 ${p.skill} | 청렴 ${p.integ}</div></div></div>${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(pn(att))}이(가) 즉각 사퇴를 요구하며 맹공에 나섰고, 우리 당 지지율이 흔들립니다.${esc(gapNote(att))}`,
     ch: [{ t: '즉각 사과하고 당직 정지', s: '파장 절반으로', run: () => { S.buzz += hit * 0.5; S.trust += 0.5; if (!p.temp) p.integ = clamp(p.integ + 10, 0, 100); return '빠른 사과로 불길이 잦아들었습니다.'; } },
@@ -4332,11 +4332,11 @@ const EVENTS = [
   { id: 'devscandal', w: 1.5, cond: () => Object.keys(S.ops).length > 0, title: '개발사업 특혜 의혹', pre: () => { ET.k = pick(Object.keys(S.ops)); ET.real = S.risks.find(r => r.pen.gov === ET.k); wire(`${RK[ET.k].n} 도시개발 특혜 의혹 보도`, 'reg'); },
     body: () => `${RK[ET.k].n} 도시개발 사업에서 민간업자가 수천억 원을 챙겼다는 보도가 나왔습니다. 경쟁 정당이 우리 당 도지사를 고발했습니다.`,
     ch: [{ t: '특검이라도 받겠다', s: '결백하면 신뢰↑', run: () => { trustAt(ET.k, ET.real ? 0 : 2); ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '"한 점 부끄럼 없다"며 수사를 자청했습니다.'; } },
-      { t: '"정치 공세"라고 반박', run: () => { S.fame += 1; S.ops[ET.k] -= 3; ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '의혹을 정면 반박했습니다.'; } }] },
+      { t: '"정치 공세"라고 반박', run: () => { S.fame += 1; opsAdd(ET.k, -3); ET.real ? exposeRisk(ET.real) : openCase({ t: `${RK[ET.k].n} 개발 특혜`, guilty: false, pen: { money: -5e7, trust: -8, gov: ET.k, note: `${GOVT[ET.k]} 직 상실` } }); return '의혹을 정면 반박했습니다.'; } }] },
   { id: 'jamboree', w: 1, cond: () => Object.keys(S.ops).length > 0, title: '국제행사 파행', pre: () => { ET.k = pick(Object.keys(S.ops)); wire(`${RK[ET.k].n} 국제 청소년 행사 파행, 책임 공방`, 'reg'); },
     body: () => `${RK[ET.k].n}에서 열린 국제 청소년 행사가 폭염과 준비 부족으로 파행을 빚었습니다. 책임 공방이 시작됐습니다.`,
-    ch: [{ t: '도지사가 공식 사과', s: '행정 지지도 소폭↓', run: () => { S.ops[ET.k] -= 2; S.trust += 1; return '깔끔한 사과로 불길을 잡았습니다.'; } },
-      { t: '중앙정부 책임론', s: '행정 지지도↓', run: () => { S.ops[ET.k] -= 5; S.fame += 2; hitPres(1); return '책임 떠넘기기 공방이 길어졌습니다.'; } }] },
+    ch: [{ t: '도지사가 공식 사과', s: '행정 지지도 소폭↓', run: () => { opsAdd(ET.k, -2); S.trust += 1; return '깔끔한 사과로 불길을 잡았습니다.'; } },
+      { t: '중앙정부 책임론', s: '행정 지지도↓', run: () => { opsAdd(ET.k, -5); S.fame += 2; hitPres(1); return '책임 떠넘기기 공방이 길어졌습니다.'; } }] },
 
   // --- 당 운영 ---
   { id: 'celeb', w: 2, cond: () => S.pool.length < POOL_MAX, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
@@ -4536,10 +4536,10 @@ const XEV = {
           { t: '거절한다', s: '독자 노선', run: () => { relAdd(id, -3, `${n} 협치 제안 거절`); return '독자적으로 추진하겠다며 제안을 거절했습니다.'; } }] });
     }
     if (roll < 0.4) {
-      g.o -= 4; wr(`${w} 측근 인허가 개입 의혹 보도`);
+      rgovAdd(k, -4); wr(`${w} 측근 인허가 개입 의혹 보도`);
       return showEvent({ title: `${n} 지사 측근 비리 의혹`, body: () => `${who}의 측근이 산하기관 인사와 인허가에 개입했다는 의혹이 보도됐습니다.`,
         ch: [{ t: '검찰에 고발한다', s: `${pn(id)} 관계 크게↓`, run: () => { openCase({ t: `${GOVT[k]} 측근 인허가 개입`, guilty: rnd() < 0.5, mine: true, target: id }); relAdd(id, -12, `${GOVT[k]} 측근 고발`); S.fame += 1; return '시·도당 명의로 고발장을 냈습니다. 수사 결과는 몇 주 뒤 나옵니다.'; } },
-          { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { g.o -= 3; relAdd(id, -4, `${GOVT[k]} 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
+          { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { rgovAdd(k, -3); relAdd(id, -4, `${GOVT[k]} 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
           { t: '정치 공세는 자제한다', run: () => { S.trust += 0.5; return '수사를 지켜보겠다는 입장만 냈습니다.'; } }] });
     }
     const tc = rgovPick(k, [...new Set(RGOV_PROJ.map(x => x[1]))]), [t] = pick(RGOV_PROJ.filter(x => x[1] === tc)), ok = rnd() < 0.55 + (rgovArea(k, tc) - 50) / 250;
@@ -4661,7 +4661,7 @@ function regionNews() {
     // 다른 당 지사도 실제 문제에 대응함(턴마다 30%)
     if (x.pj && g && rnd() < 0.3) { rgovAdd(x.k, 0.5); wire(`${govWho(x.k)}, '${shortT(x)}' 대응책 발표`, 'gov'); return false; }
     if (x.until > S.day) return true;
-    if (x.pj && S.gov[x.k] === 'P') { S.ops[x.k] = clamp(S.ops[x.k] - 1, 5, 95); wire(`${n} '${shortT(x)}' 대응 지지부진… ${govWho(x.k)} 책임론`, 'gov'); }
+    if (x.pj && S.gov[x.k] === 'P') { opsAdd(x.k, -1); wire(`${n} '${shortT(x)}' 대응 지지부진… ${govWho(x.k)} 책임론`, 'gov'); }
     else if (x.pj && g) { g.o = clamp(g.o - 1, 5, 95); wire(`${n} '${shortT(x)}' 장기화… ${govWho(x.k)} 책임론`, 'gov'); }
     return false;
   });
@@ -5966,7 +5966,7 @@ function pGuide() {
       <li><b>사업별 수요·공급</b>: 최근 5주 지역 소식에서 짐작되는 주민 요구(수요)와 그 지역에서 최근 성공한 행정 사업 12건(공급)을 견주어, 분야(돌봄·복지, 안전, 경제·일자리, 개발)마다 공급이 <b>공백 | 부족 | 보통 | 과잉 | 포화</b> 중 어디인지 보여 줍니다. 행정 사업 창의 분야 제목 옆에도 같은 단계가 나옵니다. 공급이 비어 있을수록 사업이 성공했을 때 행정 지지도가 더 오르고, 부족일 때가 기본 상승분입니다. 보통·과잉으로 갈수록 덜 오르다가 과잉을 넘어서면 효과가 급격히 줄고, 포화면 성공해도 예산 낭비라는 비판에 오히려 지지도가 깎입니다. 한 분야만 거듭하면 안 됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
       <li>지사 카드 오른쪽 스위치로 지사마다 <b>자동화</b>를 켤 수 있습니다(분류 버튼 옆 '전체 자동화'는 한꺼번에). 켠 지사는 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터, 지사가 자기 특기와 성향, 수요·공급을 따져 고른 분야의 사업을 펼칩니다. 다른 당 지사도 같은 방식으로 사업을 고릅니다. 악재 소식이 보이는 사업은 피합니다. 현안이 진짜 지역 문제인지는 그 지역 단체장 역량만큼 가려냅니다.</li>
-      <li>자동화는 직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 그 지역 행정 사업 버튼은 잠깁니다.</li>
+      <li>자동화는 직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 사업 하나로 오르는 폭은 작고 실책은 크게 깎이니, 자동화만 켜 두면 행정 지지도가 대체로 조금씩 떨어집니다. 올리려면 현안을 직접 짚어 사업을 펼치세요. 그 지역에 우리 당 충성층이 두꺼우면 덜 깎이고, 혐오층이 두꺼우면 덜 오릅니다. 켜 둔 동안 그 지역 행정 사업 버튼은 잠깁니다.</li>
       <li>지방 정부 탭에서는 시·도별 지역 소식(지역 현안, 동네 사건, 재난, 선거 결과)을 왼쪽에서 고른 지사의 지역별로 볼 수 있습니다. 행정 사업 결과·후속 보도·단체장 직무 평가는 소식 탭의 '지방 정부'에 모입니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
       <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 날짜 줄의 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>행정 사업은 돌봄·복지, 안전, 경제·일자리, 개발 네 분야 아래 세부 사업(공공 의료 확충, 재난 대비 강화, 상권·소상공인 지원, 교통망 확충 등)으로 나뉩니다. 성공률과 효과는 분야마다 다르고, 같은 지역의 같은 세부 사업은 한 턴에 한 번입니다.</li>
