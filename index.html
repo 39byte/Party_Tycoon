@@ -4379,7 +4379,7 @@ const XEV = {
   // 다른 당이 우리 단체장의 행정 실책을 추궁: 반박(역량·청렴 vs 상대 질의자 역량) 또는 사과
   auditHit: q => {
     const b = S.blun.find(x => x.id === q.bid);
-    if (!b || b.used || S.gov[b.k] !== 'P') return;
+    if (!b || b.used || S.gov[b.k] !== 'P' || !auditOn()) return; // 국감이 끝난 뒤 늦게 꺼낸 추궁은 버림
     const atk = audAtk(q.id);
     if (!atk) return;
     const gp = govPerson(b.k), def = audDef(gp), odds = audOdds(atk.skill, def), who = [GOVT[b.k], gp?.name].filter(Boolean).join(' '), by = `${pn(q.id)} ${atk.name} 의원`;
