@@ -564,7 +564,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .admlist li{position:relative}.admlist .admk{position:absolute;top:10px;right:10px}.admlist .who{padding-right:64px}
 .dsh{display:flex;align-items:center;gap:8px;margin-top:18px}.dsh .btn{margin-left:auto}
 .admtile{display:grid;gap:6px;width:100%;text-align:left;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--surface2);cursor:pointer}
-.admtile:hover{border-color:var(--primary2)}.admtile.on{border-color:var(--primary2);box-shadow:inset 4px 0 0 var(--primary2);background:var(--surface)}
+.admtile:hover{border-color:var(--primary2)}.admtile.new{border:2px solid var(--danger);padding:9px}
+.admside{position:relative}.admnew{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);width:36px;height:36px;border-radius:50%;border:0;padding:0;display:grid;place-items:center;background:var(--danger);color:#fff;box-shadow:0 4px 12px rgba(220,38,38,.45);cursor:pointer;z-index:2;animation:admnew 1.2s ease-in-out infinite}
+.admnew svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.admnew.hz{left:auto;right:8px;bottom:auto;top:96px;transform:none;animation-name:admnewx}.admnew.hz svg{transform:rotate(-90deg)}
+@keyframes admnew{50%{transform:translate(-50%,4px)}}@keyframes admnewx{50%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:reduce){.admnew{animation:none}}.admnew[hidden]{display:none}.admtile.on{border-color:var(--primary2);box-shadow:inset 4px 0 0 var(--primary2);background:var(--surface)}
 .admtile .dot{display:inline-block;vertical-align:middle}
 .admfac{margin:4px 0 0}.isswrap{min-height:210px}.isswrap>p{margin:0}@media (max-width:720px){.isswrap{min-height:300px}}
 .pjds{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 16px;margin-top:8px}
@@ -5062,6 +5067,13 @@ function bindPanel(m) {
   m.querySelectorAll('[data-outf]').forEach(b => b.onclick = () => { outF = b.dataset.outf; outPage = 0; renderPanel(); });
   m.querySelectorAll('[data-mppage]').forEach(b => b.onclick = () => { mpPage = +b.dataset.mppage; renderPanel(); });
   m.querySelectorAll('[data-outpage]').forEach(b => b.onclick = () => { outPage = +b.dataset.outpage; renderPanel(); });
+  const al = m.querySelector('.admlist'), ar = m.querySelector('[data-admnew]');
+  if (al && ar) { // 가려진 새 소식 카드 찾기: 세로 목록은 아래, 가로 목록(모바일)은 오른쪽
+    let tg = null; const upd = () => { const hz = al.scrollWidth > al.clientWidth + 1, lr = al.getBoundingClientRect();
+      tg = [...al.querySelectorAll('.admtile.new')].find(e => { const r = e.getBoundingClientRect(); return hz ? r.left > lr.right - 24 : r.top > lr.bottom - 24; });
+      ar.hidden = !tg; ar.classList.toggle('hz', hz); };
+    al.addEventListener('scroll', upd, { passive: true }); requestAnimationFrame(upd);
+    ar.onclick = () => tg?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); }
   m.querySelectorAll('[data-admsel]').forEach(b => b.onclick = () => { admSel = b.dataset.admsel; Snd.sfx('click'); renderPanel(); renderNav(); });
   m.querySelectorAll('[data-admside]').forEach(b => b.onclick = () => { admSide = b.dataset.admside; renderPanel(); });
   m.querySelectorAll('[data-ralert]').forEach(b => b.onclick = () => openModal({ title: '지역 소식 알림 설정',
@@ -5690,12 +5702,12 @@ function pAdmin() {
   const sel = admSel && (admSel in S.ops || S.rgov[admSel]) ? admSel : govs[0] || ks[0] || R_ADM[0].k;
   // 왼쪽: 지사 목록(우리 당 | 다른 당 분류), 누르면 가운데에 그 지역
   const dot = x => rUnread(x) ? ' <i class="dot" aria-hidden="true"></i><span class="sr">(새 소식)</span>' : '';
-  const tile = (x, inner, extra = '') => `<li><button class="admtile${x === sel ? ' on' : ''}" data-admsel="${x}" aria-pressed="${x === sel}">${inner}</button>${extra}</li>`;
+  const tile = (x, inner, extra = '') => `<li><button class="admtile${x === sel ? ' on' : ''}${x !== sel && rUnread(x) ? ' new' : ''}" data-admsel="${x}" aria-pressed="${x === sel}">${inner}</button>${extra}</li>`;
   const pTile = x => tile(x, `<span class="who">${face(govPerson(x) || { name: RK[x].n }, S.party.color, 40)}<span class="gt"><span class="small muted">${GOVT[x]}${desOf(x).length ? ` | 현안 ${desOf(x).length}` : ''}</span><b>${esc(govName(x))}${dot(x)}</b><span class="small muted">역량 ${govPerson(x)?.skill ?? 50}</span></span></span>${meter(S.ops[x])}`,
     `<label class="sw admauto admk">자동<input type="checkbox" role="switch" data-autok="${x}" aria-label="${esc(govName(x))} 행정 자동화" ${autoOn(x) ? 'checked' : ''}></label>`);
   const oTile = x => { const g = S.rgov[x]; return tile(x, `<span class="who">${face(fig(g.fid) || { name: g.n }, pc(g.p), 40)}<span class="gt"><span class="small muted">${GOVT[x]} | ${esc(pn(g.p))}</span><b>${esc(g.n)}${dot(x)}</b></span></span>${meter(g.o, pc(g.p))}`); };
   const side = `<div class="card admside"><div class="filters chips" role="group" aria-label="광역단체장 분류">${[['P', '우리 당', govs.length], ['O', '다른 당', ks.length]].map(([x, n, c]) => `<button class="btn${admSide === x ? ' pri' : ''}" data-admside="${x}" aria-pressed="${admSide === x}" ${c ? '' : 'disabled'}>${n} ${c}</button>`).join('')}${govs.length ? `<label class="sw small admauto">전체 자동화<input type="checkbox" role="switch" data-autogov ${govs.every(autoOn) ? 'checked' : ''}></label>` : ''}</div>
-    ${(admSide === 'P' ? govs : ks).length ? `<ul class="admlist follow">${admSide === 'P' ? govs.map(pTile).join('') : ks.map(oTile).join('')}</ul>` : '<p class="small muted">광역단체장이 없습니다.</p>'}</div>`;
+    ${(admSide === 'P' ? govs : ks).length ? `<ul class="admlist follow">${admSide === 'P' ? govs.map(pTile).join('') : ks.map(oTile).join('')}</ul>` : '<p class="small muted">광역단체장이 없습니다.</p>'}<button class="admnew" data-admnew hidden aria-label="새 소식이 나온 지역으로 스크롤" title="새 소식이 나온 지역 보기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7"/></svg></button></div>`;
   // 가운데: 고른 지역의 집무실(단체장·행정 지지도·행동) + 우리 당 지역 정보 + 사업별 수요·공급 + 그 지역 현안
   const mineK = sel in S.ops, g = S.rgov[sel], col = mineK ? S.party.color : g ? pc(g.p) : 'var(--other)';
   const w = mineK && why('govern', sel);
