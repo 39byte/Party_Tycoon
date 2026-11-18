@@ -576,7 +576,9 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .admfac{margin:4px 0 0}.isswrap{min-height:210px}.isswrap>p{margin:0}@media (max-width:720px){.isswrap{min-height:300px}}
 .pjds{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 16px;margin-top:8px}
 .pjds>div{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:7px;background:var(--surface2);font-size:13px}
-.pjds>div>b{white-space:nowrap}.pjds>.ok{box-shadow:inset 3px 0 0 var(--ok)}.pjds>.ok b{color:var(--ok)}.pjds>.warn b{color:var(--warn)}.pjds>.bad{box-shadow:inset 3px 0 0 var(--danger)}.pjds>.bad b{color:var(--danger)}
+/* 수요·공급 단계 칩: 공백 하늘 | 부족 하양 | 보통 초록 | 과잉 주황 | 포화 빨강(라이트·다크 같은 색) */
+.dsc,.pill.dsc{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:700;white-space:nowrap;background:var(--dsb);color:var(--dsf);border:1px solid var(--dsl,var(--dsb))}
+.ds0{--dsb:#7DD3FC;--dsf:#0C4A6E}.ds1{--dsb:#FFFFFF;--dsf:#1F2937;--dsl:#CBD5E1}.ds2{--dsb:#15803D;--dsf:#FFFFFF}.ds3{--dsb:#C2410C;--dsf:#FFFFFF}.ds4{--dsb:#B91C1C;--dsf:#FFFFFF}
 .admgrid{align-items:stretch}.admnews>h2:first-child{height:44px;flex-wrap:nowrap}.admnews,.admside{height:0;min-height:100%;overflow:auto;overscroll-behavior:contain}
 .admside{display:flex;flex-direction:column;overflow:hidden}.admside .admlist{flex:1;min-height:0;overflow:auto;padding:2px}
 @media (max-width:1180px){.admgrid{grid-template-columns:290px minmax(0,1fr)}.admnews{grid-column:1/-1;height:auto;max-height:70vh}}
@@ -2664,7 +2666,7 @@ function govModal(k) {
     tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 단체장마다 출신에 따라 잘하는 분야와 서툰 분야가 있지만 겉으로 드러나지 않습니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> | 단체장 역량 <b class="num">${govPerson(k)?.skill ?? 50}</b> | 남은 행정 행동력 <b class="num">${S.aap}</b></p>
       ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방 정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
-      <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]} <span class="pill ${DS_CLS[dsLv(k, cat)]}">공급 ${L.DS_LV[dsLv(k, cat)]}</span></h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
+      <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]} <span class="pill dsc ds${dsLv(k, cat)}">공급 ${L.DS_LV[dsLv(k, cat)]}</span></h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
         return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}${c ? `<small><b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b></small>` : ''}</button>`; }).join('')}</div></div>`).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
@@ -2741,7 +2743,6 @@ function demSup(k) {
 }
 const demMulK = (k, c) => { const { dem, sup } = demSup(k); return L.demMul(dem, sup, c); };
 const dsLv = (k, c) => { const { dem, sup } = demSup(k); return L.demLvl(L.demGap(dem, sup, c)); }; // 0 공백 ~ 4 포화(L.DS_LV)
-const DS_CLS = ['ok', 'ok', '', 'warn', 'bad']; // 공백·부족 초록 | 과잉 주황 | 포화 빨강
 // 옛 저장 파일의 지역 소식 중 행정 소식(사업 결과·후속 보도·직무 평가·책임론·단체장 동정 등)인지. migrate에서만 씀
 const isGovNews = x => new RegExp(`^(${Object.values(GOVT).join('|')}) | 지사\\(|' (해결 나서… 주민 호평|대응책 발표|첫 성과|좌초 위기)$| 책임론$|개발사업이 (순조롭게|주민 반발)|돌봄센터 (확충으로|위탁업체)|공장 유치 성공|투자 유치 협상이 결렬|재난·안전 점검을 마쳤|"형식적 점검"|도시개발 특혜 의혹|국제 청소년 행사 파행`).test(x.t)
   || Object.values(ADM_FOLLOW).some(v => [...v.ok, ...v.no].some(f => !f.need && !f.bad && tplRx(f.t, x.k).test(x.t)));
@@ -5718,7 +5719,7 @@ function pAdmin() {
   const w = mineK && why('govern', sel);
   const info = `<p class="small admfac">우리 당 지역 지지율 <b class="num">${pubReg(sel).toFixed(1)}%</b> | 당원 <b class="num">${S.members[sel].toLocaleString()}</b>명${S.gact?.[sel] ? ' | <b class="warn">권한대행 체제</b>' : ''}</p>`;
   // 분야(대분류)별 수요·공급: 수치 없이 5단계만(dsLv)
-  const ds = `<h3 class="dsh">사업별 수요·공급${mineK ? `<button class="btn pri sm nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}</h3>${w ? `<p class="small warn" style="margin:4px 0 0">${esc(w)}</p>` : ''}<div class="pjds">${Object.keys(PJ_D).map(c => `<div class="${DS_CLS[dsLv(sel, c)]}"><span>${PJ_N[c]}</span><b>${L.DS_LV[dsLv(sel, c)]}</b></div>`).join('')}</div>`;
+  const ds = `<h3 class="dsh">사업별 수요·공급${mineK ? `<button class="btn pri sm nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}</h3>${w ? `<p class="small warn" style="margin:4px 0 0">${esc(w)}</p>` : ''}<div class="pjds">${Object.keys(PJ_D).map(c => `<div><span>${PJ_N[c]}</span><b class="dsc ds${dsLv(sel, c)}">${L.DS_LV[dsLv(sel, c)]}</b></div>`).join('')}</div>`;
   const iss = desOf(sel).sort((a, b) => b.d - a.d);
   const issBtns = x => `${mineK ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
   const center = `<div class="card admcity"><h2>${RK[sel].n} <span class="small muted">${GOVT[sel]}</span></h2>${info}${ds}
