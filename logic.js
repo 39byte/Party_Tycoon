@@ -262,8 +262,17 @@
   const styleMul = st => 1 + 0.25 * (st || 0);
   // 기대치 역효과: 잘한다던 분야(apt > 0)에서 실패하면 감점이 커짐(apt 20이면 2배), 성향 배율도 곱함
   const flopMul = (a, st) => (1 + Math.max(0, a || 0) / 20) * styleMul(st);
+  // 행정 사업 분야 효용(다른 당 지사·우리 자동화 지사가 분야를 고를 때): 기대 행정 지지도 변화 + 성향 선호(추진형은 개발·경제, 신중형은 돌봄·안전 쪽으로 최대 0.5)
+  // p 성공률, up/dn 성공·실패 폭, dm 주민 관심 배율, a 그 분야 특기, st 성향. Jeff 학습으로 바꿀 땐 이 함수만 갈아 끼움
+  const admU = (p, up, dn, dm, a, st, c) => p * up * dm * styleMul(st) - (1 - p) * dn * flopMul(a, st) + 0.5 * (st || 0) * (c === 'dev' || c === 'biz' ? 1 : -1);
+  // softmax(온도 T)로 하나 고름(효용이 높을수록 자주, 늘 같은 답은 아님). r: 0~1 난수
+  function softPick(us, r, T = 1) {
+    const m = Math.max(...us), e = us.map(u => Math.exp((u - m) / T)); let x = r * e.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < e.length; i++) if ((x -= e[i]) < 0) return i;
+    return e.length - 1;
+  }
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, demMul, styleMul, flopMul };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, demMul, styleMul, flopMul, admU, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
