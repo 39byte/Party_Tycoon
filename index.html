@@ -3355,7 +3355,7 @@ function aptLine(p, who, ok) {
 function aptSay(m, tp) {
   const r = rnd(), me = m.fid != null ? fig(m.fid) : m, gs = Object.keys(S.rgov).filter(k => fig(S.rgov[k].fid) && fig(S.rgov[k].fid) !== me), ms = S.mps.filter(x => x !== m && fig(x.fid));
   const [p, who] = r < 0.5 && gs.length ? (k => [fig(S.rgov[k].fid), govWho(k)])(pick(gs)) : r < 0.8 || !ms.length ? [me, null] : (x => [fig(x.fid), `${x.party === 'O' ? '무소속' : pn(x.party)} ${x.name} 의원`])(pick(ms));
-  return aptOf(p) && ['인물평', aptLine(p, who, rnd() < tp), null, 'apt'];
+  return aptOf(p) && ['인물평', aptLine(p, who, rnd() < tp), null, 'apt', null, null, S.figs.includes(p) ? p.id : null]; // 끝: 누구 얘기인지(명부 id, 입장 고르는 창에 모아 봄)
 }
 // 우리 당 인물과 대화(행동력 1, 같은 사람은 4턴에 한 번): 본인이 말하는 자기 강점·성향. 청렴이 낮을수록 약한 분야를 강하다고 자랑함(맞을 확률 청렴 0 → 30%, 100 → 90%)
 const ptalkWhy = p => S.ap < 1 ? '행동력이 부족합니다.' : (p.tcd || 0) > S.day ? `${Math.ceil((p.tcd - S.day) / TURN)}턴 후 다시 대화할 수 있습니다.` : '';
@@ -3387,8 +3387,8 @@ function gossip(m) {
   const wt = x => CAT_W[cat]?.[x[3]] ?? 1;
   let r = rnd() * sum(xs.map(wt)), pickd = xs[0];
   for (const x of xs) if ((r -= wt(x)) < 0) { pickd = x; break; }
-  const [k, t, q, , iid, ref] = pickd, id = ++S.seq;
-  m.talkN = (m.talkN ?? m.talk?.length ?? 0) + 1; (m.talk ??= []).push({ id, d: S.day, k, t, ...(iid ? { iid } : {}), ...(ref ? { ref } : {}) }); if (m.talk.length > 20) m.talk.shift();
+  const [k, t, q, , iid, ref, ab] = pickd, id = ++S.seq;
+  m.talkN = (m.talkN ?? m.talk?.length ?? 0) + 1; (m.talk ??= []).push({ id, d: S.day, k, t, ...(iid ? { iid } : {}), ...(ref ? { ref } : {}), ...(ab != null ? { ab } : {}) }); if (m.talk.length > 20) m.talk.shift();
   if (q && rnd() < tp) later(rr(14, 49), { ev: 'talkReal', tid: id, who: m.name, ...q });
   return ` 식사 자리에서 이런 얘기를 들었습니다.\n\n"${t}"`;
 }
@@ -4390,14 +4390,14 @@ function standEv(x) {
   const wait = { t: '나중에 정한다', s: `소식 탭에서 ${last}턴 끝까지 고를 수 있음 | 지나면 입장 없음`, run: () => `'${x.t}' 입장을 미뤘습니다. ${last}턴이 끝나기 전에 소식 탭에서 정하세요.` };
   if (x.kind === 'pol') {
     const { pr, t } = x, pf = S.figs.find(f => f.name === x.nm && f.party === pr); // 대선에 나왔던 명부 인물이면 능력치도
-    return { title: '대통령 정책 발표', html: () => evProf(pf || { name: x.nm }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, pf?.job && `출신 직업: ${pf.job}`, `국정 지지율 ${Math.round(x.ap)}%`]), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
+    return { title: '대통령 정책 발표', side: () => '<h3>발표자</h3>' + evProf(pf || { name: x.nm }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, pf?.job && `출신 직업: ${pf.job}`, `국정 지지율 ${Math.round(x.ap)}%`]) + evTalk(pf?.id), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
       ch: [{ t: '환영 논평을 낸다', s: `${pn(pr)} 관계↑`, run: () => { relAdd(pr, 5, `'${t}' 환영`); res(1); return '정부 정책에 힘을 실었습니다.'; } },
         { t: '비판 논평을 낸다', s: `${pn(pr)} 관계↓`, run: () => { relAdd(pr, -4, `'${t}' 비판`); S.fame += 0.5; res(-1); return '정책의 문제점을 조목조목 짚었습니다.'; } },
         { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
         { t: '입장을 내지 않는다', run: () => { res(0); return '지켜보기로 했습니다.'; } }, wait] };
   }
   const { k, id, t } = x, n = RK[k].n, who = `${GOVT[k]} ${esc(x.gn)}(${esc(pn(id))})`, gf = fig(x.fid);
-  return { title: `${n} 지사 역점사업 발표`, html: () => evProf(gf || { name: x.gn }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(x.o)}`]), body: () => `${who}가 <b>${esc(t)}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
+  return { title: `${n} 지사 역점사업 발표`, side: () => '<h3>발표자</h3>' + evProf(gf || { name: x.gn }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(x.o)}`]) + evTalk(x.fid), body: () => `${who}가 <b>${esc(t)}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
     ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ | 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
       { t: '견제한다', s: '예산 낭비·졸속 추진 지적 | 실패하면 반사이익', run: () => { relAdd(id, -4, `${n} '${t}' 견제`); S.fame += 0.5; res(-1); return '예산 낭비라며 재검토를 요구했습니다.'; } },
       { t: '지켜본다', run: () => { res(0); return '입장을 유보했습니다.'; } }, wait] };
@@ -4681,15 +4681,18 @@ function randomEvent() {
   if (e) showEvent(e);
 }
 // 이벤트 창 안 발표자 프로필. 누르는 버튼은 두지 않음(인물 정보 창을 열면 이벤트 창이 닫혀 입장을 못 고름). 청렴은 '?'
-const evProf = (p, col, aff) => `<div class="pcard" style="margin-top:12px"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, true) : ''}</div>`;
+// 그 인물(명부 id)에 대해 교섭 자리에서 들은 인물평, 최근 것부터
+const abTalk = fid => fid == null ? [] : talkers().flatMap(m => (m.talk || []).filter(x => x.ab === fid).map(x => ({ ...x, who: m.name }))).sort((a, b) => b.d - a.d);
+const evTalk = fid => { const xs = abTalk(fid); return `<h3 style="margin-top:14px">들은 인물평</h3>${xs.length ? `<ul class="log">${xs.map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <span class="small muted">${esc(x.who)}</span></span></li>`).join('')}</ul>` : '<p class="small muted">아직 들은 인물평이 없습니다. 교섭 탭 친분 쌓기 자리에서 들을 수 있습니다.</p>'}`; };
+const evProf = (p, col, aff) => `<div class="pcard"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, true) : ''}</div>`;
 function showEvent(e) {
   if (e.pre) e.pre();
   if (e.id) S.seen[e.id] = true;
   const ch = typeof e.ch === 'function' ? e.ch() : e.ch;
   Snd.sfx('event');
   openModal({
-    title: e.title, dismiss: false,
-    html: `<p>${e.body()}</p>${e.html ? e.html() : ''}${e.note ? `<div class="lawnote">${e.note}</div>` : ''}<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`,
+    title: e.title, dismiss: false, wide: !!e.side,
+    html: (cs => `<p>${e.body()}</p>${e.html ? e.html() : ''}${e.note ? `<div class="lawnote">${e.note}</div>` : ''}${e.side ? `<div class="split2"><div>${e.side()}</div><div><h3>입장</h3>${cs}</div></div>` : cs}`)(`<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`), // side: 1열(프로필 등) | 2열 선택지
     onOpen: m => m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
       const msg = ch[+b.dataset.c].run();
       S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
