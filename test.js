@@ -134,13 +134,13 @@ if (pNear) {
   assert.strictEqual(L.demLvl(-0.2), 1);
   assert.strictEqual(L.demLvl(L.demGap({ care: 1 }, {}, 'care')), 0);
   assert(L.demMul({ care: 1 }, {}, 'care') > 1 && L.demMul({ care: 99 }, {}, 'care') === 1.15);
-  assert.strictEqual(L.demLvl(L.demGap({}, { dev: 1 }, 'dev')), 2); // 첫 성공 한 번으로 과잉·포화가 되지 않음
-  assert.strictEqual(L.demLvl(L.demGap({ care: 1 }, { dev: 12 }, 'dev')), 4);
-  assert(L.demMul({ care: 1 }, { dev: 12 }, 'dev') < 0);
+  assert.strictEqual(L.demLvl(L.demGap({}, { dev: 1 }, 'dev')), 3); // 빈 지역은 첫 성공 한 번에 과잉(포화는 아님)
+  assert.strictEqual(L.demLvl(L.demGap({ care: 1 }, { dev: 6 }, 'dev')), 4);
+  assert(L.demMul({ care: 1 }, { dev: 6 }, 'dev') < 0);
   const m = n => L.demMul({ care: 1, dev: 1 }, { dev: n }, 'dev'); // 개발 공급을 늘려 가며
-  for (let n = 0; n < 12; n++) assert(m(n + 1) < m(n)); // 공백→포화로 갈수록 줄어듦
-  const lo = L.demMul({ care: 9 }, { dev: 12 }, 'dev'); assert(lo < -0.6 && lo >= -1); // 최근 12건을 한 분야로 채우면 기본 상승분의 60% 넘게 깎임
-  for (let n = 0; n <= 12; n++) { const d = { care: 1 }, u = { dev: n }; assert((L.demLvl(L.demGap(d, u, 'dev')) === 4) === (L.demMul(d, u, 'dev') < 0)); } } // 포화면 반드시 음수, 그 밖엔 음수가 아님
+  for (let n = 0; n < 6; n++) assert(m(n + 1) < m(n)); // 공백→포화로 갈수록 줄어듦
+  const lo = L.demMul({ care: 9 }, { dev: 6 }, 'dev'); assert(lo < -0.6 && lo >= -1); // 최근 6건을 한 분야로 채우면 기본 상승분의 60% 넘게 깎임
+  for (let n = 0; n <= 6; n++) { const d = { care: 1 }, u = { dev: n }; assert((L.demLvl(L.demGap(d, u, 'dev')) === 4) === (L.demMul(d, u, 'dev') < 0)); } } // 포화면 반드시 음수, 그 밖엔 음수가 아님
 // 성향·역효과: 추진형 1.25배·신중형 0.75배, 약점 분야 실패는 그대로, 특기 20 분야 실패는 2배
 { assert.strictEqual(L.styleMul(1), 1.25); assert.strictEqual(L.styleMul(-1), 0.75); assert.strictEqual(L.styleMul(), 1);
   assert.strictEqual(L.flopMul(-10, 0), 1); assert.strictEqual(L.flopMul(20, 0), 2); assert.strictEqual(L.flopMul(20, 1), 2.5); }
