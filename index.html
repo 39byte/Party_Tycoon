@@ -1058,7 +1058,7 @@ function genPerson(o = {}) {
   };
 }
 // 행정 특기·성향(숨은 값, L.aptGen): 처음 필요할 때 만들어 그 사람에게 저장. 다른 당 의원은 명부 인물(fig)에 둠
-const aptOf = p => p && (p.apt ? p : Object.assign(p, L.aptGen(p.job, gauss)));
+const aptOf = p => p && (p.apt ? p : Object.assign(p, L.aptGen(p.job || p.role, gauss))); // 직업이 없는 원외 인사는 직함(노동계·시민사회 등)으로
 const aptKeep = p => (p = aptOf(p)) ? { apt: p.apt, st: p.st } : {}; // 영입·이적 때 특기를 그대로 넘김
 // 지역 성향과 당 노선의 궁합(지역 지지 배율 regFacs와 같은 식)
 const ideoFit = (i, l) => i === 0 ? 1.05 - 0.4 * Math.abs(l) : Math.max(0.3, 1 + 0.7 * i * l);
@@ -3302,11 +3302,11 @@ const talkTrue = m => clamp(0.2 + m.rel * 0.007, 0.1, 0.9);
 const talkJob = m => m.role && !POL_ROLE.test(m.role) ? m.role : m.job || '정치인';
 const JOB_CAT = [[/검사|판사|변호사/, 'law'], [/언론/, 'press'], [/방송|유튜버/, 'bcast'], [/기업/, 'biz'], [/고위공무원|장관/, 'admin'], [/시민|노동|청년|원로/, 'civic'], [/교수/, 'edu'], [/장성/, 'mil'], [/의사/, 'med']];
 const jobCat = m => (JOB_CAT.find(([rx]) => rx.test(talkJob(m))) || [0, 'pol'])[1];
-// 직업군별로 자주 꺼내는 얘기(배율, 없으면 1). inc 의혹·사건 | warn 우리 당 의혹 | whip 표 단속 | stance 법안 기조 | opinion 사건 의견 | camp 선거 공략 | mood 지역 민심 | nom 공천 내정
+// 직업군별로 자주 꺼내는 얘기(배율, 없으면 1). inc 의혹·사건 | warn 우리 당 의혹 | whip 표 단속 | stance 법안 기조 | opinion 사건 의견 | camp 선거 공략 | mood 지역 민심 | nom 공천 내정 | apt 인물평
 const CAT_W = {
-  law: { inc: 3, warn: 2, opinion: 0.6 }, press: { inc: 2.5, warn: 2, opinion: 1.5 }, bcast: { inc: 2.5, opinion: 1.5, stance: 0.4 },
-  biz: { inc: 2, camp: 1.3, opinion: 0.6 }, admin: { inc: 1.3, stance: 2, whip: 2 }, civic: { mood: 3, opinion: 2, inc: 0.6 },
-  edu: { opinion: 2.5, stance: 1.5, inc: 0.6 }, mil: { opinion: 1.5, inc: 0.8 }, med: { opinion: 1.5, mood: 1.5, inc: 0.6 }, pol: { nom: 3, camp: 2, whip: 1.5, mood: 1.5 },
+  law: { inc: 3, warn: 2, opinion: 0.6 }, press: { inc: 2.5, warn: 2, opinion: 1.5, apt: 1.2 }, bcast: { inc: 2.5, opinion: 1.5, stance: 0.4 },
+  biz: { inc: 2, camp: 1.3, opinion: 0.6 }, admin: { inc: 1.3, stance: 2, whip: 2, apt: 2 }, civic: { mood: 3, opinion: 2, inc: 0.6 },
+  edu: { opinion: 2.5, stance: 1.5, inc: 0.6 }, mil: { opinion: 1.5, inc: 0.8 }, med: { opinion: 1.5, mood: 1.5, inc: 0.6 }, pol: { nom: 3, camp: 2, whip: 1.5, mood: 1.5, apt: 1.5 },
 };
 // 어디서 들은 얘기인지(말투)와 대화 내역 꼬리표
 const SRC = { law: '검찰 쪽 아는 사람 말로는', press: '기자들 말로는', bcast: '제보 들어온 건데,', biz: '업계에선', admin: '관가에선', civic: '현장에선', edu: '학교 쪽에선', mil: '군 선후배들 사이에선', med: '병원 쪽에선', pol: '여의도에선' };
@@ -3333,6 +3333,30 @@ function nomSay(own, tp) {
   const f = fig(x.fid), right = rnd() < tp, name = right ? f.name : genName(f.gender), job = right ? f.job : pick(FIG_JOBS);
   return ['공천 정보', `${c.name} ${RK[k].n} 공천은 ${job} 출신 ${name} 씨로 정해졌대요. 발표는 ${fdate(x.at)}쯤이고요.`, null, 'nom'];
 }
+// 인물평 한마디: 숨은 특기(가장 강한·약한 분야, 고르면 '두루') 또는 행정 성향(30%). who 없으면 본인 얘기. ok가 아니면 엇나간 말(약한 분야를 강하다고 함)
+const STY = ['일단 밀어붙이는', '무리하지 않고 무난하게 가는', '돌다리도 두들겨 보고 건너는'];
+function aptLine(p, who, ok) {
+  const cs = L.PJ_CATS.slice().sort((a, b) => p.apt[b] - p.apt[a]), si = p.st > 0.3 ? 0 : p.st < -0.3 ? 2 : 1;
+  if (rnd() < 0.3) { const i = ok ? si : pick([0, 1, 2].filter(j => j !== si)); return who ? `${who} 말이에요, ${STY[i]} 스타일이에요.` : `저는 ${STY[i]} 편이에요.`; }
+  if (ok && p.apt[cs[0]] - p.apt[cs[3]] < 6) return who ? `${who} 말이에요, 딱히 튀는 분야 없이 고르게 해요.` : '저는 어느 한 분야보다는 두루 하는 편이에요.';
+  const [st, wk] = ok ? [cs[0], cs[3]] : [cs[3], pick(cs.slice(0, 3))];
+  return who ? `${who} 말이에요, ${PJ_N[st]} 쪽엔 밝은데 ${PJ_N[wk]} 쪽은 영 서툴러요.` : `저야 원래 ${PJ_N[st]} 쪽이 전문이죠. ${PJ_N[wk]} 쪽은 솔직히 잘 몰라요.`;
+}
+// 교섭 자리의 인물평: 다른 당 지사 50% | 대화 상대 본인 30% | 교섭 명단의 다른 의원 20%. 친분만큼 맞음(tp)
+function aptSay(m, tp) {
+  const r = rnd(), me = m.fid != null ? fig(m.fid) : m, gs = Object.keys(S.rgov).filter(k => fig(S.rgov[k].fid) && fig(S.rgov[k].fid) !== me), ms = S.mps.filter(x => x !== m && fig(x.fid));
+  const [p, who] = r < 0.5 && gs.length ? (k => [fig(S.rgov[k].fid), govWho(k)])(pick(gs)) : r < 0.8 || !ms.length ? [me, null] : (x => [fig(x.fid), `${x.party === 'O' ? '무소속' : pn(x.party)} ${x.name} 의원`])(pick(ms));
+  return aptOf(p) && ['인물평', aptLine(p, who, rnd() < tp), null, 'apt'];
+}
+// 우리 당 인물과 대화(행동력 1, 같은 사람은 4턴에 한 번): 본인이 말하는 자기 강점·성향. 청렴이 낮을수록 약한 분야를 강하다고 자랑함(맞을 확률 청렴 0 → 30%, 100 → 90%)
+const ptalkWhy = p => S.ap < 1 ? '행동력이 부족합니다.' : (p.tcd || 0) > S.day ? `${Math.ceil((p.tcd - S.day) / TURN)}턴 후 다시 대화할 수 있습니다.` : '';
+function poolTalk(id) {
+  const p = aptOf(person(id)); if (!p || p.leader || ptalkWhy(p)) return;
+  S.ap--; p.tcd = S.day + 4 * TURN;
+  const t = aptLine(p, null, rnd() < 0.3 + (p.integ ?? 60) * 0.006);
+  (p.talk ??= []).push({ id: ++S.seq, d: S.day, k: '인물평', t }); if (p.talk.length > 20) p.talk.shift();
+  closeModal(); info(`${p.name}와(과) 대화`, `"${t}"`);
+}
 // 친분 쌓기 자리에서 듣는 얘기. 게임 상태(숨은 사건·계류 법안·선거 일정·지역 민심)에서 뽑으니 귀띔은 대체로 맞음
 function gossip(m) {
   const own = ['A', 'B', 'C', 'D'].includes(m.party) ? m.party : null, near = m.rel >= 20, ne = nextElection(), tp = talkTrue(m), cat = jobCat(m);
@@ -3342,6 +3366,7 @@ function gossip(m) {
     near && S.risks.length && ['의혹', `${SRC[cat]} ${S.party.name} '${pick(S.risks).label}' 얘기가 돈대요. 조심하시는 게 좋겠어요.`, null, 'warn'],
     incSay(m, cat, tp), incSay(m, cat, tp),
     nomSay(own, tp),
+    aptSay(m, tp),
     theirs.length && (b => ['예정 활동', `저희 당은 '${b.t}'을(를) 이번에 꼭 통과시키려고 표 단속에 들어갈 거예요.`, { kind: 'whip', id: own, bid: b.id }, 'whip'])(pick(theirs)),
     near && own && mine.length && (b => { const a = billAgree(b, own), i = a >= 0.6 ? 0 : a <= 0.35 ? 2 : 1; return ['예상 기조', `${S.party.name}의 '${b.t}' 말인데, 저희 당은 ${STANCE[rnd() < tp ? i : pick([0, 1, 2].filter(j => j !== i))]}.`, null, 'stance']; })(pick(mine)),
     news.length && ['사건 의견', `'${pick(news).t}' 보셨어요? ${pick(['여의도는 온통 그 얘기예요.', '오래 갈 것 같아요.', '일주일이면 잊힐 거예요.', '다들 표정 관리 중이에요.'])}`, null, 'opinion'],
@@ -3370,9 +3395,11 @@ function govInfo(k) {
 // 우리 당 인재 프로필
 function poolInfo(id) {
   const p = S.pool.find(x => x.id === id); if (!p) return;
+  const w = !p.leader && ptalkWhy(p);
   openModal({ title: p.name, html: `<div class="who" style="margin-bottom:12px">${face(p, S.party.color, 64)}<div><div class="small">${esc(S.party.name)}${p.leader ? ' | 당 대표' : p.role ? ` | ${esc(roleLabel(p.role))}` : ''}</div><div class="small muted">${[p.gender === 'F' ? '여' : '남', `${p.age}세`, homeTxt(p), p.job && `출신 직업: ${p.job}`].filter(Boolean).map(esc).join(' | ')}</div></div></div>${statBars(p)}
-      <p class="small ${p.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' | <b>피선거권 없음</b>' : ''}</p>${p.talk?.length ? talkHTML(p) : ''}`,
-    buttons: [{ t: '닫기', pri: true }] });
+      <p class="small ${p.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' | <b>피선거권 없음</b>' : ''}</p>
+      ${p.leader ? '' : `<div class="btns" style="margin-top:12px;align-items:center"><button class="btn" data-pchat ${w ? 'disabled' : ''}>대화하기<small>행동력 1 | 본인이 말하는 잘하는 분야·성향</small></button>${w ? `<span class="small warn">${esc(w)}</span>` : ''}</div>`}${p.talk?.length ? talkHTML(p) : ''}`,
+    buttons: [{ t: '닫기', pri: true }], onOpen: m => m.querySelector('[data-pchat]')?.addEventListener('click', () => { Snd.sfx('click'); poolTalk(p.id); }) });
 }
 function figInfo(id) {
   const f = fig(id); if (!f) return;
@@ -5028,7 +5055,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-cabauto]').forEach(b => b.onclick = cabAuto);
   const ys = m.querySelector('[data-yeongsu]'); if (ys) ys.onclick = talkModal;
   const va = m.querySelector('[data-vetoauto]'); if (va) va.onchange = () => { S.vetoAuto = va.checked; save(); };
-  m.querySelectorAll('[data-ptalk]').forEach(b => b.onclick = () => { const p = S.pool.find(x => x.id === +b.dataset.ptalk); if (p) openModal({ title: `${p.name} 대화 내역`, html: `<p class="small muted">영입하기 전에 나눈 대화입니다.</p>${talkHTML(p)}`, buttons: [{ t: '닫기', pri: true }] }); });
+  m.querySelectorAll('[data-ptalk]').forEach(b => b.onclick = () => { const p = S.pool.find(x => x.id === +b.dataset.ptalk); if (p) openModal({ title: `${p.name} 대화 내역`, html: `<p class="small muted">영입하기 전 교섭 자리와 영입한 뒤 나눈 대화입니다.</p>${talkHTML(p)}`, buttons: [{ t: '닫기', pri: true }] }); });
   m.querySelectorAll('[data-pinc]').forEach(b => b.onclick = () => { pOff[b.dataset.pinc] = !pOff[b.dataset.pinc]; pPage = 0; renderAll(); });
   m.querySelectorAll('[data-psort]').forEach(b => b.onclick = () => { const k = b.dataset.psort; pDir = k === pSort ? -pDir : k === 'def' ? 1 : -1; pSort = k; pPage = 0; renderAll(); });
   m.querySelectorAll('[data-ppage]').forEach(b => b.onclick = () => { pPage = +b.dataset.ppage; renderAll(); m.querySelector('.phead')?.scrollIntoView({ block: 'nearest' }); });
@@ -5874,7 +5901,7 @@ function pGuide() {
       <li>한 번이라도 교섭한 사람은 낙선·임기 만료·제명·탈당 등 어떤 일이 있어도 친분과 대화 내역이 지워지지 않습니다. 직을 잃으면 원외 인사('전 국회의원' 등)로 교섭 명단에 남고, 우리 당에서 제명한 의원은 무소속 의원으로 남습니다.</li>
       <li>개인 친분은 자주 만나지 않으면 시간이 지나며 옅어지고, 그 사람이 속한 당과 우리 당의 관계를 따라갑니다. 당끼리 사이가 좋으면 그 당 사람들과도 가까워지고, 나쁘면 쌓아 둔 친분도 식습니다.</li>
       <li>인물 인지도는 대통령·광역단체장·국회의원·당 대표·선거 후보처럼 정계에서 활동하는 동안 매달 오릅니다(낮을수록 빨리). 대정부 질문·TV 토론에 나선 본인도 이름이 알려집니다. 반년 넘게 활동이 없으면 조금씩 잊힙니다.</li>
-      <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다.</li>
+      <li>친분 쌓기 자리에서 듣는 얘기는 상대의 출신 직업(정치인이 아니면 지금 직업)에 따라 다릅니다. 법조인은 수사, 언론인은 취재 중인 기사, 기업인은 돈 얽힌 소문, 시민·노동계는 지역 민심, 정치인 출신은 공천 내정 얘기를 주로 합니다. 아직 보도되지 않은 의혹이 미리 새어 나오기도 합니다. 그 사람을 영입하면 그 의혹도 우리 당 몫이 됩니다. 관가·정치인·기자 출신은 다른 당 지사나 의원, 또는 자기 자신에 대한 인물평(잘하는 분야와 서툰 분야, 행정 성향)도 자주 들려줍니다. 친분이 얕으면 엇나간 평일 수 있습니다. 우리 당 인재와는 인재 정보 창에서 직접 대화해(행동력 1, 같은 사람은 4턴에 한 번) 본인 얘기를 들을 수 있는데, 청렴이 낮은 사람일수록 서툰 분야를 잘한다고 자랑합니다.</li>
       <li>원내 의원과 원외 인사는 좌우로 나란히 봅니다. 별 버튼을 켠 정당은 정당 목록 맨 왼쪽, 의원·원외 인사는 각 목록 맨 위로 올라옵니다.</li>
       <li>원외 인사(전직 의원·장관·단체장, 당협위원장, 시민사회·노동계 인사, 정치 유튜버 등)에게는 지지 선언을 요청하거나 영입을 제안할 수 있습니다. 이름값이 클수록 효과도 크지만 설득하기 어렵습니다. 총선에서 물러난 의원 일부는 원외 인사로 남습니다.</li>
       <li>성공 가능성은 <b>대표의 역량</b>, <b>상대와의 노선 차이</b>, <b>그동안의 관계</b>로 정해집니다. 규탄·고발·국감 공세·탄핵 표결 같은 일은 관계에 기록되어 나중의 교섭과 법안 표결, 거부권에 영향을 줍니다. 교섭에 성공할수록 대표의 역량도 오릅니다.</li></ul>`)}
