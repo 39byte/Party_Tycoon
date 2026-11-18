@@ -114,6 +114,19 @@ if (pNear) {
   assert(pFar[pi('policy')] > pNear[pi('policy')]);
 }
 
+// 행정 특기: 4분야 합 ≈ 0(분야 역량 평균 = 역량), ±20 안, 직업 경향(의사는 돌봄, 장성은 안전이 평균적으로 가장 높음), 성향 −1~1
+{ let s = 7; const u = () => (s = (s * 16807) % 2147483647) / 2147483647, g = () => Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u());
+  const avg = (job, c) => { let t = 0; for (let i = 0; i < 300; i++) t += L.aptGen(job, g).apt[c]; return t / 300; };
+  for (let i = 0; i < 300; i++) {
+    const { apt, st } = L.aptGen(['의사', '기업인', '예비역 장성', '', undefined][i % 5], g), v = Object.values(apt);
+    assert(Math.abs(v.reduce((a, b) => a + b, 0)) < 0.5 && v.every(x => x >= -20 && x <= 20) && st >= -1 && st <= 1);
+  }
+  for (const [job, c] of [['의사', 'care'], ['예비역 장성', 'safe'], ['기업인', 'biz'], ['전직 지방의원', 'dev']])
+    assert(L.PJ_CATS.every(o => o === c || avg(job, c) > avg(job, o)), job);
+  assert.strictEqual(L.areaSkill(60, { dev: 8 }, 'dev'), 68);
+  assert.strictEqual(L.areaSkill(60, null, 'dev'), 60);
+}
+
 console.log('ok');
 
 // 법안 당론 지지층: 여론 맞음 → 적대·혐오가 줄고, 노선 맞음 → 충성·혐오가 늘고, 둘 다 0이면 그대로. 합은 1 유지

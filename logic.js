@@ -241,7 +241,22 @@
     return e.map(x => x / s);
   };
 
+  // 행정 분야별 특기(숨은 값): apt = { care 돌봄·복지, safe 안전, biz 경제·일자리, dev 개발 }, 4분야 합 0 → 분야 역량(역량 + apt) 평균이 역량
+  // 출신 직업 기본값(행마다 합 0) + 분야마다 정규 잡음(표준편차 6), ±20. 성향 st: −1 신중형 ~ +1 추진형(표준편차 0.5 + 직업 기울기)
+  const PJ_CATS = ['care', 'safe', 'biz', 'dev'];
+  const APT_JOB = [[/의사/, [12, 1, -6, -7]], [/시민운동|시민사회/, [12, 0, -3, -9]], [/노동/, [4, 1, 6, -11]], [/청년/, [5, -4, 4, -5]], [/교수/, [4, -3, 4, -5]],
+    [/장성/, [-8, 12, -4, 0]], [/검사|판사/, [-2, 10, -6, -2]], [/변호사/, [-2, 6, -2, -2]], [/기업인/, [-10, -4, 11, 3]], [/지방의원/, [-2, -2, -2, 6]],
+    [/고위공무원/, [-1, 1, -1, 1]], [/언론인/, [1, 1, -1, -1]], [/방송인/, [1, -1, 1, -1]]];
+  const STYLE_JOB = [[/기업인/, 0.3], [/장성/, 0.2], [/고위공무원/, -0.3], [/의사/, -0.2]];
+  function aptGen(job, g) { // g: 표준정규 난수
+    const j = job || '', b = (APT_JOB.find(([rx]) => rx.test(j)) || [0, [0, 0, 0, 0]])[1];
+    let a = b.map(x => x + g() * 6);
+    for (let i = 0; i < 4; i++) { const m = a.reduce((s, x) => s + x, 0) / 4; a = a.map(x => cl(x - m, -20, 20)); } // 평균 0으로 맞추고 자름(반복하면 합이 0에 붙음)
+    return { apt: Object.fromEntries(PJ_CATS.map((c, i) => [c, +a[i].toFixed(1)])), st: +cl(g() * 0.5 + ((STYLE_JOB.find(([rx]) => rx.test(j)) || [0, 0])[1]), -1, 1).toFixed(2) };
+  }
+  const areaSkill = (skill, apt, c) => skill + (apt?.[c] || 0);
+
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

@@ -817,8 +817,9 @@ const GOV_POL = [
   { t: '정치후원금 세액공제 축소', issue: 'reform', pop: 0.45, fx: { k: 'funds', m: 0.85, days: 365, n: '후원금 모금 −15% (1년)' } },
   { t: '지방교부세 감액', issue: 'region', pop: 0.4, hit: '우리 당 시·도 행정 지지도 −4', on: () => { for (const k in S.ops) S.ops[k] = clamp(S.ops[k] - 4, 5, 95); } },
 ];
-// 다른 당 광역단체장 역점사업
-const RGOV_PROJ = ['신공항 유치', '광역급행철도 조기 착공', '청년 기본수당 도입', '대규모 산업단지 조성', '공공 산후조리원 확충', '관광 레저 특구 개발', '도립 의료원 신설', '무상 버스 시범 운행', '메가시티 행정통합'];
+// 다른 당 광역단체장 역점사업: [이름, 분야]. 성패는 그 지사의 분야 역량
+const RGOV_PROJ = [['신공항 유치', 'dev'], ['광역급행철도 조기 착공', 'dev'], ['메가시티 행정통합', 'dev'], ['대규모 산업단지 조성', 'biz'], ['관광 레저 특구 개발', 'biz'],
+  ['청년 기본수당 도입', 'care'], ['공공 산후조리원 확충', 'care'], ['도립 의료원 신설', 'care'], ['무상 버스 시범 운행', 'care']];
 // 행정 사업: 분야(c)마다 현안에 맞춘 세부 사업. 성공률·효과·후속 보도는 분야 단위, 현안 해결은 세부 사업 단위
 // ok/no: 결과 문구({n} 지역 이름)
 const GOV_PROJ = [
@@ -1053,6 +1054,9 @@ function genPerson(o = {}) {
     skill: Math.round(clamp(gauss() * 12 + job.s + rb, 10, 99)), integ, rec, ban, role: '', home: o.home || homePick(S.party.ideo),
   };
 }
+// 행정 특기·성향(숨은 값, L.aptGen): 처음 필요할 때 만들어 그 사람에게 저장. 다른 당 의원은 명부 인물(fig)에 둠
+const aptOf = p => p && (p.apt ? p : Object.assign(p, L.aptGen(p.job, gauss)));
+const aptKeep = p => (p = aptOf(p)) ? { apt: p.apt, st: p.st } : {}; // 영입·이적 때 특기를 그대로 넘김
 // 지역 성향과 당 노선의 궁합(지역 지지 배율 regFacs와 같은 식)
 const ideoFit = (i, l) => i === 0 ? 1.05 - 0.4 * Math.abs(l) : Math.max(0.3, 1 + 0.7 * i * l);
 // 선거인 × w(지역) 가중 무작위 지역
@@ -2647,7 +2651,7 @@ const govCd = (k, pj) => (S.cd[`govern:${k}:${pj}`] || 0) > S.day;
 function govModal(k) {
   openModal({
     title: `${AREA(k)} 행정 사업`, wide: true,
-    tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
+    tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 단체장마다 출신에 따라 잘하는 분야와 서툰 분야가 있지만 겉으로 드러나지 않습니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> | 단체장 역량 <b class="num">${govPerson(k)?.skill ?? 50}</b> | 남은 행정 행동력 <b class="num">${S.aap}</b></p>
       ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방 정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
       <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]}</h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
@@ -2706,7 +2710,7 @@ function rgovRun() {
     if (rnd() >= 0.4) continue;
     const g = S.rgov[k], sk = fig(g.fid)?.skill ?? 50, n = RK[k].n, w = govWho(k), before = g.o, bad = issuesOf(k).map(x => x.bad);
     const pjs = Object.keys(PJ_N).filter(pj => !bad.includes(pj)), pj = pjs.length ? pick(pjs) : 'safe'; // 다른 당 지사는 분야 단위
-    const pr = x => clamp(x + (sk - 50) / 250 - 0.2 - (bad.includes(pj) ? 0.2 : 0) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0), 0.05, 0.95);
+    const pr = x => clamp(x + (rgovArea(k, pj) - 50) / 250 - 0.2 - (bad.includes(pj) ? 0.2 : 0) + (PJ_ISSUE[pj] === S.issue ? 0.05 : 0), 0.05, 0.95);
     let d, t;
     if (rnd() < clamp(0.43 - sk / 400, 0.26, 0.43)) { d = -rr(2, 5); t = pick(GOV_FLOP)(k); }
     else if (pj === 'dev') [d, t] = rnd() < pr(0.65) ? [7, `${w}, ${n} 개발사업 순조롭게 착공`] : [-3, `${n} 개발사업 주민 반발로 지연… ${w} 곤혹`];
@@ -3395,7 +3399,7 @@ function negMpModal(mid) {
       win: () => {
         S.seats[m.party].d[m.k]--; S.seats.P.d[m.k] = (S.seats.P.d[m.k] || 0) + 1;
         S.mps = S.mps.filter(x => x !== m); relAdd(m.party, -15, `${m.name} 의원 빼가기`);
-        const np = { id: S.nid++, name: m.name, gender: m.gender || 'M', age: fig(m.fid)?.age || Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})`, home: m.k, ...talkKeep(m) };
+        const np = { id: S.nid++, name: m.name, gender: m.gender || 'M', age: fig(m.fid)?.age || Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})`, home: m.k, ...talkKeep(m), ...aptKeep(fig(m.fid) || m) };
         S.pool.push(np); incMove(m.fid, np.id); figDrop(S, fig(m.fid));
         checkAch(); return `${who}이(가) 우리 당에 입당했습니다! 의석이 1석 늘었습니다.`;
       },
@@ -3426,7 +3430,7 @@ function negOutModal(oid) {
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
         S.outs = S.outs.filter(x => x !== m); S.outs.push(genOut(S)); if (m.party) relAdd(m.party, -8, `${m.name} ${m.role} 영입`); // 영입한 만큼 새 인사로 채움 S.fame += 1;
-        const np = { id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: '', home: m.k, ...talkKeep(m) };
+        const np = { id: S.nid++, name: m.name, gender: 'M', age: Math.round(rr(40, 68)), job: m.role, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: '', home: m.k, ...talkKeep(m), ...aptKeep(m) };
         S.pool.push(np); lateRec(np, m.role);
         return `${who}이(가) 우리 당에 합류했습니다! 인재 탭에서 볼 수 있습니다.`;
       },
@@ -4461,7 +4465,7 @@ const XEV = {
           { t: '진상 규명을 촉구한다', s: '행정 지지도↓', run: () => { g.o -= 3; relAdd(id, -4, `${GOVT[k]} 의혹 공세`); S.fame += 0.5; return '도의회 행정사무조사를 요구했습니다.'; } },
           { t: '정치 공세는 자제한다', run: () => { S.trust += 0.5; return '수사를 지켜보겠다는 입장만 냈습니다.'; } }] });
     }
-    const t = pick(RGOV_PROJ), ok = rnd() < 0.55 + ((fig(g.fid)?.skill ?? 50) - 50) / 250, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
+    const [t, tc] = pick(RGOV_PROJ), ok = rnd() < 0.55 + (rgovArea(k, tc) - 50) / 250, res = s => later(rr(28, 56), { ev: 'rgovRes', k, id, t, ok, s });
     wr(`${w}, '${t}' 역점사업 발표`);
     if (!S.chapters[k]) return; // 입장을 낼 우리 시·도당이 없으면 소식만
     showEvent({ title: `${n} 지사 역점사업 발표`, body: () => `${who}가 <b>${t}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
@@ -4558,7 +4562,10 @@ function addIssue(k, it, t) {
 // 그 지역 단체장 역량: 50 기준 ±(역량−50)/250(역량 80이면 +12%p, 30이면 −8%p)
 // 옛 저장 파일의 현안은 pj가 분야(care 등)라 그 분야의 세부 사업 어느 것이든 맞음
 const pjHit = (r, pj) => !!r && (r.pj === pj || r.pj === PJC[pj]);
-const pjAdj = (k, pj) => sum(desOf(k).map(x => pjHit(realOf(x), pj) ? 0.15 : 0)) + sum(issuesOf(k).map(x => x.bad === PJC[pj] ? -0.2 : 0)) + (PJ_ISSUE[PJC[pj]] === S.issue ? 0.05 : 0) + ((govPerson(k)?.skill ?? 50) - 50) / 250;
+const pjAdj = (k, pj) => sum(desOf(k).map(x => pjHit(realOf(x), pj) ? 0.15 : 0)) + sum(issuesOf(k).map(x => x.bad === PJC[pj] ? -0.2 : 0)) + (PJ_ISSUE[PJC[pj]] === S.issue ? 0.05 : 0) + (govArea(k, PJC[pj]) - 50) / 250;
+// 분야 역량(역량 + 숨은 특기): 우리 지사(인재풀 사람, 없으면 S.pgov 기록) | 다른 당 지사(명부 인물)
+const govArea = (k, c) => L.areaSkill(govPerson(k)?.skill ?? 50, aptOf(poolGov(S, k) || S.pgov?.[k])?.apt, c);
+const rgovArea = (k, c) => { const f = fig(S.rgov[k]?.fid); return L.areaSkill(f?.skill ?? 50, aptOf(f)?.apt, c); };
 const shortT = x => x.t.replace(RK[x.k].n + ' ', '');
 // 현안 지정·해제(지역당 3건까지)
 const desMax = 3;
@@ -5265,7 +5272,7 @@ function pPeople() {
 // 교섭한 적이 있는 사람은 친분·대화 내역을 이어 감: 지역구 의원은 교섭 명단에, 비례·지사는 보관(직을 잃으면 원외 인사로), 직이 없으면 원외 인사로
 function leaveParty(p, quit) { // quit: 스스로 탈당(비례대표는 퇴직·승계). 제명·출당은 직 유지
   const dk = (R.find(r => p.role === `국회의원(${r.n})`) || {}).k, pr = /비례/.test(p.role), gk = (R.find(r => p.role === `${r.n} 시·도지사`) || {}).k;
-  const x = { name: p.name, gender: p.gender, age: p.age, job: p.job, fame: p.fame, skill: p.skill, integ: p.integ, rec: [...p.rec], ban: p.ban };
+  const x = { name: p.name, gender: p.gender, age: p.age, job: p.job, fame: p.fame, skill: p.skill, integ: p.integ, rec: [...p.rec], ban: p.ban, ...aptKeep(p) };
   let f = null;
   if (dk && S.seats.P.d[dk] > 0) { S.seats.P.d[dk]--; S.seats.O.d[dk] = (S.seats.O.d[dk] || 0) + 1; f = genFig(S, 'O', dk, 'd', x); }
   else if (pr && quit) prSucceed(p, '탈당(제192조 제4항)');
@@ -5872,6 +5879,7 @@ function pGuide() {
       <li>지방 정부 탭에서는 시·도별 지역 소식(지역 현안, 동네 사건, 재난, 선거 결과)을 왼쪽에서 고른 지사의 지역별로 볼 수 있습니다. 행정 사업 결과·후속 보도·단체장 직무 평가는 소식 탭의 '지방 정부'에 모입니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
       <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 날짜 줄의 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>
       <li>행정 사업은 돌봄·복지, 안전, 경제·일자리, 개발 네 분야 아래 세부 사업(공공 의료 확충, 재난 대비 강화, 상권·소상공인 지원, 교통망 확충 등)으로 나뉩니다. 성공률과 효과는 분야마다 다르고, 같은 지역의 같은 세부 사업은 한 턴에 한 번입니다.</li>
+      <li>단체장마다 출신(직업)에 따라 잘하는 분야와 서툰 분야가 다릅니다. 네 분야 실력의 평균이 그 사람의 역량이라, 역량이 같아도 고르게 하는 사람이 있고 한 분야만 뛰어난 사람이 있습니다. 이 실력은 프로필에 나오지 않으니 교섭 자리에서 듣는 인물평이나 본인과의 대화로 짐작해야 합니다. 다른 당 지사의 역점사업이 성공할지도 그 지사의 분야 실력에 달렸습니다.</li>
       <li>제대로 짚은 현안에 맞는 세부 사업으로 대응하면 성공률·효과가 오르고 문제가 풀립니다. 헛짚거나 분야만 같고 세부 사업이 다르면 보탬이 없습니다. 드러나지 않은 악재가 사업 성공률을 깎기도 합니다.</li>
       <li>지정하지 않았더라도 진짜 문제를 5턴 넘게 방치하면 그 지역 지사가 책임론에 시달립니다.</li>
       <li>역점사업 몇 주 뒤에는 후속 보도가 나옵니다. 성과 소식뿐 아니라 소음 민원·투기 우려처럼 새 현안이 생기기도 합니다.</li>
