@@ -255,9 +255,15 @@
     return { apt: Object.fromEntries(PJ_CATS.map((c, i) => [c, +a[i].toFixed(1)])), st: +cl(g() * 0.5 + ((STYLE_JOB.find(([rx]) => rx.test(j)) || [0, 0])[1]), -1, 1).toFixed(2) };
   }
   const areaSkill = (skill, apt, c) => skill + (apt?.[c] || 0);
-  // 주민 관심 배율(지방 정부 탭 수요·공급): 분야 수요 비중(최근 소식)이 공급 비중(최근 성공 사업)보다 클수록 성공 효과가 큼(0.4~1.4배). 집계가 비면 네 분야 25%씩
-  const share = (o, c) => { const t = Object.values(o).reduce((a, b) => a + b, 0); return t ? (o[c] || 0) / t : 0.25; };
-  const demMul = (dem, sup, c) => cl(1 + 1.6 * (share(dem, c) - share(sup, c)), 0.4, 1.4);
+  // 수요·공급(지방 정부 탭): 공급 비중(최근 성공 사업) − 수요 비중(최근 소식) = 틈 g. 화면엔 수치 없이 5단계(공백 | 부족 | 보통 | 과잉 | 포화)만.
+  // 공급은 분야마다 2건씩 깔고 셈(첫 성공 한 번에 포화로 튀지 않게). 수요 집계가 비면 네 분야 25%씩
+  const share = (o, c, a = 0) => { const t = Object.values(o).reduce((x, y) => x + y, 0) + 4 * a; return t ? ((o[c] || 0) + a) / t : 0.25; };
+  const demGap = (dem, sup, c) => share(sup, c, 2) - share(dem, c);
+  const DS_LV = ['공백', '부족', '보통', '과잉', '포화'];
+  const demLvl = g => g < -0.3 ? 0 : g < -0.1 ? 1 : g <= 0.1 ? 2 : g <= 0.25 ? 3 : 4;
+  // 성공 효과 배율 = 언덕 모양 무리함수 2개: 위쪽 0.5 + k√(0.25 − g), 아래쪽 0.5 − 1.8√(g − 0.25)가 과잉·포화 경계(0.25)에서 만나 거기서 가장 가파름.
+  // 부족 한가운데(g = −0.2)가 1(기본 상승분), 공백 끝 ≈ 1.33, 경계에서 반감(0.5), 포화로 들어가면 음수(지지도가 깎임), 바닥 −1
+  const demMul = (dem, sup, c) => { const g = demGap(dem, sup, c); return g <= 0.25 ? 0.5 + 0.5 / Math.sqrt(0.45) * Math.sqrt(0.25 - g) : Math.max(-1, 0.5 - 1.8 * Math.sqrt(g - 0.25)); };
   // 행정 성향 배율: 추진형(st > 0)은 성공 효과·실패 감점이 모두 크고 신중형은 작음(±25%)
   const styleMul = st => 1 + 0.25 * (st || 0);
   // 기대치 역효과: 잘한다던 분야(apt > 0)에서 실패하면 감점이 커짐(apt 20이면 2배), 성향 배율도 곱함
@@ -273,6 +279,6 @@
   }
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, demMul, styleMul, flopMul, admU, softPick };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

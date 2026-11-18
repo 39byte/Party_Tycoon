@@ -574,7 +574,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .admfac{margin:4px 0 0}.isswrap{min-height:210px}.isswrap>p{margin:0}@media (max-width:720px){.isswrap{min-height:300px}}
 .pjds{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:4px 16px;margin-top:8px}
 .pjds>div{display:flex;justify-content:space-between;gap:8px;padding:5px 8px;border-radius:7px;background:var(--surface2);font-size:13px}
-.pjds>div>span:last-child{white-space:nowrap}.pjds>.need{box-shadow:inset 3px 0 0 var(--warn)}.pjds>.need b{color:var(--warn)}
+.pjds>div>b{white-space:nowrap}.pjds>.ok{box-shadow:inset 3px 0 0 var(--ok)}.pjds>.ok b{color:var(--ok)}.pjds>.warn b{color:var(--warn)}.pjds>.bad{box-shadow:inset 3px 0 0 var(--danger)}.pjds>.bad b{color:var(--danger)}
 .admgrid{align-items:stretch}.admnews>h2:first-child{height:44px;flex-wrap:nowrap}.admnews,.admside{height:0;min-height:100%;overflow:auto;overscroll-behavior:contain}
 .admside{display:flex;flex-direction:column;overflow:hidden}.admside .admlist{flex:1;min-height:0;overflow:auto;padding:2px}
 @media (max-width:1180px){.admgrid{grid-template-columns:290px minmax(0,1fr)}.admnews{grid-column:1/-1;height:auto;max-height:70vh}}
@@ -843,7 +843,7 @@ const PJC = Object.fromEntries(GOV_PROJ.map(p => [p.k, p.c])); // 세부 사업 
 // 지역별 최근 성공한 행정 사업(지방 정부 탭 '공급'). S.fac[지역] = 사업 키 배열, 최근 FAC_N건만(오래된 사업은 공급에서 빠져 비중이 다시 움직임)
 const FAC_N = 12;
 const facAdd = (k, pj) => { const a = ((S.fac ??= {})[k] ??= []); a.push(pj); a.splice(0, a.length - FAC_N); };
-// 분야별 [기본 성공률, 성공 시 행정 지지도 +, 실패 시 −]. 성공 폭은 주민 관심 배율(L.demMul)을 곱함. 상승분은 예전 값(7 | 3.5 | 8 | 2) ÷ 1.3
+// 분야별 [기본 성공률, 성공 시 행정 지지도 +, 실패 시 −]. 성공 폭은 수요·공급 배율(L.demMul, 포화면 음수)을 곱함. 상승분은 예전 값(7 | 3.5 | 8 | 2) ÷ 1.3
 const PJ_BASE = { dev: [0.65, 5.4, 3], care: [0.75, 2.7, 2], biz: [0.5, 6.2, 1], safe: [0.7, 1.5, 1] };
 // 분야 설명(행정 사업 창)
 const PJ_D = { care: '대체로 지지도가 오르지만, 예산 집행이 꼬이면 역풍을 맞습니다.', safe: '작은 성과를 노립니다. "형식적"이라는 비판을 받을 수도 있습니다.', biz: '반반의 확률로 큰 성과를 냅니다.', dev: '성공하면 행정 지지도가 크게 오르지만 실패할 수 있습니다. 개발업자들이 몰려듭니다.' };
@@ -2662,7 +2662,7 @@ function govModal(k) {
     tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 단체장마다 출신에 따라 잘하는 분야와 서툰 분야가 있지만 겉으로 드러나지 않습니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> | 단체장 역량 <b class="num">${govPerson(k)?.skill ?? 50}</b> | 남은 행정 행동력 <b class="num">${S.aap}</b></p>
       ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방 정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
-      <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]} <span class="pill">주민 관심 ${demLv(demMulK(k, cat))}</span></h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
+      <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]} <span class="pill ${DS_CLS[dsLv(k, cat)]}">공급 ${L.DS_LV[dsLv(k, cat)]}</span></h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
         return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}${c ? `<small><b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b></small>` : ''}</button>`; }).join('')}</div></div>`).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
@@ -2693,7 +2693,7 @@ function govRun(k, pj, auto) {
   let msg, ok = true;
   if (auto && rnd() < clamp(0.43 - (govPerson(k)?.skill ?? 50) / 400, 0.26, 0.43)) { S.ops[k] -= rr(2, 5); S.trust -= 0.5; ok = false; msg = pick(GOV_FLOP)(k); }
   else if ((c === 'care' || c === 'safe' ? luck : x => rnd() < x)(pr(p0))) { // 돌봄·안전은 대표 역량 운(luck)을 탐
-    S.ops[k] += up * dm * L.styleMul(ap?.st); msg = say(P.ok) + (dm >= 1.2 ? ' 주민들이 기다리던 사업이라 반응이 뜨겁습니다.' : dm <= 0.6 ? ' 이미 비슷한 사업이 많아 주민 반응은 미지근합니다.' : '');
+    S.ops[k] += up * dm * L.styleMul(ap?.st); msg = say(P.ok) + (dm >= 1.1 ? ' 주민들이 기다리던 사업이라 반응이 뜨겁습니다.' : dm < 0 ? ' 그런데 비슷한 사업이 넘쳐 예산 낭비라는 비판이 쏟아졌습니다.' : dm <= 0.6 ? ' 이미 비슷한 사업이 많아 주민 반응은 미지근합니다.' : '');
     if (c === 'dev') S.members[k] += Math.round(rr(200, 600)); else if (c === 'care') S.trust += 0.5; else if (c === 'biz') S.fame += 1; else S.trust += 1;
   } else { S.ops[k] -= dn * L.flopMul(ak, ap?.st); ok = false; msg = say(P.no) + flopSay(ak, c); }
   // 맞는 현안을 풀면 효과 1.5배, 현안은 해결
@@ -2726,11 +2726,11 @@ function rgovRun() {
   }
 }
 // 행정 사업 자동화(S.autoK[지역], 지사마다 따로 켬): 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안처럼 보이는 것 지정
-// ② 지정한 현안에 맞는 사업 ③ 남으면 행정 지지도 낮은 곳부터, 지사가 자기 특기·성향과 주민 관심을 보고 고른 분야. 악재 소식이 보이는 사업은 피함
+// ② 지정한 현안에 맞는 사업 ③ 남으면 행정 지지도 낮은 곳부터, 지사가 자기 특기·성향과 수요·공급을 보고 고른 분야. 악재 소식이 보이는 사업은 피함
 // 현안처럼 보이는 소식(RISSUE 문구와 맞춰 봄)이 진짜 문제인지는 그 지역 단체장 역량만큼 가려냄
 const tplRx = (t, k) => new RegExp('^' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace('\\{n\\}', RK[k].n).replace('\\{d\\}', '.+') + '$');
 const issueHint = x => RISSUE.find(it => tplRx(it.t, x.k).test(x.t));
-// 분야별 수요(최근 5주 해결 안 된 지역 소식에서 짐작되는 주민 요구 건수) | 공급(최근 성공한 사업 건수). 지방 정부 탭 표시와 주민 관심 배율이 같은 집계를 씀
+// 분야별 수요(최근 5주 해결 안 된 지역 소식에서 짐작되는 주민 요구 건수) | 공급(최근 성공한 사업 건수). 지방 정부 탭 5단계 표시와 수요·공급 배율이 같은 집계를 씀
 function demSup(k) {
   const dem = {}, sup = {};
   S.rnews.filter(x => x.k === k && !x.done && S.day - x.d < 35).forEach(x => { const c = PJC[issueHint(x)?.pj]; if (c) dem[c] = (dem[c] || 0) + 1; });
@@ -2738,7 +2738,8 @@ function demSup(k) {
   return { dem, sup };
 }
 const demMulK = (k, c) => { const { dem, sup } = demSup(k); return L.demMul(dem, sup, c); };
-const demLv = m => m >= 1.15 ? '높음' : m <= 0.85 ? '낮음' : '보통'; // 주민 관심 3단계
+const dsLv = (k, c) => { const { dem, sup } = demSup(k); return L.demLvl(L.demGap(dem, sup, c)); }; // 0 공백 ~ 4 포화(L.DS_LV)
+const DS_CLS = ['ok', 'ok', '', 'warn', 'bad']; // 공백·부족 초록 | 과잉 주황 | 포화 빨강
 // 옛 저장 파일의 지역 소식 중 행정 소식(사업 결과·후속 보도·직무 평가·책임론·단체장 동정 등)인지. migrate에서만 씀
 const isGovNews = x => new RegExp(`^(${Object.values(GOVT).join('|')}) | 지사\\(|' (해결 나서… 주민 호평|대응책 발표|첫 성과|좌초 위기)$| 책임론$|개발사업이 (순조롭게|주민 반발)|돌봄센터 (확충으로|위탁업체)|공장 유치 성공|투자 유치 협상이 결렬|재난·안전 점검을 마쳤|"형식적 점검"|도시개발 특혜 의혹|국제 청소년 행사 파행`).test(x.t)
   || Object.values(ADM_FOLLOW).some(v => [...v.ok, ...v.no].some(f => !f.need && !f.bad && tplRx(f.t, x.k).test(x.t)));
@@ -2761,7 +2762,7 @@ function autoGov() {
   }
   // 남는 행정 행동력: 행정 지지도 낮은 지역부터, 효용으로 고른 분야(지역마다 분야당 한 턴에 한 건, 그 분야 첫 세부 사업)
   const catCd = (k, c) => GOV_PROJ.some(p => p.c === c && govCd(k, p.k));
-  // 분야 효용(L.admU): 그 분야 첫 세부 사업의 성공률(자동 −20%p) | 주민 관심 | 지사 특기·성향
+  // 분야 효용(L.admU): 그 분야 첫 세부 사업의 성공률(자동 −20%p) | 수요·공급 | 지사 특기·성향
   const govU = (k, c) => { const ap = govAp(k), pr = clamp(PJ_BASE[c][0] + pjAdj(k, GOV_PROJ.find(p => p.c === c).k) - 0.2, 0.05, 0.95); return L.admU(pr, PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.apt?.[c], ap?.st, c); };
   const autoCat = k => { const cs = L.PJ_CATS.filter(c => !catCd(k, c) && !bads[k].includes(c)); return cs.length ? cs[L.softPick(cs.map(c => govU(k, c)), rnd())] : null; };
   while (S.aap >= 1) {
@@ -5712,10 +5713,8 @@ function pAdmin() {
   const mineK = sel in S.ops, g = S.rgov[sel], col = mineK ? S.party.color : g ? pc(g.p) : 'var(--other)';
   const w = mineK && why('govern', sel);
   const info = `<p class="small admfac">우리 당 지역 지지율 <b class="num">${pubReg(sel).toFixed(1)}%</b> | 당원 <b class="num">${S.members[sel].toLocaleString()}</b>명${S.gact?.[sel] ? ' | <b class="warn">권한대행 체제</b>' : ''}</p>`;
-  // 분야(대분류)별 수요·공급(demSup)
-  const { dem, sup } = demSup(sel);
-  const dT = sum(Object.values(dem)), sT = sum(Object.values(sup)), dp = x => dT ? Math.round((dem[x] || 0) / dT * 100) : 0, sp = x => sT ? Math.round((sup[x] || 0) / sT * 100) : 0;
-  const ds = `<h3 class="dsh">사업별 수요·공급${mineK ? `<button class="btn pri sm nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}</h3>${w ? `<p class="small warn" style="margin:4px 0 0">${esc(w)}</p>` : ''}<div class="pjds">${Object.keys(PJ_D).map(c => `<div class="${dp(c) > sp(c) ? 'need' : ''}"><span>${PJ_N[c]}</span><span class="num">수요 <b>${dp(c)}%</b> | 공급 <b>${sp(c)}%</b></span></div>`).join('')}</div>`;
+  // 분야(대분류)별 수요·공급: 수치 없이 5단계만(dsLv)
+  const ds = `<h3 class="dsh">사업별 수요·공급${mineK ? `<button class="btn pri sm nowrap" data-act="govern" data-k="${sel}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}</h3>${w ? `<p class="small warn" style="margin:4px 0 0">${esc(w)}</p>` : ''}<div class="pjds">${Object.keys(PJ_D).map(c => `<div class="${DS_CLS[dsLv(sel, c)]}"><span>${PJ_N[c]}</span><b>${L.DS_LV[dsLv(sel, c)]}</b></div>`).join('')}</div>`;
   const iss = desOf(sel).sort((a, b) => b.d - a.d);
   const issBtns = x => `${mineK ? `<button class="btn" data-act="govern" data-k="${x.k}" title="역점사업 | 행정 행동력 1" ${w ? 'disabled' : ''}>행정 사업</button>` : ''}<button class="btn" data-des="${x.nid}">해제</button>`;
   const center = `<div class="card admcity"><h2>${RK[sel].n} <span class="small muted">${GOVT[sel]}</span></h2>${info}${ds}
@@ -5952,9 +5951,9 @@ function pGuide() {
       <li>지방 정부 탭 맨 위의 '광역단체장 지도'를 켜면 시·도별 단체장 소속 당을 당 색으로 칠해 보여 줍니다.</li>
       <li>광역단체장을 배출하면 지방 정부 탭에서 그 지역 역점사업을 펼칩니다. 왼쪽 지사 목록('우리 당 | 다른 당'으로 분류)에서 지사를 고르면 가운데에 그 지역의 우리 당 정보·사업별 수요·공급·지역 현안이, 오른쪽에 그 지역 소식이 나옵니다.</li>
       <li><b>행정 지지도</b>는 당선 때 득표율에서 출발하고 가만두면 그 지역 우리 당 지지율 수준으로 돌아갑니다. 그보다 높을수록 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다. 역점사업은 성공할 수도, 역풍을 맞을 수도 있습니다. 다른 당 지사도 역점사업을 펼치며, 행정 지지도가 높을수록 그 지역 선거에서 그 당이 유리합니다.</li>
-      <li><b>사업별 수요·공급</b>: 수요는 최근 5주 지역 소식에서 짐작되는 주민 요구, 공급은 그 지역에서 최근 성공한 행정 사업 12건이 분야(돌봄·복지, 안전, 경제·일자리, 개발)마다 차지하는 비중입니다. 수요 비중이 공급 비중보다 큰 분야는 강조됩니다. 수요가 공급보다 큰 분야일수록 사업이 성공했을 때 행정 지지도가 더 오르고(최대 1.4배), 공급이 넘치는 분야는 덜 오릅니다(최저 0.4배). 행정 사업 창의 분야 제목 옆 '주민 관심'이 이 정도를 높음 | 보통 | 낮음으로 알려 줍니다. 한 분야만 거듭하면 효과가 떨어집니다.</li>
+      <li><b>사업별 수요·공급</b>: 최근 5주 지역 소식에서 짐작되는 주민 요구(수요)와 그 지역에서 최근 성공한 행정 사업 12건(공급)을 견주어, 분야(돌봄·복지, 안전, 경제·일자리, 개발)마다 공급이 <b>공백 | 부족 | 보통 | 과잉 | 포화</b> 중 어디인지 보여 줍니다. 행정 사업 창의 분야 제목 옆에도 같은 단계가 나옵니다. 공급이 비어 있을수록 사업이 성공했을 때 행정 지지도가 더 오르고, 부족일 때가 기본 상승분입니다. 보통·과잉으로 갈수록 덜 오르다가 과잉을 넘어서면 효과가 급격히 줄고, 포화면 성공해도 예산 낭비라는 비판에 오히려 지지도가 깎입니다. 한 분야만 거듭하면 안 됩니다.</li>
       <li>역점사업은 일반 행동력과 별도인 <b>행정 행동력</b>을 씁니다. 우리 당 단체장이 1명이면 1, 2명마다 1씩 늘고(2~3명 2, 4~5명 3), 행동력을 한 지역에 몰아 써도 됩니다. 다만 같은 지역의 같은 사업은 한 턴에 한 번입니다. 그 지역 단체장 역량이 높을수록 사업 성공률이 오릅니다.</li>
-      <li>지사 카드 오른쪽 스위치로 지사마다 <b>자동화</b>를 켤 수 있습니다(분류 버튼 옆 '전체 자동화'는 한꺼번에). 켠 지사는 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터, 지사가 자기 특기와 성향, 주민 관심을 따져 고른 분야의 사업을 펼칩니다. 다른 당 지사도 같은 방식으로 사업을 고릅니다. 악재 소식이 보이는 사업은 피합니다. 현안이 진짜 지역 문제인지는 그 지역 단체장 역량만큼 가려냅니다.</li>
+      <li>지사 카드 오른쪽 스위치로 지사마다 <b>자동화</b>를 켤 수 있습니다(분류 버튼 옆 '전체 자동화'는 한꺼번에). 켠 지사는 턴을 끝낼 때 남은 행정 행동력으로 ① 우리 당 지사 지역의 최근 소식 중 현안으로 보이는 것을 지정하고(지역당 ${desMax}건) ② 지정한 현안에 맞는 사업을 펼친 뒤 ③ 남으면 행정 지지도가 낮은 지역부터, 지사가 자기 특기와 성향, 수요·공급을 따져 고른 분야의 사업을 펼칩니다. 다른 당 지사도 같은 방식으로 사업을 고릅니다. 악재 소식이 보이는 사업은 피합니다. 현안이 진짜 지역 문제인지는 그 지역 단체장 역량만큼 가려냅니다.</li>
       <li>자동화는 직접 챙기지 않으니 사업 성공률이 낮고, 역량이 높은 단체장도 네 번에 한 번꼴로 행정 실책을 저지릅니다. 역량 60~70대면 행정 지지도가 제자리걸음이고, 꾸준히 올리려면 역량 높은 단체장이 필요합니다. 켜 둔 동안 그 지역 행정 사업 버튼은 잠깁니다.</li>
       <li>지방 정부 탭에서는 시·도별 지역 소식(지역 현안, 동네 사건, 재난, 선거 결과)을 왼쪽에서 고른 지사의 지역별로 볼 수 있습니다. 행정 사업 결과·후속 보도·단체장 직무 평가는 소식 탭의 '지방 정부'에 모입니다. 시·군·구 단위의 동네 사건부터 지역 전체의 큰 흐름까지 매주 보도됩니다.</li>
       <li>어떤 소식을 <b>지역 현안</b>으로 볼지는 직접 정합니다. 지역 소식 날짜 줄의 '현안 지정'을 누르면 지방 정부 탭 '지역 현안'에 담깁니다(지역당 ${desMax}건, 5주 유지). 다만 그 소식이 진짜 지역 문제인지는 알 수 없습니다.</li>

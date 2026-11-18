@@ -126,11 +126,20 @@ if (pNear) {
   assert.strictEqual(L.areaSkill(60, { dev: 8 }, 'dev'), 68);
   assert.strictEqual(L.areaSkill(60, null, 'dev'), 60);
 }
-// 주민 관심 배율: 비면 1, 수요만 많으면 최대 1.4, 공급만 몰리면 최저 0.4
-{ assert.strictEqual(L.demMul({}, {}, 'dev'), 1);
-  assert.strictEqual(L.demMul({ care: 3 }, {}, 'care'), 1.4);
-  assert.strictEqual(L.demMul({}, { dev: 5 }, 'dev'), 0.4);
-  assert(L.demMul({ dev: 1, care: 1 }, { dev: 1 }, 'care') > L.demMul({ dev: 1, care: 1 }, { dev: 1 }, 'dev')); }
+// 수요·공급 5단계와 언덕 배율: 부족 한가운데 1, 공백이 가장 큼, 비면 보통(1보다 조금 작음), 과잉·포화 경계에서 반감, 포화는 음수, 바닥 −1
+{ const near = (a, b) => Math.abs(a - b) < 1e-9;
+  assert.strictEqual(L.demLvl(L.demGap({}, {}, 'dev')), 2);
+  assert(L.demMul({}, {}, 'dev') < 1 && L.demMul({}, {}, 'dev') > 0.8);
+  assert(near(L.demGap({ dev: 9, care: 11 }, {}, 'dev'), -0.2) && near(L.demMul({ dev: 9, care: 11 }, {}, 'dev'), 1));
+  assert.strictEqual(L.demLvl(-0.2), 1);
+  assert.strictEqual(L.demLvl(L.demGap({ care: 1 }, {}, 'care')), 0);
+  assert(L.demMul({ care: 1 }, {}, 'care') > 1.2);
+  assert.strictEqual(L.demLvl(L.demGap({}, { dev: 1 }, 'dev')), 2); // 첫 성공 한 번으로 과잉·포화가 되지 않음
+  assert.strictEqual(L.demLvl(L.demGap({ care: 1 }, { dev: 12 }, 'dev')), 4);
+  assert(L.demMul({ care: 1 }, { dev: 12 }, 'dev') < 0);
+  const m = n => L.demMul({ care: 1, dev: 1 }, { dev: n }, 'dev'); // 개발 공급을 늘려 가며
+  for (let n = 0; n < 12; n++) assert(m(n + 1) < m(n)); // 공백→포화로 갈수록 줄어듦
+  const lo = L.demMul({ care: 9 }, { dev: 12 }, 'dev'); assert(lo < -0.6 && lo >= -1); } // 최근 12건을 한 분야로 채우면 기본 상승분의 60% 넘게 깎임
 // 성향·역효과: 추진형 1.25배·신중형 0.75배, 약점 분야 실패는 그대로, 특기 20 분야 실패는 2배
 { assert.strictEqual(L.styleMul(1), 1.25); assert.strictEqual(L.styleMul(-1), 0.75); assert.strictEqual(L.styleMul(), 1);
   assert.strictEqual(L.flopMul(-10, 0), 1); assert.strictEqual(L.flopMul(20, 0), 2); assert.strictEqual(L.flopMul(20, 1), 2.5); }
