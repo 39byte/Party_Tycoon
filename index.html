@@ -6089,13 +6089,12 @@ function newGameModal() {
 // 새 게임(S.tut 있음)에서만: 조건을 채우기 전엔 탭을 숨기고, 열릴 때 사용법을 짚어 줌. 예전 세이브는 S.tut이 없어 모든 탭이 열려 있음
 const LOCK = { elec: () => S.phase === 'reg', neg: () => S.phase === 'reg', court: () => S.phase === 'reg' || S.cases.length > 0, office: () => seatTotal('P') > 0, pres: () => seatTotal('P') > 0 || ruling(), admin: () => govCount('P') > 0 };
 const tabOk = k => k === 'pres' || !S?.tut || !LOCK[k] || !!S.tut.open[k]; // 청와대 탭은 처음부터 열람 가능(활동은 버튼마다 조건). LOCK.pres는 활동 안내 시점
-// 한 번 열린 탭은 계속 열림. 튜토리얼을 건너뛰었으면 알림만, 아니면 그 탭 안내를 줄 세움
+// 한 번 열린 탭은 계속 열림. 열리면 그 탭 안내를 줄 세움
 function tutUnlock() {
   if (!S?.tut) return;
   for (const k in LOCK) if (!S.tut.open[k] && LOCK[k]()) {
     S.tut.open[k] = 1;
-    if (S.tut.off) toast(k === 'pres' ? '조건을 채워 청와대 활동을 쓸 수 있습니다.' : `조건을 채워 '${TABS.find(t => t[0] === k)[1]}' 탭이 열렸습니다.`, 'sys', '새 기능');
-    else S.tut.q.push(k);
+    S.tut.q.push(k); // 튜토리얼을 건너뛰었어도 새 탭 안내는 첫 단계에서 볼지 고름
   }
 }
 // 단계: at = 비출 요소(선택자나 함수, 없으면 화면 가운데), tab = 이 탭으로 옮겨서 보여 줌, tap = 그 요소를 직접 눌러야 넘어감, until = 이 조건이 되면 넘어감
@@ -6145,30 +6144,30 @@ const TUT = {
     { modal: 1, at: '#modalRoot [data-close]', tap: 1, t: '창 닫기', d: '필요한 만큼 영입했으면 닫습니다. 영입한 인재는 선거 때 공천하거나, 집권하면 장관으로 지명할 수 있어요.', do: '닫기를 눌러 보세요.' },
   ],
   elec: [
-    { at: nb('elec'), tap: 1, t: '선거 탭이 열렸습니다', d: '정식 정당이 되어 선거에 후보를 낼 수 있게 됐습니다!', do: '선거 탭을 눌러 보세요.' },
+    { intro: 1, at: nb('elec'), t: '선거 탭이 열렸습니다', d: '정식 정당이 되어 선거에 후보를 낼 수 있게 됐습니다! 사용법을 안내해 드릴까요?' },
     { tab: 'elec', at: '#main .card', t: '공천과 후보 등록', d: '선거일이 다가오면 여기서 지역구 공천과 비례대표 명부를 짜고 후보를 등록합니다. <b>등록 기한을 넘기면 출마할 수 없어요.</b> 비례 명부는 여성 50%·홀수 순번 여성이 원칙이고, 자동 공천으로 한 번에 채울 수도 있습니다.' },
     { tab: 'elec', t: '선거운동', d: '공식 선거운동기간엔 행동력이 1 늘고, 조직·지역 탭의 거리 유세와 활동 탭의 방송 광고가 열립니다. 정해진 날엔 TV 토론도 열려요. 4년간 총선·지방선거에 한 번도 나가지 않으면 등록이 취소되니 주의하세요.' },
   ],
   neg: [
-    { at: nb('neg'), tap: 1, t: '교섭 탭이 열렸습니다', d: '다른 정당·의원·원외 인사와 협상할 수 있습니다.', do: '교섭 탭을 눌러 보세요.' },
+    { intro: 1, at: nb('neg'), t: '교섭 탭이 열렸습니다', d: '다른 정당·의원·원외 인사와 협상할 수 있습니다. 사용법을 안내해 드릴까요?' },
     { tab: 'party', at: up('#main .ptys', '.card'), t: '정당 교섭', d: '정당 탭의 정당 카드에서 교섭 버튼을 눌러 회동·법안 공조를 제안합니다. 행동력 1을 쓰고, 성공률은 대표 역량·노선 차이·관계(막대)에 따라 달라요.' },
     { tab: 'neg', at: '#main .split', t: '의원·원외 인사', d: '원내 의원과 친분을 쌓으면 법안 협조나 이적을 끌어낼 수 있고, 원외 인사는 지지 선언·영입 대상입니다. 교섭 자리에서 들은 의혹은 고발의 근거가 돼요.' },
   ],
   court: [
-    { at: nb('court'), tap: 1, t: '법원 탭이 열렸습니다', d: '고발과 수사·재판을 다룹니다.', do: '법원 탭을 눌러 보세요.' },
+    { intro: 1, at: nb('court'), t: '법원 탭이 열렸습니다', d: '고발과 수사·재판을 다룹니다. 사용법을 안내해 드릴까요?' },
     { tab: 'court', at: up('#main [data-act="accuse"]', '.card'), t: '고발', d: '교섭에서 들은 의혹을 근거로 상대를 고발합니다. 기소·유죄가 나오면 상대 당이 타격을 입지만, 불기소·무죄면 <b>우리 당이 역풍</b>을 맞아요. 우리 쪽 사람이 수사받게 되면 옆 칸에 진행 상황이 나오고 단계마다 대응을 고르게 됩니다.' },
   ],
   office: [
-    { at: nb('office'), tap: 1, t: '국회 탭이 열렸습니다', d: '첫 국회의원을 배출했습니다! 이제 의회에서 싸울 수 있어요.', do: '국회 탭을 눌러 보세요.' },
+    { intro: 1, at: nb('office'), t: '국회 탭이 열렸습니다', d: '첫 국회의원을 배출했습니다! 이제 의회에서 싸울 수 있어요. 사용법을 안내해 드릴까요?' },
     { tab: 'office', at: up('#main [data-act="bill"]', 'section'), t: '의회 활동', d: '법안 발의(본회의 과반 통과), 대정부 질문, 선거 사이에 열리는 국정감사에 참여합니다. 민심이 쏠린 쟁점의 법안일수록 통과 효과가 커요.' },
     { tab: 'office', at: '#main .billsplit > section:first-child', t: '법안과 당론', d: '다른 당·정부 법안엔 찬성·반대·자유투표로 당론을 정하고, 표 단속으로 우리 의원 이탈을 막습니다. 예상 찬성 막대가 통과선을 넘는지 보세요.' },
   ],
   pres: [
-    { at: nb('pres'), tap: 1, t: '청와대 활동이 열렸습니다', d: '이제 청와대 탭에서 영수회담 같은 활동을 할 수 있습니다.', do: '청와대 탭을 눌러 보세요.' },
+    { intro: 1, at: nb('pres'), t: '청와대 활동이 열렸습니다', d: '이제 청와대 탭에서 영수회담 같은 활동을 할 수 있습니다. 사용법을 안내해 드릴까요?' },
     { tab: 'pres', at: '#main .presbox', t: '대통령과 국정 지지율', d: '국정 지지율은 임기 말로 갈수록 떨어지고 여당 지지율에 영향을 줍니다. 야당이면 영수회담을 제안할 수 있고, 집권하면 내각을 지명하고 다른 당 법안의 공포·거부를 고릅니다.' },
   ],
   admin: [
-    { at: nb('admin'), tap: 1, t: '지방 정부 탭이 열렸습니다', d: '광역단체장을 배출했습니다!', do: '지방 정부 탭을 눌러 보세요.' },
+    { intro: 1, at: nb('admin'), t: '지방 정부 탭이 열렸습니다', d: '광역단체장을 배출했습니다! 사용법을 안내해 드릴까요?' },
     { tab: 'admin', t: '행정 역점사업', d: '단체장이 있으면 매 턴 <b>행정 행동력</b>을 따로 받습니다(상단 현황판). 지역 현안을 골라 역점사업을 펼치면 행정 지지도가 오르고 다음 선거에 유리해요. 손이 많이 가면 자동화를 켤 수 있습니다.' },
   ],
 };
@@ -6214,7 +6213,7 @@ function tutTick() {
     tutKey = key;
     const last = idx === steps.length - 1, main = name === 'main';
     bub.innerHTML = `<div class="tut-n">${main ? '튜토리얼' : name === 'tal' ? '인재 영입 안내' : '새 기능 안내'} | ${idx + 1}/${steps.length}</div><h3 id="tutT">${st.t}</h3><p>${st.d}</p>${tap ? `<p class="tut-do">▶ ${st.do}</p>` : ''}
-      <div class="btns">${last && main ? '' : `<button class="btn tut-skip" data-tut="skip">${main ? '튜토리얼 건너뛰기' : '이 안내 닫기'}</button>`}${idx && !st.intro ? '<button class="btn" data-tut="-1">이전</button>' : ''}${tap ? '' : `<button class="btn pri" data-tut="1">${st.intro ? '튜토리얼 시작' : last ? '완료' : '다음'}</button>`}</div>`;
+      <div class="btns">${last && main ? '' : `<button class="btn tut-skip" data-tut="skip">${main ? '튜토리얼 건너뛰기' : st.intro ? '건너뛰기' : '이 안내 닫기'}</button>`}${idx && !st.intro && !steps[idx - 1].intro ? '<button class="btn" data-tut="-1">이전</button>' : ''}${tap ? '' : `<button class="btn pri" data-tut="1">${st.intro ? (main ? '튜토리얼 시작' : '안내 보기') : last ? '완료' : '다음'}</button>`}</div>`;
     hole.classList.toggle('tap', tap);
     if (first) { t?.scrollIntoView({ block: 'center', inline: 'center' }); (tap ? t : bub.querySelector('[data-tut="1"]'))?.focus({ preventScroll: true }); }
   }
