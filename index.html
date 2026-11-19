@@ -2775,8 +2775,9 @@ function autoGov() {
   }
   // 남는 행정 행동력: 행정 지지도 낮은 지역부터, 효용으로 고른 분야(지역마다 분야당 한 턴에 한 건, 그 분야 첫 세부 사업)
   const catCd = (k, c) => GOV_PROJ.some(p => p.c === c && govCd(k, p.k));
-  // 분야 효용(L.admU): 그 분야 첫 세부 사업의 성공률(자동 −20%p) | 수요·공급 | 지사 특기·성향
-  const govU = (k, c) => { const ap = govAp(k), pr = clamp(PJ_BASE[c][0] + pjAdj(k, GOV_PROJ.find(p => p.c === c).k) - 0.2, 0.05, 0.95); return L.admU(pr, PJ_BASE[c][1], PJ_BASE[c][2], demMulK(k, c), ap?.apt?.[c], ap?.st, c); };
+  // 분야 효용: 다른 당 지사와 같은 Jeff 가중치(L.admJ, 없으면 L.admU). 특징은 그 분야 첫 세부 사업의 성공률(자동 −20%p) | 수요·공급 | 지사 특기·성향
+  const govU = (k, c) => { const ap = govAp(k), x = { c, p: clamp(PJ_BASE[c][0] + pjAdj(k, GOV_PROJ.find(p => p.c === c).k) - 0.2, 0.05, 0.95), up: PJ_BASE[c][1], dn: PJ_BASE[c][2], dm: demMulK(k, c), a: ap?.apt?.[c] || 0, st: ap?.st || 0 };
+    return L.admJ(x) ?? L.admU(x.p, x.up, x.dn, x.dm, x.a, x.st, c); };
   const autoCat = k => { const cs = L.PJ_CATS.filter(c => !catCd(k, c) && !bads[k].includes(c)); return cs.length ? cs[L.softPick(cs.map(c => govU(k, c)), rnd())] : null; };
   while (S.aap >= 1) {
     const c = govs.map(k => [k, autoCat(k)]).filter(c => c[1]).map(([k, c]) => [k, GOV_PROJ.find(p => p.c === c).k]).sort((a, b) => S.ops[a[0]] - S.ops[b[0]])[0];
