@@ -2659,16 +2659,17 @@ function lobbyBill(id) {
 }
 
 // ---------- 행정: 우리 당 광역단체장 ----------
-// 역점사업 재사용 대기: 지역마다 사업별로 따로(한 지역에서 다른 사업은 같은 턴에 여러 번 가능)
-const govCd = (k, pj) => (S.cd[`govern:${k}:${pj}`] || 0) > S.day;
+// 역점사업 재사용 대기: 지역마다 분야(대분류)별로 — 한 분야에서 한 사업을 하면 그 분야 사업은 모두 대기
+const govCdEnd = (k, pj) => Math.max(0, ...GOV_PROJ.filter(p => p.c === PJC[pj]).map(p => S.cd[`govern:${k}:${p.k}`] || 0));
+const govCd = (k, pj) => govCdEnd(k, pj) > S.day;
 function govModal(k) {
   openModal({
     title: `${AREA(k)} 행정 사업`, wide: true,
-    tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 단체장마다 출신에 따라 잘하는 분야와 서툰 분야가 있지만 겉으로 드러나지 않습니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 같은 사업은 한 턴에 한 번입니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
+    tip: '<p class="tip">행정 지지도가 높으면 이 지역 지지율과 다음 지방선거 재선 가능성이 오릅니다.</p><p class="tip">단체장 역량이 높을수록 모든 사업의 성공률이 오릅니다. 단체장마다 출신에 따라 잘하는 분야와 서툰 분야가 있지만 겉으로 드러나지 않습니다. 같은 지역에서 여러 사업을 펼칠 수 있지만, 한 분야에서는 한 턴에 사업 하나만 할 수 있습니다. 지정한 현안이 진짜 지역 문제이고 세부 사업이 맞으면 성공률과 효과가 오르고 문제가 풀립니다. 같은 분야라도 세부 사업이 다르면 보탬이 없습니다. 헛짚으면 보탬이 없습니다. 드러나지 않은 악재가 성공률을 깎기도 합니다.</p>',
     html: `<p class="small muted">행정 지지도 <b class="num">${Math.round(S.ops[k])}</b> | 단체장 역량 <b class="num">${govPerson(k)?.skill ?? 50}</b> | 남은 행정 행동력 <b class="num">${S.aap}</b></p>
       ${desOf(k).length ? `<h3>지정한 ${RK[k].n} 현안</h3><ul class="log">${desOf(k).map(x => `<li><span>${esc(shortT(x))}</span></li>`).join('')}</ul>` : `<p class="small muted">이 지역에 지정한 현안이 없습니다. 지방 정부 탭 지역 소식에서 '현안 지정'을 눌러 담을 수 있습니다.</p>`}
       <div class="pjgrid" style="--n:${2 + Math.max(...Object.keys(PJ_D).map(c => GOV_PROJ.filter(p => p.c === c).length))}">${Object.keys(PJ_D).map(cat => `<div><h3>${PJ_N[cat]} <span class="pill dsc ds${dsLv(k, cat)}">공급 ${L.DS_LV[dsLv(k, cat)]}</span></h3><p class="small muted">${PJ_D[cat]}</p><div class="choices">${GOV_PROJ.filter(p => p.c === cat).map(p => { const c = govCd(k, p.k);
-        return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}${c ? `<small><b>${Math.ceil((S.cd[`govern:${k}:${p.k}`] - S.day) / TURN)}턴 후 다시 가능</b></small>` : ''}</button>`; }).join('')}</div></div>`).join('')}</div>`,
+        return `<button class="btn" data-pj="${p.k}" ${c ? 'disabled' : ''}>${p.n}${c ? `<small><b>${Math.ceil((govCdEnd(k, p.k) - S.day) / TURN)}턴 후 다시 가능</b></small>` : ''}</button>`; }).join('')}</div></div>`).join('')}</div>`,
     buttons: [{ t: '취소' }],
     onOpen: m => m.querySelectorAll('[data-pj]').forEach(b => b.onclick = () => {
       const pj = b.dataset.pj;
