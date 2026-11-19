@@ -5195,7 +5195,7 @@ function personEdit(id) {
   const p = S.pool.find(x => x.id === id); if (!p) return;
   const cur = p.leader ? S.party.img : p.img, imgTag = u => `<img class="face" src="${u}" width="56" height="56" alt="">`;
   openModal({ title: '이름·사진 변경', html: `<form id="pp" style="display:flex;flex-direction:column;gap:12px">
-      <label class="f">이름 *<input type="text" name="name" maxlength="8" required value="${esc(p.name)}" autocomplete="off"></label>
+      <label class="f">이름 *<input type="text" name="name" maxlength="8" required value="${esc(p.name)}" autocomplete="off"><span class="h" id="ppErr" role="alert"></span></label>
       <div class="f">프로필 사진<div class="imgpick">
         <label><input type="radio" name="imgmode" value="def" ${cur ? '' : 'checked'}>${ART.face({ name: p.name, gender: p.gender, age: p.age }, S.party.color, 56)}<span>기본 그림</span></label>
         <label><input type="radio" name="imgmode" value="up" ${cur ? 'checked' : ''}><span id="ppImg">${cur ? imgTag(cur) : '<span class="face noimg">+</span>'}</span><span>사진 업로드</span></label>
@@ -5212,6 +5212,7 @@ function personEdit(id) {
         e.preventDefault();
         const v = Object.fromEntries(new FormData(f)), name = v.name.trim(), old = p.name, u = v.imgmode === 'up' && img ? img : null;
         if (!name) return;
+        if (S.pool.some(q => q !== p && q.name === name)) { const x = m.querySelector('#ppErr'); x.textContent = '우리 당에 같은 이름의 인재가 이미 있습니다.'; x.className = 'h bad'; Snd.sfx('bad'); return; }
         if (p.leader) { if (u) S.party.img = u; else delete S.party.img; } else if (u) p.img = u; else delete p.img;
         if (name !== old) { p.name = name; if (S.president.pid === p.id) S.president.name = name; addLog(`${old}의 이름을 '${name}'(으)로 바꿨습니다.`, 'ok'); }
         save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} | 이름·사진을 저장했습니다.`, 'ok', '인재 정보 변경');
