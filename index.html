@@ -2712,7 +2712,7 @@ function govRun(k, pj, auto) {
 // 다른 당 지사의 역점사업: 턴마다 40% 확률로 한 건. Jeff가 운영해 자동화 감점은 없고 성공률·실책은 RG_PR·RG_BLUN(역량 높으면 오르고 낮으면 깎임
 // 그 지역 악재(rcur bad)가 걸린 사업은 피함. 지사 역량은 명부(fig)의 skill
 // 다른 당 지사의 분야 성공률(분야 역량, RG_PR 보정, 악재 −20%p, 전국 쟁점 +5%p)과 효용(Jeff 가중치, 없으면 L.admU), 효용으로 고르기
-// RG_PR | RG_BLUN: Jeff가 운영하는 다른 당 지사의 성공률 보정 | 행정 실책 확률 [기준, 역량 1당 감소, 하한, 상한]. 다른 당 지사 행정 지지도 평균이 50 안팎이 되게 맞춘 값
+// RG_PR | RG_BLUN: Jeff가 운영하는 다른 당 지사의 성공률 보정 | 행정 실책 확률 [기준, 역량 1당 감소, 하한, 상한]. Jeff 가중치로 3년 평균 약 51(시간이 갈수록 60대까지 오름)
 const RG_PR = 0.05, RG_BLUN = [0.1, 1 / 400, 0, 0.1];
 const rgovPr = (k, c) => clamp(PJ_BASE[c][0] + (rgovArea(k, c) - 50) / 250 + RG_PR - (issuesOf(k).some(x => x.bad === c) ? 0.2 : 0) + (PJ_ISSUE[c] === S.issue ? 0.05 : 0), 0.05, 0.95);
 const rgovX = (k, c) => { const ap = rgovAp(k); return { c, p: rgovPr(k, c), up: PJ_BASE[c][1], dn: PJ_BASE[c][2], dm: demMulK(k, c), a: ap?.apt?.[c] || 0, st: ap?.st || 0 }; };

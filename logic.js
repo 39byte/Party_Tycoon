@@ -275,7 +275,7 @@
   // 다른 당 지사의 분야 고르기: Jeff(jeff.routing.tools)가 고른 분야 확률을 조건부 로짓으로 배운 가중치(ADM_W, tools/jeff/fit_adm.py가 채움). 없으면 null → admU
   // x: 그 분야 { c 분야, p 성공률, up/dn 성공·실패 폭, dm 수요·공급 배율, a 특기, st 성향 }. 효용 = ADM_W · admFeat(x), softPick(T = 1)이면 Jeff 확률을 그대로 따라 함
   const admFeat = x => [x.p, x.p * x.up * x.dm * styleMul(x.st), (1 - x.p) * x.dn * flopMul(x.a, x.st), x.dm, (x.a || 0) / 20, (x.st || 0) * (x.c === 'dev' || x.c === 'biz' ? 1 : -1), x.c === 'care' ? 1 : 0, x.c === 'safe' ? 1 : 0, x.c === 'biz' ? 1 : 0];
-  const ADM_W = null;
+  const ADM_W = [0.07,1.445,-0.184,-0.028,-0.149,0.316,1.3,0.757,0.599]; // fit_adm.py: 2000건, 검증 일치 74%
   const admJ = (x, W = ADM_W) => W ? admFeat(x).reduce((s, v, i) => s + v * W[i], 0) : null;
   function softPick(us, r, T = 1) {
     const m = Math.max(...us), e = us.map(u => Math.exp((u - m) / T)); let x = r * e.reduce((a, b) => a + b, 0);
