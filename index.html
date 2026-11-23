@@ -4807,7 +4807,7 @@ function showEvent(e) {
   Snd.sfx('event');
   openModal({
     title: e.title, dismiss: false, wide: !!e.side,
-    html: (cs => `<p>${e.body()}</p>${e.html ? e.html() : ''}${e.note ? `<div class="lawnote">${e.note}</div>` : ''}${e.side ? `<div class="split2"><div><h3>입장</h3>${cs}</div><div>${e.side()}</div></div>` : cs}`)(`<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`), // side: 1열 선택지 | 2열(프로필 등)
+    html: (cs => `<p>${e.body()}</p>${e.html ? e.html() : ''}${e.note ? `<div class="lawnote">${e.note}</div>` : ''}${e.side ? `<div class="split2"><div>${e.side()}</div><div><h3>입장</h3>${cs}</div></div>` : cs}`)(`<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`), // side: 1열(프로필 등) | 2열 선택지
     onOpen: m => m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
       const msg = ch[+b.dataset.c].run();
       S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
