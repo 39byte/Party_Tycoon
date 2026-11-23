@@ -80,6 +80,10 @@ assert(sw.skill > sw.party && sw.party > sw.rec && sw.rec > sw.integ && sw.integ
 assert.strictEqual(L.candScore({ skill: 60, integ: 60, fame: 30, rec: [] }), 0);
 const bad = Math.log(0.6) + L.candScore({ skill: 25, integ: 20, fame: 5, rec: ['a', 'b'] }), avg = Math.log(0.25);
 assert(bad < avg, '지지율 60% 당의 형편없는 후보가 25% 당의 평범한 후보에게 져야 함');
+// 인재 영입 조건: 약한 당은 역량 상한 70·고능력자 0명, 최강 당은 99·0.62명(예전 평균 0.31의 2배). 영입비는 점수 1.5에 약 100억
+const tw = L.talentCap(0, 0, 40), ts = L.talentCap(100, 100, 100);
+assert(tw.skill === 70 && tw.hi === 0 && ts.skill === 99 && Math.abs(ts.hi - 0.62) < 1e-9, JSON.stringify({ tw, ts }));
+assert(Math.abs(L.talentFee(1.5) / 1e10 - 1) < 0.05 && Math.abs(L.talentFee(0.3) - 3e7 * Math.exp(0.3)) < 1, '영입비 곡선');
 
 // 지지층 계층: 비중 합 유지, 악재는 혐오층을, 호재는 충성층을 두껍게. 충성층 두꺼우면 악재 배율↓, 혐오층 두꺼우면 호재 배율↓
 const T0 = [0.05, 0.15, 0.6, 0.15, 0.05], tsum = t => t.reduce((a, b) => a + b, 0);

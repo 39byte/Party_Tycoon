@@ -168,6 +168,16 @@
   const candScore = p => p ? CW.skill * cl((p.skill - 60) / 40, -1.25, 1) - CW.rec * Math.min(3, p.rec?.length || 0)
     + CW.integ * cl(((p.integ ?? 60) - 60) / 40, -1.25, 1) + CW.fame * cl((p.fame - 30) / 40, -0.75, 1.5) : 0;
 
+  // 인재 영입 조건: 당 인지도·신뢰(0~100)·대표 역량으로 등급 g(0~1)을 정하고, 그에 따라 후보 역량 상한(70~99)과
+  // 점수 HI 이상 고능력자 기대 인원(hi: 0~0.62명, 제한 없던 때 평균 0.31명의 2배까지)을 정함. 등급 0.5가 예전 수준
+  const TAL_HI = 0.9;
+  const talentCap = (fame, trust, lead) => {
+    const g = cl(0.35 * fame / 100 + 0.35 * trust / 100 + 0.3 * (lead - 40) / 60, 0, 1);
+    return { g, skill: Math.round(70 + 29 * g), hi: 0.62 * g };
+  };
+  // 영입비: 점수 0.5까지는 3천만×e^점수, 그 위로 가팔라져 1.5면 약 100억
+  const talentFee = s => 3e7 * Math.exp(s + 4.31 * Math.max(0, s - 0.5));
+
   // 지지층 5계층 [충성, 우호, 중립, 적대, 혐오] 비중(합 1). 계층마다 사건에 흔들리는 정도가 다름: 중립이 가장 크고, 다음이 우호·적대
   // 악재엔 충성층이 거의 안 흔들리고(이미 등 돌린 혐오층도), 호재엔 혐오층이 거의 안 넘어옴
   const TIERS = ['충성', '우호', '중립', '적대', '혐오'];
@@ -283,7 +293,7 @@
     return e.length - 1;
   }
 
-  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore,
+  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
     TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
