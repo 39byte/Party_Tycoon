@@ -8,3 +8,4 @@ desktop/dist/
 tools/
 *.png
 !asset/*.png
+screenshots/
