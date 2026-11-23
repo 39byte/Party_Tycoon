@@ -419,11 +419,11 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
   --sea:#0A1830; --land:#25344F; --map-line:#0A1830;
 }
 /* 탭 장면: 위쪽 그림 띠 + 왼쪽 제목 */
-.scene{position:relative;height:56px;border-radius:var(--r);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky1)}
+.scene{position:relative;height:72px;border-radius:var(--r);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky1)}
 /* 그림은 오른쪽 아래에 맞춰 통째로 줄여 넣고(잘림 없음), 빈 왼쪽은 하늘·땅 색으로 이어 줌 */
 .scene::before{content:"";position:absolute;left:0;right:0;bottom:0;height:12%;background:var(--gnd);border-top:2px solid var(--gnd2)}
 .scene .scn{position:absolute;inset:0;width:100%;height:100%}
-.scene.pic{--h:56px;--w:calc(var(--h)*5);background:linear-gradient(90deg,#0B1426 calc(100% - var(--w)),transparent calc(100% - var(--w)*.6)),var(--art) right/auto 100% no-repeat #0B1426}.scene.pic::before{display:none}
+.scene.pic{background:var(--art) center var(--y,80%)/cover #0B1426}.scene.pic::before{display:none}
 .scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;padding:6px 10px;color:#fff}
 /* 제목은 그림 위 단색 반투명 판에 */
 /* 그림띠가 낮아서 제목과 부제를 한 줄로 */
@@ -431,7 +431,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .scene-t h1{flex:none;font-size:17px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .scene-t h1::before{content:"";width:10px;height:10px;transform:rotate(45deg);background:var(--gold);flex:none}
 .scene-t p{margin:0;min-width:0;font-size:13px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:600px){.scene.pic{--h:42px}.scene{height:42px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
+@media (max-width:600px){.scene{height:54px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
 .scn .far rect{fill:var(--far)} .scn .mid{fill:var(--mid)} .scn .wd{fill:var(--wd)} .scn .wl{fill:var(--wl)}
 .scn .bld{fill:var(--bld)} .scn .bld2{fill:var(--bld2)} .scn .wall{fill:var(--wall)} .scn .col{fill:var(--col)} .scn .glass{fill:var(--glass)}
 .scn .gnd{fill:var(--gnd)} .scn .gnd2{fill:var(--gnd2)} .scn .tree circle{fill:var(--tree)} .scn .trunk{fill:var(--trunk)} .scn .door{fill:var(--door)}
@@ -4995,11 +4995,11 @@ const SCENE_SUB = {
   office: () => `국회 의석 ${seatTotal('P')}석 / 300`, court: () => `진행 중인 사건 ${S.cases.length}건`, party: () => `지지율 ${S.pub.P.toFixed(1)}% | 다른 정당과의 경쟁과 교섭`, neg: () => '원내 의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
   pres: () => presT(), fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
 };
-const TAB_ART = Object.fromEntries(['home', 'org', 'act', 'people', 'party', 'neg', 'elec', 'fin', 'office', 'court', 'pres', 'admin', 'log', 'guide'].map(k => [k, k + '.jpg'])); // asset/tab_art/{탭키}.jpg (법령 탭은 그림 없음 → SVG 장면)
+const TAB_ART = { home: 85, guide: 30, pres: 45, elec: 85, act: 40, neg: 85, org: 55, fin: 78, log: 92, office: 70, court: 62, admin: 47, people: 70, party: 5 }; // 탭키: 그림띠 세로 위치(%). 그림 파일은 asset/tab_art/{탭키}.jpg, 법령은 그림 없음(SVG 장면)
 function sceneHead() {
   const n = TABS.find(t => t[0] === tab)[1];
-  const art = TAB_ART[tab]; // 그림 파일이 있는 탭은 SVG 장면 대신 그 그림
-  return `<div class="scene${art ? ' pic' : ''}"${art ? ` style="--art:url(asset/tab_art/${art})"` : ''}>${art ? '' : ART.scene(tab, S.party.color, { name: S.party.name })}<div class="scene-t"><div><h1>${n}</h1><p>${esc(SCENE_SUB[tab]())}</p></div></div></div>`;
+  const art = TAB_ART[tab]; // 값이 있는 탭은 SVG 장면 대신 그 그림
+  return `<div class="scene${art != null ? ' pic' : ''}"${art != null ? ` style="--art:url(asset/tab_art/${tab}.jpg);--y:${art}%"` : ''}>${art != null ? '' : ART.scene(tab, S.party.color, { name: S.party.name })}<div class="scene-t"><div><h1>${n}</h1><p>${esc(SCENE_SUB[tab]())}</p></div></div></div>`;
 }
 // 인물 초상: 성별·나이가 없는 인물(의원·원외 인사)은 이름으로 짐작
 // 당 대표는 사용자가 올린 사진(S.party.img)이 있으면 그걸 씀. 복사본(후보 등)도 id 0 + 이름으로 알아봄
