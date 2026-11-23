@@ -5000,7 +5000,7 @@ function sceneHead() {
 }
 // 인물 초상: 성별·나이가 없는 인물(의원·원외 인사)은 이름으로 짐작
 // 당 대표는 사용자가 올린 사진(S.party.img)이 있으면 그걸 씀. 복사본(후보 등)도 id 0 + 이름으로 알아봄
-const face = (p, c, s = 44) => S?.party?.img && (p.leader || p.id === 0 && p.name === leader()?.name) ? `<img class="face" src="${S.party.img}" width="${s}" height="${s}" alt="">` : p.img ? `<img class="face" src="${p.img}" width="${s}" height="${s}" alt="">` : ART.face({ name: p.name, gender: p.gender || (GF.includes(p.name.slice(1)) ? 'F' : 'M'), age: p.age }, c, s);
+const face = (p, c, s = 44) => S?.party?.img && (p.leader || p.id === 0 && p.name === leader()?.name) ? `<img class="face" src="${S.party.img}" width="${s}" height="${s}" alt="" style="box-shadow:0 0 0 1.5px ${c},0 2px 6px rgba(2,6,23,.22)">` : p.img ? `<img class="face" src="${p.img}" width="${s}" height="${s}" alt="" style="box-shadow:0 0 0 1.5px ${c},0 2px 6px rgba(2,6,23,.22)">` : ART.face({ name: p.name, gender: p.gender || (GF.includes(p.name.slice(1)) ? 'F' : 'M'), age: p.age }, c, s);
 // 설명 문구(p.tip)는 가까운 제목 옆 (i) 버튼 안으로 옮김. 마우스를 올리거나 포커스(터치)하면 보임
 // 문단(p·li)의 문장마다 .sent로 감쌈. 안쪽 태그(<b> 등)는 통째로 앞 문장에 붙고, 문장이 하나뿐이거나 블록 자식이 있으면 그대로 둠
 function sentWrap(root) {

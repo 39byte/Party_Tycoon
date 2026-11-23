@@ -32,6 +32,12 @@
   const hairOf = (age, r, f) => age >= 66 ? '#C9C4BD' : age >= 56 ? (f && r() < 0.6 ? '#4A3426' : '#7A746E') : age >= 46 ? (f && r() < 0.4 ? '#4A3426' : '#2E2926') : '#1C1918';
   // p: { name, gender: 'M'|'F', age }, c: 당 색(배경·넥타이)
   function face(p, c = '#64748B', size = 48) {
+    // asset/portrait-{성별}-{연령대}-{1|2}.png (연령대: young<46, mid<60, senior). 같은 이름은 항상 같은 그림
+    const ag = p.age || 38 + hash(p.name) % 30;
+    return `<img class="face" src="asset/portrait-${p.gender === 'F' ? 'f' : 'm'}-${ag < 46 ? 'young' : ag < 60 ? 'mid' : 'senior'}-${1 + hash(p.name + (p.gender || '')) % 2}.png" width="${size}" height="${size}" alt="" loading="lazy" style="box-shadow:0 0 0 1.5px ${c},0 2px 6px rgba(2,6,23,.22)">`;
+  }
+  // 예전 SVG 초상(그림 파일을 못 쓸 때 대비해 남겨 둠)
+  function faceSvg(p, c = '#64748B', size = 48) {
     const r = rng(hash(p.name + (p.gender || '') + (p.age || ''))), f = p.gender === 'F', age = p.age || 38 + hash(p.name) % 30;
     const skin = pick(r, SKIN), hair = hairOf(age, r, f), suit = pick(r, f ? SUIT_F : SUIT_M), style = Math.floor(r() * 4);
     const glasses = r() < (age > 50 ? 0.45 : 0.2), bald = !f && age > 56 && r() < 0.45;
@@ -142,5 +148,5 @@
     return sceneCache[key];
   }
 
-  G.ART = { map, face, scene, MAP };
+  G.ART = { map, face, faceSvg, scene, MAP };
 })(typeof window !== 'undefined' ? window : globalThis);
