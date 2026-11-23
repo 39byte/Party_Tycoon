@@ -1795,7 +1795,7 @@ function resolveElection(c) {
   }
   if (refund > 0) {
     S.pending.push({ d: S.day + 30, amt: refund, t: `${c.name} 기탁금 반환·선거비용 보전` });
-    html += `<p class="ok"><b>기탁금 반환·선거비용 보전 예정: ${won(refund)}</b> (30일 후 지급, 득표율 15% 이상 전액·10% 이상 절반 — 공직선거법 제57조·제122조의2)</p>`;
+    html += `<p class="ok"><b>기탁금 반환·선거비용 보전 예정: ${won(refund)}</b></p>`;
   } else if (c.reg) html += `<p class="muted">득표율 10% 미만 지역은 기탁금이 국고에 귀속되고 선거비용도 보전되지 않습니다.</p>`;
   lines.forEach(t => addLog(t, 'ok'));
   addResult({ d: S.day, name: c.name, t: lines.join(' '), races, psum });
