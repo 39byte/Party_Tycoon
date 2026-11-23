@@ -4995,7 +4995,7 @@ const SCENE_SUB = {
   office: () => `국회 의석 ${seatTotal('P')}석 / 300`, court: () => `진행 중인 사건 ${S.cases.length}건`, party: () => `지지율 ${S.pub.P.toFixed(1)}% | 다른 정당과의 경쟁과 교섭`, neg: () => '원내 의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
   pres: () => presT(), fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
 };
-const TAB_ART = { home: 85, guide: 30, pres: 45, elec: 85, act: 40, neg: 85, org: 55, fin: 78, log: 92, office: 70, court: 62, admin: 47, people: 70, party: 5 }; // 탭키: 그림띠 세로 위치(%). 그림 파일은 asset/tab_art/{탭키}.jpg, 법령은 그림 없음(SVG 장면)
+const TAB_ART = { home: 85, guide: 30, pres: 45, elec: 85, act: 40, neg: 85, org: 55, fin: 78, log: 92, office: 70, court: 62, admin: 47, people: 70, party: 5, law: 50 }; // 탭키: 그림띠 세로 위치(%). 그림 파일은 asset/tab_art/{탭키}.jpg, 법령은 그림 없음(SVG 장면)
 function sceneHead() {
   const n = TABS.find(t => t[0] === tab)[1];
   const art = TAB_ART[tab]; // 값이 있는 탭은 SVG 장면 대신 그 그림
