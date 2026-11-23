@@ -4581,7 +4581,8 @@ const XEV = {
     let day = S.day + 53; while (L.dayToDate(day).getUTCDay() !== 3) day++; // 60일 안의 수요일
     S.presEarly.push(day); rebuildSched(S);
     for (const k in S.camps) if (!SCHED.some(e => e.key === k)) delete S.camps[k]; // 밀려난 정기 대선 공천은 취소
-    S.president = { ...S.president, name: genName(rnd() < 0.3 ? 'F' : 'M'), acting: true, job: '전직 고위공무원', gender: null, age: null, fame: null, skill: null, integ: null, apt: null, st: null }; // 권한대행(총리)은 특기를 새로
+    const pm = cabM('pm'); // 권한대행은 내각 총리(없으면 가상 인물). 능력치·특기도 총리 것
+    S.president = { ...S.president, name: pm?.name ?? genName(rnd() < 0.3 ? 'F' : 'M'), acting: true, job: pm?.job ?? '전직 고위공무원', gender: pm?.gender ?? null, age: pm?.age ?? null, fame: pm?.fame ?? null, skill: pm?.skill ?? null, integ: pm?.integ ?? null, ...(pm ? aptKeep(pm) : { apt: null, st: null }) };
     info('헌법재판소: 탄핵 인용', `헌법재판소가 재판관 전원 일치로 ${fallen} 파면을 결정했습니다. ${presT()}이 국정을 맡고, ${fdate(day)}에 조기 대선이 치러집니다. 공천 기간이 짧으니 서둘러 후보를 정하세요.`, false);
   },
   audit: () => {
