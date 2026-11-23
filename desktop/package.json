@@ -23,7 +23,8 @@
           "art.js",
           "asset/icon/icon-*.png",
           "asset/portrait/*.png",
-          "asset/tab_art/*.jpg"
+          "asset/tab_art/*.jpg",
+          "asset/sidebar_icon/*.svg"
         ]
       }
     ],
