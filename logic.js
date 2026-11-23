@@ -172,7 +172,7 @@
   // 점수 HI 이상 고능력자 기대 인원(hi: 0~0.62명, 제한 없던 때 평균 0.31명의 2배까지)을 정함. 등급 0.5가 예전 수준
   const TAL_HI = 0.9;
   const talentCap = (fame, trust, lead) => {
-    const g = cl(0.35 * fame / 100 + 0.35 * trust / 100 + 0.3 * (lead - 40) / 60, 0, 1);
+    const g = cl(0.425 * fame / 100 + 0.425 * trust / 100 + 0.15 * (lead - 40) / 60, 0, 1);
     return { g, skill: Math.round(70 + 29 * g), hi: 0.62 * g };
   };
   // 영입비: 점수 0.5까지는 3천만×e^점수, 그 위로 가팔라져 1.5면 약 100억
