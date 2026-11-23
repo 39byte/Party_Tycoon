@@ -2580,6 +2580,11 @@ const cabYes = (id, p, flaw, cp = 'P') => id === 'P' || id === cp ? 0.98 : clamp
 const PIDS = ['P', 'A', 'B', 'C', 'D', 'O'];
 const cabFlawP = p => clamp(0.05 + (p.rec?.length || 0) * 0.35 + Math.max(0, 60 - p.integ) / 50, 0.05, 0.95);
 const pmExp = (p, cp = 'P') => Math.round(sum(PIDS.map(id => seatTotal(id) * cabYes(id, p, false, cp))));
+// 총리 가결 확률: 의원별 찬성(ayes)을 그대로 합성곱해 정확히 계산, 도덕성 공방(flaw) 유무를 가중 평균
+const pmPass = (p, cp = 'P') => { const f = cabFlawP(p), need = passNeed(), q = flaw => { let d = [1];
+  for (const id of PIDS) { const pr = cabYes(id, p, flaw, cp); for (let i = seatTotal(id); i--;) { const e = new Array(d.length + 1).fill(0); d.forEach((v, k) => { e[k] += v * (1 - pr); e[k + 1] += v * pr; }); d = e; } }
+  return sum(d.slice(need)); }; return (1 - f) * q(false) + f * q(true); };
+const pctT = x => `${Math.round(x * 100)}%`;
 // 협치 총리 후보: 의석 있는 다른 당마다 그 당 인재풀의 1순위
 const xpmCands = () => ['A', 'B', 'C', 'D'].filter(id => seatTotal(id)).map(id => ({ id, p: poolBest(id, 'nat', null) })).filter(x => x.p);
 function xpmDrop() { const f = fig(S.president.xpm); if (f) figDrop(S, f); delete S.president.xpm; }
@@ -2625,10 +2630,11 @@ function cabAuto() {
 }
 function cabPick(k) {
   const c = CAB.find(x => x.k === k), xs = S.pool.filter(cabFree).sort((a, b) => b.skill - a.skill).slice(0, 30), pm = k === 'pm', xc = pm ? xpmCands() : [];
-  const expT = (p, cp) => { const e = pmExp(p, cp); return `<div class="small ${e < passNeed() ? 'bad' : 'muted'}">예상 찬성 ${e}표 / 필요 ${passNeed()}표</div>`; };
+  const expT = (p, cp) => { const e = pmExp(p, cp), r = pmPass(p, cp); return `<div class="small ${r < 0.5 ? 'bad' : 'muted'}">가결 확률 ${pctT(r)} | 예상 찬성 ${e}표 / 필요 ${passNeed()}표</div>`; };
+  const hearT = p => { const r = 1 - cabFlawP(p); return `<div class="small ${r < 0.5 ? 'bad' : 'muted'}">청문회 통과 확률 ${pctT(r)}</div>`; };
   openModal({ title: `${c.n} 지명`, wide: true, html: `<p>행동력은 들지 않습니다. ${pm ? '국회 임명동의(재적 과반)를 받아야 합니다. 의석이 모자라면 다른 당 인사를 총리로 세우는 <b>협치 총리</b>로 표를 모을 수 있습니다(그 당과 관계↑).' : '인사청문회를 거칩니다. 전과가 있거나 청렴이 낮으면 난항을 겪습니다.'}${c.is.length ? ` 담당: ${c.is.map(i => ISSUES.find(x => x.k === i).n).join(', ')}` : ''}</p>
     ${xc.length ? `<h3>협치 총리 (다른 당 인사)</h3><div class="pcards">${xc.map(({ id, p }) => `<div class="pcard"><div class="who">${face(p, pc(id), 56)}<div><h3>${esc(p.name)} <span class="pill" style="border-color:${pc(id)};color:${pc(id)}">${esc(pn(id))}</span></h3><div class="small muted">${p.age}세 | ${esc(p.job)}</div></div></div>${statBars(p, true)}${expT(p, id)}<button class="btn pri" data-xpm="${id}">지명</button></div>`).join('')}</div><h3>우리 당 인재</h3>` : ''}
-    ${xs.length ? `<div class="pcards">${xs.map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.age}세 | ${esc(p.job)}</div></div></div>${statBars(p)}<div class="foot"><span class="small ${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</span></div>${pm ? expT(p, 'P') : ''}<button class="btn pri" data-cabnom="${p.id}">지명</button></div>`).join('')}</div>` : '<p class="empty">지명할 수 있는 인재가 없습니다. 당 대표, 시·도지사, 선거 후보, 피선거권이 없는 사람과 이미 입각한 사람은 빠집니다.</p>'}`,
+    ${xs.length ? `<div class="pcards">${xs.map(p => `<div class="pcard"><div class="who">${face(p, S.party.color, 56)}<div><h3>${esc(p.name)}${p.role ? ` <span class="pill ok">${esc(roleLabel(p.role))}</span>` : ''}</h3><div class="small muted">${p.age}세 | ${esc(p.job)}</div></div></div>${statBars(p)}<div class="foot"><span class="small ${p.rec.length ? 'bad' : 'muted'}">전과 ${p.rec.length ? esc(p.rec.join(', ')) : '없음'}</span></div>${pm ? expT(p, 'P') : hearT(p)}<button class="btn pri" data-cabnom="${p.id}">지명</button></div>`).join('')}</div>` : '<p class="empty">지명할 수 있는 인재가 없습니다. 당 대표, 시·도지사, 선거 후보, 피선거권이 없는 사람과 이미 입각한 사람은 빠집니다.</p>'}`,
     buttons: [{ t: '취소' }], onOpen: m => { m.querySelectorAll('[data-cabnom]').forEach(b => b.onclick = () => cabNom(k, +b.dataset.cabnom)); m.querySelectorAll('[data-xpm]').forEach(b => b.onclick = () => cabNom(k, null, b.dataset.xpm)); } });
 }
 // 내각 카드: 우리 당 집권이면 지명·해임·자동 임명, 다른 당 집권이면 그 당 내각을 보여 줌
