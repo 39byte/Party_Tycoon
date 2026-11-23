@@ -656,7 +656,7 @@ body{background:
 .tut-bub .tut-skip{margin-right:auto;background:none;border:0;box-shadow:none;color:var(--muted);text-decoration:underline;padding:7px 4px}
 @media (prefers-reduced-motion:reduce){.tut-hole{transition:none}.tut-hole.tap{animation:none}}
 /* ===== 의전 스킨: 국회·의전실 분위기 =====
-   짙은 남색 바탕 + 각진 청회색 단선(남색에 맞춘 --leaf) + 부드러운 그림자 + 명조 제목.
+   짙은 남색 바탕 + 각진 청회색 단선(남색에 맞춘 --leaf) + 부드러운 그림자 + 아이보리 제목.
    당 색은 요약 아이콘·선택 토글에. html[data-ap="0"](행동력 소진), html[data-camp](선거운동 중)은 renderTop이 붙임 */
 :root{
   --bg:#0A1020; --surface:#111B30; --surface2:#18243D; --hud:#0A1122; --hud2:#121D35; --border:#2A3A5C; --hud-line:#283857;
@@ -664,12 +664,10 @@ body{background:
   --leaf:#3D5684; --leaf2:#2B3D60; --ring:#E9D3A0; --accent:#D8B46A;
   --band:var(--party); --rim:rgba(255,255,255,.06); --lift:inset 0 1px 0 var(--rim);
   --soft:0 2px 0 rgba(0,0,0,.45);
-  --serif:"Noto Serif KR","Nanum Myeongjo","나눔명조","Batang","바탕","AppleMyungjo",serif;
   --gap:clamp(10px,1.3vw,18px); --rd:3px;
 }
 html[data-camp="1"]{--band:var(--danger)}
-/* 제목은 명조로 */
-.brand #pname,.card>h2:first-child,.modal>h2,.scene-t h1,.lawtoc b{font-family:var(--serif);color:var(--ivory)}
+.brand #pname,.card>h2:first-child,.modal>h2,.scene-t h1,.lawtoc b{color:var(--ivory)}
 .top{border-bottom:1px solid var(--leaf);box-shadow:0 2px 0 rgba(0,0,0,.45)}
 .stat{border:1px solid var(--leaf2);border-radius:var(--rd);background:var(--hud2);box-shadow:var(--lift)}
 .stat b.bad{color:#FF9A9A}
@@ -689,7 +687,7 @@ html[data-ap="0"] main .btn.pri:disabled{border-color:rgba(248,113,113,.45)} /* 
 .ib.bell,.ib.bell[aria-pressed="true"]{border:0;box-shadow:none;background:none}
 .top .ib{background:var(--hud2)}
 /* 턴 종료: 금색 명판. 행동력을 다 쓰면 은은하게 빛나 끝낼 때임을 알림 */
-.top #endTurn{border:1px solid #F0D48E;border-radius:var(--rd);color:var(--on-gold);font-family:var(--serif);letter-spacing:.04em;
+.top #endTurn{border:1px solid #F0D48E;border-radius:var(--rd);color:var(--on-gold);
   background:#D8B46A;box-shadow:0 2px 0 rgba(0,0,0,.45)}
 .top #endTurn:hover:not(:disabled){background:#E2C07A;transform:translateY(-1px)}
 .top #endTurn:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
@@ -5059,7 +5057,7 @@ function renderNav() {
   const cases = S.cases.filter(c => !c.mine).length;
   const unread = R.filter(r => !autoOn(r.k) && rUnread(r.k)).length; // 행정 자동화 중이면 지방 정부 탭 새 소식 알림 끔
   const badge = { elec: S.phase === 'reg' ? pend : 0, court: cases, admin: unread, log: S.stand.length, act: S.alerts.act.length, neg: S.alerts.neg.length, party: S.alerts.party.length, people: S.alerts.people.length, office: S.alerts.office.length }, badgeSr = { log: '입장 대기 ', elec: '공천·후보 등록이 필요한 선거 ', people: '다시 영입할 수 있음 ', office: '다시 할 수 있는 의회 활동 ', admin: '새 소식 지역 ', act: '다시 할 수 있는 활동 ', party: '다시 교섭할 수 있는 정당 ', neg: '다시 교섭할 수 있는 상대 ' };
-  nav.innerHTML = vis.map(([k, n, ic], i) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}><img class="ic" src="asset/sidebar_icon/${k}.svg" alt="">${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP || vis[i + 1]?.[0] === 'log' ? `<hr class="navsep${NAV_SEP[k] ?? ' wide'}">` : ''}`).join(''); // 숨긴 탭 뒤 구분선은 '소식' 앞으로
+  nav.innerHTML = vis.map(([k, n, ic], i) => `<button data-tab="${k}" ${tab === k ? 'aria-current="page"' : ''}>${icon(ic)}${n}${badge[k] ? `<span class="badge">${badgeSr[k] ? `<span class="sr">${badgeSr[k]}</span>` : ''}${badge[k]}</span>` : k === 'office' && S.billNew && tab !== 'office' ? '<span class="badge ndot"><span class="sr">새 법안 발의</span></span>' : ''}</button>${k in NAV_SEP || vis[i + 1]?.[0] === 'log' ? `<hr class="navsep${NAV_SEP[k] ?? ' wide'}">` : ''}`).join(''); // 숨긴 탭 뒤 구분선은 '소식' 앞으로
   nav.querySelectorAll('[data-tab]').forEach(b => b.onclick = () => { tab = b.dataset.tab; Snd.sfx('click'); renderPanel(); renderNav(); nav.querySelector('[aria-current]')?.scrollIntoView({ inline: 'center', block: 'nearest' }); $('#main').focus({ preventScroll: true }); });
 }
 function renderPanel() {
