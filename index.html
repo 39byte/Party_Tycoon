@@ -4497,6 +4497,8 @@ function standRes(x, s) {
 function standExpire() {
   S.stand.filter(x => turnNo() >= x.turn + STAND_TURNS).forEach(x => { standRes(x, 0); addLog(`[입장 대기] '${x.t}'에 기한 안에 입장을 내지 않았습니다.`); });
 }
+// 다른 당 지사 프로필 칸(능력치·출신·들은 인물평)
+const govSide = (k, id, gn, fid, o, h = '발표자') => { const gf = fig(fid); return `<h3>${h}</h3>` + evProf(gf || { name: gn }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(o)}`]) + evTalk(fid); };
 function standEv(x) {
   const res = s => standRes(x, s), last = x.turn + STAND_TURNS - 1;
   const wait = { t: '나중에 정한다', s: `소식 탭에서 ${last}턴 끝까지 고를 수 있음 | 지나면 입장 없음`, run: () => `'${x.t}' 입장을 미뤘습니다. ${last}턴이 끝나기 전에 소식 탭에서 정하세요.` };
@@ -4508,8 +4510,8 @@ function standEv(x) {
         { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
         { t: '입장을 내지 않는다', run: () => { res(0); return '지켜보기로 했습니다.'; } }, wait] };
   }
-  const { k, id, t } = x, n = RK[k].n, who = `${GOVT[k]} ${esc(x.gn)}(${esc(pn(id))})`, gf = fig(x.fid);
-  return { title: `${n} 지사 역점사업 발표`, side: () => '<h3>발표자</h3>' + evProf(gf || { name: x.gn }, id === 'O' ? '#64748B' : pc(id), [`${GOVT[k]} | ${id === 'O' ? '무소속' : pn(id)}`, gf?.job && `출신 직업: ${gf.job}`, `행정 지지도 ${Math.round(x.o)}`]) + evTalk(x.fid), body: () => `${who}가 <b>${esc(t)}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
+  const { k, id, t } = x, n = RK[k].n, who = `${GOVT[k]} ${esc(x.gn)}(${esc(pn(id))})`;
+  return { title: `${n} 지사 역점사업 발표`, side: () => govSide(k, id, x.gn, x.fid, x.o), body: () => `${who}가 <b>${esc(t)}</b>을(를) 행정 역점사업으로 발표했습니다. 성과가 나면 다음 지방선거에서 그 당이 유리해집니다. 우리 ${n} 시·도당은 어떤 입장을 낼까요?`,
     ch: [{ t: '협조한다', s: `${pn(id)} 관계↑ | 성공하면 함께 평가받음`, run: () => { relAdd(id, 4, `${n} '${t}' 협조`); res(1); return '지역 발전에 여야가 없다며 협조를 약속했습니다.'; } },
       { t: '견제한다', s: '예산 낭비·졸속 추진 지적 | 실패하면 반사이익', run: () => { relAdd(id, -4, `${n} '${t}' 견제`); S.fame += 0.5; res(-1); return '예산 낭비라며 재검토를 요구했습니다.'; } },
       { t: '지켜본다', run: () => { res(0); return '입장을 유보했습니다.'; } }, wait] };
@@ -4640,7 +4642,7 @@ const XEV = {
     if (mine.length && roll < 0.2) {
       const m = pick(mine);
       wr(`${w}, 우리 당 ${RK[m].n} 행정에 공동사업 제안`);
-      return showEvent({ title: `${n} 지사의 협치 제안`, body: () => `${who}가 우리 당 ${RK[m].n} 행정에 <b>광역 교통망·관광 벨트 공동 추진</b>을 제안했습니다.`,
+      return showEvent({ title: `${n} 지사의 협치 제안`, side: () => govSide(k, id, g.n, g.fid, g.o, '제안자'), body: () => `${who}가 우리 당 ${RK[m].n} 행정에 <b>광역 교통망·관광 벨트 공동 추진</b>을 제안했습니다.`,
         ch: [{ t: '손잡는다', s: `두 지역 행정 지지도↑ | ${pn(id)} 관계↑`, run: () => { opsAdd(m, 3); rgovAdd(k, 3); relAdd(id, 6, `${n}·${RK[m].n} 공동사업`); return '두 시·도가 업무협약을 맺었습니다. "당을 넘은 협치"라는 평입니다.'; } },
           { t: '거절한다', s: '독자 노선', run: () => { relAdd(id, -3, `${n} 협치 제안 거절`); return '독자적으로 추진하겠다며 제안을 거절했습니다.'; } }] });
     }
