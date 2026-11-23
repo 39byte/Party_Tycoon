@@ -3635,16 +3635,16 @@ function negCard() {
     ${infoTip(`<p class="tip">협상가: ${esc(leader().name)} 대표(역량 ${leader().skill})</p><p class="tip">결과는 대표 역량, 상대와의 노선 차이, 그동안의 관계에 따라 달라집니다. 별 버튼을 켠 인물은 맨 위로 올라오고, 다시 교섭할 수 있게 되면 메뉴의 '교섭' 옆에 숫자로 알려 줍니다. 다른 정당과의 교섭은 '정당' 탭에 있습니다.</p>`)}
     ${left || S.ap < 1 ? `<span class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</span>` : ''}</div>`;
   const [mpShow, mq, mn] = negPage(mps, mpPage), [outShow, oq, on] = negPage(outs, outPage); mpPage = mq; outPage = oq;
-  const chips = (at, cur, xs) => `<div class="filters chips" role="group" aria-label="소속 필터">${xs.map(([k, n]) => `<button class="btn${cur === k ? ' pri' : ''}" data-${at}="${k}" aria-pressed="${cur === k}">${esc(n)}</button>`).join('')}</div>`;
+  const chips = (at, cur, xs, mgr) => `<div class="filters chips" role="group" aria-label="소속 필터">${xs.map(([k, n]) => `<button class="btn${cur === k ? ' pri' : ''}" data-${at}="${k}" aria-pressed="${cur === k}">${esc(n)}</button>`).join('')}<button class="btn" data-dirmgr="${mgr}" style="margin-left:auto">교섭 인물 추가·제거</button></div>`;
   // 좌: 원내 의원 / 우: 원외 인사. 폭이 좁으면 위아래로 쌓임. 같은 틀(필터·5줄 표·쪽 넘김)이라 인원과 상관없이 높이가 같음
   return `<div class="stack">${head}<div class="split">
-    <div class="card"><h2>원내 의원 <span class="pill">${mps.length}명</span></h2>
-      ${chips('negf', negF, ff)}
-      <div class="negl">${personTbl(mpShow.map(mpRow), '해당 소속 의원이 없습니다.')}</div>${pager(mq, mn, 'mppage', '원내 의원 쪽 이동')}</div>
-    <div class="card"><h2>원외 인사 <span class="pill">${outs.length}명</span></h2>
-      ${chips('outf', outF, [...ff.slice(0, -1), ['O', '무당적']])}
-      <div class="negl">${personTbl(outShow.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 아래 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}</div>${pager(oq, on, 'outpage', '원외 인사 쪽 이동')}
-      <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다. 아래 인물 명부에서 원외 인사를 눌러 교섭 명단에 넣을 수 있습니다.</p></div>
+    <div class="card"><h2>정계 인사 <span class="pill">${mps.length}명</span></h2>
+      ${chips('negf', negF, ff, 'mp')}
+      <div class="negl">${personTbl(mpShow.map(mpRow), '해당 소속 의원이 없습니다.')}</div>${pager(mq, mn, 'mppage', '정계 인사 쪽 이동')}</div>
+    <div class="card"><h2>재야인사 <span class="pill">${outs.length}명</span></h2>
+      ${chips('outf', outF, [...ff.slice(0, -1), ['O', '무당적']], 'out')}
+      <div class="negl">${personTbl(outShow.map(outRow), '교섭 명단에 넣은 재야인사가 없습니다. 아래 인물 명부에서 재야인사를 눌러 넣을 수 있습니다.')}</div>${pager(oq, on, 'outpage', '재야인사 쪽 이동')}
+      <p class="tip">재야인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다. 아래 인물 명부에서 재야인사를 눌러 교섭 명단에 넣을 수 있습니다.</p></div>
   </div></div>`;
 }
 
@@ -5220,6 +5220,7 @@ function bindPanel(m) {
   m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
   m.querySelectorAll('[data-rvreg]').forEach(b => b.onclick = () => { rvReg = b.dataset.rvreg; renderAll(); });
   m.querySelectorAll('[data-rvpg]').forEach(b => b.onclick = () => { rvPg[b.closest('[data-rvpgk]').dataset.rvpgk] = +b.dataset.rvpg; renderAll(); });
+  m.querySelectorAll('[data-dirmgr]').forEach(b => b.onclick = () => { Snd.sfx('click'); dirMode = dirCat = b.dataset.dirmgr; dirPage = 0; openDir(); });
   m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; renderAll(); });
   m.querySelectorAll('[data-dirpar]').forEach(b => b.onclick = () => { dirPar = b.dataset.dirpar; dirPage = 0; renderAll(); });
   m.querySelectorAll('[data-dpage]').forEach(b => b.onclick = () => { dirPage = +b.dataset.dpage; renderAll(); m.querySelector('.dircard')?.scrollIntoView({ block: 'nearest' }); });
@@ -5431,10 +5432,21 @@ function pParty() {
   </div>`;
 }
 // 인물 명부: 프로필이 있는 다른 사람들(다른 당 의원·광역단체장·공천 후보·원외 인사). 누르면 인물 정보
-let dirCat = 'mp', dirPar = '', dirPage = 0, resCat = 'pres';
-const DIR_CAT = [['mp', '국회의원'], ['gov', '광역단체장'], ['min', '장관'], ['cand', '공천 후보'], ['out', '원외 인사']], DIR_PER = 24;
+let dirCat = 'mp', dirMode = 'mp', dirPar = '', dirPage = 0, resCat = 'pres';
+const DIR_CAT = [['mp', '국회의원'], ['gov', '광역단체장'], ['min', '장관'], ['cand', '공천 후보'], ['out', '재야인사']], DIR_PER = 24;
+// 명단 관리 팝업: 필터·쪽 넘김은 팝업 안에서 다시 그림
+function openDir() {
+  openModal({ title: '교섭 인물 추가·제거', wide: true, html: `<div class="dircard">${dirCard()}</div>`, buttons: [{ t: '닫기', pri: true }], onOpen: m => {
+    const again = () => { Snd.sfx('click'); openDir(); };
+    m.querySelectorAll('[data-dircat]').forEach(b => b.onclick = () => { dirCat = b.dataset.dircat; dirPage = 0; again(); });
+    m.querySelectorAll('[data-dirpar]').forEach(b => b.onclick = () => { dirPar = b.dataset.dirpar; dirPage = 0; again(); });
+    m.querySelectorAll('[data-dpage]').forEach(b => b.onclick = () => { dirPage = +b.dataset.dpage; again(); });
+    m.querySelectorAll('[data-pinfo]').forEach(b => b.onclick = () => { Snd.sfx('click'); personInfo(b.dataset.pinfo); });
+  } });
+}
 function dirCard() {
-  const ri = k => R.findIndex(r => r.k === k), po = ['A', 'B', 'C', 'D', 'O'];
+  const ri = k => R.findIndex(r => r.k === k), po = ['A', 'B', 'C', 'D', 'O'], cats = DIR_CAT.filter(([k]) => (k === 'out') === (dirMode === 'out')); // 정계 인사 쪽은 재야인사를, 재야인사 쪽은 그 밖을 뺌
+  if (!cats.some(([k]) => k === dirCat)) dirCat = cats[0][0];
   const xs = (dirCat === 'out' ? S.outs.map(m => ({ key: 'o' + m.id, p: m, party: m.party || 'O', k: m.k, sub: `${m.party ? RIV[m.party].name : '무당적'} | ${m.role}`, neg: !!m.neg }))
     : S.figs.filter(f => dirCat === 'mp' ? f.pos === 'd' || f.pos === 'pr' : f.pos === dirCat).map(f => {
       const mp = S.mps.find(m => m.fid === f.id); // 교섭 명단 의원이면 친분·대화 내역까지
@@ -5443,7 +5455,7 @@ function dirCard() {
   const pages = Math.max(1, Math.ceil(xs.length / DIR_PER)); dirPage = Math.min(dirPage, pages - 1);
   const chip = (at, v, n, on) => `<button class="btn${on ? ' pri' : ''}" data-${at}="${v}" aria-pressed="${on}">${n}</button>`;
   return `<h2>인물 명부 <span class="pill">${xs.length}명</span></h2>
-    <div class="filters chips" role="group" aria-label="인물 분류">${DIR_CAT.map(([k, n]) => chip('dircat', k, n, dirCat === k)).join('')}</div>
+    ${cats.length > 1 ? `<div class="filters chips" role="group" aria-label="인물 분류">${cats.map(([k, n]) => chip('dircat', k, n, dirCat === k)).join('')}</div>` : ''}
     <div class="filters chips" role="group" aria-label="정당">${chip('dirpar', '', '전체', !dirPar)}${po.map(id => chip('dirpar', id, id === 'O' ? (dirCat === 'out' ? '무소속·무당적' : '무소속') : esc(pn(id)), dirPar === id)).join('')}</div>
     ${xs.length ? `<div class="dirl">${xs.slice(dirPage * DIR_PER, (dirPage + 1) * DIR_PER).map(x => `<button class="dirp" data-pinfo="${x.key}">${face(x.p, x.party === 'O' ? '#64748B' : pc(x.party), 36)}<span><b>${esc(x.p.name)}${x.neg ? ' <span class="pill">교섭</span>' : ''}</b><span class="small muted">${esc(x.sub)}</span></span></button>`).join('')}</div>
       ${pages > 1 ? pager(dirPage, pages, 'dpage', '명부 쪽 이동') : ''}` : `<p class="empty">${dirCat === 'cand' ? '지금은 공천 기간이 아니거나 아직 발표된 후보가 없습니다.' : '해당하는 인물이 없습니다.'}</p>`}
@@ -5876,7 +5888,7 @@ function apprChart(W = 400, H = 180) {
 // 행정: 우리 당 단체장 | 다른 당 단체장 | 지역별 소식
 let admSel = null, admSide = 'P'; // 고른 지사 지역(집무실·지역 소식) | 왼쪽 목록 분류(P 우리 당, O 다른 당)
 // 교섭: 정당 | 원내 의원 | 원외 인사
-const pNeg = () => `<div class="stack">${negCard()}${S.figs.length || S.outs.length ? `<div class="card dircard">${dirCard()}</div>` : ''}</div>`;
+const pNeg = () => negCard();
 // 지방 정부 탭 맨 위 토글: 시·도마다 단체장 당 색으로 칠한 지도
 let gmapOpen = false;
 function govMapCard() {
