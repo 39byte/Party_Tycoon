@@ -273,6 +273,7 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .news li span{display:block;font-size:12px;color:var(--muted);font-weight:500}
 .filters{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .ib.fav[aria-pressed="true"] .ic{fill:currentColor} /* 켜진 별은 채움 */
+.ib.fav{border:0;background:none;box-shadow:none}
 .desbtn{min-height:28px;padding:2px 10px;font-size:12.5px;flex:none;align-self:center}
 .desbtn[aria-pressed="true"]{border-color:var(--fg)}
 .negcell{display:flex;gap:6px;align-items:center;justify-content:flex-end}
@@ -699,6 +700,10 @@ html[data-ap="0"] main .btn.pri:disabled{border-color:rgba(248,113,113,.45)} /* 
 .stat .ic{background:color-mix(in srgb,var(--party) 24%,transparent);color:var(--party-lt)}
 .ib.fav[aria-pressed="true"],.ib.fav[aria-pressed="true"] .ic{color:var(--party-lt)}
 .ib.fav[aria-pressed="true"] .ic{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--party) 60%,transparent))}
+/* 별 켜짐/꺼짐은 배경·윤곽선 없이 별의 채움만으로(위의 .ib 눌림·호버 스킨을 덮음) */
+.ib.fav:is(:hover,:active,[aria-pressed]){background:none;border:0;box-shadow:none;transform:none}
+.ib.fav[aria-pressed="false"]{color:var(--muted)}
+.ib.fav{min-width:28px;padding:0 2px} .negcell{gap:2px}
 .filters .btn.pri,.chips .btn.pri{background:var(--party);color:var(--on-party);border-color:color-mix(in srgb,var(--party) 60%,#fff)}
 .filters .btn.pri:hover:not(:disabled),.chips .btn.pri:hover:not(:disabled){background:var(--party);filter:brightness(1.1)}
 /* 지방 정부 단체장 분류 토글: 버튼 글자는 줄바꿈하지 않고, 좁으면 자동화 스위치 글자가 줄어듦 */
@@ -2254,10 +2259,10 @@ function caseStep(c) {
   if (rnd() < c.ev) {
     const m = (c.coop ? 0.7 : 1) * (c.plea ? 0.5 : 1), pen = { ...c.pen, money: (c.pen.money || 0) * m, trust: (c.pen.trust || 0) * m };
     const lost = applyPen(pen);
-    return info('1심 판결: 유죄', `법원이 '${c.t}' 혐의를 유죄로 판단했습니다. ${c.pen.note}.${lost ? ` 의석 ${lost}석 상실.` : ''} (벌금·추징 ${won(Math.abs(pen.money))}, 신뢰 ${pen.trust.toFixed(1)})`, true);
+    return info('판결: 유죄', `법원이 '${c.t}' 혐의를 유죄로 판단했습니다. ${c.pen.note}.${lost ? ` 의석 ${lost}석 상실.` : ''} (벌금·추징 ${won(Math.abs(pen.money))}, 신뢰 ${pen.trust.toFixed(1)})`, true);
   }
   S.trust += 3; S.fame += 1;
-  return info('1심 판결: 무죄', `법원이 '${c.t}' 혐의에 무죄를 선고했습니다.`, false);
+  return info('판결: 무죄', `법원이 '${c.t}' 혐의에 무죄를 선고했습니다.`, false);
 }
 
 // ---------- 퇴임 후 수사 ----------
@@ -2365,11 +2370,11 @@ function accEv(c, close) {
     wire(`법원, ${who} '${ch.n}' 1심 유죄`);
     const mpF = f && (f.pos === 'd' || f.pos === 'pr'), mpP = p && isMP(p);
     if (mpF || mpP) later(rr(120, 240), { ev: 'caseFinal', fid: mpF ? f.id : null, pid: mpP ? p.id : null, n: a.name, ch: ch.n, tag }); // 항소·상고 끝에 확정
-    return info('1심 판결: 유죄', `법원이 ${who}의 '${ch.n}' 혐의를 유죄로 판단했습니다. 판결이 확정되기 전까지는 직을 유지합니다.`, own);
+    return info('판결: 유죄', `법원이 ${who}의 '${ch.n}' 혐의를 유죄로 판단했습니다. 판결이 확정되기 전까지는 직을 유지합니다.`, own);
   }
   if (own) S.trust -= 1; else { S.trust -= 2 * (riv ? gapHit(id) : 1); hit(1.5, 0.5); }
   wire(`법원, ${who} '${ch.n}' 1심 무죄`);
-  return info('1심 판결: 무죄', `법원이 ${who}의 '${ch.n}' 혐의에 무죄를 선고했습니다. ${own ? '당이 제 사람을 무리하게 몰아세웠다는 비판이 나옵니다.' : '고발한 우리 당이 역풍을 맞았습니다.'}`, true);
+  return info('판결: 무죄', `법원이 ${who}의 '${ch.n}' 혐의에 무죄를 선고했습니다. ${own ? '당이 제 사람을 무리하게 몰아세웠다는 비판이 나옵니다.' : '고발한 우리 당이 역풍을 맞았습니다.'}`, true);
 }
 // 고발 대상·죄목 고르기. 대상마다 교섭 자리에서 들은 얘기를 보여 주고, 들은 얘기가 가리키는 죄목을 먼저 골라 둠
 let accSt = null; // 발언자 정보를 보고 돌아와도 고르던 대상·죄목을 이어 감
@@ -3639,8 +3644,8 @@ function negCard() {
       <div class="negl">${personTbl(mpShow.map(mpRow), '해당 소속 의원이 없습니다.')}</div>${pager(mq, mn, 'mppage', '원내 의원 쪽 이동')}</div>
     <div class="card"><h2>원외 인사 <span class="pill">${outs.length}명</span></h2>
       ${chips('outf', outF, [...ff.slice(0, -1), ['O', '무당적']])}
-      <div class="negl">${personTbl(outShow.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 정당 탭 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}</div>${pager(oq, on, 'outpage', '원외 인사 쪽 이동')}
-      <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다. 정당 탭 인물 명부에서 원외 인사를 눌러 교섭 명단에 넣을 수 있습니다.</p></div>
+      <div class="negl">${personTbl(outShow.map(outRow), '교섭 명단에 넣은 원외 인사가 없습니다. 아래 인물 명부에서 원외 인사를 눌러 넣을 수 있습니다.')}</div>${pager(oq, on, 'outpage', '원외 인사 쪽 이동')}
+      <p class="tip">원외 인사는 의석이 없지만, 지지 선언을 받으면 인지도와 지역 당원이 늘고 영입하면 선거에 내보낼 인재가 됩니다. 아래 인물 명부에서 원외 인사를 눌러 교섭 명단에 넣을 수 있습니다.</p></div>
   </div></div>`;
 }
 
@@ -4519,7 +4524,7 @@ const XEV = {
     }
     S.rw[id] -= 2; trustAll(id, -2);
     const verdict = st => later(rr(60, 120), { ev: 'exPresEnd', name: q.name, party: id, guilty: q.guilty, st });
-    showEvent({ title: '전직 대통령 수사', body: () => `검찰이 <b>${esc(q.name)} 전 대통령</b>(${esc(n)})의 ${esc(what)}로 수사에 착수했습니다.${q.fallen ? ' 파면된 뒤라 수사의 칼끝이 매섭습니다.' : ''} 1심 판결까지 몇 달이 걸립니다. 어떤 입장을 낼까요?`,
+    showEvent({ title: '전직 대통령 수사', body: () => `검찰이 <b>${esc(q.name)} 전 대통령</b>(${esc(n)})의 ${esc(what)}로 수사에 착수했습니다.${q.fallen ? ' 파면된 뒤라 수사의 칼끝이 매섭습니다.' : ''} 판결까지 몇 달이 걸립니다. 어떤 입장을 낼까요?`,
       ch: [{ t: '엄정 수사를 촉구한다', s: `인지도↑ | ${n} 관계↓ | 유죄면 신뢰↑, 무죄면 역풍${ruling() ? ' | "정치 보복" 논란으로 국정 지지율↓' : ''}`, run: () => { relAdd(id, -8, '전직 대통령 수사 촉구'); S.fame += 1; if (ruling()) apprAdd(-1.5); verdict(1); return '성역 없는 수사를 촉구했습니다.'; } },
         { t: '사법부 판단을 지켜본다', s: '신뢰 조금↑', run: () => { S.trust += 0.5; verdict(0); return '수사와 재판 결과를 지켜보겠다고 밝혔습니다.'; } },
         ...(ruling() ? [] : [{ t: '"정치 보복"이라 비판한다', s: `${n} 관계↑ | 무죄면 신뢰↑, 유죄면 역풍`, run: () => { relAdd(id, 6, '전직 대통령 수사 비판'); verdict(-1); return '전임 정권을 겨냥한 표적 수사라고 비판했습니다.'; } }])] });
@@ -5348,7 +5353,7 @@ function personEdit(id) {
         if (S.pool.some(q => q !== p && q.name === name)) { const x = m.querySelector('#ppErr'); x.textContent = '우리 당에 같은 이름의 인재가 이미 있습니다.'; x.className = 'h bad'; Snd.sfx('bad'); return; }
         if (p.leader) { if (u) S.party.img = u; else delete S.party.img; } else if (u) p.img = u; else delete p.img;
         if (name !== old) { p.name = name; if (S.president.pid === p.id) S.president.name = name; addLog(`${old}의 이름을 '${name}'(으)로 바꿨습니다.`, 'ok'); }
-        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} | 이름·사진을 저장했습니다.`, 'ok', '인재 정보 변경');
+        save(); closeModal(); renderAll(); Snd.sfx('ok'); toast(`${name} | 이름과 사진을 저장했습니다.`, 'ok', '인재 정보 변경');
       };
     } });
 }
@@ -5393,7 +5398,7 @@ function pHome() {
     </div>
   </div>`;
 }
-// 정당 탭: 지지율 추이·여론, 정당별 현황(지지층 원 그래프 + 수치 표, 다른 당은 교섭 버튼), 인물 명부
+// 정당 탭: 지지율 추이·여론, 정당별 현황(지지층 원 그래프 + 수치 표, 다른 당은 교섭 버튼). 인물 명부는 교섭 탭 아래
 const TIER_PIE = TIER_C.map((c, i) => i === 2 ? 'var(--border)' : c); // 중립은 원 그래프에서 빈칸 대신 회색
 const tierPie = id => { const t = S.pub.tier.nat[id]; if (!t) return '';
   let a = 0; const stops = t.map((x, i) => `${TIER_PIE[i]} ${(a * 100).toFixed(1)}% ${((a += x) * 100).toFixed(1)}%`).join(','), txt = L.TIERS.map((n, i) => `${n} ${Math.round(t[i] * 100)}%`).join(' | ');
@@ -5424,7 +5429,6 @@ function pParty() {
       </div></details>
     <div class="card"><h2 style="display:flex;align-items:center;gap:8px">정당별 현황 <button class="btn" data-ptymore aria-expanded="${ptyOpen}" style="margin-left:auto">${ptyOpen ? '접기' : '자세히'}</button></h2>${reg && (left || S.ap < 1) ? `<p class="small warn">${left ? '턴 진행 중에는' : '행동력이 남지 않아 이번 턴에는'} 교섭할 수 없습니다.</p>` : ''}<div class="ptys${ptyOpen ? ' open' : ''}">${ids.map(card).join('')}</div>
       <p class="tip">${reg ? `교섭 버튼으로 회동·법안 공조를 제안합니다(협상가: ${esc(leader().name)} 대표, 역량 ${leader().skill}). 결과는 대표 역량, 노선 차이, 그동안의 관계에 따라 달라집니다. 별을 켠 정당은 앞으로 오고, 다시 교섭할 수 있게 되면 메뉴의 '정당' 옆에 숫자로 알려 줍니다.` : '정식 정당으로 등록하면 다른 정당과 교섭할 수 있습니다.'}</p></div>
-    ${S.figs.length || S.outs.length ? `<div class="card dircard">${dirCard()}</div>` : ''}
   </div>`;
 }
 // 인물 명부: 프로필이 있는 다른 사람들(다른 당 의원·광역단체장·공천 후보·원외 인사). 누르면 인물 정보
@@ -5805,7 +5809,7 @@ function pCourt() {
   return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:28px;align-items:start"><div class="card" style="margin-top:0"><h2>고발</h2><div class="acts">${actBtn('accuse')}</div>
     <p class="tip">교섭 자리에서 들은 의혹을 근거로 상대 당·우리 당 현직 의원과 단체장, 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다. 후보에서 내려온 사람은 후보로는 고를 수 없습니다. 기소·유죄가 나오면 그 당의 신뢰와 지지율이 떨어지고, 불기소·무죄면 우리 당이 역풍을 맞습니다.</p></div>
     <div class="card" style="margin-top:0"><h2>수사·재판</h2>${cases.length ? `<ul class="log">${cases.map(c => `<li class="${c.mine ? '' : 'bad'}"><span><b>${esc(c.t)}</b> <span class="pill">${caseKind(c)}</span><div class="small">${stage(c)}</div></span></li>`).join('')}</ul>` : '<p class="small muted">진행 중인 사건이 없습니다.</p>'}</div>
-    </div><div class="card" style="margin-top:14px"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 | ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 1심 판결이 나오면 여기에 남습니다.</p>'}</div>`;
+    </div><div class="card" style="margin-top:14px"><h2>수사 내역${S.caseLog?.length ? ` <span class="pill">${S.caseLog.length}건</span>` : ''}</h2>${S.caseLog?.length ? `<ul class="log">${[...S.caseLog].reverse().map(x => `<li><time>${fdate(x.end)}</time><span><b>${esc(x.t)}</b> <span class="pill">${x.k}</span> <span class="pill ${x.bad ? 'bad' : 'ok'}">${esc(x.res)}</span>${x.d != null ? `<div class="small muted">${fdate(x.d)} 접수 | ${Math.max(1, Math.round((x.end - x.d) / 7))}주 걸림</div>` : ''}</span></li>`).join('')}</ul><p class="tip">최근 끝난 사건 30건입니다. 결과 색은 우리 당에 좋은 일(초록)인지 나쁜 일(빨강)인지를 나타냅니다.</p>` : '<p class="small muted">아직 끝난 사건이 없습니다. 불기소 처분이나 판결이 나오면 여기에 남습니다.</p>'}</div>`;
 }
 // 의회: 교섭 | 법안·대정부 질문 | 다른 당/정부 동향
 let seatOpen = false, pollOpen = false, ptyOpen = false; // 접이식 카드 펼침 상태(다시 그려도 유지)
@@ -5873,7 +5877,7 @@ function apprChart(W = 400, H = 180) {
 // 행정: 우리 당 단체장 | 다른 당 단체장 | 지역별 소식
 let admSel = null, admSide = 'P'; // 고른 지사 지역(집무실·지역 소식) | 왼쪽 목록 분류(P 우리 당, O 다른 당)
 // 교섭: 정당 | 원내 의원 | 원외 인사
-const pNeg = () => negCard();
+const pNeg = () => `<div class="stack">${negCard()}${S.figs.length || S.outs.length ? `<div class="card dircard">${dirCard()}</div>` : ''}</div>`;
 // 지방 정부 탭 맨 위 토글: 시·도마다 단체장 당 색으로 칠한 지도
 let gmapOpen = false;
 function govMapCard() {
@@ -6114,7 +6118,7 @@ function pGuide() {
       <li>지역 소식 중 일부는 '화제'가 되어, 그 지역 단체장 소속 정당(우리 당이나 다른 당)의 지지율을 흔듭니다. 미담은 호재, 현안·사고는 악재입니다.</li>
       <li>우리 당 소속 국회의원·광역단체장은 지도부와 상의 없이 스스로 발언하고 움직입니다. 역량·청렴도가 높을수록 호평받을 일을 하고, 실수하면 상대 당이 사퇴 공세를 펴 지지율이 크게 빠집니다. 사과·감싸기·징계·맞불 중 대응을 고릅니다.</li>
       <li>짜깁기 영상, 동명이인 오보, 과장 보도, 음모론처럼 근거가 약한 공세('억까')도 일단 퍼지면 지지율이 빠집니다. 정면 반박·고소·유머로 받아치기는 통하면 만회하지만 실패하면 더 번집니다.</li></ul>`)}
-    ${sec('수사와 재판', `<ul><li>법원 탭에서 현직 의원·광역단체장(우리 당 포함), 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다(형사소송법 제234조). 교섭 자리에서 들은 의혹이 근거가 되고, 친분이 두터운 사람의 말일수록 맞습니다. 기소·유죄면 그 당의 신뢰·지지율이, 불기소·무죄면 우리 당 신뢰가 떨어지며, 근거 없는 고발엔 무고 맞고소가 들어올 수 있습니다. 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.</li><li>의혹이 드러나거나 고발당하면 검찰 수사 → 기소 여부 결정 → 1심 판결 순으로 한두 달에 걸쳐 진행됩니다. 결백해도 고발은 당할 수 있습니다.</li>
+    ${sec('수사와 재판', `<ul><li>법원 탭에서 현직 의원·광역단체장(우리 당 포함), 대통령, 원외 인사, 등록을 마친 선거 후보를 고발할 수 있습니다(형사소송법 제234조). 교섭 자리에서 들은 의혹이 근거가 되고, 친분이 두터운 사람의 말일수록 맞습니다. 기소·유죄면 그 당의 신뢰·지지율이, 불기소·무죄면 우리 당 신뢰가 떨어지며, 근거 없는 고발엔 무고 맞고소가 들어올 수 있습니다. 대통령은 재직 중 기소되지 않아(헌법 제84조) 수사 결과 발표로 끝납니다.</li><li>의혹이 드러나거나 고발당하면 검찰 수사 → 기소 여부 결정 → 판결 순으로 한두 달에 걸쳐 진행됩니다. 결백해도 고발은 당할 수 있습니다.</li>
       <li>단계마다 대응을 고릅니다. 성실한 조사, 변호인단 선임, "정치 탄압" 프레임, 증거 정리 같은 선택마다 기소·유죄 가능성과 여론이 달라집니다.</li>
       <li>유죄가 나오면 벌금·추징, 신뢰 하락, 의원직이나 단체장 직 상실이 따를 수 있습니다.</li>
       <li>우리도 가짜뉴스 유포자나 경쟁 정당을 고소·고발할 수 있습니다. 무리한 고발은 역풍을 맞습니다.</li>
