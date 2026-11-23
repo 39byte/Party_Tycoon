@@ -760,6 +760,8 @@ main{container:main/inline-size;padding:clamp(10px,2vw,22px)}
 .keys{display:flex;flex-direction:column;gap:6px;margin-top:10px}
 .krow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--leaf2);border-radius:var(--rd);background:var(--surface2)}
 .krow>div{display:flex;flex-direction:column;min-width:0}
+.krow.snd{display:grid;grid-template-columns:110px minmax(0,150px) minmax(0,1fr);gap:8px 12px}.krow.snd>label{display:flex;align-items:center;gap:6px;cursor:pointer}.krow.snd>input[type=range]{grid-column:3;width:100%}
+@media (max-width:640px){.krow.snd{grid-template-columns:auto minmax(0,1fr)}.krow.snd>input[type=range]{grid-column:1/-1}}
 .kbind{min-width:96px;font-variant-numeric:tabular-nums}.kbind.wait{border-color:var(--gold);color:var(--gold)}
 /* 팝업 선택지 단축키 번호 */
 .ck{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;margin-right:7px;border:1px solid var(--leaf);border-radius:3px;background:var(--hud);color:var(--on-hud-muted);font:700 11px/1 var(--font)}
@@ -6298,8 +6300,10 @@ function settingsModal() {
       <h3 style="margin-top:16px">밝기</h3><p class="small muted">상단 상황판과 메뉴는 두 모드 모두 남색입니다.</p>
       ${seg('sTheme', [['dark', '다크'], ['light', '라이트']], s.theme)}`)}
       ${pane('snd', `<h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
-      <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
-      <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>`)}
+      <div class="keys">
+        <div class="krow snd"><label><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> <b>배경음악</b></label><select id="sSong" aria-label="배경음악 곡">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}" aria-label="배경음악 음량"></div>
+        <div class="krow snd"><label><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> <b>효과음</b></label><input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}" aria-label="효과음 음량"></div>
+      </div>`)}
       ${pane('play', `<h3>턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
       <h3 style="margin-top:16px">실행 확인</h3><p class="small muted">활동·인재 영입·표 단속 등을 누르면 비용과 행동력을 한 번 더 보여 줍니다.</p>
