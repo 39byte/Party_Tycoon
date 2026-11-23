@@ -238,6 +238,10 @@ label.f>span.h{font-weight:400;color:var(--muted);font-size:12px}
 .log li{padding:6px 0;border-bottom:1px solid var(--border);font-size:14px;display:flex;gap:10px}
 .log li time{color:var(--muted);font-size:12.5px;white-space:nowrap;padding-top:1px}
 .log li.bad{color:var(--danger)} .log li.ok{color:var(--ok)}
+.pi2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px} .modal:has(.pi2){padding-bottom:14px}
+.pi2>div>h3:first-child{margin-top:0!important} .pi2t{max-height:min(60dvh,520px);overflow:auto;padding-right:6px}
+.pi2>div:last-child{padding-bottom:42px} .modal:has(.pi2)>.btns{height:38px;margin-top:-38px!important;position:relative;align-items:flex-end} /* 버튼을 2열 맨 아래 칸으로 끌어올려 1열 스크롤 하단과 같은 선에 */
+@media (max-width:640px){.pi2{grid-template-columns:1fr}.pi2t{max-height:40dvh}.pi2>div:last-child{padding-bottom:0}.modal:has(.pi2)>.btns{height:auto;margin-top:8px!important}}
 .log.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:20px} @media (max-width:640px){.log.g2{grid-template-columns:1fr}}
 .pill{display:inline-block;font-size:12px;font-weight:600;padding:1px 8px;border-radius:99px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);white-space:nowrap}
 .pill.ok{color:var(--ok)} .pill.warn{color:var(--warn)} .pill.bad{color:var(--danger)}
@@ -2516,7 +2520,7 @@ const passLog = (b, res = '가결') => { (S.passed ??= []).push({ t: b.t, d: S.d
 const resPill = r => { const ok = /가결/.test(r); return `<span class="pill" style="border-color:var(--${ok ? 'ok' : 'danger'});color:var(--${ok ? 'ok' : 'danger'})">${ok ? '통과' : esc(r)}</span>`; };
 const byPill = by => `<span class="pill" style="border-color:${by === 'G' ? 'var(--muted)' : pc(by)};color:${by === 'G' ? 'var(--muted)' : pc(by)}">${by === 'G' ? '정부' : esc(pn(by))}</span>`;
 // ---------- 영수회담: 야당 대표가 대통령에게 제안 ----------
-// 수락: 관계가 좋을수록, 국정 지지율이 낮을수록, 우리 의석이 많을수록, 대표 역량이 높을수록. 재신청은 180일 뒤
+// 수락: 관계가 좋을수록, 국정 지지율이 낮을수록, 우리 의석이 많을수록, 대표 역량이 높을수록. 재신청은 90일 뒤
 const talkOdds = () => clamp(0.3 + (S.rel[S.president.party] || 0) / 150 + (S.president.a0 - S.president.appr) / 100 + seatTotal('P') / 300 * 0.6 + (leader().skill - 60) / 200, 0.05, 0.9);
 const talkWhy = () => !seatTotal('P') ? '원내 의석이 있어야 제안할 수 있습니다' : S.ap < 1 ? '행동력이 없습니다' : (S.cd.yeongsu || 0) > S.day ? `${S.cd.yeongsu - S.day}일 뒤에 다시 제안할 수 있습니다` : '';
 function talkModal() {
@@ -2534,7 +2538,7 @@ function talkModal() {
   openModal({ title: '영수회담 제안', html: `<p>${presN()}에게 회담을 제안합니다. 행동력 1을 쓰고, 수락 가능성은 <b class="num">${Math.round(talkOdds() * 100)}%</b>입니다. 어떤 의제로 만날까요?</p><div class="choices">${Object.keys(T).map(k => `<button class="btn" data-talk="${k}" ${T[k].off ? 'disabled' : ''}>${T[k].t}<small>${esc(T[k].d)}</small></button>`).join('')}</div>`,
     buttons: [{ t: '취소' }], onOpen: m => m.querySelectorAll('[data-talk]').forEach(b => b.onclick = () => {
       const x = T[b.dataset.talk];
-      S.ap--; S.cd.yeongsu = S.day + 180; closeModal();
+      S.ap--; S.cd.yeongsu = S.day + 90; closeModal();
       if (rnd() >= talkOdds()) { relAdd(pr, -2, '영수회담 거부'); S.trust += 0.5; S.fame += 0.5; wire(`${presT()}, ${S.party.name} 영수회담 제안 거부`, 'pres'); info('영수회담 거부', `${presT()}이 회담을 거절했습니다. "불통"이라는 비판이 나와 우리 당이 손해 볼 일은 아닙니다.`, false); return renderAll(); }
       const ok = rnd() < clamp(0.4 + (leader().skill - 60) / 100 + (S.rel[pr] || 0) / 200, 0.1, 0.9);
       leadFame(ok ? 2 : 1); wire(`${presT()}, ${leader().name} ${S.party.name} 대표와 영수회담`, 'pres');
@@ -3534,9 +3538,9 @@ function personInfo(key) {
   const mp = key[0] === 'm', m = (mp ? S.mps : S.outs).find(x => x.id === +key.slice(1)); if (!m) return;
   const c = mp ? pc(m.party) : m.party ? pc(m.party) : '#64748B', open = recOpen(m, mp);
   const aff = mp ? `${m.party === 'O' ? '무소속' : pn(m.party)} 의원 | ${RK[m.k].n} 지역구` : `${m.party ? RIV[m.party].name : '무당적'} | ${m.role} | ${RK[m.k].n} 기반`;
-  openModal({ title: m.name, html: `<div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div>${mp || POL_ROLE.test(m.role) ? `<div class="small muted">출신: ${esc(talkJob(m))}</div>` : ''}<div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
+  openModal({ title: m.name, wide: true, html: `<div class="pi2"><div class="pi2t">${talkHTML(m)}</div><div><div class="who" style="margin-bottom:12px">${face(m, c, 64)}<div><div class="small">${esc(aff)}</div>${mp || POL_ROLE.test(m.role) ? `<div class="small muted">출신: ${esc(talkJob(m))}</div>` : ''}<div class="small muted">개인 친분 ${REL_N(m.rel)} (${Math.round(m.rel)})</div></div></div>${statBars(m, !open)}
       ${open ? `<p class="small ${m.rec.length ? 'bad' : 'muted'}" style="margin-top:10px">전과: ${m.rec.length ? esc(m.rec.join(', ')) : '없음'}</p><p class="tip">${mp ? '현직 국회의원이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)' : /장관/.test(m.role) ? '장관 인사청문 때 범죄경력이 제출돼 공개돼 있습니다(인사청문회법)' : '선거에 나갔던 인물이라 전과 기록이 공개돼 있습니다(공직선거법 제49조)'}.</p>`
-        : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}${talkHTML(m)}`,
+        : '<p class="tip" style="margin-top:10px">청렴도와 전과는 영입한 뒤에 알 수 있습니다.</p>'}</div></div>`,
     buttons: [...(mp ? [{ t: '교섭 명단에서 빼기', fn: () => { const f = fig(m.fid); if (f) f.mp = m; S.mps = S.mps.filter(x => x !== m); toast(`${m.name} 의원 | 다시 넣으면 그동안의 친분이 이어집니다.`, '', '교섭 명단 제외'); renderAll(); } }]
       : [{ t: m.neg ? '교섭 명단에서 빼기' : '교섭 명단에 추가', fn: () => { m.neg = m.neg ? 0 : 1; toast(m.neg ? `${m.name} ${m.role} | 교섭 탭에서 만날 수 있습니다.` : `${m.name} ${m.role} | ${talked(m) ? '교섭한 적이 있어 명부에 계속 남고 친분·대화 내역도 그대로입니다.' : '명단에 없으면 3턴마다 명부에서 새 인물로 바뀝니다.'}`, '', m.neg ? '교섭 명단 추가' : '교섭 명단 제외'); renderAll(); } }]), { t: '닫기', pri: true }] });
 }
@@ -4605,7 +4609,7 @@ const XEV = {
   },
   budget: () => showEvent({ title: '새해 예산안 심사', body: () => `법정 처리시한을 앞두고 예산 협상이 한창입니다. 우리 당 의석은 ${seatTotal('P')}석입니다.`,
     ch: [{ t: '지역 예산을 챙긴다', s: '지역 당원↑', run: () => { const ks = Object.keys(S.seats.P.d).filter(k => S.seats.P.d[k] > 0), k = ks.length ? pick(ks) : S.party.home; S.members[k] += Math.round(rr(500, 1500)); S.trust += 0.5; return `${RK[k].n} 숙원사업 예산을 따냈습니다.`; } },
-      { t: '복지 예산 증액 요구', s: '관철하면 신뢰↑', run: () => { if (luck(0.6)) { S.trust += 2; return '돌봄 예산 증액을 관철했습니다.'; } S.trust -= 0.5; return '증액 요구가 막판 협상에서 무산됐습니다.'; } },
+      { t: '복지 예산 증액 요구', s: '성공하면 신뢰↑', run: () => { if (luck(0.6)) { S.trust += 2; return '돌봄 예산 증액을 따냈습니다.'; } S.trust -= 0.5; return '증액 요구가 막판 협상에서 무산됐습니다.'; } },
       { t: '예산안 처리를 거부한다', s: '선명성↑ 신뢰↓', run: () => { S.fame += 2; S.trust -= 2; ['A', 'B', 'C', 'D'].forEach(id => relAdd(id, -3, '예산안 처리 거부')); return '"준예산 사태" 우려 속에 결국 예산안은 처리됐습니다.'; } }] }),
   // 대통령 정책 발표 → 우리 입장 선택 → 몇 주 뒤 여론조사로 판정
   policy: () => {
@@ -6174,7 +6178,7 @@ function pGuide() {
       <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 때 대선 득표율에서 출발해 임기 말로 갈수록 떨어지며(레임덕), 취임 때보다 낮아지면 여당 지지율도 함께 깎입니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 다른 당 대통령은 15% 아래로 떨어지면 촛불 집회가, 10% 아래로 떨어지면 탄핵소추안이 나올 수 있습니다.</li>
       <li><b>국정 지지율</b>: 여당 지지율에 같은 성향(보수·중도·진보) 다른 정당 지지율의 80%를 더한 값 언저리에서 움직이고, 레임덕·신뢰도·대통령과 내각 역량·사건에 따라 오르내립니다. 다른 당이 집권해도 내각이 있어 청와대 탭에서 볼 수 있고, 대정부 질문에서 장관을 골라 상대합니다.</li>
       <li><b>내각</b>: 집권하면 청와대 탭에서 인재풀 사람을 총리와 장관 네 자리에 지명합니다(행동력은 들지 않습니다). 총리는 국회 임명동의를 받아야 해서 여소야대면 부결될 수 있습니다. 의석이 모자라면 다른 당 인사를 세우는 협치 총리로 표를 모을 수 있고, '빈자리 자동 임명' 버튼은 역량·청문 위험을 따져 빈자리를 한 번에 채웁니다. 장관은 전과가 있거나 청렴이 낮으면 청문회가 난항을 겪어 강행과 철회 중에서 고릅니다. 내각 평균 역량과 공석이 국정 지지율에 반영되고, 민심이 쏠린 쟁점의 담당 장관 역량이 매달 지지율을 움직입니다. 당 대표, 시·도지사, 선거 후보는 입각할 수 없습니다.</li>
-      <li><b>영수회담</b>: 야당일 때 청와대 탭에서 대통령에게 제안합니다(행동력 1, 180일에 한 번, 원내 의석 필요). 관계가 좋고 국정 지지율이 낮을수록 잘 받아들입니다. 의제는 우리 법안 협조, 민생 협치, 국정 쇄신 요구 중에서 고릅니다.</li>
+      <li><b>영수회담</b>: 야당일 때 청와대 탭에서 대통령에게 제안합니다(행동력 1, 90일에 한 번, 원내 의석 필요). 관계가 좋고 국정 지지율이 낮을수록 잘 받아들입니다. 의제는 우리 법안 협조, 민생 협치, 국정 쇄신 요구 중에서 고릅니다.</li>
       <li>임기마다 측근 의혹, 순방 말실수, 공약 파기, 대통령실 이전, 대규모 개각 같은 일이 벌어져 국정 지지율이 움직입니다. 야당일 때와 집권했을 때 고를 수 있는 대응이 다릅니다.</li>
       <li>다른 당 광역단체장도 역점사업을 펼칩니다. 협조·견제·관망 중 입장을 고르면 몇 주 뒤 사업 성패에 따라 평가가 갈립니다. 지사 행정 지지도는 그 지역 선거에서 그 당의 득표에 반영됩니다.</li>
       <li>다른 당 지사가 우리 당 지사에게 공동사업을 제안하거나, 측근 비리 의혹이 터져 고발 여부를 정해야 할 때도 있습니다.</li></ul>`)}
