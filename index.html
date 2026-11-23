@@ -854,8 +854,16 @@ const RECORDS = [
   { t: '사기(징역형 집행유예, 형 실효)' }, { t: '공직선거법 위반(벌금 150만원, 5년 미경과)', ban: true },
 ];
 const SUR = '김이박최정강조윤장임한오서신권황안송류홍전고문양손배백허유남심노하곽성차주우구민진'.split('');
-const GM = '민준 서준 도윤 예준 시우 하준 주원 지호 준서 현우 도현 건우 우진 성민 재원 태현 정훈 상철 영수 동현 병철 성호 종민 진우 승현 민재 기태 용석'.split(' ');
-const GF = '서연 서윤 지우 서현 민서 하은 하윤 윤서 지유 지민 수빈 은지 혜진 미영 정희 영희 지현 수진 은정 민정 경희 선영 나연 유진 소연 다은 예린'.split(' ');
+// 출생 연도대별 흔한 이름(2글자). 나이로 출생 연도를 구해 그 세대 이름을 고름. 남녀 이름은 겹치지 않아야 함(성별 판별에 씀)
+const NAMES = [ // [이 해 이후 출생, 남, 여]
+  [2000, '민준 서준 지호 현우 도현 건우 준서 승우 시우 민재 승현', '서연 지우 민서 수빈 하은 예린 지민 다은 서현 유나'],
+  [1990, '민수 지훈 준영 동혁 성민 재원 태윤 승민 현준 지성', '지현 은지 예진 하나 서영 혜린 지은 소희 다혜 가영'],
+  [1980, '동현 성호 민석 준혁 재훈 상민 정우 종민 지환 철민', '지혜 지영 소연 민정 유진 보라 은혜 은영 혜영 미래'],
+  [1970, '정훈 상철 진우 태현 기범 정민 준호 상우 성진 재혁', '은정 혜진 수진 미선 경아 소영 선영 현정 정아 지숙'],
+  [1960, '성수 재철 영철 기영 대환 승호 광호 병철 종석 기태', '미영 정숙 은숙 미경 현숙 혜숙 영애 경희 명진 미자'],
+  [0, '영수 영호 영길 광수 종수 용석 춘식 순철 일수 동수', '영희 순자 정희 영숙 순희 경자 옥순 춘자 명숙 복순'],
+].map(([y, m, f]) => ({ y, m: m.split(' '), f: f.split(' ') }));
+const GM = NAMES.flatMap(n => n.m), GF = NAMES.flatMap(n => n.f);
 const CORPS = ['한빛건설', '대명산업', '태성개발', '동양물산', '세진기공', '신우토건'];
 const NAT_SPEND = [{ n: '최소', c: 3e7, b: 0 }, { n: '보통', c: 1e8, b: 0.06 }, { n: '최대', c: 2e8, b: 0.12 }];
 const GOV_SPEND = [{ n: '최소', f: 0.1, b: 0 }, { n: '보통', f: 0.35, b: 0.06 }, { n: '최대', f: 1, b: 0.12 }];
@@ -1133,7 +1141,10 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // ---------- people ----------
-function genName(g) { return pick(SUR) + pick(g === 'F' ? GF : GM); }
+function genName(g, age) { // 나이 필수. 성과 이름 첫 글자는 같지 않게(김김민 같은 연속 방지)
+  const born = (S ? L.dayToDate(S.day).getUTCFullYear() : 2026) - age, n = NAMES.find(x => born >= x.y), giv = pick(g === 'F' ? n.f : n.m);
+  return pick(SUR.filter(c => c !== giv[0])) + giv;
+}
 // 전과: 청렴이 낮을수록 생기기 쉬움. noBan: 선거에 나갔던 사람이라 피선거권을 잃는 전과는 없음
 const genRec = (integ, noBan) => {
   const pool = noBan ? RECORDS.filter(r => !r.ban) : RECORDS, rec = [];
@@ -1158,7 +1169,7 @@ function genPerson(o = {}) {
   const integ = Math.round(clamp(gauss() * 18 + 64, 5, 100)), { rec, ban } = genRec(integ);
   const rb = rec.length * 9; // 전과가 있는 사람은 그만큼 세상 물정에 밝고 이름도 알려진 편: 전과 1건당 인지도·역량 평균 +9
   return {
-    id: S.nid++, name: genName(gender), gender, age: clamp(age, 18, 80), job: job.n,
+    id: S.nid++, name: genName(gender, clamp(age, 18, 80)), gender, age: clamp(age, 18, 80), job: job.n,
     fame: Math.round(clamp(gauss() * 10 + job.f + rb + (o.fameAdd || 0), 1, 95)),
     skill: Math.round(clamp(gauss() * 12 + job.s + rb, 10, 99)), integ, rec, ban, role: '', home: o.home || homePick(S.party.ideo),
   };
@@ -1704,7 +1715,7 @@ function resolveElection(c) {
     const g = simGov(c); races = g.races;
     S.gov = g.win;
     // 당선자가 새 지사(같은 사람이 다시 되면 행정 지지도 유지)
-    for (const w of g.wins) if (w.id !== 'P') { const f = fig(w.fid), old = S.rgov[w.k]; S.rgov[w.k] = { p: w.id, n: f ? f.name : genName('M'), fid: f?.id, o: old && f && old.fid === f.id ? old.o : w.sh }; }
+    for (const w of g.wins) if (w.id !== 'P') { const f = fig(w.fid), old = S.rgov[w.k]; S.rgov[w.k] = { p: w.id, n: f ? f.name : genName('M', f?.age ?? rr(45, 68)), fid: f?.id, o: old && f && old.fid === f.id ? old.o : w.sh }; }
     rgovSync(S); figElect(c, 'gov', g.wins);
     S.ops = Object.fromEntries(g.wins.filter(w => w.id === 'P').map(w => [w.k, S.ops[w.k] ?? w.sh])); // 새 지사는 득표율에서 시작
     S.aap = Math.min(S.aap, aapMax());
@@ -2510,7 +2521,7 @@ function rivalBill(notes, who) {
   let y = rnd() * sum(ws);
   const r = pool.find((_, i) => (y -= ws[i]) < 0) || pool[0], mp = S.mps.find(m => m.party === by && (S.seats[by].d[m.k] || 0) > 0);
   const pop = clamp(0.5 + (r.issue === S.issue ? 0.05 : 0) + gauss() * 0.15, 0.15, 0.85), poll = Math.round(clamp(pop + gauss() * 0.05, 0.05, 0.95) * 100);
-  const b = { id: ++S.seq, t: r.t, issue: r.issue, side: r.side, fx: r.fx, by, gov, mp: mp ? mp.name : genName('M'), pop, poll, stance: 0, stage: 0, tries: 0, next: S.day + 21, lobbied: 0 };
+  const b = { id: ++S.seq, t: r.t, issue: r.issue, side: r.side, fx: r.fx, by, gov, mp: mp ? mp.name : genName('M', mp?.age ?? rr(40, 65)), pop, poll, stance: 0, stage: 0, tries: 0, next: S.day + 21, lobbied: 0 };
   S.bills.push(b); S.billNew = 1; // 국회 탭 빨간 점
   notes.push(`${gov ? '정부' : `${pn(by)} ${b.mp} 의원`}, '${r.t}' ${gov ? '국회 제출' : '대표발의'} (여론조사 찬성 ${poll}%)`);
 }
@@ -2910,8 +2921,8 @@ function genMPs(o, keep = []) {
 }
 // 원외 인사: 당적이 있으면 그 당 노선, 없으면 제각각
 function genOut(o) {
-  const [role, f] = pick(OUT_ROLES), party = /시민|노동|유튜버|원외정당/.test(role) ? null : pick(['A', 'A', 'B', 'B', 'C', 'D']), integ = Math.round(clamp(gauss() * 18 + 62, 10, 95));
-  return { ...genRec(integ, PUBLIC_RX.test(role)), id: ++o.seq, name: genName(rnd() < 0.3 ? 'F' : 'M'), role, ...(POL_ROLE.test(role) ? { job: pick(FIG_JOBS) } : {}), party, ideo: party ? RIV[party].ideo : pick([-1, -0.5, 0, 0.5, 1]), k: pick(R).k,
+  const gender = rnd() < 0.3 ? 'F' : 'M', age = Math.round(rr(40, 70)), [role, f] = pick(OUT_ROLES), party = /시민|노동|유튜버|원외정당/.test(role) ? null : pick(['A', 'A', 'B', 'B', 'C', 'D']), integ = Math.round(clamp(gauss() * 18 + 62, 10, 95));
+  return { ...genRec(integ, PUBLIC_RX.test(role)), id: ++o.seq, name: genName(gender, age), gender, age, role, ...(POL_ROLE.test(role) ? { job: pick(FIG_JOBS) } : {}), party, ideo: party ? RIV[party].ideo : pick([-1, -0.5, 0, 0.5, 1]), k: pick(R).k,
     fame: Math.round(clamp(f + gauss() * 8, 5, 70)), skill: Math.round(rr(40, 85)), integ, loyalty: Math.round(rr(20, 80)), rel: o.rel?.[party] ?? 0 }; // 처음 친분은 소속 당과 우리 당의 관계(무당적은 0)
 }
 const genOuts = o => Array.from({ length: 8 }, () => genOut(o));
@@ -2925,14 +2936,14 @@ function outFill(o, churn = 0) {
 // 다른 당 광역단체장: { 지역: { p 정당, n 이름, o 행정 지지도 } }. 당이 바뀐 곳만 새 인물
 function rgovSync(o) {
   for (const k in o.rgov) if (o.gov[k] !== o.rgov[k].p) delete o.rgov[k];
-  for (const k in o.gov) if (o.gov[k] !== 'P' && !o.rgov[k]) o.rgov[k] = { p: o.gov[k], n: genName(rnd() < 0.2 ? 'F' : 'M'), o: o === S ? opsBase(o.gov[k], k) : 50 }; // 불러오는 중이면 migrate가 맞춤
+  for (const k in o.gov) if (o.gov[k] !== 'P' && !o.rgov[k]) o.rgov[k] = { p: o.gov[k], n: genName(rnd() < 0.2 ? 'F' : 'M', rr(45, 68)), o: o === S ? opsBase(o.gov[k], k) : 50 }; // 불러오는 중이면 migrate가 맞춤
 }
 // 우리 당 지사 중 인재풀에 없는 사람(공모 후보로 당선): { 지역: { n 이름, g 성별, a 나이, s 역량 } }. 인재풀 지사가 생기거나 지사직을 잃으면 지움
 const poolGov = (o, k) => o.pool.find(p => p.role === `${RK[k].n} 시·도지사`);
 function pgovSync(o) {
   o.pgov ??= {};
   for (const k in o.pgov) if (o.gov[k] !== 'P' || poolGov(o, k)) delete o.pgov[k];
-  for (const k in o.gov) if (o.gov[k] === 'P' && !o.pgov[k] && !poolGov(o, k)) { const g = rnd() < 0.2 ? 'F' : 'M'; o.pgov[k] = { n: genName(g), g, a: Math.round(rr(45, 68)), s: Math.round(rr(40, 80)) }; }
+  for (const k in o.gov) if (o.gov[k] === 'P' && !o.pgov[k] && !poolGov(o, k)) { const g = rnd() < 0.2 ? 'F' : 'M', a = Math.round(rr(45, 68)); o.pgov[k] = { n: genName(g, a), g, a, s: Math.round(rr(40, 80)) }; }
 }
 const liveMPs = () => S.mps.filter(m => fig(m.fid)?.pos === 'd');
 
@@ -2946,7 +2957,8 @@ const fig = id => figOf(S, id);
 // 무작위 인물(명부에 넣기 전 능력치만). x에 준 값은 그대로 씀
 function figSpec(pos, x = {}) {
   const gender = x.gender || (x.name ? (GF.includes(x.name.slice(1)) ? 'F' : 'M') : rnd() < 0.22 ? 'F' : 'M'), integ = x.integ ?? Math.round(clamp(gauss() * 15 + 60, 10, 95));
-  return { name: x.name || genName(gender), gender, age: x.age || Math.round(rr(40, 70)), job: x.job || pick(FIG_JOBS),
+  const age = x.age || Math.round(rr(40, 70));
+  return { name: x.name || genName(gender, age), gender, age, job: x.job || pick(FIG_JOBS),
     fame: x.fame ?? Math.round(rr(pos === 'cand' ? 8 : 20, pos === 'gov' ? 60 : 45)), skill: x.skill ?? Math.round(rr(40, 85)), integ, ...(x.rec ? { rec: x.rec, ban: !!x.ban } : genRec(integ, true)) };
 }
 // 다른 당 공천: 출마 희망자 RV_HOPE명(+그 자리 현역) 중 후보 점수(L.candScore)가 가장 높은 사람
@@ -3152,7 +3164,7 @@ const isGovP = p => /시·도지사$/.test(p?.role || '');
 // 단체장이 물러남: 그 자리는 권한대행 체제가 되고(S.gact) 단체장 보궐선거를 치름(임기 6개월 미만이면 다음 지선까지 권한대행)
 function govVacate(k, id, why, who) {
   const g = S.rgov[k];
-  if (id !== 'P' && g) { g.fid = null; g.n = genName(rnd() < 0.2 ? 'F' : 'M'); } // figSync가 권한대행 인물을 새로 채움(같은 이름의 중복 인물 방지)
+  if (id !== 'P' && g) { g.fid = null; g.n = genName(rnd() < 0.2 ? 'F' : 'M', rr(45, 68)); } // figSync가 권한대행 인물을 새로 채움(같은 이름의 중복 인물 방지)
   S.gact[k] = { d0: S.day, why };
   byeNew(k, id, why, who, 'gov');
 }
@@ -3277,7 +3289,7 @@ function byeResolve(b) {
     S.gov[b.k] = win; delete S.gact[b.k];
     S.pool.forEach(p => { if (p.role === `${r.n} 시·도지사`) p.role = ''; });
     if (win === 'P') { lp.role = `${r.n} 시·도지사`; S.ops[b.k] = clamp(v.P * 100, 5, 95); }
-    else { delete S.ops[b.k]; S.rgov[b.k] = { p: win, n: wf?.name || genName('M'), fid: wf?.id, o: clamp(v[win] * 100, 5, 95) }; }
+    else { delete S.ops[b.k]; S.rgov[b.k] = { p: win, n: wf?.name || genName('M', wf?.age ?? rr(45, 68)), fid: wf?.id, o: clamp(v[win] * 100, 5, 95) }; }
     rgovSync(S); pgovSync(S); S.aap = Math.min(S.aap, aapMax());
   } else S.seats[win].d[b.k] = (S.seats[win].d[b.k] || 0) + 1;
   const winner = win === 'P' ? `${S.party.name} ${lp.name}` : `${win === 'O' ? '무소속' : pn(win)} ${wf?.name || ''}`;
@@ -3448,7 +3460,7 @@ function nomSay(own, tp) {
   const ks = R.filter(r => c.rv[r.k].some(s => s[own] && !rvOut(s[own]))); if (!ks.length) return null;
   const k = pick(ks).k, x = pick(c.rv[k].filter(s => s[own] && !rvOut(s[own])))[own];
   x.fid ??= rvPick(c, k, own, new Set(rvFids(c))).id;
-  const f = fig(x.fid), right = rnd() < tp, name = right ? f.name : genName(f.gender), job = right ? f.job : pick(FIG_JOBS);
+  const f = fig(x.fid), right = rnd() < tp, name = right ? f.name : genName(f.gender, f.age), job = right ? f.job : pick(FIG_JOBS);
   return ['공천 정보', `${c.name} ${RK[k].n} 공천은 ${job} 출신 ${name} 씨로 정해졌대요. 발표는 ${fdate(x.at)}쯤이고요.`, null, 'nom'];
 }
 // 인물평 한마디: 숨은 특기(가장 강한·약한 분야, 고르면 '두루') 또는 행정 성향(30%). who 없으면 본인 얘기. ok가 아니면 엇나간 말(약한 분야를 강하다고 함)
@@ -3558,7 +3570,7 @@ function negMpModal(mid) {
       win: () => {
         S.seats[m.party].d[m.k]--; S.seats.P.d[m.k] = (S.seats.P.d[m.k] || 0) + 1;
         S.mps = S.mps.filter(x => x !== m); relAdd(m.party, -15, `${m.name} 의원 빼가기`);
-        const np = { id: S.nid++, name: m.name, gender: m.gender || 'M', age: fig(m.fid)?.age || Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})`, home: m.k, ...talkKeep(m), ...aptKeep(fig(m.fid) || m) };
+        const np = { id: S.nid++, name: m.name, gender: m.gender || 'M', age: fig(m.fid)?.age || m.age || Math.round(rr(45, 65)), job: `전 ${pn_} 의원`, fame: m.fame, skill: m.skill, integ: m.integ, rec: [...m.rec], ban: m.ban, role: `국회의원(${RK[m.k].n})`, home: m.k, ...talkKeep(m), ...aptKeep(fig(m.fid) || m) };
         S.pool.push(np); incMove(m.fid, np.id); figDrop(S, fig(m.fid));
         checkAch(); return `${who}이(가) 우리 당에 입당했습니다! 의석이 1석 늘었습니다.`;
       },
@@ -4195,7 +4207,7 @@ function viral(k, t, sign) {
 function officialPick() {
   const o = S.pool.filter(p => !p.leader && /국회의원|시·도지사/.test(p.role));
   if (o.length) return pick(o);
-  if (seatTotal('P')) return { name: genName(rnd() < 0.3 ? 'F' : 'M'), role: '국회의원(비례)', skill: Math.round(rr(40, 70)), integ: Math.round(rr(40, 80)), temp: true };
+  if (seatTotal('P')) return { name: genName(rnd() < 0.3 ? 'F' : 'M', rr(40, 65)), role: '국회의원(비례)', skill: Math.round(rr(40, 70)), integ: Math.round(rr(40, 80)), temp: true };
   return null;
 }
 const SELF_GOOD = {
@@ -4583,8 +4595,8 @@ const XEV = {
     let day = S.day + 53; while (L.dayToDate(day).getUTCDay() !== 3) day++; // 60일 안의 수요일
     S.presEarly.push(day); rebuildSched(S);
     for (const k in S.camps) if (!SCHED.some(e => e.key === k)) delete S.camps[k]; // 밀려난 정기 대선 공천은 취소
-    const pm = cabM('pm'); // 권한대행은 내각 총리(없으면 가상 인물). 능력치·특기도 총리 것
-    S.president = { ...S.president, name: pm?.name ?? genName(rnd() < 0.3 ? 'F' : 'M'), acting: true, job: pm?.job ?? '전직 고위공무원', gender: pm?.gender ?? null, age: pm?.age ?? null, fame: pm?.fame ?? null, skill: pm?.skill ?? null, integ: pm?.integ ?? null, ...(pm ? aptKeep(pm) : { apt: null, st: null }) };
+    const pm = cabM('pm'), vg = rnd() < 0.3 ? 'F' : 'M', va = Math.round(rr(55, 70)); // 권한대행은 내각 총리(없으면 가상 인물 vg·va). 능력치·특기도 총리 것
+    S.president = { ...S.president, name: pm?.name ?? genName(vg, va), acting: true, job: pm?.job ?? '전직 고위공무원', gender: pm?.gender ?? (pm ? null : vg), age: pm?.age ?? (pm ? null : va), fame: pm?.fame ?? null, skill: pm?.skill ?? null, integ: pm?.integ ?? null, ...(pm ? aptKeep(pm) : { apt: null, st: null }) };
     info('헌법재판소: 탄핵 인용', `헌법재판소가 재판관 전원 일치로 ${fallen} 파면을 결정했습니다. ${presT()}이 국정을 맡고, ${fdate(day)}에 조기 대선이 치러집니다. 공천 기간이 짧으니 서둘러 후보를 정하세요.`, false);
   },
   audit: () => {
@@ -6250,7 +6262,7 @@ function newGameModal() {
         <label class="f">난이도<select name="diff"><option value="easy">쉬움 (6억)</option><option value="normal" selected>보통 (3억)</option><option value="hard">어려움 (1.5억)</option></select></label>
       </div>
       <div class="row">
-        <label class="f">당 대표 이름 *<input type="text" name="leader" maxlength="8" required value="${genName('M')}"></label>
+        <label class="f">당 대표 이름 *<input type="text" name="leader" maxlength="8" required value="${genName('M', 45)}"></label>
         <label class="f">나이<input type="number" name="age" min="18" max="85" value="45"><span class="h">대선 출마는 40세 이상</span></label>
         <label class="f">성별<select name="gender"><option value="M">남</option><option value="F">여</option></select></label>
       </div>
