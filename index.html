@@ -611,11 +611,9 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* ---------- UI 리메이크 레이어 (game-ui-frontend): 상황실 분위기·터치·모바일 시트 ---------- */
 body{background:
   radial-gradient(1200px 500px at 85% -10%,rgba(47,85,200,.10),transparent 60%),
-  linear-gradient(rgba(15,23,42,.035) 1px,transparent 1px) 0 0/100% 28px,
   var(--bg);background-attachment:fixed}
 body{background:
   radial-gradient(1200px 500px at 85% -10%,rgba(75,115,230,.14),transparent 60%),
-  linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px) 0 0/100% 28px,
   var(--bg);background-attachment:fixed}
 .brand #pname{letter-spacing:-.02em;text-shadow:0 1px 0 rgba(0,0,0,.35)}
 .stat{transition:border-color .2s,background .2s}
@@ -657,19 +655,19 @@ body{background:
 .tut-bub .tut-skip{margin-right:auto;background:none;border:0;box-shadow:none;color:var(--muted);text-decoration:underline;padding:7px 4px}
 @media (prefers-reduced-motion:reduce){.tut-hole{transition:none}.tut-hole.tap{animation:none}}
 /* ===== 의전 스킨: 국회·의전실 분위기 =====
-   짙은 남색 바탕 + 각진 청회색 단선(남색에 맞춘 --leaf) + 부드러운 그림자 + 아이보리 제목.
+   짙은 남색 바탕 + 각진 어두운 단선(안쪽 면보다 짙은 --leaf) + 부드러운 그림자 + 아이보리 제목.
    당 색은 요약 아이콘·선택 토글에. html[data-ap="0"](행동력 소진), html[data-camp](선거운동 중)은 renderTop이 붙임 */
 :root{
   --bg:#0A1020; --surface:#111B30; --surface2:#18243D; --hud:#0A1122; --hud2:#121D35; --border:#2A3A5C; --hud-line:#283857;
   --gold:#D8B46A; --gold2:#B8924A; --on-gold:#1E1607; --ivory:#EFE6D2;
-  --leaf:#3D5684; --leaf2:#2B3D60; --ring:#E9D3A0; --accent:#D8B46A;
+  --leaf:#04080F; --leaf2:#060B16; --ring:#E9D3A0; --accent:#D8B46A;
   --band:var(--party); --rim:rgba(255,255,255,.06); --lift:inset 0 1px 0 var(--rim);
-  --soft:0 2px 0 rgba(0,0,0,.45);
+  --soft:0 1px 0 rgba(0,0,0,.3);
   --gap:clamp(10px,1.3vw,18px); --rd:3px;
 }
 html[data-camp="1"]{--band:var(--danger)}
 .brand #pname,.card>h2:first-child,.modal>h2,.scene-t h1,.lawtoc b{color:var(--ivory)}
-.top{border-bottom:1px solid var(--leaf);box-shadow:0 2px 0 rgba(0,0,0,.45)}
+.top{border-bottom:1px solid var(--leaf);box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .stat{border:1px solid var(--leaf2);border-radius:var(--rd);background:var(--hud2);box-shadow:var(--lift)}
 .stat b.bad{color:#FF9A9A}
 /* 버튼: 둥근 모서리 + 위가 살짝 밝은 면 + 금선. 올리면 금선이 또렷해지며 살짝 뜨고, 누르면 가라앉음 */
@@ -689,11 +687,11 @@ html[data-ap="0"] main .btn.pri:disabled{border-color:rgba(248,113,113,.45)} /* 
 .top .ib{background:var(--hud2)}
 /* 턴 종료: 금색 명판. 행동력을 다 쓰면 은은하게 빛나 끝낼 때임을 알림 */
 .top #endTurn{border:1px solid #F0D48E;border-radius:var(--rd);color:var(--on-gold);
-  background:#D8B46A;box-shadow:0 2px 0 rgba(0,0,0,.45)}
+  background:#D8B46A;box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .top #endTurn:hover:not(:disabled){background:#E2C07A;transform:translateY(-1px)}
 .top #endTurn:active:not(:disabled){transform:translateY(1px);box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
 .top #endTurn:disabled{background:var(--hud2);border-color:var(--leaf2);color:var(--on-hud-muted);box-shadow:none}
-@keyframes apglow{50%{box-shadow:0 2px 0 rgba(0,0,0,.45),0 0 0 3px rgba(216,180,106,.35)}}
+@keyframes apglow{50%{box-shadow:0 1px 0 rgba(0,0,0,.3),0 0 0 3px rgba(216,180,106,.35)}}
 @media (prefers-reduced-motion:no-preference){html[data-ap="0"] .top #endTurn:not(:disabled){animation:apglow 2.4s ease-in-out infinite}}
 /* 당 색 연동: 상단 요약 캡슐, 교섭 즐겨찾기 별, 분류·정렬 토글(선택된 칸) */
 :root{--on-party:#fff;--party-lt:color-mix(in srgb,var(--party) 62%,#fff)}
@@ -722,10 +720,11 @@ html[data-camp="1"] nav button[aria-current="page"]{box-shadow:inset 0 -2px 0 va
 .card>h2:first-child::before,.modal>h2::before,.scene-t h1::before{width:7px;height:7px;background:none;border:1.5px solid var(--gold);box-shadow:none}
 .scene{border:1px solid var(--leaf);border-radius:var(--rd);box-shadow:var(--soft)}
 .scene-t>div{border:1px solid var(--leaf);border-radius:var(--rd);background:rgba(10,16,32,.8);box-shadow:none}
-.modal{border:1px solid var(--leaf);border-radius:var(--rd);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.modal{border:1px solid var(--leaf);border-radius:var(--rd);box-shadow:0 8px 20px rgba(0,0,0,.35)}
 .modal>h2{border-bottom:1px solid var(--leaf);box-shadow:none}
-.toast{border:1px solid var(--leaf);border-radius:var(--rd);box-shadow:0 12px 28px rgba(2,6,23,.5)}
+.toast{border:1px solid var(--leaf);border-radius:var(--rd);box-shadow:0 4px 12px rgba(2,6,23,.35)}
 .bn{border:1px solid var(--leaf2);border-radius:99px}
+.pcard .pedit,.pcard .pedit:hover,.pcard .pedit:active{box-shadow:none!important}
 @media (prefers-reduced-motion:reduce){.btn,.ib,nav button,.top #endTurn{transition:none}}
 .pill,input[type=number],select,input[type=text]{border:1px solid var(--leaf2)}
 input[type=number],select,input[type=text]{background:var(--hud);border-radius:var(--rd);box-shadow:inset 0 1px 3px rgba(0,0,0,.45)}
