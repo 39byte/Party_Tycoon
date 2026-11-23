@@ -655,6 +655,84 @@ body{background:
 .tut-bub .btns .btn{min-height:44px}
 .tut-bub .tut-skip{margin-right:auto;background:none;border:0;box-shadow:none;color:var(--muted);text-decoration:underline;padding:7px 4px}
 @media (prefers-reduced-motion:reduce){.tut-hole{transition:none}.tut-hole.tap{animation:none}}
+/* ===== 그래픽 노블 스킨 (asset/icon/icon-512.png 그림체) =====
+   잉크 외곽선(--ik) + 하드 오프셋 그림자 + 위·왼쪽 림 라이트. 틸은 보조 정보·포커스, 골드는 메인 CTA·현재 탭·제목 표식, 당 색(--party)은 띠·모서리 괄호.
+   html[data-ap="0"](행동력 소진), html[data-camp](공식 선거운동 중)은 renderTop이 붙임 */
+:root{
+  --ik:#050914; --teal:#4CA6A8; --teal2:#64C5C2; --rim:rgba(255,255,255,.09);
+  --bg:#080E1A; --surface:#101A2D; --surface2:#182640; --hud:#080E1A; --hud2:#101A2D; --border:#2A3C5E; --hud-line:#2A3C5E;
+  --ring:var(--teal2); --accent:var(--teal2); --gold:#F2B33D; --gold2:#D9B464;
+  --band:var(--party); --lift:inset 0 1px 0 var(--rim),inset 1px 0 0 rgba(255,255,255,.04);
+  --gap:clamp(10px,1.3vw,18px);
+}
+html[data-camp="1"]{--band:var(--danger)}
+.top{border-bottom:2px solid var(--ik);box-shadow:var(--lift),0 3px 0 var(--band),0 8px 14px rgba(2,6,23,.4)}
+.stat{border:2px solid var(--ik);border-radius:8px;background:var(--hud2);box-shadow:var(--lift),0 2px 0 var(--ik)}
+.stat .ic{background:rgba(100,197,194,.14);color:var(--teal2)}
+.stat b.bad{color:#FF9A9A}
+/* 버튼: 하드 그림자 높이만큼 눌림 */
+.btn,.ib{border:2px solid var(--ik);border-radius:8px;background:var(--surface2);box-shadow:var(--lift),0 2px 0 rgba(5,9,20,.7);transition:transform .08s,box-shadow .08s,background .15s,filter .15s}
+.ib{min-width:44px;height:44px}
+.btn.pri{background:var(--primary);border-color:var(--ik);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 2px 0 rgba(5,9,20,.7)}
+.btn.danger{border-color:var(--ik);box-shadow:var(--lift),0 2px 0 rgba(5,9,20,.7),inset 0 0 0 1px var(--danger)}
+.btn:active:not(:disabled),.ib:active:not(:disabled){transform:translateY(2px);box-shadow:var(--lift),0 1px 0 rgba(5,9,20,.7)}
+.btn.pri:active:not(:disabled){box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 1px 0 rgba(5,9,20,.7)}
+@media (hover:hover){
+  .btn:hover:not(:disabled),.ib:hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),inset 1px 0 0 rgba(255,255,255,.08),0 3px 0 rgba(5,9,20,.7)}
+  .btn:active:not(:disabled),.ib:active:not(:disabled){transform:translateY(2px);box-shadow:var(--lift),0 1px 0 rgba(5,9,20,.7)}
+}
+.btn:disabled,.ib:disabled{opacity:1;filter:saturate(.3) brightness(.7);color:var(--muted);transform:none;box-shadow:0 1px 0 rgba(5,9,20,.7);cursor:not-allowed}
+.ib[aria-pressed="true"]{background:var(--teal);color:#04141A;border-color:var(--ik)}
+.ib.bell,.ib.bell[aria-pressed="true"]{border:0;box-shadow:none;background:none}
+.top .ib{background:var(--hud2);border-color:var(--ik)}
+/* 턴 종료: 단 하나의 골드 CTA + 사선 질감. 행동력을 다 쓰면 숨 쉬듯 반짝여 끝낼 때임을 알림 */
+.top #endTurn{border:2px solid var(--ik);color:var(--on-gold);background:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 2px,transparent 2px 9px),var(--gold);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 3px 0 rgba(5,9,20,.7);clip-path:polygon(0 0,calc(100% - 9px) 0,100% 9px,100% 100%,9px 100%,0 calc(100% - 9px))}
+.top #endTurn:hover:not(:disabled){transform:translateY(-1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 3px 0 rgba(5,9,20,.7)}
+.top #endTurn:active:not(:disabled){transform:translateY(3px);box-shadow:inset 0 1px 0 rgba(255,255,255,.4),0 1px 0 rgba(5,9,20,.7)}
+.top #endTurn:disabled{background:var(--hud2);box-shadow:0 1px 0 rgba(5,9,20,.7);clip-path:none}
+@keyframes apglow{50%{filter:brightness(1.14) drop-shadow(0 0 6px rgba(242,179,61,.6))}}
+@media (prefers-reduced-motion:no-preference){html[data-ap="0"] .top #endTurn:not(:disabled){animation:apglow 1.8s ease-in-out infinite}}
+/* 메뉴: 현재 탭은 골드 */
+nav{border-right:2px solid var(--ik);background:var(--hud);box-shadow:inset -1px 0 0 var(--rim)}
+nav button{border:2px solid transparent;border-radius:8px}
+nav button:hover{background:rgba(255,255,255,.06);border-color:var(--hud-line)}
+nav button:active{transform:translateY(1px)}
+nav button[aria-current="page"]{border-color:var(--ik);background:linear-gradient(rgba(242,179,61,.22),rgba(242,179,61,.1));box-shadow:var(--lift),0 2px 0 var(--ik),inset 3px 0 0 var(--gold)}
+@media (min-width:901px){nav button[aria-current="page"]{box-shadow:var(--lift),0 2px 0 var(--ik),inset 0 -3px 0 var(--gold)}}
+@media (max-width:900px){nav button[aria-current="page"]{box-shadow:var(--lift),0 2px 0 var(--ik),inset 0 -3px 0 var(--gold)}}
+/* 패널: 잉크 외곽선 + 하드 그림자 + 당 색 윗띠·모서리 괄호 */
+.card,.pcard,.lawtoc{border:2px solid var(--ik);border-radius:10px;box-shadow:var(--lift),0 3px 0 var(--ik)}
+.card.lead{border-top:3px solid var(--band)}
+.card::after{content:"";position:absolute;right:6px;bottom:6px;width:clamp(10px,1.1vw,14px);aspect-ratio:1;border:solid var(--party);border-width:0 2px 2px 0;opacity:.75;pointer-events:none}
+.card>h2:first-child{border-bottom:1px solid var(--hud-line)}
+.card>h2:first-child::before{background:var(--gold);box-shadow:0 0 0 2px var(--ik)}
+.scene{border:2px solid var(--ik);border-radius:10px;box-shadow:var(--lift),0 3px 0 var(--ik)}
+.scene-t>div{border:1px solid var(--ik);box-shadow:var(--lift)}
+.modal{border:2px solid var(--ik);border-radius:12px;box-shadow:0 0 0 1px rgba(217,180,100,.4),var(--lift),0 6px 0 var(--ik),0 28px 50px rgba(0,0,0,.5)}
+.modal>h2{border-bottom:2px solid var(--ik);box-shadow:0 2px 0 var(--gold2)}
+.toast,.bn{border:2px solid var(--ik);box-shadow:var(--lift),0 3px 0 var(--ik)}
+.bn{border-radius:99px}
+.pill,input[type=number],select,input[type=text]{border:1.5px solid var(--ik)}
+input[type=number],select,input[type=text]{background:var(--hud);box-shadow:inset 0 1px 3px rgba(0,0,0,.5)}
+.bar{border:1.5px solid var(--ik);height:12px}
+.bar>i{box-shadow:inset 0 1px 0 rgba(255,255,255,.3)}
+:focus-visible{outline:3px solid var(--teal2);outline-offset:2px}
+.top :focus-visible,nav :focus-visible{outline-color:var(--gold)}
+/* 화면 비율·본문 폭에 따른 배치 */
+main{container:main/inline-size;padding:clamp(10px,2vw,22px)}
+.grid,.stack,.split,.pcards{gap:var(--gap)}
+@container main (max-width:520px){
+  .card{padding:10px 12px}.card>h2:first-child{margin:-2px -12px 10px;padding:0 12px 8px}
+  .btn{min-height:44px}.pcards{grid-template-columns:1fr}
+}
+@media (min-aspect-ratio:16/9) and (min-width:901px){
+  .app{grid-template-columns:clamp(176px,13vw,240px) 1fr}
+  .scene{height:clamp(72px,10vh,104px)}
+}
+@media (max-aspect-ratio:4/5) and (min-width:901px){
+  .app{grid-template-columns:clamp(150px,17vw,196px) 1fr}.top{padding:6px 12px;gap:6px 12px}
+}
+@media (max-aspect-ratio:3/5) and (max-width:640px){.stats{gap:3px 10px}.stat span{font-size:11px}}
 </style>
 </head>
 <body>
@@ -4944,6 +5022,7 @@ function renderAll() { if (!S) return; renderTop(); renderPanel(); renderNav(); 
 function renderTop() {
   if (!S) return;
   document.documentElement.style.setProperty('--party', S.party.color);
+  document.documentElement.dataset.ap = S.ap < 1 ? '0' : ''; document.documentElement.dataset.camp = activeCamps().length ? '1' : ''; // 스킨(그래픽 노블)이 띠 색·CTA 반짝임에 씀
   const ne = nextElection(), q = S.pub, ban = pollBanned();
   const st = (v, l, cls = '', ic = 'i-chart') => `<div class="stat">${icon(ic)}<b class="num ${cls}">${v}</b><span>${l}</span></div>`;
   // 버튼은 한 번만 만들고 숫자만 갱신 (매 틱 다시 그리면 빠른 속도에서 클릭이 씹힘)
