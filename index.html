@@ -3806,7 +3806,7 @@ const auditWin = () => {
 // 사과: 방어 측 신뢰도 −1·행정 지지도 −1 / 반박 성공: 공격 측 신뢰도 −0.5(방어자가 15 이상 앞서면 15%로 역공: −2) / 반박 실패: 방어 측 신뢰도 −3·행정 지지도 −3
 const auditOn = () => { const w = auditWin(); return !!w && S.day >= w[0] && S.day < w[1]; };
 const audDef = p => 0.65 * (p?.skill ?? 50) + 0.35 * (p?.integ ?? 60);
-const audOdds = (att, def) => clamp(0.5 + (def - att) / 80, 0.2, 0.9); // 공세 성공률 상한 80%
+const audOdds = (att, def) => clamp(0.5 + (def - att) / 80, 0.2, 0.8); // 공세 성공률 상한 80%
 const audTargets = () => S.blun.filter(b => !b.used && b.p !== 'P' && S.rgov[b.k]?.p === b.p);
 const audDp = b => fig(S.rgov[b.k]?.fid);
 function audResolve(b, atk, att, def, rebut) {
