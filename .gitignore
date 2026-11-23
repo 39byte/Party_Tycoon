@@ -9,3 +9,4 @@ tools/
 *.png
 !asset/*.png
 screenshots/
+site/
