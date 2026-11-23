@@ -697,7 +697,7 @@ html[data-ap="0"] main .btn.pri:disabled{border-color:rgba(248,113,113,.45)} /* 
 .top #endTurn:disabled{background:var(--hud2);border-color:var(--leaf2);color:var(--on-hud-muted);box-shadow:none}
 @keyframes apglow{50%{box-shadow:0 1px 0 rgba(0,0,0,.3),0 0 0 3px rgba(216,180,106,.35)}}
 @media (prefers-reduced-motion:no-preference){html[data-ap="0"] .top #endTurn:not(:disabled){animation:apglow 2.4s ease-in-out infinite}}
-/* 당 색 연동: 상단 요약 캡슐, 교섭 즐겨찾기 별, 분류·정렬 토글(선택된 칸) */
+/* 당 색 연동: 상단 요약 캡슐, 교섭 즐겨찾기 별 */
 :root{--on-party:#fff;--party-lt:color-mix(in srgb,var(--party) 62%,#fff)}
 .stat .ic{background:color-mix(in srgb,var(--party) 24%,transparent);color:var(--party-lt)}
 .ib.fav[aria-pressed="true"],.ib.fav[aria-pressed="true"] .ic{color:var(--party-lt)}
@@ -706,8 +706,6 @@ html[data-ap="0"] main .btn.pri:disabled{border-color:rgba(248,113,113,.45)} /* 
 .ib.fav:is(:hover,:active,[aria-pressed]){background:none;border:0;box-shadow:none;transform:none}
 .ib.fav[aria-pressed="false"]{color:var(--muted)}
 .ib.fav{min-width:28px;padding:0 2px} .negcell{gap:2px}
-.filters .btn.pri,.chips .btn.pri{background:var(--party);color:var(--on-party);border-color:color-mix(in srgb,var(--party) 60%,#fff)}
-.filters .btn.pri:hover:not(:disabled),.chips .btn.pri:hover:not(:disabled){background:var(--party);filter:brightness(1.1)}
 /* 지방 정부 단체장 분류 토글: 버튼 글자는 줄바꿈하지 않고, 좁으면 자동화 스위치 글자가 줄어듦 */
 .admside>.chips .btn{white-space:nowrap;flex:none}.admside>.chips .admauto{min-width:0;margin-left:auto;font-size:11px}
 /* 메뉴: 현재 탭은 은은한 금빛 면 + 아래 금줄 */
