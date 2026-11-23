@@ -4387,7 +4387,7 @@ const EVENTS = [
       { t: '방역 봉사 캠페인', s: '비용 2천만 | 성패 갈림', run: () => { spend(2e7, '활동'); if (luck(0.7)) { S.trust += 3; return '당원들이 선별진료소 봉사에 나섰습니다.'; } S.trust -= 2; return '봉사에 나선 당원들 사이에서 집단 감염이 나와 거센 비판을 받았습니다.'; } }] },
   { id: 'landspec', w: 1.5, cond: () => S.phase === 'reg', title: '공공기관 땅투기 사태', pre: () => (S.issue = 'house'),
     body: () => '공공기관 직원들이 신도시 발표 전에 예정지 땅을 사들인 사실이 드러났습니다. 정치권도 전수조사 압박을 받습니다.',
-    ch: [{ t: '우리 당 인사부터 전수조사', s: '비용 1천만', run: () => { spend(1e7, '활동'); const p = S.pool.find(x => !x.leader && x.integ < 40); if (p && rnd() < 0.5) { leaveParty(p); S.trust += 1; return `${p.name}의 투기 정황이 나와 출당시켰습니다. 아프지만 정직한 대응이라는 평가입니다.`; } S.trust += 3; return '문제없음이 확인됐습니다. "깨끗한 정당" 이미지가 생겼습니다.'; } },
+    ch: [{ t: '우리 당 인사부터 전수조사', s: '비용 1천만', run: () => { spend(1e7, '활동'); const p = S.pool.find(x => !x.leader && x.integ < 40); if (p && rnd() < 0.5) { evCard = evProf(p, S.party.color, [`${S.party.name} | ${roleLabel(p.role) || '당원'}`, p.job && `출신 직업: ${p.job}`]); leaveParty(p); S.trust += 1; return `${p.name}의 투기 정황이 나와 출당시켰습니다. 아프지만 정직한 대응이라는 평가입니다.`; } S.trust += 3; return '문제없음이 확인됐습니다. "깨끗한 정당" 이미지가 생겼습니다.'; } },
       { t: '정부 책임 공세', s: '인지도↑', run: () => { if (ruling()) { S.trust -= 2; return '여당이 남 탓을 한다는 비판을 받았습니다.'; } S.fame += 2; hitPres(2); return '정부 관리 책임을 강하게 따졌습니다.'; } }] },
   { id: 'admission', w: 1.5, cond: () => !ruling(), title: '고위 공직자 자녀 입시 의혹', pre: () => (S.issue = 'youth'),
     body: () => `${presN()}이 지명한 고위 공직자 자녀의 입시 특혜 의혹이 불거졌습니다. 청년들의 분노가 커집니다.`,
@@ -4800,6 +4800,7 @@ function randomEvent() {
 const abTalk = fid => fid == null ? [] : talkers().flatMap(m => (m.talk || []).filter(x => x.ab === fid).map(x => ({ ...x, who: m.name }))).sort((a, b) => b.d - a.d);
 const evTalk = fid => { const xs = abTalk(fid); return `<h3 style="margin-top:14px">들은 인물평</h3>${xs.length ? `<ul class="log">${xs.map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <span class="small muted">${esc(x.who)}</span></span></li>`).join('')}</ul>` : '<p class="small muted">아직 들은 인물평이 없습니다. 교섭 탭 친분 쌓기 자리에서 들을 수 있습니다.</p>'}`; };
 const evProf = (p, col, aff) => `<div class="pcard"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, false) : ''}</div>`;
+let evCard = ''; // 선택 결과 창에 덧붙일 인물 프로필(run이 채움)
 function showEvent(e) {
   if (e.pre) e.pre();
   if (e.id) S.seen[e.id] = true;
@@ -4809,10 +4810,10 @@ function showEvent(e) {
     title: e.title, dismiss: false, wide: !!e.side,
     html: (cs => `<p>${e.body()}</p>${e.html ? e.html() : ''}${e.note ? `<div class="lawnote">${e.note}</div>` : ''}${e.side ? `<div class="split2"><div>${e.side()}</div><div><h3>입장</h3>${cs}</div></div>` : cs}`)(`<div class="choices">${ch.map((c, i) => `<button class="btn" data-c="${i}">${c.t}${c.s ? `<small>${c.s}</small>` : ''}</button>`).join('')}</div>`), // side: 1열(프로필 등) | 2열 선택지
     onOpen: m => m.querySelectorAll('[data-c]').forEach(b => b.onclick = () => {
-      const msg = ch[+b.dataset.c].run();
+      evCard = ''; const msg = ch[+b.dataset.c].run(), card = evCard; evCard = '';
       S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
       addLog(`[${e.title}] ${msg}`); Snd.sfx('click');
-      openModal({ title: e.title, html: `<p>${msg}</p>`, buttons: [{ t: '확인', pri: true }] });
+      openModal({ title: e.title, html: `<p>${msg}</p>${card}`, buttons: [{ t: '확인', pri: true }] });
       renderAll();
     }),
   });
