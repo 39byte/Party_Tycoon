@@ -4797,7 +4797,7 @@ function randomEvent() {
 // 그 인물(명부 id)에 대해 교섭 자리에서 들은 인물평, 최근 것부터
 const abTalk = fid => fid == null ? [] : talkers().flatMap(m => (m.talk || []).filter(x => x.ab === fid).map(x => ({ ...x, who: m.name }))).sort((a, b) => b.d - a.d);
 const evTalk = fid => { const xs = abTalk(fid); return `<h3 style="margin-top:14px">들은 인물평</h3>${xs.length ? `<ul class="log">${xs.map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <span class="small muted">${esc(x.who)}</span></span></li>`).join('')}</ul>` : '<p class="small muted">아직 들은 인물평이 없습니다. 교섭 탭 친분 쌓기 자리에서 들을 수 있습니다.</p>'}`; };
-const evProf = (p, col, aff) => `<div class="pcard"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, true) : ''}</div>`;
+const evProf = (p, col, aff) => `<div class="pcard"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, false) : ''}</div>`;
 function showEvent(e) {
   if (e.pre) e.pre();
   if (e.id) S.seen[e.id] = true;
