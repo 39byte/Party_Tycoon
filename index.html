@@ -692,6 +692,15 @@ html[data-camp="1"]{--band:var(--danger)}
 .top #endTurn:disabled{background:var(--hud2);box-shadow:0 1px 0 rgba(5,9,20,.7);clip-path:none}
 @keyframes apglow{50%{filter:brightness(1.14) drop-shadow(0 0 6px rgba(242,179,61,.6))}}
 @media (prefers-reduced-motion:no-preference){html[data-ap="0"] .top #endTurn:not(:disabled){animation:apglow 1.8s ease-in-out infinite}}
+/* 당 색 연동: 상단 요약 캡슐, 교섭 즐겨찾기 별, 분류·정렬 토글(선택된 칸) */
+:root{--on-party:#fff;--party-lt:color-mix(in srgb,var(--party) 62%,#fff)}
+.stat .ic{background:color-mix(in srgb,var(--party) 24%,transparent);color:var(--party-lt)}
+.ib.fav[aria-pressed="true"],.ib.fav[aria-pressed="true"] .ic{color:var(--party-lt)}
+.ib.fav[aria-pressed="true"] .ic{filter:drop-shadow(0 0 3px color-mix(in srgb,var(--party) 60%,transparent))}
+.filters .btn.pri,.chips .btn.pri{background:var(--party);color:var(--on-party);border-color:var(--ik)}
+.filters .btn.pri:hover:not(:disabled),.chips .btn.pri:hover:not(:disabled){background:var(--party);filter:brightness(1.1)}
+/* 지방 정부 단체장 분류 토글: 버튼 글자는 줄바꿈하지 않고, 좁으면 자동화 스위치 글자가 줄어듦 */
+.admside>.chips .btn{white-space:nowrap;flex:none}.admside>.chips .admauto{min-width:0;margin-left:auto;font-size:11px}
 /* 메뉴: 현재 탭은 골드 */
 nav{border-right:2px solid var(--ik);background:var(--hud);box-shadow:inset -1px 0 0 var(--rim)}
 nav button{border:2px solid transparent;border-radius:8px}
@@ -5022,6 +5031,7 @@ function renderAll() { if (!S) return; renderTop(); renderPanel(); renderNav(); 
 function renderTop() {
   if (!S) return;
   document.documentElement.style.setProperty('--party', S.party.color);
+  { const [r, g, b] = [1, 3, 5].map(i => parseInt(S.party.color.slice(i, i + 2), 16)); document.documentElement.style.setProperty('--on-party', .299 * r + .587 * g + .114 * b > 150 ? '#0B1220' : '#FFFFFF'); } // 당 색 위 글자색(밝은 당 색은 검정)
   document.documentElement.dataset.ap = S.ap < 1 ? '0' : ''; document.documentElement.dataset.camp = activeCamps().length ? '1' : ''; // 스킨(그래픽 노블)이 띠 색·CTA 반짝임에 씀
   const ne = nextElection(), q = S.pub, ban = pollBanned();
   const st = (v, l, cls = '', ic = 'i-chart') => `<div class="stat">${icon(ic)}<b class="num ${cls}">${v}</b><span>${l}</span></div>`;
