@@ -1223,7 +1223,7 @@ function newState(f) {
   S.gov = simGov(null).win; rgovSync(S);
   figSync(S); // 현직 의원 300명·광역단체장 전원
   const pv = prePres(); poolTake(pv.win, pv.src[pv.win]); // 게임 전 대선 당선자가 현 대통령
-  S.president = { party: pv.win, name: pv.src[pv.win].name, since: -200, job: pv.src[pv.win].job, ...aptKeep(pv.src[pv.win]) }; S.president.appr = S.president.a0 = apprStart(pv.win);
+  S.president = { party: pv.win, name: pv.src[pv.win].name, since: -200, job: pv.src[pv.win].job, gender: pv.src[pv.win].gender, age: pv.src[pv.win].age, fame: pv.src[pv.win].fame, skill: pv.src[pv.win].skill, integ: pv.src[pv.win].integ, ...aptKeep(pv.src[pv.win]) }; S.president.appr = S.president.a0 = apprStart(pv.win);
   rcabSync(S); // 그 당 내각
   S.mps = genMPs(S);
   for (let i = 0; i < 3; i++) S.pool.push(genPerson());
@@ -1725,7 +1725,7 @@ function resolveElection(c) {
     // 기록: 맨 앞 전국(k 'nat'), 이어서 시·도별 개표
     const row = b => { const valid = sum(Object.values(b.v)); return g.ids.map(id => [id, who(id).name, Math.round(b.v[id] / valid * 1000) / 1000, raceProf(who(id)), b.v[id]]).sort((x, y) => y[2] - x[2]); };
     races = [{ k: 'nat', n: '전국', e: LAW.voters, t: g.to, bad: g.bad, c: row({ v: g.votes }) }, ...R.map(r => ({ k: r.k, n: r.n, e: g.regs[r.k].e, t: g.regs[r.k].t, bad: g.regs[r.k].bad, c: row(g.regs[r.k]) }))];
-    const wp = who(g.win), wx = { job: wp?.job, ...aptKeep(wp) }; // 당선인의 출신·숨은 특기는 명부에서 빠지기 전에 받아 둠
+    const wp = who(g.win), wx = { job: wp?.job, gender: wp?.gender, age: wp?.age, fame: wp?.fame, skill: wp?.skill, integ: wp?.integ, ...aptKeep(wp) }; // 당선인의 출신·숨은 특기는 명부에서 빠지기 전에 받아 둠
     rvFids(c).forEach(id => { const f = fig(id); if (f?.pos === 'cand') figDrop(S, f); });
     if (!S.president.acting) presEnd(false, g.win); // 파면된 대통령은 파면 때 이미 판단함
     const a0 = clamp(g.v[g.win] * 100, 5, 90); // 취임 직후 국정 지지율 = 대선 득표율
@@ -4502,7 +4502,7 @@ function standEv(x) {
   const wait = { t: '나중에 정한다', s: `소식 탭에서 ${last}턴 끝까지 고를 수 있음 | 지나면 입장 없음`, run: () => `'${x.t}' 입장을 미뤘습니다. ${last}턴이 끝나기 전에 소식 탭에서 정하세요.` };
   if (x.kind === 'pol') {
     const { pr, t } = x, pf = S.figs.find(f => f.name === x.nm && f.party === pr); // 대선에 나왔던 명부 인물이면 능력치도
-    return { title: '대통령 정책 발표', side: () => '<h3>발표자</h3>' + evProf(pf || { name: x.nm }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, (pf?.job || x.job) && `출신 직업: ${pf?.job || x.job}`, `국정 지지율 ${Math.round(x.ap)}%`]) + evTalk(x.ab ?? pf?.id), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
+    return { title: '대통령 정책 발표', side: () => '<h3>발표자</h3>' + evProf(pf || { name: x.nm, ...x.pst }, pc(pr), [`${pn(pr)} | 대통령${x.act ? ' 권한대행' : ''}`, (pf?.job || x.job) && `출신 직업: ${pf?.job || x.job}`, `국정 지지율 ${Math.round(x.ap)}%`]) + evTalk(x.ab ?? pf?.id), body: () => `${esc(x.nm)} 대통령${x.act ? ' 권한대행' : ''}이 <b>${esc(t)}</b> 방침을 발표했습니다.${x.fx ? ` 우리 당에도 영향이 있습니다: <b>${esc(x.fx)}</b>.` : ''} 여론의 평가는 몇 주 뒤 여론조사로 드러납니다. 어떤 입장을 낼까요?`,
       ch: [{ t: '환영 논평을 낸다', s: `${pn(pr)} 관계↑`, run: () => { relAdd(pr, 5, `'${t}' 환영`); res(1); return '정부 정책에 힘을 실었습니다.'; } },
         { t: '비판 논평을 낸다', s: `${pn(pr)} 관계↓`, run: () => { relAdd(pr, -4, `'${t}' 비판`); S.fame += 0.5; res(-1); return '정책의 문제점을 조목조목 짚었습니다.'; } },
         { t: '장외 집회로 맞선다', s: '비용 3천만 | 인지도↑ | 관계 크게↓ | 여론 판정 영향 큼', run: () => { spend(3e7, '활동'); relAdd(pr, -10, `'${t}' 규탄 집회`); S.fame += 2; S.buzz += 0.5; res(-1.6); return '광장에서 규탄 집회를 열었습니다. 언론의 주목을 받았습니다.'; } },
@@ -4581,7 +4581,7 @@ const XEV = {
     let day = S.day + 53; while (L.dayToDate(day).getUTCDay() !== 3) day++; // 60일 안의 수요일
     S.presEarly.push(day); rebuildSched(S);
     for (const k in S.camps) if (!SCHED.some(e => e.key === k)) delete S.camps[k]; // 밀려난 정기 대선 공천은 취소
-    S.president = { ...S.president, name: genName(rnd() < 0.3 ? 'F' : 'M'), acting: true, job: '전직 고위공무원', apt: null, st: null }; // 권한대행(총리)은 특기를 새로
+    S.president = { ...S.president, name: genName(rnd() < 0.3 ? 'F' : 'M'), acting: true, job: '전직 고위공무원', gender: null, age: null, fame: null, skill: null, integ: null, apt: null, st: null }; // 권한대행(총리)은 특기를 새로
     info('헌법재판소: 탄핵 인용', `헌법재판소가 재판관 전원 일치로 ${fallen} 파면을 결정했습니다. ${presT()}이 국정을 맡고, ${fdate(day)}에 조기 대선이 치러집니다. 공천 기간이 짧으니 서둘러 후보를 정하세요.`, false);
   },
   audit: () => {
@@ -4621,7 +4621,7 @@ const XEV = {
     if (p.on) p.on();
     if (p.fx) S.fx.push({ ...p.fx, t: p.t, until: S.day + p.fx.days });
     wire(`${presT()}, '${p.t}' 발표${fx ? ` (${fx})` : ''}`, 'pres');
-    standAdd({ kind: 'pol', t: p.t, pop, pr, fx, nm: S.president.name, act: S.president.acting, ap: S.president.appr, job: S.president.job, ab: presAb(), at: S.day + rr(21, 35) });
+    standAdd({ kind: 'pol', t: p.t, pop, pr, fx, nm: S.president.name, act: S.president.acting, ap: S.president.appr, job: S.president.job, pst: { gender: S.president.gender, fame: S.president.fame, skill: S.president.skill, integ: S.president.integ }, ab: presAb(), at: S.day + rr(21, 35) });
   },
   polRes: q => {
     const v = Math.round(q.pop * 100), d = q.s * (q.pop - 0.5) * 8;
