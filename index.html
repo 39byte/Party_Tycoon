@@ -22,14 +22,14 @@
   --shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 0 rgba(15,23,42,.06),0 6px 16px -8px rgba(15,23,42,.25);
   --r:12px; --font:"Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
 }
-@media (prefers-color-scheme:dark){:root{
+:root{
   --bg:#081020; --surface:#101B31; --surface2:#172540; --fg:#E2E8F0; --muted:#A3B1C6; --border:#283A5E;
   --primary:#2F55C8; --primary2:#4B73E6; --on-primary:#FFFFFF; --accent:#38BDF8; --warn:#FBBF24; --danger:#F87171; --ok:#4ADE80;
   --hud:#060D1C; --hud2:#0F1C36; --hud-line:#22355A;
   --ring:#7AA2FF; --loyal:#7DB4FF; --friend:#3D6FD6; --shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 20px -10px rgba(0,0,0,.6);
-}}
+}
 *{box-sizing:border-box}
-html{color-scheme:light dark}
+html{color-scheme:dark}
 html,body{margin:0}
 body{background:var(--bg);color:var(--fg);font:15px/1.55 var(--font);-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word}
 /* 여러 문장 글: 문장 단위로 줄을 바꾸고, 한 줄에 안 들어가는 문장만 띄어쓰기에서 바꿈 (sentWrap) */
@@ -413,17 +413,17 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
   --gnd:#86AD72; --gnd2:#5E8A50; --tree:#4E8A4A; --trunk:#6B4A2B; --wd:rgba(255,255,255,.6); --wl:#FFE08A; --door:#334155; --mtn:#9DBFA9; --mtn2:#78A585; --roof:#B45309; --ppl:#334155; --other:#64748B;
   --sea:#D6E7F6; --land:#F4F1E8; --map-line:#FFFFFF;
 }
-@media (prefers-color-scheme:dark){:root{
+:root{
   --sky1:#0C1730; --sky2:#1B2B55; --far:#132040; --mid:#1A2949; --bld:#22335A; --bld2:#2E4370; --wall:#2A3A5E; --col:#3A4D78; --glass:rgba(80,130,220,.16);
   --gnd:#16301F; --gnd2:#1F4A2D; --tree:#1E4A33; --trunk:#3B2A1A; --wd:rgba(255,255,255,.07); --wl:#FFD36B; --door:#0B1220; --mtn:#1A2E3A; --mtn2:#173440; --roof:#7C3A0C; --ppl:#0A1222; --other:#475569;
   --sea:#0A1830; --land:#25344F; --map-line:#0A1830;
-}}
+}
 /* 탭 장면: 위쪽 그림 띠 + 왼쪽 제목 */
 .scene{position:relative;height:56px;border-radius:var(--r);overflow:hidden;margin-bottom:14px;border:1px solid var(--border);box-shadow:var(--shadow);background:var(--sky1)}
 /* 그림은 오른쪽 아래에 맞춰 통째로 줄여 넣고(잘림 없음), 빈 왼쪽은 하늘·땅 색으로 이어 줌 */
 .scene::before{content:"";position:absolute;left:0;right:0;bottom:0;height:12%;background:var(--gnd);border-top:2px solid var(--gnd2)}
 .scene .scn{position:absolute;inset:0;width:100%;height:100%}
-.scene.art{background:var(--sky1) var(--art) center 92%/cover}.scene.art::before{display:none}.scene.art{height:auto;min-height:56px}.scene.art .scene-t p{white-space:normal;overflow:visible}.scene.art .scene-t>div{flex-wrap:wrap;gap:0 10px}
+.scene.pic{--h:56px;--w:calc(var(--h)*2.36);background:linear-gradient(90deg,#0B1426 calc(100% - var(--w)),transparent calc(100% - var(--w)*.6)),var(--art) right/auto 100% no-repeat #0B1426}.scene.pic::before{display:none}
 .scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;padding:6px 10px;color:#fff}
 /* 제목은 그림 위 단색 반투명 판에 */
 /* 그림띠가 낮아서 제목과 부제를 한 줄로 */
@@ -431,7 +431,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .scene-t h1{flex:none;font-size:17px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .scene-t h1::before{content:"";width:10px;height:10px;transform:rotate(45deg);background:var(--gold);flex:none}
 .scene-t p{margin:0;min-width:0;font-size:13px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:600px){.scene.art{min-height:42px}.scene{height:42px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
+@media (max-width:600px){.scene.pic{--h:42px}.scene{height:42px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
 .scn .far rect{fill:var(--far)} .scn .mid{fill:var(--mid)} .scn .wd{fill:var(--wd)} .scn .wl{fill:var(--wl)}
 .scn .bld{fill:var(--bld)} .scn .bld2{fill:var(--bld2)} .scn .wall{fill:var(--wall)} .scn .col{fill:var(--col)} .scn .glass{fill:var(--glass)}
 .scn .gnd{fill:var(--gnd)} .scn .gnd2{fill:var(--gnd2)} .scn .tree circle{fill:var(--tree)} .scn .trunk{fill:var(--trunk)} .scn .door{fill:var(--door)}
@@ -441,7 +441,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .scn .box{fill:#F8FAFC;stroke:var(--bld);stroke-width:3} .scn .paper{fill:#fff;stroke:var(--bld2)} .scn .coin{fill:#F2B33D;stroke:#B7791F;stroke-width:1.5}
 .scn .scale{fill:var(--gold2);stroke:var(--gold2)} .scn .beam{fill:#FFF3C4;opacity:.35} .scn .road{fill:none;stroke:var(--wall);stroke-width:8;stroke-linecap:round} .scn .giwa{fill:#2F4F8F}
 .scn text{font:800 22px var(--font);text-anchor:middle;fill:#fff} .scn .vtxt{font-size:15px;dominant-baseline:middle} .scn .btxt{font-size:30px} .scn .stxt{font-size:12.5px} .scn .stxt.dark{fill:var(--bld)}
-@media (prefers-color-scheme:dark){.scn .sun,.scn .cloud{display:none} .scn .moon{display:inline;fill:#F4F1DE} .scn .moonc{display:inline;fill:var(--sky1)} .scn .stars{display:inline;fill:#fff;opacity:.7} .scn .beam{fill:#FFE9A8;opacity:.18} .scn .box{fill:#CBD5E1}}
+.scn .sun,.scn .cloud{display:none} .scn .moon{display:inline;fill:#F4F1DE} .scn .moonc{display:inline;fill:var(--sky1)} .scn .stars{display:inline;fill:#fff;opacity:.7} .scn .beam{fill:#FFE9A8;opacity:.18} .scn .box{fill:#CBD5E1}
 /* 전국 지도 */
 .kmap{display:block;width:100%;height:auto;max-height:min(76vh,780px);margin:0 auto;background:var(--sea);border-radius:12px}
 .kmap .rg{stroke:var(--map-line);stroke-width:2.5;stroke-linejoin:round;cursor:pointer;transition:filter .15s}
@@ -507,7 +507,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .presinfo .kv{max-width:520px}
 /* 법령집: 종이 지면·명조체·조문 번호 칸 */
 :root{--paper:#FBF7EE;--ink:#2B2620;--ink2:#6B6155;--rule:#DCD2BF;--spine:#B9A98A}
-@media (prefers-color-scheme:dark){:root{--paper:#1E1C18;--ink:#E9E3D6;--ink2:#ADA392;--rule:#3B362D;--spine:#5A5040}}
+:root{--paper:#1E1C18;--ink:#E9E3D6;--ink2:#ADA392;--rule:#3B362D;--spine:#5A5040}
 .lawbook{display:grid;grid-template-columns:190px minmax(0,1fr);gap:20px;align-items:start}
 .lawtoc{position:sticky;top:calc(var(--top-h,58px) + 12px);padding:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface);box-shadow:var(--shadow)}
 .lawtoc b{display:block;margin-bottom:8px;font-size:13px;color:var(--muted);letter-spacing:.08em}
@@ -612,10 +612,10 @@ body{background:
   radial-gradient(1200px 500px at 85% -10%,rgba(47,85,200,.10),transparent 60%),
   linear-gradient(rgba(15,23,42,.035) 1px,transparent 1px) 0 0/100% 28px,
   var(--bg);background-attachment:fixed}
-@media (prefers-color-scheme:dark){body{background:
+body{background:
   radial-gradient(1200px 500px at 85% -10%,rgba(75,115,230,.14),transparent 60%),
   linear-gradient(rgba(255,255,255,.03) 1px,transparent 1px) 0 0/100% 28px,
-  var(--bg);background-attachment:fixed}}
+  var(--bg);background-attachment:fixed}
 .brand #pname{letter-spacing:-.02em;text-shadow:0 1px 0 rgba(0,0,0,.35)}
 .stat{transition:border-color .2s,background .2s}
 .stat:hover{border-color:rgba(242,179,61,.5);background:rgba(242,179,61,.08)}
@@ -4999,7 +4999,7 @@ const TAB_ART = Object.fromEntries(['home', 'org', 'act', 'people', 'party', 'ne
 function sceneHead() {
   const n = TABS.find(t => t[0] === tab)[1];
   const art = TAB_ART[tab]; // 그림 파일이 있는 탭은 SVG 장면 대신 그 그림
-  return `<div class="scene${art ? ' art' : ''}"${art ? ` style="--art:url(asset/tab_art/${art})"` : ''}>${art ? '' : ART.scene(tab, S.party.color, { name: S.party.name })}<div class="scene-t"><div><h1>${n}</h1><p>${esc(SCENE_SUB[tab]())}</p></div></div></div>`;
+  return `<div class="scene${art ? ' pic' : ''}"${art ? ` style="--art:url(asset/tab_art/${art})"` : ''}>${art ? '' : ART.scene(tab, S.party.color, { name: S.party.name })}<div class="scene-t"><div><h1>${n}</h1><p>${esc(SCENE_SUB[tab]())}</p></div></div></div>`;
 }
 // 인물 초상: 성별·나이가 없는 인물(의원·원외 인사)은 이름으로 짐작
 // 당 대표는 사용자가 올린 사진(S.party.img)이 있으면 그걸 씀. 복사본(후보 등)도 id 0 + 이름으로 알아봄
