@@ -750,6 +750,46 @@ main{container:main/inline-size;padding:clamp(10px,2vw,22px)}
   .app{grid-template-columns:clamp(150px,17vw,196px) 1fr}.top{padding:6px 12px;gap:6px 12px}
 }
 @media (max-aspect-ratio:3/5) and (max-width:640px){.stats{gap:3px 10px}.stat span{font-size:11px}}
+/* 설정 창: 상단 분류 탭(그래픽|사운드|게임플레이|단축키|저장) */
+.stabs{display:flex;gap:2px;margin:-14px -20px 14px;padding:0 12px;border-bottom:1px solid var(--leaf2);background:var(--hud2);overflow-x:auto;scrollbar-width:none}
+.stabs button{flex:1 0 auto;min-height:44px;padding:0 12px;border:0;background:none;color:var(--on-hud-muted);font:700 14px var(--font);white-space:nowrap;cursor:pointer}
+.stabs button:hover{color:var(--on-hud)}
+.stabs button[aria-selected="true"]{color:var(--ivory);box-shadow:inset 0 -2px 0 var(--gold)}
+.spane>h3:first-child{margin-top:0}
+.seg{display:flex;flex-wrap:wrap;margin:8px 0 0}.seg .btn{min-width:72px}
+.keys{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+.krow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;border:1px solid var(--leaf2);border-radius:var(--rd);background:var(--surface2)}
+.krow>div{display:flex;flex-direction:column;min-width:0}
+.kbind{min-width:96px;font-variant-numeric:tabular-nums}.kbind.wait{border-color:var(--gold);color:var(--gold)}
+/* 팝업 선택지 단축키 번호 */
+.ck{display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;margin-right:7px;border:1px solid var(--leaf);border-radius:3px;background:var(--hud);color:var(--on-hud-muted);font:700 11px/1 var(--font)}
+.choices .btn .ck{position:absolute;top:8px;right:8px;margin:0}
+@media (hover:hover){.choices .btn:has(.ck){position:relative;padding-right:40px}}
+@media (hover:none){.ck{display:none}} /* 터치 전용 기기는 키보드가 없음 */
+/* PC 화면 비율 고정: 고른 비율보다 넓은 창이면 가운데에 두고 양옆을 검게 */
+@media (min-width:901px){
+  html[data-ratio]{background:#000}
+  html[data-ratio] body{--cw:min(100vw,calc(100dvh * var(--ratio)));max-width:var(--cw);min-height:100dvh;margin-inline:auto;box-shadow:0 0 0 1px var(--leaf2)}
+  html[data-ratio] .toasts{right:calc((100vw - var(--cw)) / 2 + 16px)}
+}
+/* 라이트 모드: 본문 색 변수만 밝게(상단 상황판·메뉴·팝업 제목줄은 남색 유지) */
+html[data-theme="light"]{
+  color-scheme:light;
+  --bg:#E6EBF2; --surface:#FFFFFF; --surface2:#EEF2F8; --fg:#0F172A; --muted:#475569; --border:#C9D3E1;
+  --primary:#1E3A8A; --primary2:#2F55C8; --accent:#8A6420; --warn:#B45309; --danger:#DC2626; --ok:#15803D;
+  --ring:#2F55C8; --loyal:#1D4ED8; --friend:#93B4F5; --leaf:#B4C1D6; --leaf2:#CDD6E4;
+  --soft:0 1px 2px rgba(15,23,42,.08); --rim:rgba(255,255,255,.7);
+  --sky1:#B5D3F0; --sky2:#DCEBFA; --far:#B7CAE2; --mid:#93A9C6; --bld:#4B5E80; --bld2:#6E83A6; --wall:#EEF2F7; --col:#FAFBFD; --glass:rgba(140,190,240,.28);
+  --gnd:#86AD72; --gnd2:#5E8A50; --tree:#4E8A4A; --trunk:#6B4A2B; --wd:rgba(255,255,255,.6); --wl:#FFE08A; --door:#334155; --mtn:#9DBFA9; --mtn2:#78A585; --roof:#B45309; --ppl:#334155; --other:#64748B;
+  --sea:#D6E7F6; --land:#F4F1E8; --map-line:#FFFFFF;
+  --paper:#FBF7EE; --ink:#2B2620; --ink2:#6B6155; --rule:#DCD2BF; --spine:#B9A98A;
+}
+html[data-theme="light"] body{background:radial-gradient(1200px 500px at 85% -10%,rgba(47,85,200,.10),transparent 60%),var(--bg);background-attachment:fixed}
+html[data-theme="light"] :is(.card>h2:first-child,.lawtoc b){color:var(--fg)}
+html[data-theme="light"] main :is(input[type=number],select,input[type=text]),html[data-theme="light"] .modal :is(input[type=number],select,input[type=text]){background:var(--surface);color:var(--fg);box-shadow:inset 0 1px 2px rgba(15,23,42,.12)}
+html[data-theme="light"] .btn:not(.pri),html[data-theme="light"] .modal .ib{color:var(--fg)}
+html[data-theme="light"] .scrim{background:rgba(15,23,42,.45)}
+html[data-theme="light"] .ck{background:var(--surface2);color:var(--muted)}
 </style>
 </head>
 <body>
@@ -1034,10 +1074,14 @@ const pn = id => id === 'P' ? S.party.name : RIV[id].name;
 const pc = id => id === 'P' ? S.party.color : RIV[id].color;
 
 let S = null, tab = 'home', selReg = 'seoul', modalOpen = false;
+// 단축키 기본값: 턴 종료, 팝업 선택지 1~4번. 설정 '단축키' 탭에서 바꿈(Snd.set.keys)
+const KEYS0 = { end: ' ', c1: '1', c2: '2', c3: '3', c4: '4' };
+const keyName = k => k === ' ' ? 'Space' : k.length === 1 ? k.toUpperCase() : k;
+const endKey = () => keyName(Snd.set.keys.end);
 
 // ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
-  set: (() => { const d = { bgm: false, song: 0, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false }; try { return Object.assign(d, JSON.parse(localStorage.getItem(SET_KEY) || '{}')); } catch (e) { return d; } })(),
+  set: (() => { const d = { bgm: false, song: 0, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false, theme: 'dark', ratio: 'full' }; d.keys = { ...KEYS0 }; try { const o = JSON.parse(localStorage.getItem(SET_KEY) || '{}'); Object.assign(d, o, { keys: { ...KEYS0, ...o.keys } }); } catch (e) { } return d; })(),
   ctx: null, sfxG: null, bus: null, timer: null, step: 0, t: 0, ci: 0, ct: 0,
   saveSet() { try { localStorage.setItem(SET_KEY, JSON.stringify(this.set)); } catch (e) { } },
   ensure() {
@@ -1134,6 +1178,7 @@ const Snd = {
   applyVol() { if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 15 * this.set.bgmVol; },
   vol(k, v) { this.set[k] = v; this.applyVol(); this.saveSet(); },
 };
+applyView();
 document.addEventListener('pointerdown', () => { if (Snd.set.bgm && !Snd.timer) Snd.bgm(true); }, { once: true });
 document.addEventListener('visibilitychange', () => {
   if (Snd.ctx) document.hidden ? Snd.ctx.suspend() : Snd.ctx.resume();
@@ -5025,15 +5070,29 @@ function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpe
   root.dataset.dismiss = dismiss ? '1' : '';
   sentWrap(m);
   if (onOpen) onOpen(m);
+  modalChoices().forEach((b, i) => { const k = Snd.set.keys['c' + (i + 1)]; b.insertAdjacentHTML('afterbegin', `<kbd class="ck" aria-hidden="true">${esc(keyName(k))}</kbd>`); b.setAttribute('aria-keyshortcuts', keyName(k)); });
   if (tut) tutOpen(tut);
   (m.querySelector('[autofocus]') || m.querySelector('button:not(.info),input,select'))?.focus({ preventScroll: true }); // (i)는 건너뜀: 포커스되면 설명이 바로 펼쳐짐
   m.scrollTop = root.querySelector('.scrim').scrollTop = 0; m.querySelectorAll('.tblwrap,.log').forEach(e => e.scrollTop = 0); // 팝업은 항상 맨 위부터
 }
 function closeModal() { $('#modalRoot').innerHTML = ''; modalOpen = false; setBgInert(false); renderAll(); if (modalOpener?.isConnected) modalOpener.focus({ preventScroll: true }); modalOpener = null; if (left || turnStart) turnTimer = setTimeout(runTurn, 90); }
+// 팝업 선택지 1~4번 단축키 대상: 본문 선택지(.choices)가 있으면 그것, 없으면 아래 버튼줄
+function modalChoices() {
+  const m = $('#modalRoot .modal'); if (!m) return [];
+  const c = m.querySelectorAll('.choices .btn');
+  return [...(c.length ? c : m.querySelectorAll(':scope>.btns [data-b]'))].slice(0, 4);
+}
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && modalOpen && $('#modalRoot').dataset.dismiss) closeModal();
-  if (modalOpen || /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || !S) return;
-  if (e.key === ' ' && !/BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); endTurn(); }
+  if (/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+  const K = Snd.set.keys, k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+  if (modalOpen) {
+    const n = ['c1', 'c2', 'c3', 'c4'].findIndex(c => K[c] === k), b = n >= 0 && modalChoices()[n];
+    if (b && !b.disabled) { e.preventDefault(); b.click(); }
+    return;
+  }
+  if (!S) return;
+  if (k === K.end && !/BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); endTurn(); }
 });
 // 알림: 굵은 제목(무슨 일인지) + 아랫줄 설명. 제목을 안 주면 '제목: 설명' 꼴에서 떼고, 그것도 없으면 종류 이름
 function toast(msg, type = '', head) {
@@ -5069,7 +5128,7 @@ function renderTop() {
   if (!$('#stats')) {
     $('#top').innerHTML = `<div class="brand"><span class="chip"></span><span id="pname"></span></div><div class="stats num" id="stats"></div>
     <div class="ctrls">
-      <button class="btn pri" id="endTurn" title="턴 종료 (Space)" aria-keyshortcuts="Space"></button>
+      <button class="btn pri" id="endTurn" title="턴 종료 (${esc(endKey())})" aria-keyshortcuts="${esc(endKey())}"></button>
       <button class="ib" id="setBtn" aria-label="설정·저장" title="설정·저장">${icon('i-set')}</button>
     </div><div class="banner" id="banner" role="region" aria-label="주요 일정" hidden></div>`;
     lastBn = null;
@@ -6100,7 +6159,7 @@ function nextSteps() {
     const ne = nextElection();
     out.push([ne ? `다음 선거는 ${ne.name}(D-${ne.day - S.day})입니다. 선거일 ${LAW.nomDays}일 전에 공천이 열리니 그때까지 당원·인지도·인재를 키우세요.` : '당원·인지도·인재를 키우세요.', 'act']);
   }
-  out.push([S.ap ? `이번 턴 행동력이 ${S.ap} 남았습니다. 다 쓰면 '턴 종료'(Space)를 누르세요.` : `행동력을 다 썼습니다. '턴 종료'(Space)를 누르세요.`, '']);
+  out.push([S.ap ? `이번 턴 행동력이 ${S.ap} 남았습니다. 다 쓰면 '턴 종료'(${endKey()})를 누르세요.` : `행동력을 다 썼습니다. '턴 종료'(${endKey()})를 누르세요.`, '']);
   return out;
 }
 function pGuide() {
@@ -6210,30 +6269,73 @@ function pGuide() {
       <li>4년간 국회의원선거·지방선거에 한 번도 참여하지 않음</li>
       <li>자금이 마이너스인 채로 120일 경과</li></ul>`)}
     ${sec('업적', `<ul class="check">${ACHS.map(([k, n]) => `<li><span class="st ${S.ach[k] ? 'done' : ''}">${S.ach[k] ? '✓' : ''}</span><div class="small">${n}${S.ach[k] ? ` <span class="muted">${fdate(S.ach[k])}</span>` : ''}</div></li>`).join('')}</ul>`)}
-    ${sec('조작', `<ul><li>Space: 턴 종료</li><li>오른쪽 위 설정 버튼: 소리, 저장 파일 내보내기·불러오기, 새 게임</li><li>자동 저장은 매 턴이 끝날 때 됩니다. 크롬·엣지는 설정에서 고른 폴더의 save/에도 저장합니다.</li></ul>`)}
+    ${sec('조작', `<ul><li>${esc(endKey())}: 턴 종료, 팝업에서 ${esc(['c1', 'c2', 'c3', 'c4'].map(c => keyName(Snd.set.keys[c])).join('·'))}: 선택지 고르기 (설정 → 단축키에서 바꿈)</li><li>오른쪽 위 설정 버튼: 화면, 소리, 단축키, 저장 파일 내보내기·불러오기, 새 게임</li><li>자동 저장은 매 턴이 끝날 때 됩니다. 크롬·엣지는 설정에서 고른 폴더의 save/에도 저장합니다.</li></ul>`)}
   </div>`;
 }
 
 // ---------- 설정 ----------
+// 화면 설정 적용: 라이트/다크 테마, PC 화면 비율 고정(남는 곳은 검은 여백)
+const RATIOS = [['full', '전체 화면'], ['16/9', '16:9'], ['16/10', '16:10'], ['4/3', '4:3']];
+function applyView() {
+  const h = document.documentElement, s = Snd.set;
+  h.dataset.theme = s.theme === 'light' ? 'light' : 'dark';
+  if (s.ratio === 'full') { delete h.dataset.ratio; h.style.removeProperty('--ratio'); } else { h.dataset.ratio = s.ratio; h.style.setProperty('--ratio', s.ratio); }
+}
+const SET_TABS = [['gfx', '그래픽'], ['snd', '사운드'], ['play', '게임플레이'], ['key', '단축키'], ['save', '저장']];
+const KEY_ROWS = [['end', '턴 종료', '행동력을 다 쓴 뒤 다음 주로 넘깁니다.'], ['c1', '선택지 1', '팝업의 첫 번째 선택지'], ['c2', '선택지 2', '두 번째 선택지'], ['c3', '선택지 3', '세 번째 선택지'], ['c4', '선택지 4', '네 번째 선택지']];
+const KEY_BAD = ['Escape', 'Tab', 'Enter', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Process', 'Dead', 'Unidentified', 'HangulMode', 'HanjaMode'];
+let setTab = 'gfx';
 function settingsModal() {
   Snd.sfx('click');
   const s = Snd.set;
+  const seg = (id, opts, cur) => `<div class="chips seg" role="radiogroup" id="${id}">${opts.map(([v, n]) => `<button class="btn ${v === cur ? 'pri' : ''}" role="radio" aria-checked="${v === cur}" data-v="${v}">${n}</button>`).join('')}</div>`;
+  const pane = (k, h) => `<div class="spane" role="tabpanel" id="sp-${k}" aria-labelledby="st-${k}" ${k === setTab ? '' : 'hidden'}>${h}</div>`;
   openModal({
     title: '설정·저장', html: `
-      <h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
+      <div class="stabs" role="tablist" aria-label="설정 분류">${SET_TABS.map(([k, n]) => `<button role="tab" id="st-${k}" aria-controls="sp-${k}" aria-selected="${k === setTab}" tabindex="${k === setTab ? 0 : -1}" data-st="${k}">${n}</button>`).join('')}</div>
+      ${pane('gfx', `<h3>화면 비율</h3><p class="small muted">PC에서 게임 화면을 고른 비율로 가운데에 고정하고 남는 곳은 검게 둡니다. 휴대폰·좁은 창에서는 늘 전체 화면입니다.</p>
+      ${seg('sRatio', RATIOS, s.ratio)}
+      <h3 style="margin-top:16px">밝기</h3><p class="small muted">상단 상황판과 메뉴는 두 모드 모두 남색입니다.</p>
+      ${seg('sTheme', [['dark', '다크'], ['light', '라이트']], s.theme)}`)}
+      ${pane('snd', `<h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> 배경음악</label><select id="sSong">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><label class="small"><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> 효과음</label>
-      <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>
-      <h3 style="margin-top:16px">턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
+      <label class="f">배경음악 음량<input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}"></label><label class="f">효과음 음량<input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}"></label></div>`)}
+      ${pane('play', `<h3>턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
       <h3 style="margin-top:16px">실행 확인</h3><p class="small muted">활동·인재 영입·표 단속 등을 누르면 비용과 행동력을 한 번 더 보여 줍니다.</p>
-      <div class="row"><label class="small"><input type="checkbox" id="sCost" ${s.skipCost ? '' : 'checked'}> 비용·행동력 확인 창 보기</label></div>
-      <h3 style="margin-top:16px">저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
+      <div class="row"><label class="small"><input type="checkbox" id="sCost" ${s.skipCost ? '' : 'checked'}> 비용·행동력 확인 창 보기</label></div>`)}
+      ${pane('key', `<h3>단축키</h3><p class="small muted">바꿀 칸을 누른 뒤 새 키를 누르세요(Esc는 취소). 이미 쓰는 키를 고르면 두 칸의 키가 서로 바뀝니다. 선택지 키는 팝업 버튼 앞에 번호로 표시됩니다.</p>
+      <div class="keys">${KEY_ROWS.map(([k, n, d]) => `<div class="krow"><div><b>${n}</b><span class="small muted">${d}</span></div><button class="btn kbind" data-kb="${k}">${esc(keyName(s.keys[k]))}</button></div>`).join('')}</div>
+      <div class="btns" style="margin-top:12px"><button class="btn" id="sKeyReset">기본값으로</button></div>`)}
+      ${pane('save', `<h3>저장</h3><p class="small muted">매 턴이 끝날 때, 창을 닫거나 내릴 때 이 브라우저에 자동 저장됩니다. 브라우저 데이터를 지우면 사라지므로 가끔 파일로 내보내 두세요.</p>
       <div class="btns"><button class="btn" id="sExp">파일로 내보내기</button><button class="btn" id="sImp">파일 불러오기</button><button class="btn" id="sQr">QR로 보내기</button><button class="btn" id="sQrIn">링크로 받기</button><button class="btn danger" id="sNew">새 게임</button><button class="btn danger" id="sWipe">게임 데이터 지우기</button></div>
       <p class="small muted" style="margin-top:8px">${SLOTS ? `이 브라우저는 폴더를 직접 고를 수 없어, 매 턴 브라우저 안에 세이브를 새로 만들고 정당마다 최근 ${SAVE_MAX}개만 남깁니다. 목록에서 불러오거나 '파일' 앱 등으로 내보낼 수 있습니다.` : !window.showDirectoryPicker ? '이 브라우저는 폴더 자동 저장을 지원하지 않습니다.' : saveDir ? `폴더 자동 저장 중: <b>${esc(saveDir.name)}</b>/${esc(fsSafe(S.party.name))}/정당키우기_${esc(S.party.name)}_날짜_시각.json (정당마다 하위 폴더, 매 턴 새 파일, 정당마다 최근 ${SAVE_MAX}개만 남김, 불러오기는 '파일 불러오기'로)` : '폴더를 고르면 그 안의 save 폴더에 정당별로 나눠 매 턴 자동 저장합니다.'}</p>
-      ${window.showDirectoryPicker ? `<div class="btns"><button class="btn" id="sDir">${saveDir ? '저장 폴더 바꾸기' : '저장 폴더 고르기'}</button></div>` : SLOTS ? '<div class="btns"><button class="btn" id="sSlots">자동 저장 목록</button></div>' : ''}
-      <h3 style="margin-top:16px">단축키</h3><p class="small muted">Space 턴 종료</p>`,
+      ${window.showDirectoryPicker ? `<div class="btns"><button class="btn" id="sDir">${saveDir ? '저장 폴더 바꾸기' : '저장 폴더 고르기'}</button></div>` : SLOTS ? '<div class="btns"><button class="btn" id="sSlots">자동 저장 목록</button></div>' : ''}`)}`,
     buttons: [{ t: '닫기', pri: true }],
     onOpen: m => {
+      const tabs = [...m.querySelectorAll('[data-st]')];
+      const pick = (t, focus) => { setTab = t.dataset.st; tabs.forEach(x => { const on = x === t; x.setAttribute('aria-selected', on); x.tabIndex = on ? 0 : -1; m.querySelector('#sp-' + x.dataset.st).hidden = !on; }); if (focus) t.focus(); };
+      tabs.forEach((t, i) => { t.onclick = () => { Snd.sfx('click'); pick(t); }; t.onkeydown = e => { const d = { ArrowRight: 1, ArrowLeft: -1 }[e.key]; if (d) { e.preventDefault(); pick(tabs[(i + d + tabs.length) % tabs.length], true); } }; });
+      const segOn = (id, key) => m.querySelectorAll(`#${id} [data-v]`).forEach(b => b.onclick = () => { s[key] = b.dataset.v; Snd.saveSet(); applyView(); Snd.sfx('click'); m.querySelectorAll(`#${id} [data-v]`).forEach(x => { x.classList.toggle('pri', x === b); x.setAttribute('aria-checked', x === b); }); });
+      segOn('sRatio', 'ratio'); segOn('sTheme', 'theme');
+      const keyLabels = () => { m.querySelectorAll('[data-kb]').forEach(b => b.textContent = keyName(s.keys[b.dataset.kb])); const et = $('#endTurn'); if (et) { et.title = `턴 종료 (${endKey()})`; et.setAttribute('aria-keyshortcuts', endKey()); } };
+      m.querySelectorAll('[data-kb]').forEach(b => b.onclick = () => {
+        if (b.classList.contains('wait')) return;
+        b.classList.add('wait'); b.textContent = '키를 누르세요';
+        const on = e => {
+          if (!b.isConnected) return document.removeEventListener('keydown', on, true); // 기다리는 중에 창을 닫음
+          if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return; // 조합키만 눌렀으면 계속 기다림
+          e.preventDefault(); e.stopImmediatePropagation();
+          document.removeEventListener('keydown', on, true); b.classList.remove('wait');
+          if (e.key === 'Escape') return keyLabels();
+          if (KEY_BAD.includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) { keyLabels(); return toast('Esc·Tab·Enter와 조합키(Ctrl 등)는 단축키로 쓸 수 없습니다.', 'bad', '단축키'); }
+          const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, me = b.dataset.kb, other = Object.keys(s.keys).find(x => x !== me && s.keys[x].toLowerCase() === k);
+          if (other) s.keys[other] = s.keys[me];
+          s.keys[me] = k; Snd.saveSet(); keyLabels();
+        };
+        document.addEventListener('keydown', on, true);
+      });
+      m.querySelector('#sKeyReset').onclick = () => { s.keys = { ...KEYS0 }; Snd.saveSet(); keyLabels(); };
       m.querySelector('#sBgm').onchange = e => { s.bgm = e.target.checked; Snd.saveSet(); Snd.bgm(s.bgm); };
       m.querySelector('#sSong').onchange = e => { s.song = +e.target.value; Snd.saveSet(); if (s.bgm) Snd.bgm(true); };
       m.querySelector('#sSfx').onchange = e => { s.sfx = e.target.checked; Snd.saveSet(); Snd.sfx('click'); };
@@ -6339,7 +6441,7 @@ const TUT = {
     { at: nb('guide'), tap: 1, t: '가이드 탭', d: '막힐 땐 여기로 오세요.', do: '가이드 탭을 눌러 보세요.' },
     { tab: 'guide', at: '#main .card', t: '지금 할 일', d: '현재 상황에 맞춰 할 일이 바뀌어 나옵니다. 오른쪽 버튼을 누르면 그 탭으로 바로 갑니다. 아래 \'게임 방법\'엔 자세한 규칙이 있어요.' },
     { at: '#setBtn', t: '설정·저장', d: '매 턴 자동 저장됩니다. 여기서 파일 내보내기·불러오기, 소리, 확인 창 설정을 바꿀 수 있어요.' },
-    { at: '#endTurn', tap: 1, until: () => S.day > S.tut.d0, t: '턴 종료', d: '행동력을 다 썼으니 턴 종료(Space)를 누르세요. 7일이 흐르며 여론이 움직이고 사건이 벌어진 뒤, 주간 브리핑으로 결과를 알려 줍니다.', do: '턴 종료를 눌러 첫 주를 넘겨 보세요.' },
+    { at: '#endTurn', tap: 1, until: () => S.day > S.tut.d0, t: '턴 종료', d: `행동력을 다 썼으니 턴 종료(${endKey()})를 누르세요. 7일이 흐르며 여론이 움직이고 사건이 벌어진 뒤, 주간 브리핑으로 결과를 알려 줍니다.`, do: '턴 종료를 눌러 첫 주를 넘겨 보세요.' },
     { t: '튜토리얼 완료!', d: '이제 매 턴 <b>당원 모집 → 시·도당 창당 → 정당 등록</b>을 목표로 움직이세요. 등록하면 선거·교섭·법원 탭이 열리고, 새 기능이 열릴 때마다 다시 안내해 드립니다. 튜토리얼은 가이드 탭에서 다시 볼 수 있어요.' },
   ],
   tal: [
@@ -6401,7 +6503,7 @@ function tutStep(d) {
 }
 function tutSkip() {
   const s = S.tut, [a] = tutAt();
-  if (s.seq === 'main' && a === 'seq') { s.off = true; s.q = []; toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(Space)를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작'); }
+  if (s.seq === 'main' && a === 'seq') { s.off = true; s.q = []; toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(${endKey()})를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작'); }
   s[a] = null; save(); tutTick();
 }
 let tutKey = '', tutTgt = null;
@@ -6446,7 +6548,7 @@ document.addEventListener('click', e => {
   if (st?.tap && tutTgt?.contains(e.target)) { if (!st.until) tutStep(1); return; }
   e.preventDefault(); e.stopPropagation();
 }, true);
-document.addEventListener('keydown', e => { if (e.key === ' ' && !$('#tut').hidden && !e.target.closest?.('#tut') && tutCur()?.at !== '#endTurn') { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+document.addEventListener('keydown', e => { if ((e.key.length === 1 ? e.key.toLowerCase() : e.key) === Snd.set.keys.end && !$('#tut').hidden && !e.target.closest?.('#tut') && tutCur()?.at !== '#endTurn') { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
 document.addEventListener('click', e => { if (e.target.closest?.('[data-tutre]') && S?.tut) { Object.assign(S.tut, { off: false, seq: 'main', i: 1, seen: {} }); tutKey = ''; save(); tutTick(); } });
 
 // ---------- 시작 ----------
