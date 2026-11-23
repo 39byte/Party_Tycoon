@@ -5503,7 +5503,7 @@ function pParty() {
         <tr><th>노선</th><td>${IDEO[me ? S.party.ideo : Math.round(RIV[id].ideo)]}</td></tr>
         <tr class="more"><th>인지도</th><td class="num">${(me ? S.fame : S.rfame[id]).toFixed(1)}</td></tr>
         <tr class="more"><th>신뢰도</th><td class="num">${trAvg(id).toFixed(1)}</td></tr>
-        ${me ? '<tr class="gap"><th>&nbsp;</th><td></td></tr>' : `<tr><th>우리와 관계</th><td>${relBar(S.rel[id])}</td></tr>`}
+        ${me ? '<tr class="gap"><th>&nbsp;</th><td></td></tr>' : `<tr class="gap"><th>우리와 관계</th><td>${REL_N(S.rel[id])}</td></tr><tr><td colspan="2"><div class="bar"><i style="width:${(S.rel[id] + 100) / 2}%;background:${S.rel[id] >= 20 ? 'var(--ok)' : S.rel[id] <= -20 ? 'var(--danger)' : 'var(--muted)'}"></i></div></td></tr>`}
       </tbody></table></div>`; };
   return `<div class="stack">
       <details class="card seatd" data-polld ${pollOpen ? 'open' : ''}><summary><h2>정당별 지지율</h2></summary><div class="pollsplit">
