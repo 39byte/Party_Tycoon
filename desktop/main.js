@@ -15,7 +15,7 @@ app.whenReady().then(() => {
   const win = new BrowserWindow({
     width: b.width || 1440, height: b.height || 900, x: b.x, y: b.y,
     minWidth: 960, minHeight: 640, backgroundColor: '#0E1A33', show: false,
-    icon: path.join(ROOT, 'asset', 'icon-512.png'),
+    icon: path.join(ROOT, 'asset', 'icon', 'icon-512.png'),
   });
   if (b.max) win.maximize();
   win.once('ready-to-show', () => win.show());

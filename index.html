@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>정당 키우기</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="asset/icon-192.png">
-<link rel="apple-touch-icon" href="asset/icon-180.png">
+<link rel="icon" href="asset/icon/icon-192.png">
+<link rel="apple-touch-icon" href="asset/icon/icon-180.png">
 <meta name="theme-color" content="#0E1A33">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -18,7 +18,7 @@
   --primary:#1E3A8A; --primary2:#2F55C8; --on-primary:#FFFFFF; --accent:#0369A1; --warn:#B45309; --danger:#DC2626; --ok:#15803D;
   --gold:#F2B33D; --gold2:#C27A06; --on-gold:#1C1303;
   --hud:#0E1A33; --hud2:#18294D; --hud-line:#2B3F69; --on-hud:#EAF0FA; --on-hud-muted:#A9B8D2;
-  --ring:#2F55C8; --party:#F59E0B; --loyal:#1D4ED8; --friend:#93B4F5;
+  --ring:#2F55C8; --party:#F97316; --loyal:#1D4ED8; --friend:#93B4F5;
   --shadow:0 1px 0 rgba(255,255,255,.9) inset,0 2px 0 rgba(15,23,42,.06),0 6px 16px -8px rgba(15,23,42,.25);
   --r:12px; --font:"Pretendard","Malgun Gothic","맑은 고딕","Apple SD Gothic Neo","Noto Sans KR",system-ui,sans-serif;
 }
@@ -423,6 +423,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 /* 그림은 오른쪽 아래에 맞춰 통째로 줄여 넣고(잘림 없음), 빈 왼쪽은 하늘·땅 색으로 이어 줌 */
 .scene::before{content:"";position:absolute;left:0;right:0;bottom:0;height:12%;background:var(--gnd);border-top:2px solid var(--gnd2)}
 .scene .scn{position:absolute;inset:0;width:100%;height:100%}
+.scene.art{background:var(--sky1) var(--art) center 92%/cover}.scene.art::before{display:none}.scene.art{height:auto;min-height:56px}.scene.art .scene-t p{white-space:normal;overflow:visible}.scene.art .scene-t>div{flex-wrap:wrap;gap:0 10px}
 .scene-t{position:relative;height:100%;display:flex;flex-direction:column;justify-content:center;padding:6px 10px;color:#fff}
 /* 제목은 그림 위 단색 반투명 판에 */
 /* 그림띠가 낮아서 제목과 부제를 한 줄로 */
@@ -430,7 +431,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .scene-t h1{flex:none;font-size:17px;font-weight:900;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
 .scene-t h1::before{content:"";width:10px;height:10px;transform:rotate(45deg);background:var(--gold);flex:none}
 .scene-t p{margin:0;min-width:0;font-size:13px;opacity:.92;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-width:600px){.scene{height:42px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
+@media (max-width:600px){.scene.art{min-height:42px}.scene{height:42px;margin-bottom:10px}.scene-t{padding:4px 6px}.scene-t>div{padding:3px 8px;gap:8px}.scene-t h1{font-size:14.5px}.scene-t p{font-size:11px}}
 .scn .far rect{fill:var(--far)} .scn .mid{fill:var(--mid)} .scn .wd{fill:var(--wd)} .scn .wl{fill:var(--wl)}
 .scn .bld{fill:var(--bld)} .scn .bld2{fill:var(--bld2)} .scn .wall{fill:var(--wall)} .scn .col{fill:var(--col)} .scn .glass{fill:var(--glass)}
 .scn .gnd{fill:var(--gnd)} .scn .gnd2{fill:var(--gnd2)} .scn .tree circle{fill:var(--tree)} .scn .trunk{fill:var(--trunk)} .scn .door{fill:var(--door)}
@@ -739,7 +740,7 @@ const RIV = {
   D: { name: '반석당', color: '#0891B2', ideo: -0.6, base: 10.5, vol: 2.5, fame: 65 }, // 작은 보수 정당: 푸른내일당과 7% 안팎에서 경쟁(조금 높지만 출렁임(vol)이 큼)
   O: { name: '기타·무소속', color: '#94A3B8', ideo: 0, base: 3 },
 };
-const PCOLORS = [['주황', '#F59E0B'], ['보라', '#7C3AED'], ['청록', '#0D9488'], ['초록', '#16A34A'], ['분홍', '#DB2777'], ['갈색', '#92400E']];
+const PCOLORS = [['주황', '#F97316'], ['보라', '#7C3AED'], ['청록', '#0D9488'], ['초록', '#16A34A'], ['분홍', '#DB2777'], ['갈색', '#92400E']];
 const IDEO = { '-1': '보수', '0': '중도', '1': '진보' };
 const ISSUES = [
   { k: 'econ', n: '경제·일자리', fit: [1.15, 1.1, 1.0] }, { k: 'house', n: '부동산·주거', fit: [1.0, 1.1, 1.0] },
@@ -4994,9 +4995,11 @@ const SCENE_SUB = {
   office: () => `국회 의석 ${seatTotal('P')}석 / 300`, court: () => `진행 중인 사건 ${S.cases.length}건`, party: () => `지지율 ${S.pub.P.toFixed(1)}% | 다른 정당과의 경쟁과 교섭`, neg: () => '원내 의원·원외 인사와의 협상', admin: () => `광역단체장 ${govCount('P')}곳`,
   pres: () => presT(), fin: () => `보유 자금 ${won(S.money)}`, law: () => '2026년 현행법 요약', log: () => `${turnNo()}턴째 소식`, guide: () => '목표: 대통령 배출',
 };
+const TAB_ART = Object.fromEntries(['home', 'org', 'act', 'people', 'party', 'neg', 'elec', 'fin', 'office', 'court', 'pres', 'admin', 'log', 'guide'].map(k => [k, k + '.jpg'])); // asset/tab_art/{탭키}.jpg (법령 탭은 그림 없음 → SVG 장면)
 function sceneHead() {
   const n = TABS.find(t => t[0] === tab)[1];
-  return `<div class="scene">${ART.scene(tab, S.party.color, { name: S.party.name })}<div class="scene-t"><div><h1>${n}</h1><p>${esc(SCENE_SUB[tab]())}</p></div></div></div>`;
+  const art = TAB_ART[tab]; // 그림 파일이 있는 탭은 SVG 장면 대신 그 그림
+  return `<div class="scene${art ? ' art' : ''}"${art ? ` style="--art:url(asset/tab_art/${art})"` : ''}>${art ? '' : ART.scene(tab, S.party.color, { name: S.party.name })}<div class="scene-t"><div><h1>${n}</h1><p>${esc(SCENE_SUB[tab]())}</p></div></div></div>`;
 }
 // 인물 초상: 성별·나이가 없는 인물(의원·원외 인사)은 이름으로 짐작
 // 당 대표는 사용자가 올린 사진(S.party.img)이 있으면 그걸 씀. 복사본(후보 등)도 id 0 + 이름으로 알아봄

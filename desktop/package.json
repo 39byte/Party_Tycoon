@@ -21,12 +21,14 @@
           "index.html",
           "logic.js",
           "art.js",
-          "asset/icon-*.png"
+          "asset/icon/icon-*.png",
+          "asset/portrait/*.png",
+          "asset/tab_art/*.jpg"
         ]
       }
     ],
     "win": {
-      "icon": "../asset/icon-512.png",
+      "icon": "../asset/icon/icon-512.png",
       "target": [
         "nsis",
         "portable"
