@@ -73,9 +73,9 @@
     const j = events.filter(e => hosts.includes(e.type) && e.day < base && e.day - day >= JOINT_CUTOFF).sort((a, b) => a.day - b.day)[0];
     return j ? { day: j.day, with: j.key } : { day: base, with: null };
   }
-  // 게임 선거 주기: 총선·대선·지선이 같은 2년(CYCLE일) 주기로 이 순서대로 돌아가며 CYCLE/3일(약 243일)마다 하나씩 열림.
+  // 게임 선거 주기: 총선·지선·대선이 같은 2년(CYCLE일) 주기로 이 순서대로 돌아가며 CYCLE/3일(약 243일)마다 하나씩 열림.
   // 기준 선거(baseType, baseDay) 다음부터 n개. 날짜는 기준일에서 바로 계산해 오차가 쌓이지 않고, 수요일·공휴일 규칙은 electionDay와 같음
-  const CYCLE = 730, ROT = ['nat', 'pres', 'gov'];
+  const CYCLE = 730, ROT = ['nat', 'gov', 'pres'];
   function cadence(baseDay, baseType, n) {
     const i0 = ROT.indexOf(baseType);
     return Array.from({ length: n }, (_, j) => ({ type: ROT[(i0 + j + 1) % 3], day: electionDay(dayToDate(baseDay + Math.round((j + 1) * CYCLE / 3)), 0) }));

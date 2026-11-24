@@ -30,9 +30,9 @@ const nat0 = sch.find(e => e.type === 'nat'), H = ['nat', 'pres'];
 assert.strictEqual(L.byeDay(nat0.day - 40, sch, 50, H).with, nat0.key);
 assert.strictEqual(L.byeDay(nat0.day - 40, sch).with, null);
 assert.strictEqual(L.byeDay(nat0.day - 20, sch, 50, H).with, null);
-// 선거 주기: 총선·대선·지선 순환, 인접 간격 약 243일(수요일·공휴일 규칙으로 ±7일), 같은 유형은 약 730일 주기, 모두 수요일
-const cad = L.cadence(122, 'gov', 24);
-assert.deepStrictEqual(cad.slice(0, 6).map(e => e.type), ['nat', 'pres', 'gov', 'nat', 'pres', 'gov']);
+// 선거 주기: 총선·지선·대선 순환, 인접 간격 약 243일(수요일·공휴일 규칙으로 ±7일), 같은 유형은 약 730일 주기, 모두 수요일
+const cad = L.cadence(122, 'pres', 24);
+assert.deepStrictEqual(cad.slice(0, 6).map(e => e.type), ['nat', 'gov', 'pres', 'nat', 'gov', 'pres']);
 const cd = [{ day: 122 }, ...cad].map(e => e.day);
 for (let i = 1; i < cd.length; i++) assert(cd[i] - cd[i - 1] >= 236 && cd[i] - cd[i - 1] <= 257, `간격 ${cd[i] - cd[i - 1]}`);
 for (const t0 of ['nat', 'pres', 'gov']) { const ds = cad.filter(e => e.type === t0).map(e => e.day); for (let i = 1; i < ds.length; i++) assert(Math.abs(ds[i] - ds[i - 1] - L.CYCLE) <= 14, t0); }

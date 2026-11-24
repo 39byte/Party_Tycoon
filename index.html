@@ -841,7 +841,7 @@ const { REGIONS: R, LAW } = L;
 const RK = Object.fromEntries(R.map(r => [r.k, r]));
 const BASE_SCHED = L.schedule(40);
 let SCHED = BASE_SCHED;
-// 선거 템포: 실제 법정 주기(총선·지방선거 4년, 대선 5년)보다 빠르게 — 총선·지방선거·대선 모두 2년 주기. 세 선거가 총선 → 대선 → 지선 순으로 돌아가며 약 243일(8개월)마다 하나씩 열림(L.cadence). 대선은 단임(헌법 제70조)
+// 선거 템포: 실제 법정 주기(총선·지방선거 4년, 대선 5년)보다 빠르게 — 총선·지방선거·대선 모두 2년 주기. 세 선거가 총선 → 지선 → 대선 순으로 돌아가며 약 243일(8개월)마다 하나씩 열림(L.cadence). 대선은 단임(헌법 제70조)
 // 일정 = 실제 일정(tempoFrom 전) + 이미 치렀거나 공천 중인 선거(o.done·o.camps 키, 날짜 고정) + 기준 선거 o.schedBase 뒤로 이어지는 순환.
 // 기준이 저장돼 있어 다시 계산해도 날짜가 흔들리지 않음. 새 게임은 첫 총선이 시작 365일째
 const SCHED_NAME = { nat: n => `제${n}대 국회의원선거`, pres: n => `제${n}대 대통령선거`, gov: n => `제${n}회 전국동시지방선거` }, SCHED_N0 = { nat: 23, pres: 23, gov: 9 };
@@ -862,7 +862,7 @@ function rebuildSched(o) {
 // 옛 일정(총선·지선 2년, 대선 3년)으로 진행 중이던 저장 파일을 세 선거 순환으로 옮김: 마지막으로 치렀거나 공천 중인 선거를 기준으로 하되, 첫 새 선거가 지금부터 공천 기간(nomDays) 뒤가 되게 함
 function schedBaseFor(o) {
   const a = o.tempoFrom ?? 0, kept = schedKeys(o).filter(e => e.day >= a).sort((x, y) => x.day - y.day);
-  if (!kept.length) return { type: 'gov', day: (o.natDay ?? a + 365) - Math.round(L.CYCLE / 3) };
+  if (!kept.length) return { type: 'pres', day: (o.natDay ?? a + 365) - Math.round(L.CYCLE / 3) };
   const last = kept.at(-1), i0 = L.ROT.indexOf(last.type);
   let j = 1; while (L.cadence(last.day, last.type, j).at(-1).day < o.day + LAW.nomDays) j++;
   return j === 1 ? { type: last.type, day: last.day } : { type: L.ROT[(i0 + j - 1) % 3], day: last.day + Math.round((j - 1) * L.CYCLE / 3) };
@@ -1406,7 +1406,7 @@ function migrate(o) {
   // 진행 중이던 옛 저장 파일만: 다음 국회의원선거를 불러온 날부터 140일 뒤로(한 번만). 새 게임은 natv가 이미 있어 정기 일정 그대로
   if (!o.natv) { o.natFrom = o.day; o.natDay = o.day + 140; o.natv = 1; }
   if (!o.tempov) { o.tempoFrom = o.day; o.tempov = 1; } // 옛 저장 파일: 불러온 날부터 빠른 선거 일정
-  if (!o.schedv) { o.schedBase = schedBaseFor(o); o.schedv = 2; } // 총선·대선·지선 2년 순환(8개월 간격)
+  if (!o.schedv) { o.schedBase = schedBaseFor(o); o.schedv = 2; } // 총선·지선·대선 2년 순환(8개월 간격)
   for (const p of o.pool) if (/대통령$/.test(p.role)) p.wasPres = 1; // 단임제 전 저장 파일의 현직·전직 대통령
   for (const p of o.pool) p.home ??= p.leader ? o.party.home : homePick(o.party.ideo); // 옛 저장: 출신 지역
   rebuildSched(o);
@@ -6216,7 +6216,7 @@ function pGuide() {
       <li>지출: 매달 사무처 운영비(규모에 비례)와 시설 유지비가 나가고, 활동비·기탁금·선거비용도 듭니다.</li>
       <li>득표율 15% 이상이면 기탁금·선거비용을 전액, 10% 이상이면 절반을 돌려받습니다.</li>
       <li>자금이 마이너스인 채로 120일이 지나면 해산합니다. 재정 탭에서 지난달 수지를 확인하세요.</li></ul>`)}
-    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거·지방선거·대통령선거는 각각 2년마다이고 약 8개월 간격으로 번갈아 열립니다(총선 → 대선 → 지선 순). 대통령은 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
+    ${sec('선거와 공천', `<ul><li>게임 템포에 맞춰 선거가 실제보다 자주 열립니다. 국회의원선거·지방선거·대통령선거는 각각 2년마다이고 약 8개월 간격으로 번갈아 열립니다(총선 → 지선 → 대선 순). 대통령은 단임이라, 한 번 대통령을 지낸 사람은 다시 나갈 수 없습니다.</li>
       <li>공천 기간에는 화면 맨 위에 D-day 배너가 뜨고, 선거 탭 '공천 현황'에서 다른 당 후보 발표를 5칸씩 쪽을 넘기며 볼 수 있습니다. 우리 당 후보를 누르면 프로필이 열립니다. 공천 표의 '보기·변경'으로 후보를 바꾸고 '자동 배치'로 한꺼번에 정합니다.</li>
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
