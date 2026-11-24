@@ -2576,7 +2576,7 @@ function rivalBill(notes, who) {
 // 국회 탭 '최근 법안'용: 어느 당이든 본회의·상임위 결과 최근 20건(res: 가결·재의결 가결·부결·거부권 폐기·상임위 폐기)
 const passLog = (b, res = '가결') => { (S.passed ??= []).push({ t: b.t, d: S.day, by: b.gov ? 'G' : b.by || 'P', vid: b.vid, res }); if (S.passed.length > 20) S.passed.shift(); };
 const resPill = r => { const ok = /가결/.test(r); return `<span class="pill" style="border-color:var(--${ok ? 'ok' : 'danger'});color:var(--${ok ? 'ok' : 'danger'})">${ok ? '통과' : esc(r)}</span>`; };
-const byPill = by => `<span class="pill" style="border-color:${by === 'G' ? 'var(--muted)' : pc(by)};color:${by === 'G' ? 'var(--muted)' : pc(by)}">${by === 'G' ? '정부' : esc(pn(by))}</span>`;
+const byPill = by => { const c = pc(by === 'G' ? S.president.party : by); return `<span class="pill" style="border-color:${c};color:${c}">${by === 'G' ? '정부' : esc(pn(by))}</span>`; }; // 정부 발의는 여당(대통령 당) 색
 // ---------- 영수회담: 야당 대표가 대통령에게 제안 ----------
 // 수락: 관계가 좋을수록, 국정 지지율이 낮을수록, 우리 의석이 많을수록, 대표 역량이 높을수록. 재신청은 90일 뒤
 const talkOdds = () => clamp(0.3 + (S.rel[S.president.party] || 0) / 150 + (S.president.a0 - S.president.appr) / 100 + seatTotal('P') / 300 * 0.6 + (leader().skill - 60) / 200, 0.05, 0.9);
