@@ -8,5 +8,7 @@ desktop/dist/
 tools/
 *.png
 !asset/*.png
+!asset/icon/*.png
+!asset/portrait/*.png
 screenshots/
 site/

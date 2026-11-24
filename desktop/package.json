@@ -21,6 +21,8 @@
           "index.html",
           "logic.js",
           "art.js",
+          "qrcode.min.js",
+          "manifest.webmanifest",
           "asset/icon/icon-*.png",
           "asset/portrait/*.png",
           "asset/tab_art/*.jpg"
