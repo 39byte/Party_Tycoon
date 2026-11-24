@@ -240,16 +240,29 @@
   // 지지율이 따라가는 속도 배율: 충성층이 두꺼우면 덜 빠지고(다른 당으로 덜 넘어감), 혐오층이 두꺼우면 덜 오름
   const tierSup = (t, up) => cl((1 - 2 * t[up ? 4 : 0]) / 0.9, 0.3, 1.2);
 
-  // 다른 당 주간 방침: tools/jeff에서 Jeff(jeff.routing.tools)가 고른 확률을 softmax 회귀로 배운 가중치(RIV_W, fit.py가 채움). 없으면 null
-  // c: 다음 선거까지 주(wk), 선거운동기간(camp 0/1), 의석, 전국 지지율(%), 4주 변화(%p), 다른 당 최고와의 차(%p), 대통령 배출(pres 0/1), 대통령 지지율, 최근 악재 뒤 주(hit)
+  // 다른 당 공세 기억: m = [공세 수, 역풍 수](논평은 0.5건, 매주 옅어짐). p0 = 신뢰 격차로 본 사전 역풍 확률(무게 2건).
+  // 우리가 해명·반박으로 공세를 되받아칠수록 역풍 확률이 오르고, 다른 당은 그만큼 공세를 꺼림
+  const bfRate = (m, p0) => ((m?.[1] || 0) + 2 * p0) / ((m?.[0] || 0) + 2);
+  // 지지층 비용: 중도 쪽(우호+중립)이 두꺼운 당은 네거티브를 꺼리고, 충성층이 두꺼운 당은 덜 꺼림(결집). t = 그 당 전국 계층
+  const baseCost = t => 0.8 * (t[1] + t[2]) - 2 * t[0];
+  // 사건 공세 세기 s(0 침묵, 0.5 논평, 1 맹공)별 효용 = s × (이득 g − 역풍 확률 pb × 역풍 손해 b − 지지층 비용 + 보정 x) − s² × 위험 회피(pb × b / 2).
+  // 역풍 위험이 애매하면 맹공보다 논평이 낫고, 크면 침묵이 나음. x: 방침·관계 보정
+  const ATK_S = [0, 0.5, 1];
+  const atkU = (g, b, pb, t, x = 0) => { const v = g - pb * b - baseCost(t) + x, r = pb * b / 2; return ATK_S.map(s => s * v - s * s * r); };
+  // 다른 당 주간 방침: 효용 softmax. c: 다음 선거까지 주(wk), 선거운동기간(camp 0/1), 의석, 다른 당 최고와의 차(gap %p), 대통령 배출(pres)·지지율(appr),
+  // 최근 악재 뒤 주(hit), 공세 역풍 확률(bf, bfRate), 신뢰 격차(tg = 우리 − 그 당), 전국 계층(t)
   const POSTURES = ['campaign', 'policy', 'attack', 'coalition', 'lowkey'];
-  const rivalFeat = c => [1, Math.min(c.wk, 52) / 52, c.wk <= 6 ? 1 : 0, c.camp, c.seats / 300, c.seats < 20 ? 1 : 0, c.sup / 50, c.trend / 5, c.gap / 10, c.pres, c.pres ? (c.appr - 50) / 20 : 0, c.hit <= 4 ? 1 : 0];
-  const RIV_W = [[2.027,-1.755,0.108,-0.627,0.411,-0.346,0.237,0.018,-0.006,-0.571,-0.999,-1.798],[-0.168,1.552,-0.339,-0.173,-0.022,-0.029,0.205,0.041,-0.066,0.003,0.178,-0.274],[-0.889,-0.431,0.217,0.572,0.092,-0.428,-0.319,-0.046,-0.131,-0.206,-0.149,-0.221],[0.248,0.113,0.069,0.166,-1.654,0.941,0.06,-0.024,-0.065,-0.467,0.163,-0.904],[-1.218,0.521,-0.056,0.062,1.172,-0.139,-0.182,0.012,0.268,1.241,0.808,3.198]]; // fit.py: 3000건, 검증 일치 82%
-  const rivalPolicy = (f, W = RIV_W) => {
-    if (!W) return null; // 학습 전: 방침 없음(예전 행동 그대로)
-    const z = W.map(w => w.reduce((s, x, i) => s + x * f[i], 0)), m = Math.max(...z), e = z.map(x => Math.exp(x - m)), s = e.reduce((a, b) => a + b, 0);
-    return e.map(x => x / s);
+  const rivalU = c => {
+    const far = Math.min(c.wk, 52) / 52, near = c.wk <= 6 ? 1 : 0;
+    return [
+      1.2 + 1.5 * near + c.camp - far, // 선거 총력: 선거가 가까울수록
+      0.3 + 0.8 * far + Math.max(0, c.tg) / 20, // 민생 정책: 선거가 멀고, 신뢰가 우리보다 낮을수록(신뢰부터 다짐)
+      -0.4 + 0.8 * cl(-c.gap / 10, 0, 1) + 0.4 * c.camp - 2.5 * c.bf - baseCost(c.t), // 공세: 뒤질수록 하고 싶지만 역풍을 맞아 왔거나 지지층이 중도 쪽이면 접음
+      -0.2 + (c.seats < 20 ? 0.9 : 0) - 1.5 * c.seats / 300, // 연대: 작은 당
+      -1 + (c.hit <= 4 ? 2.5 : 0) + 3 * Math.max(0, c.bf - 0.5) + (c.pres && c.appr < 35 ? 0.8 : 0), // 몸 낮추기: 악재·역풍 직후, 인기 없는 대통령의 당
+    ];
   };
+  const rivalPolicy = c => { const z = rivalU(c), m = Math.max(...z), e = z.map(x => Math.exp(x - m)), s = e.reduce((a, b) => a + b, 0); return e.map(x => x / s); };
 
   // 행정 분야별 특기(숨은 값): apt = { care 돌봄·복지, safe 안전, biz 경제·일자리, dev 개발 }, 4분야 합 0 → 분야 역량(역량 + apt) 평균이 역량
   // 출신 직업 기본값(행마다 합 0) + 분야마다 정규 잡음(표준편차 6), ±20. 성향 st: −1 신중형 ~ +1 추진형(표준편차 0.5 + 직업 기울기)
@@ -294,6 +307,6 @@
   }
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, rivalFeat, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, bfRate, baseCost, atkU, rivalU, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

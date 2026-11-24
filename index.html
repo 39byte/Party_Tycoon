@@ -2050,30 +2050,50 @@ const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P',
 const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), leanOf(r)) * (1.5 - S.rtr[id][r.k] / 100));
 // 그 선거에 우리 후보가 그 지역에 나왔는지
 const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
-// 다른 당 주간 방침(L.POSTURES): 매주 L.rivalPolicy 확률로 고르되 절반은 지난 방침 유지. 방침은 아래 행동 확률만 바꾸고 효과 식은 그대로
+// 다른 당 주간 방침(L.POSTURES): 매주 L.rivalPolicy(선거 일정·격차·공세 기억·지지층) 확률로 고르되 절반은 지난 방침 유지. 방침은 아래 행동 확률만 바꾸고 효과 식은 그대로
 // RIV_MIX: 0이면 방침이 행동에 영향 없음, 1이면 POST_FX 그대로. POST_FX 배율: [선거운동 비중, 방송 광고, 네거티브 공세, 호재 보도, 실언]
 const RIV_MIX = +(/[?&]dev\b/.test(location.search) && location.search.match(/[?&]mix=([\d.]+)/)?.[1] || 0.6); // ?dev&mix=0: 밸런스 비교용
 const POST_FX = { campaign: [1.15, 1.25, 1, 1, 1], policy: [0.6, 0.8, 0.6, 1.4, 1], attack: [1, 1, 1.7, 0.8, 1.3], coalition: [0.9, 1, 0.4, 1.1, 1], lowkey: [0.8, 0.7, 0.4, 0.9, 0.5] };
 const POST_WIRE = { campaign: '선거 총력 체제 돌입', policy: '민생 정책 행보에 집중', attack: '공세 수위 끌어올려', coalition: '연대·협력 행보 강화', lowkey: '몸 낮추기… 당분간 말 아껴' };
 const postFx = (id, i) => 1 + RIV_MIX * ((POST_FX[S.rplan?.[id]?.k]?.[i] ?? 1) - 1);
-// ?dev: 방침 결정 상황을 쌓아 tools/jeff/collect.py가 가져감
-const JLOG = /[?&]dev\b/.test(location.search) ? [] : null;
+// 다른 당 공세 기억(L.bfRate): S.amem[사건 종류] = 우리가 그 사건에서 공세를 얼마나 되받아쳤나(모든 당이 봄), S.amem[당] = 그 당 공세 성적. [공세 수, 역풍 수], 매주 0.96배로 옅어짐
+const AM_DECAY = 0.96;
+const amem = k => ((S.amem ??= {})[k] ??= [0, 0]);
+const amAtk = (ev, id, s) => { amem(ev)[0] += s; amem(id)[0] += s; };
+const amBf = (ev, id, s) => { amem(ev)[1] += s; amem(id)[1] += s; };
+const amP0 = id => clamp(0.3 + tGap(id) / 100, 0.05, 0.8); // 사전 역풍 확률: 우리 신뢰가 그 당보다 높을수록 큼
+const rivBf = id => L.bfRate(S.amem?.[id], amP0(id));
+const tierNat = id => { const ts = R.map(r => S.rtier[id][r.k]); return ts[0].map((_, i) => sum(ts.map(t => t[i])) / ts.length); };
+// 사건 공세 [이득, 역풍 손해](지지율 %p쯤): 소속 정치인 논란, 억까, 검찰 고발. 방침 보정: 공세 방침이면 더 나서고 몸 낮추기면 덜
+const ATK_EV = { self: [1.2, 1.5], smear: [1, 1.2], accuse: [1.5, 2] }, POST_X = { attack: 0.3, policy: -0.1, lowkey: -0.4 };
+// 이번 사건에 누가 얼마나 세게 나설지: 당마다 L.atkU(역풍 확률은 우리가 그 사건에서 되받아친 기록)를 따져 가장 이득인 당이 나서고, 세기는 softmax.
+// 관계가 나쁠수록 더 나섬. full이면 맹공·침묵만(고발). 아무도 안 나서면 null, 나서면 { id, s: 0.5 논평 | 1 맹공 }
+function atkWho(ev, ids = TR_IDS, full = false) {
+  const [g, b] = ATK_EV[ev];
+  const cs = ids.map(id => { const u = L.atkU(g, b, L.bfRate(S.amem?.[ev], amP0(id)), tierNat(id), (POST_X[S.rplan?.[id]?.k] || 0) - (S.rel[id] || 0) / 200);
+    return { id, u: full ? [u[0], u[2]] : u, z: Math.max(...u) + rr(-0.1, 0.1) }; });
+  const c = cs.sort((x, y) => y.z - x.z)[0], i = L.softPick(c.u, rnd(), 0.2), s = full ? i : i / 2;
+  return s ? { id: c.id, s } : null;
+}
+// 사건 소식·본문의 공세 문구: 맹공 | 논평 | 침묵
+const atkSay = (a, hard, soft) => !a ? '다른 당들은 말 아껴' : `${pn(a.id)} ${a.s < 1 ? soft : hard}`;
+const atkBody = (a, hard, soft) => !a ? '다른 당들은 아직 말을 아끼지만 보도가 이어지며' : `${pn(a.id)}이(가) ${a.s < 1 ? soft : hard}`;
 const rivCtx = id => {
-  const e = nextElection(), sup = S.pub[id], old = S.hist[Math.max(0, S.hist.length - 5)]?.[id] ?? sup;
-  return { wk: e ? (e.day - S.day) / 7 : 52, type: e?.type || '', camp: Object.values(S.camps).some(inCampaign) ? 1 : 0, seats: seatTotal(id), sup, trend: sup - old,
-    gap: sup - Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => S.pub[x])), pres: S.president.party === id ? 1 : 0, appr: S.president.appr, hit: (S.day - (S.rhit?.[id] ?? -999)) / 7 };
+  const e = nextElection();
+  return { wk: e ? (e.day - S.day) / 7 : 52, camp: Object.values(S.camps).some(inCampaign) ? 1 : 0, seats: seatTotal(id), gap: S.pub[id] - Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => S.pub[x])),
+    pres: S.president.party === id ? 1 : 0, appr: S.president.appr, hit: (S.day - (S.rhit?.[id] ?? -999)) / 7, bf: rivBf(id), tg: tGap(id), t: tierNat(id) };
 };
 function rivPlan(id) {
-  const c = rivCtx(id), f = L.rivalFeat(c), p = L.rivalPolicy(f), pl = (S.rplan ??= {});
-  if (p && !(pl[id] && rnd() < 0.5)) {
+  const p = L.rivalPolicy(rivCtx(id)), pl = (S.rplan ??= {});
+  if (!(pl[id] && rnd() < 0.5)) {
     let x = rnd(); const k = L.POSTURES.find((_, i) => (x -= p[i]) < 0) || L.POSTURES[0];
     if (pl[id] && pl[id].k !== k) wire(`${pn(id)}, ${POST_WIRE[k]}`);
     pl[id] = { k, d: S.day };
   }
-  if (JLOG) JLOG.push({ id, ideo: RIV[id].ideo, ...c, f, k: pl[id]?.k });
 }
 function rivalWeek() {
   const camps = Object.values(S.camps).filter(inCampaign);
+  for (const k in S.amem || {}) S.amem[k] = S.amem[k].map(x => x * AM_DECAY);
   for (const id of TR_IDS) {
     rivPlan(id);
     if (!seatTotal(id) && rnd() < 0.25) continue; // 원외 정당은 가끔 쉼
@@ -2090,7 +2110,7 @@ function rivalWeek() {
     // 네거티브 공세: 우리 후보가 나온 지역 중 우리 몫이 그 당의 0.8배 이상인 곳
     for (const c of camps) {
       const hot = R.filter(r => myRun(c, r.k) && rivShare('P', r.k) >= 0.8 * rivShare(id, r.k));
-      if (!hot.length || rnd() >= 0.5 * postFx(id, 2)) continue;
+      if (!hot.length || rnd() >= 0.5 * postFx(id, 2) * clamp(1.3 - rivBf(id), 0.3, 1.2)) continue; // 공세가 역풍을 맞아 온 당은 덜 함
       const r = pick(hot);
       c.boost.reg[r.k] = Math.max(-0.15, (c.boost.reg[r.k] || 0) - 0.04); S.buzz -= 0.5; // 우리 유세가 없으면 마이너스까지
       relAdd(id, -1, `${r.n} 네거티브 공세`); wire(`${pn(id)}, ${r.n}서 ${S.party.name} 겨냥 네거티브 공세`);
@@ -2268,8 +2288,8 @@ const newsList = (ns = S.news) => ns.length ? `<ul class="news">${ns.map(n => `<
 // ---------- 수사·재판 (검찰 → 법원) ----------
 const later = (days, q) => S.later.push({ d: S.day + Math.round(days), q });
 // guilty: 실제로 한 일인지. mine: 우리가 고소·고발한 사건
-function openCase({ t, guilty, pen, mine, target, acc }) {
-  const c = { id: ++S.seq, d: S.day, t, guilty, pen, mine, target, acc, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
+function openCase({ t, guilty, pen, mine, target, acc, bf }) { // bf: 다른 당 공세를 되받아친 사건이면 그 공세 종류(기소되면 공세 기억에 역풍으로 남음)
+  const c = { id: ++S.seq, d: S.day, t, guilty, pen, mine, target, acc, bf, stage: 0, ev: mine ? (guilty ? rr(0.4, 0.75) : rr(0.03, 0.12)) : guilty ? rr(0.55, 0.85) : rr(0.08, 0.3) };
   S.cases.push(c);
   if (mine) later(rr(7, 14), { ev: 'case', id: c.id }); else S.queue.push({ ev: 'case', id: c.id });
   return c;
@@ -2296,7 +2316,7 @@ function caseStep(c) {
   if (c.mine) {
     close();
     const ok = rnd() < c.ev;
-    if (ok) { S.trust += 1; S.fame += 1; if (c.target) { S.rw[c.target] -= 4; trustAll(c.target, -3); } }
+    if (ok) { S.trust += 1; S.fame += 1; if (c.target) { S.rw[c.target] -= 4; trustAll(c.target, -3); if (c.bf) amBf(c.bf, c.target, 1); } }
     else if (c.target) S.trust -= 1.5;
     return info(ok ? '고소·고발 사건 기소' : '고소·고발 사건 불기소', ok ? `검찰이 '${c.t}' 사건 피고소인을 재판에 넘겼습니다.` : `검찰이 '${c.t}' 사건을 증거 불충분으로 불기소했습니다.${c.target ? ' 무리한 고발이었다는 비판이 나옵니다.' : ''}`, !ok);
   }
@@ -4259,8 +4279,6 @@ const presN = () => esc(presT());
 const hitPres = n => { apprAdd(-n * 1.5); if (!ruling()) S.rw[S.president.party] -= n; };
 const ET = {}; // 이벤트 사이에 넘길 임시값
 // ---------- 여론의 출렁임: 화제가 된 지역 소식 | 소속 정치인의 자율 행동 | '억까' 사건 ----------
-// 우리 당을 걸고넘어질 상대: 관계가 나쁠수록 잘 나섬(약간의 운)
-const attacker = () => ['A', 'B', 'C', 'D'].map(id => [id, S.rel[id] + rr(-25, 25)]).sort((a, b) => a[1] - b[1])[0][0];
 // 사소한 지역 소식도 20%는 화제가 됨 → 그 지역 단체장 소속 정당 지지율이 출렁임(sign: +1 호재, −1 악재). 화제가 되면 true
 function viral(k, t, sign) {
   if (rnd() > 0.2) return false;
@@ -4302,25 +4320,28 @@ function selfAct() {
     // 호재는 결정할 게 없으니 창을 띄우지 않고 알림·기록만
     addLog(`[소속 정치인 소식] ${t}. 우리 당 지지율에 호재입니다.`, 'ok'); toast(t, 'ok', '지지율 호재'); return;
   }
-  const t = pick(SELF_BAD[kind]).replace('{p}', who), att = attacker(), hit = rr(2.5, 5.5) * gapHit(att);
-  S.buzz -= hit; if (k) trustAt(k, -hit * 0.3); else S.trust -= hit * 0.3; S.rw[att] += 0.8; relAdd(att, -3, `${p.name} 논란 공세`); if (k && k in S.ops) opsAdd(k, -3);
-  wire(`${t}… ${pn(att)} "즉각 사퇴하라"`, k ? 'gov' : 'hall');
-  showEvent({ title: '소속 정치인 논란', body: () => `<div class="leader">${face(p, S.party.color, 56)}<div><b>${esc(p.name)}</b> <span class="pill">${esc(p.role)}</span><div class="small muted">역량 ${p.skill} | 청렴 ${p.integ}</div></div></div>${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(pn(att))}이(가) 즉각 사퇴를 요구하며 맹공에 나섰고, 우리 당 지지율이 흔들립니다.${esc(gapNote(att))}`,
+  // 다른 당은 우리가 이런 논란을 어떻게 받아쳐 왔는지 보고 맹공·논평·침묵을 고름(atkWho). 아무도 안 나서면 보도만으로 파장 절반
+  const t = pick(SELF_BAD[kind]).replace('{p}', who), a = atkWho('self'), att = a?.id, s = a?.s || 0, hit = rr(2.5, 5.5) * (att ? gapHit(att) : 1) * (0.5 + 0.5 * s);
+  S.buzz -= hit; if (k) trustAt(k, -hit * 0.3); else S.trust -= hit * 0.3; if (k && k in S.ops) opsAdd(k, -3);
+  if (att) { S.rw[att] += 0.8 * s; relAdd(att, -3 * s, `${p.name} 논란 공세`); amAtk('self', att, s); }
+  wire(`${t}… ${atkSay(a, '"즉각 사퇴하라"', '"진상 밝혀야"')}`, k ? 'gov' : 'hall');
+  showEvent({ title: '소속 정치인 논란', body: () => `<div class="leader">${face(p, S.party.color, 56)}<div><b>${esc(p.name)}</b> <span class="pill">${esc(p.role)}</span><div class="small muted">역량 ${p.skill} | 청렴 ${p.integ}</div></div></div>${esc(t)}. 당 지도부와 상의 없이 벌어진 일입니다. ${esc(atkBody(a, '즉각 사퇴를 요구하며 맹공에 나섰고,', '논평으로 진상 규명을 요구했고,'))} 우리 당 지지율이 흔들립니다.${esc(gapNote(att))}`,
     ch: [{ t: '즉각 사과하고 당직 정지', s: '파장 절반으로', run: () => { S.buzz += hit * 0.5; S.trust += 0.5; if (!p.temp) p.integ = clamp(p.integ + 10, 0, 100); return '빠른 사과로 불길이 잦아들었습니다.'; } },
-      { t: '"왜곡·짜깁기"라며 감싼다', s: '통하면 역공, 아니면 더 커짐 | 청렴할수록 유리', run: () => { if (vsLuck(clamp(0.1 + p.integ * 0.007, 0.1, 0.8), att)) { S.buzz += hit * 0.9; S.rw[att] -= 1; trustAll(att, -1); return '사건의 실체가 드러나며 상대 당 공세가 역풍을 맞았습니다.'; } S.buzz -= hit * 0.6; S.trust -= 1.5; return '감싸기가 "내로남불"로 번지며 파장이 커졌습니다.'; } },
+      { t: '"왜곡·짜깁기"라며 감싼다', s: `통하면 ${att ? '역공' : '진화'}, 아니면 더 커짐 | 청렴할수록 유리`, run: () => { if (vsLuck(clamp(0.1 + p.integ * 0.007, 0.1, 0.8), att)) { S.buzz += hit * 0.9; if (!att) return '해명이 받아들여지며 논란이 잦아들었습니다.'; S.rw[att] -= s; trustAll(att, -s); amBf('self', att, s); return '사건의 실체가 드러나며 상대 당 공세가 역풍을 맞았습니다.'; } S.buzz -= hit * 0.6; S.trust -= 1.5; return '감싸기가 "내로남불"로 번지며 파장이 커졌습니다.'; } },
       { t: '윤리위원회 징계 회부', s: `신뢰↑ | 당원 일부 반발${(S.ethics || []).filter(d => S.day - d < ETH_WIN).length >= ETH_MAX ? ' | 잦은 징계로 지지율↓' : ''}`, run: () => { S.buzz += hit * 0.6; S.trust += 1; for (const x in S.members) S.members[x] = Math.round(S.members[x] * 0.99);
         // 8주 안에 3번째 회부부터는 "당이 콩가루"라는 인상에 지지율 소폭 하락(넘친 만큼 1씩)
         S.ethics = [...(S.ethics || []).filter(d => S.day - d < ETH_WIN), S.day]; const over = S.ethics.length - ETH_MAX;
         if (over > 0) S.buzz -= over;
         return `당 윤리위가 징계에 착수했습니다. 일부 당원은 "너무 가혹하다"며 반발합니다.${over > 0 ? ` 최근 ${ETH_WIN / TURN}주 사이 ${S.ethics.length}번째 징계 회부라 "당이 내분으로 흔들린다"는 말이 돌며 지지율이 조금 내려갔습니다.` : ''}`; } },
-      { t: '상대 당 과거 사례로 맞불', s: '인지도↑ | 관계↓', run: () => { S.fame += 1; S.buzz += hit * 0.2; S.rw[att] -= 0.8; relAdd(att, -6, '맞불 폭로'); return '진흙탕 공방으로 번졌습니다. 양쪽 모두 상처를 입었습니다.'; } }] });
+      ...(att ? [{ t: '상대 당 과거 사례로 맞불', s: '인지도↑ | 관계↓', run: () => { S.fame += 1; S.buzz += hit * 0.2; S.rw[att] -= 0.8; relAdd(att, -6, '맞불 폭로'); amBf('self', att, 0.5 * s); return '진흙탕 공방으로 번졌습니다. 양쪽 모두 상처를 입었습니다.'; } }] : [])] });
 }
 const ETH_WIN = 8 * TURN, ETH_MAX = 2; // 징계 회부는 8주에 2번까지 괜찮음
 // '억까' 사건: 근거가 약해도 일단 퍼지면 지지율이 빠짐. 대응에 따라 회복하거나 역풍
 const SMEAR = (id, title, body) => ({ id, w: 2.5, cond: () => S.fame > 3, title,
-  pre: () => { ET.att = attacker(); ET.hit = rr(2, 5) * gapHit(ET.att); ET.title = title; S.buzz -= ET.hit; S.trust -= ET.hit * 0.2; relAdd(ET.att, -2, title); wire(`${title}… ${pn(ET.att)} 공세`); },
-  body: () => `${body()} ${esc(pn(ET.att))}이(가) 이를 받아 공세에 나섰고, 우리 당 지지율이 출렁입니다.${esc(gapNote(ET.att))}`,
-  ch: [{ t: '팩트체크 자료로 정면 반박', s: '통하면 회복, 아니면 더 번짐', run: () => { if (vsLuck(0.5, ET.att)) { S.buzz += ET.hit * 0.8; S.rw[ET.att] -= 0.5; trustAll(ET.att, -1); return '반박 자료가 퍼지며 오히려 상대 당이 머쓱해졌습니다.'; } S.buzz -= ET.hit * 0.4; return '반박이 논란을 더 키웠습니다. "해명이 더 수상하다"는 반응도 나옵니다.'; } },
+  pre: () => { const a = ET.a = atkWho('smear'); ET.att = a?.id; ET.hit = rr(2, 5) * (a ? gapHit(a.id) : 1) * (0.5 + 0.5 * (a?.s || 0)); ET.title = title; S.buzz -= ET.hit; S.trust -= ET.hit * 0.2;
+    if (a) { relAdd(a.id, -2 * a.s, title); amAtk('smear', a.id, a.s); } wire(`${title}… ${atkSay(a, '공세', '논평으로 거들어')}`); },
+  body: () => `${body()} ${esc(atkBody(ET.a, '이를 받아 공세에 나섰고,', '논평으로 거들었고,'))} 우리 당 지지율이 출렁입니다.${esc(gapNote(ET.att))}`,
+  ch: [{ t: '팩트체크 자료로 정면 반박', s: '통하면 회복, 아니면 더 번짐', run: () => { if (vsLuck(0.5, ET.att)) { S.buzz += ET.hit * 0.8; if (!ET.a) return '반박 자료가 퍼지며 논란이 잦아들었습니다.'; S.rw[ET.att] -= 0.5 * ET.a.s; trustAll(ET.att, -ET.a.s); amBf('smear', ET.att, ET.a.s); return '반박 자료가 퍼지며 오히려 상대 당이 머쓱해졌습니다.'; } S.buzz -= ET.hit * 0.4; return '반박이 논란을 더 키웠습니다. "해명이 더 수상하다"는 반응도 나옵니다.'; } },
     { t: '허위사실로 고소한다', s: '비용 1천만 | 결과는 몇 주 뒤', run: () => { spend(1e7, '법률 비용'); later(rr(30, 60), { ev: 'smearCourt', hit: ET.hit, t: ET.title }); return '고소장을 냈습니다. 결과는 몇 주 뒤 나옵니다.'; } },
     { t: '유머로 받아친다', s: '대박 아니면 쪽박', run: () => { if (vsLuck(0.4, ET.att)) { S.buzz += ET.hit * 1.3; S.fame += 1; return '재치 있는 대응이 밈이 되며 오히려 호감도가 올랐습니다.'; } S.buzz -= ET.hit * 0.5; S.trust -= 1; return '"상황 파악을 못 한다"는 비판이 쏟아졌습니다.'; } },
     { t: '대응하지 않는다', run: () => '무대응으로 일관했습니다. 논란은 시간이 지나야 잦아들 것 같습니다.' }] });
@@ -4362,11 +4383,12 @@ const EVENTS = [
       { t: '위성정당을 만든다', s: '비례 득표↑ 신뢰↓', run: () => { natCamp().sat = true; S.trust -= 6; return '위성정당을 창당했습니다. "민의 왜곡"이라는 비판이 쏟아집니다.'; } }] },
 
   // --- 국회·정부·사법과 얽히는 사건 ---
-  { id: 'accuse', w: 2, cond: () => S.phase === 'reg' && S.fame > 8, title: '경쟁 정당의 고발',
-    pre: () => { const o = ['A', 'B'].sort((a, b) => S.rel[a] - S.rel[b]); ET.id = rnd() < 0.7 ? o[0] : o[1]; relAdd(ET.id, -6, '우리 당을 검찰에 고발'); ET.real = S.risks.length && rnd() < 0.5 ? pick(S.risks) : null; ET.t = ET.real ? ET.real.label : pick(FAKE_CHARGES); },
+  // 고발할지는 거대 양당이 우리의 무고 맞고소 기록을 보고 정함(atkWho, 아무도 안 나서면 이 사건이 안 뜸)
+  { id: 'accuse', w: 2, cond: () => S.phase === 'reg' && S.fame > 8 && !!(ET.acc = atkWho('accuse', ['A', 'B'], true)), title: '경쟁 정당의 고발',
+    pre: () => { ET.id = ET.acc.id; amAtk('accuse', ET.id, 1); relAdd(ET.id, -6, '우리 당을 검찰에 고발'); ET.real = S.risks.length && rnd() < 0.5 ? pick(S.risks) : null; ET.t = ET.real ? ET.real.label : pick(FAKE_CHARGES); },
     body: () => `${RIV[ET.id].name}이 <b>'${esc(ET.t)}'</b> 의혹을 제기하며 우리 당을 검찰에 고발했습니다.`,
     ch: [{ t: '"근거 없는 정치 공세" 반박', run: () => { accuseOpen(); return '정면 반박했습니다. 이제 검찰의 시간입니다.'; } },
-      { t: '무고죄로 맞고소한다', s: '이기면 상대가 타격, 지면 역풍', run: () => { accuseOpen(); relAdd(ET.id, -15, '무고죄 맞고소'); openCase({ t: `${RIV[ET.id].name}의 무고`, guilty: !ET.real, mine: true, target: ET.id }); return '무고 혐의로 맞고소했습니다.'; } }] },
+      { t: '무고죄로 맞고소한다', s: '이기면 상대가 타격, 지면 역풍', run: () => { accuseOpen(); relAdd(ET.id, -15, '무고죄 맞고소'); openCase({ t: `${RIV[ET.id].name}의 무고`, guilty: !ET.real, mine: true, target: ET.id, bf: 'accuse' }); return '무고 혐의로 맞고소했습니다.'; } }] },
   { id: 'rivalscandal', w: 3, cond: () => true, title: '경쟁 정당 비리 의혹', pre: () => { ET.id = pick(['A', 'B']); trustAll(ET.id, -2.5); ET.f = pick(S.figs.filter(f => f.party === ET.id && (f.pos === 'd' || f.pos === 'pr')).sort((a, b) => b.age - a.age).slice(0, 10)) || null; },
     side: () => ET.f ? '<h3>의혹 당사자</h3>' + evProf(ET.f, pc(ET.id), [`${pn(ET.id)} | ${ET.f.pos === 'd' ? `${RK[ET.f.k].n} 지역구` : '비례대표'} 국회의원`, `출신 직업: ${ET.f.job}`]) + evTalk(ET.f.id) : '',
     body: () => `${RIV[ET.id].name} 중진 ${ET.f ? `<b>${esc(ET.f.name)}</b> ` : ''}의원의 공천헌금 의혹이 터졌습니다.`,

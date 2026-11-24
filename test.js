@@ -107,16 +107,24 @@ assert(tc.A[3] + tc.A[4] >= tc.B[0] + tc.C[0] - 0.01 && tc.B[3] + tc.B[4] >= tc.
 const same = { B: [0.3, 0.3, 0.3, 0.05, 0.05], C: [0.3, 0.3, 0.3, 0.05, 0.05] };
 assert.deepStrictEqual(L.tierCross(same, IDEO), same); // 같은 진영끼리는 그대로
 
-// 다른 당 주간 방침: 가중치 없으면 null(예전 행동). 있으면 확률 합 1, 선거 2주 전 열세면 선거 먼 때보다 유세·공세 쪽, 정책은 덜
-const rc = o => L.rivalFeat({ wk: 40, camp: 0, seats: 120, sup: 28, trend: 0, gap: -3, pres: 0, appr: 40, hit: 99, ...o });
-const near = rc({ wk: 2, camp: 1, trend: -2 }), far = rc({});
-assert.strictEqual(L.rivalPolicy(near, null), null);
-const pNear = L.rivalPolicy(near), pFar = L.rivalPolicy(far), pi = k => L.POSTURES.indexOf(k);
-if (pNear) {
-  assert(Math.abs(pNear.reduce((a, b) => a + b) - 1) < 1e-9);
-  assert(pNear[pi('campaign')] + pNear[pi('attack')] > pFar[pi('campaign')] + pFar[pi('attack')]);
-  assert(pFar[pi('policy')] > pNear[pi('policy')]);
-}
+// 공세 기억: 기록이 없으면 사전값, 되받아친 기록이 쌓일수록 역풍 확률↑
+assert.strictEqual(L.bfRate(undefined, 0.3), 0.3);
+assert(L.bfRate([3, 3], 0.3) > 0.7 && L.bfRate([3, 0], 0.3) < 0.15);
+// 사건 공세 효용 [침묵, 논평, 맹공]: 침묵은 0, 역풍 확률이 낮으면 맹공, 애매하면 논평, 높으면 침묵이 최선. 충성층이 두꺼우면 공세 효용↑
+const TA = [0.15, 0.2, 0.3, 0.15, 0.2], TC = [0.04, 0.12, 0.6, 0.16, 0.08], best = u => u.indexOf(Math.max(...u));
+assert.strictEqual(L.atkU(1.2, 1.5, 0.2, TA)[0], 0);
+assert.strictEqual(best(L.atkU(1.2, 1.5, 0.2, TA)), 2);
+assert.strictEqual(best(L.atkU(1.2, 1.5, 0.45, TA)), 1);
+assert.strictEqual(best(L.atkU(1.2, 1.5, 0.75, TA)), 0);
+assert(L.atkU(1.2, 1.5, 0.3, TA)[2] > L.atkU(1.2, 1.5, 0.3, TC)[2]);
+// 다른 당 주간 방침: 확률 합 1 | 선거 2주 전이면 먼 때보다 유세↑ 정책↓ | 공세가 역풍을 맞아 왔으면 공세↓ 몸 낮추기↑ | 뒤질수록 공세↑
+const rc = o => ({ wk: 40, camp: 0, seats: 120, gap: -3, pres: 0, appr: 40, hit: 99, bf: 0.3, tg: 0, t: TA, ...o });
+const pi = k => L.POSTURES.indexOf(k), pol = o => L.rivalPolicy(rc(o));
+const pNear = pol({ wk: 2, camp: 1 }), pFar = pol({}), pBf = pol({ bf: 0.8 }), pBehind = pol({ gap: -10 });
+assert(Math.abs(pNear.reduce((a, b) => a + b) - 1) < 1e-9);
+assert(pNear[pi('campaign')] > pFar[pi('campaign')] && pFar[pi('policy')] > pNear[pi('policy')]);
+assert(pBf[pi('attack')] < pFar[pi('attack')] / 2 && pBf[pi('lowkey')] > pFar[pi('lowkey')]);
+assert(pBehind[pi('attack')] > pFar[pi('attack')]);
 
 // 행정 특기: 4분야 합 ≈ 0(분야 역량 평균 = 역량), ±20 안, 직업 경향(의사는 돌봄, 장성은 안전이 평균적으로 가장 높음), 성향 −1~1
 { let s = 7; const u = () => (s = (s * 16807) % 2147483647) / 2147483647, g = () => Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u());
