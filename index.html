@@ -102,7 +102,7 @@ main{padding:18px;min-width:0}
 .grid{display:grid;gap:14px;grid-template-columns:repeat(3,minmax(0,1fr))}
 .span-2{grid-column:span 2} .span-3{grid-column:1/-1}
 /* 좌우 분할: 한 칸이 360px보다 좁아지면 한 줄로 쌓임 */
-.stack{display:flex;flex-direction:column;gap:14px;min-width:0} .stack>.card{margin-top:0!important}
+.stack{display:flex;flex-direction:column;gap:14px;min-width:0} .stack>.card{margin-top:0!important;margin-bottom:0!important}
 @media (max-width:900px){.home>.stack{display:contents}}
 .split{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(min(360px,100%),1fr));align-items:start;container-type:inline-size}
 /* 좌우로 나뉠 만큼 넓을 때만(360×2+14) 오른쪽 칸이 스크롤을 따라옴. 상단바 높이(--top-h)는 JS가 맞춤. 화면보다 길면 칸 안에서 스크롤 */
@@ -5700,7 +5700,7 @@ function pElec() {
   const RES_CAT = [['pres', '대통령선거'], ['nat', '국회의원선거'], ['gov', '전국동시지방선거'], ['bye', '보궐선거']];
   const rows = S.results.map((r, i) => [r, i]).filter(([r]) => resOf(r) === resCat);
   html += `<div class="card" style="margin-top:14px"><h2>지난 선거 결과</h2>${S.results.length ? `<div class="filters chips" role="group" aria-label="선거 종류">${RES_CAT.map(([k, n]) => `<button class="btn${resCat === k ? ' pri' : ''}" data-rescat="${k}" aria-pressed="${resCat === k}">${n} <span class="num">${S.results.filter(r => resOf(r) === k).length}</span></button>`).join('')}</div>${rows.length ? `<ul class="log">${rows.map(([r, i]) => `<li><time>${fdate(r.d)}</time><span style="flex:1">${esc(r.t)}${r.joint ? ` <span class="small muted">(${esc(r.joint)}와 같은 날)</span>` : ''}</span><button class="btn" data-res="${i}">상세 보기</button></li>`).reverse().join('')}</ul><p class="tip">'상세 보기'로 선거구별 출마자 프로필과 득표율을 볼 수 있습니다.</p>` : '<p class="empty">이 종류의 선거는 아직 치르지 않았습니다.</p>'}` : '<p class="empty">아직 치른 선거가 없습니다.</p>'}</div>`;
-  return html;
+  return `<div class="stack">${html}</div>`;
 }
 // 공천 현황: 출마는 하지만 아직 공천 전인 자리는 빈 프로필. 총선은 지역을 골라 당별로, 지방선거는 시·도별로(우리 당 포함). 5칸씩 쪽 넘김
 let rvReg = 'seoul';
