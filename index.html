@@ -4500,7 +4500,8 @@ const EVENTS = [
     ch: [{ t: '중도 빅텐트를 선언한다', s: '화제성↑', run: () => { S.buzz += 3; S.fame += 2; return '"양당 기득권 타파" 깃발을 들었습니다.'; } },
       { t: '독자 노선을 지킨다', s: '신뢰↑', run: () => { S.trust += 1.5; return '정책으로 승부하겠다고 밝혔습니다.'; } }] },
   { id: 'young', w: 1.2, cond: () => S.pool.length < POOL_MAX, title: '청년 정치인 돌풍', pre: () => { ET.p = genPerson({ age: 33, fameAdd: 25 }); ET.p.skill = Math.max(ET.p.skill, 72); },
-    body: () => `토론 배틀 프로그램에서 우승한 30대 <b>${esc(ET.p.name)}</b>(인지도 ${ET.p.fame}, 역량 ${ET.p.skill})가 화제입니다. 입당 의사를 타진해 왔습니다.`,
+    side: () => joinSide(ET.p),
+    body: () => `토론 배틀 프로그램 우승자 <b>${esc(ET.p.name)}</b>이(가) 입당 의사를 타진해 왔습니다.`,
     ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); S.fame += 2; return `${ET.p.name} 영입! 청년층 반응이 뜨겁습니다.`; } },
       { t: '아직 이르다', run: () => '정중히 사양했습니다.' }] },
   { id: 'fandom', w: 1.2, cond: () => totalMembers() > 20000, title: '강성 지지층 문자 폭탄',
@@ -4529,7 +4530,7 @@ const EVENTS = [
 
   // --- 당 운영 ---
   { id: 'celeb', w: 2, cond: () => S.pool.length < POOL_MAX, title: '유명인 입당 의사', pre: () => { ET.p = genPerson({ fameAdd: 40 }); },
-    side: () => { const p = ET.p; return '<h3>입당 희망자</h3>' + evProf(p, '#64748B', [`${p.gender === 'F' ? '여' : '남'} | ${p.age}세 | ${homeTxt(p)}`, `출신 직업: ${p.job}`, `전과: ${p.rec.length ? p.rec.join(', ') : '없음'}`]); },
+    side: () => joinSide(ET.p),
     body: () => `${esc(ET.p.job)} 출신 <b>${esc(ET.p.name)}</b>이(가) 입당 의사를 밝혔습니다.`,
     ch: [{ t: '영입한다', s: '인재풀 추가', run: () => { S.pool.push(ET.p); lateRec(ET.p, ET.p.job); S.fame += 2; return `${ET.p.name} 영입!`; } },
       { t: '정중히 사양', run: () => '입당을 보류했습니다.' }] },
@@ -4882,6 +4883,7 @@ function randomEvent() {
 const abTalk = fid => fid == null ? [] : talkers().flatMap(m => (m.talk || []).filter(x => x.ab === fid).map(x => ({ ...x, who: m.name }))).sort((a, b) => b.d - a.d);
 const evTalk = fid => { const xs = abTalk(fid); return `<h3 style="margin-top:14px">들은 인물평</h3>${xs.length ? `<ul class="log">${xs.map(x => `<li><time>${fdate(x.d)}</time><span>${esc(x.t)} <span class="small muted">${esc(x.who)}</span></span></li>`).join('')}</ul>` : '<p class="small muted">아직 들은 인물평이 없습니다. 교섭 탭 친분 쌓기 자리에서 들을 수 있습니다.</p>'}`; };
 const evProf = (p, col, aff) => `<div class="pcard"><div class="who">${face(p, col, 56)}<div><h3>${esc(p.name)}</h3><div class="small muted">${aff.filter(Boolean).map(esc).join(' | ')}</div></div></div>${p.skill != null ? statBars(p, false) : ''}</div>`;
+const joinSide = p => '<h3>입당 희망자</h3>' + evProf(p, '#64748B', [`${p.gender === 'F' ? '여' : '남'} | ${p.age}세 | ${homeTxt(p)}`, `출신 직업: ${p.job}`, `전과: ${p.rec.length ? p.rec.join(', ') : '없음'}`]);
 let evCard = ''; // 선택 결과 창에 덧붙일 인물 프로필(run이 채움)
 function showEvent(e) {
   if (e.pre) e.pre();
