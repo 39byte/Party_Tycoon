@@ -4973,7 +4973,7 @@ async function qrSend() {
     const id = (await res.json()).attachment.url.split('/file/')[1];
     const base = location.protocol.startsWith('http') ? location.origin + location.pathname : 'https://39byte.github.io/Party_Tycoon/';
     const link = `${base}#qr=${id}.${b64u(raw)}`;
-    if (!window.qrcode) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js'; s.onload = ok; s.onerror = no; document.head.append(s); });
+    if (!window.qrcode) await new Promise((ok, no) => { const s = document.createElement('script'); s.src = 'qrcode.min.js'; s.onload = ok; s.onerror = no; document.head.append(s); });
     const q = qrcode(0, 'M'); q.addData(link); q.make();
     openModal({ title: 'QR로 보내기', html: `<p>받을 기기의 카메라로 QR을 찍어 링크를 여세요. 컴퓨터나 홈 화면 앱으로 받을 때는 아래 링크를 그 기기의 설정 → '링크로 받기'에 붙여 넣으세요.</p>
       <div style="background:#fff;padding:12px;border-radius:8px;width:min(260px,100%);margin:12px auto">${q.createSvgTag({ cellSize: 6, margin: 0, scalable: true })}</div>
@@ -5020,7 +5020,7 @@ async function pickSaveDir() {
 async function saveToDir() {
   if (!saveDir || !S) return;
   try {
-    if (await saveDir.queryPermission({ mode: 'readwrite' }) !== 'granted') return;
+    if (await saveDir.queryPermission({ mode: 'readwrite' }) !== 'granted') return toast('폴더 쓰기 권한이 없어 저장하지 못했습니다. 설정에서 폴더를 다시 고르세요.', 'sys', '폴더 자동 저장 실패');
     const name = saveName(new Date().toISOString()), dir = await saveDir.getDirectoryHandle(fsSafe(S.party.name), { create: true }); // 정당별 하위 폴더
     const w = await (await dir.getFileHandle(name, { create: true })).createWritable();
     await w.write(JSON.stringify(S)); await w.close();
@@ -6304,7 +6304,7 @@ function applyView() {
 }
 const SET_TABS = [['gfx', '그래픽'], ['snd', '사운드'], ['play', '게임플레이'], ['key', '단축키'], ['save', '저장']];
 const KEY_ROWS = [['end', '턴 종료', '행동력을 다 쓴 뒤 다음 주로 넘깁니다.'], ['c1', '선택지 1', '팝업의 첫 번째 선택지'], ['c2', '선택지 2', '두 번째 선택지'], ['c3', '선택지 3', '세 번째 선택지'], ['c4', '선택지 4', '네 번째 선택지']];
-const KEY_BAD = ['Escape', 'Tab', 'Enter', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Process', 'Dead', 'Unidentified', 'HangulMode', 'HanjaMode'];
+const KEY_BAD = ['F11', 'Escape', 'Tab', 'Enter', 'Shift', 'Control', 'Alt', 'Meta', 'CapsLock', 'Process', 'Dead', 'Unidentified', 'HangulMode', 'HanjaMode'];
 let setTab = 'gfx';
 function settingsModal() {
   Snd.sfx('click');
@@ -6351,7 +6351,7 @@ function settingsModal() {
           e.preventDefault(); e.stopImmediatePropagation();
           document.removeEventListener('keydown', on, true); b.classList.remove('wait');
           if (e.key === 'Escape') return keyLabels();
-          if (KEY_BAD.includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) { keyLabels(); return toast('Esc·Tab·Enter와 조합키(Ctrl 등)는 단축키로 쓸 수 없습니다.', 'bad', '단축키'); }
+          if (KEY_BAD.includes(e.key) || e.ctrlKey || e.metaKey || e.altKey) { keyLabels(); return toast('F11·Esc·Tab·Enter와 조합키(Ctrl 등)는 단축키로 쓸 수 없습니다.', 'bad', '단축키'); }
           const k = e.key.length === 1 ? e.key.toLowerCase() : e.key, me = b.dataset.kb, other = Object.keys(s.keys).find(x => x !== me && s.keys[x].toLowerCase() === k);
           if (other) s.keys[other] = s.keys[me];
           s.keys[me] = k; Snd.saveSet(); keyLabels();
