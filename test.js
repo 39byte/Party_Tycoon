@@ -40,6 +40,7 @@ assert(cad.every(e => L.dayToDate(e.day).getUTCDay() === 3));
 assert.strictEqual(cad[0].day, 367); // 새 게임 첫 총선(시작 365일째 이후 첫 수요일)
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
 assert.strictEqual(Math.round(L.REGIONS.reduce((a, r) => a + r.voters * 1e6, 0)), L.LAW.voters);
+for (const r of L.REGIONS) assert.strictEqual(r.dists.length, r.seats, `${r.n} 선거구 수`); // 22대 국회 선거구: 지역마다 의석수만큼
 
 assert.deepStrictEqual(L.hare(5, [1, 1, 1]), [2, 2, 1]);
 
