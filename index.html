@@ -2694,7 +2694,7 @@ function talkModal() {
       win: () => { relAdd(pr, -6, '영수회담 쇄신 요구'); S.fame += 2; S.buzz += 0.5; S.trust += 2; hitPres(2.5); return '대통령이 일부 요구를 받아들였습니다. 야당 대표의 존재감이 커졌습니다.'; },
       lose: () => { relAdd(pr, -6, '영수회담 쇄신 요구'); S.fame += 2; S.trust -= 1; hitPres(1); return '설전만 벌이다 끝났습니다. 화제는 됐지만 "보여 주기"라는 비판도 있습니다.'; } },
   };
-  openModal({ title: '영수회담 제안', html: `<p>${presN()}에게 회담을 제안합니다. 행동력 1을 쓰고, 수락 가능성은 <b class="num">${Math.round(talkOdds() * 100)}%</b>입니다. 어떤 의제로 만날까요?</p><div class="choices">${Object.keys(T).map(k => `<button class="btn" data-talk="${k}" ${T[k].off ? 'disabled' : ''}>${T[k].t}<small>${esc(T[k].d)}</small></button>`).join('')}</div>`,
+  openModal({ title: '영수회담 제안', img: '', html: `<p>${presN()}에게 회담을 제안합니다. 행동력 1을 쓰고, 수락 가능성은 <b class="num">${Math.round(talkOdds() * 100)}%</b>입니다. 어떤 의제로 만날까요?</p><div class="choices">${Object.keys(T).map(k => `<button class="btn" data-talk="${k}" ${T[k].off ? 'disabled' : ''}>${T[k].t}<small>${esc(T[k].d)}</small></button>`).join('')}</div>`,
     buttons: [{ t: '취소' }], onOpen: m => m.querySelectorAll('[data-talk]').forEach(b => b.onclick = () => {
       const x = T[b.dataset.talk];
       S.ap--; S.cd.yeongsu = S.day + 90; closeModal();
