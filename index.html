@@ -2547,7 +2547,7 @@ function accuseModal(keep) {
     onOpen: m => {
       const box = m.querySelector('[data-acc]');
       const draw = () => {
-        const list = ts.filter(t => t.grp === st.g).map(t => { const hs = accHints(t); return { ...t, hs, n: hs.filter(h => !h.pty).length }; }).sort((x, y) => y.n - x.n || x.party.localeCompare(y.party));
+        const list = ts.filter(t => t.grp === st.g).map(t => { const hs = accHints(t); return { ...t, hs, n: hs.length, np: hs.filter(h => !h.pty).length }; }).sort((x, y) => y.np - x.np || y.n - x.n || x.party.localeCompare(y.party)); // 당 차원 소문도 의심 목록에 넣되, 그 사람 얘기가 있는 쪽을 위로
         if (!list.some(t => t.key === st.key)) { st.key = list[0]?.key || ''; st.ch = null; }
         const t = list.find(x => x.key === st.key), hs = t?.hs || [];
         st.ch ??= (ks => ks.length ? ks : [CHARGES[0].k])([...new Set(hs.map(h => refCharge(h.ref)?.k).filter(Boolean))]); // 들은 얘기가 가리키는 죄목을 모두 골라 둠
