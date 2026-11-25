@@ -6685,7 +6685,9 @@ function tutStep(d) {
 }
 function tutSkip() {
   const s = S.tut, [a] = tutAt();
-  if (s.seq === 'main' && a === 'seq') { s.off = true; s.q = []; toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(${endKey()})를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작'); }
+  if (s.seq === 'main' && a === 'seq') { s.off = true; s.q = [];
+    if (!S.pool.some(p => p.name === '한지원')) { const p = Object.assign(genPerson({}), { name: '한지원', gender: 'M', age: 21, job: '연구자', home: 'gyeonggi', fame: 10, skill: 55, integ: 60, rec: [], ban: false, free: 1 }); S.pool.push(p); addLog('한지원(연구자) 영입 완료', 'ok'); renderAll(); }
+    toast(`매 턴(1주) 행동력 ${AP}만큼 활동하고 '턴 종료'(${endKey()})를 누르세요. 막히면 '가이드' 탭을 보세요.`, 'sys', '게임 시작'); }
   s[a] = null; save(); tutTick();
 }
 let tutKey = '', tutTgt = null;
