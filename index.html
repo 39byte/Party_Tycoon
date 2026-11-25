@@ -2380,7 +2380,7 @@ function info(title, text, bad) {
   infoT = { title, bad };
   S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
   addLog(`[${title}] ${text}`, bad ? 'bad' : 'ok'); Snd.sfx(bad ? 'bad' : 'ok');
-  openModal({ title, html: text.split('\n\n').map((t, i) => `<p${i ? ' style="margin-top:12px"' : ''}>${esc(t)}</p>`).join(''), buttons: [{ t: '확인', pri: true }] }); // 빈 줄(\n\n)은 문단 나눔
+  openModal({ title, img: '', html: text.split('\n\n').map((t, i) => `<p${i ? ' style="margin-top:12px"' : ''}>${esc(t)}</p>`).join(''), buttons: [{ t: '확인', pri: true }] }); // 빈 줄(\n\n)은 문단 나눔
 }
 // 사건 한 단계 진행. 끝난 사건(불기소·판결)은 법원 탭 수사 내역에 남김(최근 30건)
 const caseKind = c => c.acc ? '우리가 고발' : c.mine ? '우리가 고소' : '피고발';
