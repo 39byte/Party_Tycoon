@@ -321,6 +321,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .modal>h2{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;font-size:18px;margin:0 -20px 14px;padding:14px 20px;background:var(--hud);color:var(--on-hud);border-bottom:2px solid var(--gold2)}
 .modal>h2 .info{color:var(--on-hud-muted);border-color:var(--on-hud-muted)}
 .modal>h2 .info:hover,.modal>h2 .info:focus-visible{color:var(--gold);border-color:var(--gold)}
+.modal>.pimg{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;margin:0 0 14px;background:var(--surface2)}
 .modal>h2::before{content:"";width:10px;height:10px;flex:none;transform:rotate(45deg);background:var(--gold)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}}
 @keyframes fade{from{opacity:0}}
@@ -5048,11 +5049,11 @@ function processQueue() {
 function gameOver(title, text) {
   S.over = { title, text }; left = 0; turnStart = null; save(); Snd.sfx('bad');
   addLog(`게임 종료: ${title}`, 'bad');
-  openModal({ title, dismiss: false, html: `<p>${esc(text)}</p><p class="muted small">${fdate(S.day)} | 지난 소식과 기록은 '소식' 탭에서 볼 수 있습니다.</p>`, buttons: [{ t: '새 게임', pri: true, fn: () => newGameModal() }, { t: '소식 보기', fn: () => { tab = 'log'; renderAll(); } }] });
+  openModal({ title, img: 'game_over', dismiss: false, html: `<p>${esc(text)}</p><p class="muted small">${fdate(S.day)} | 지난 소식과 기록은 '소식' 탭에서 볼 수 있습니다.</p>`, buttons: [{ t: '새 게임', pri: true, fn: () => newGameModal() }, { t: '소식 보기', fn: () => { tab = 'log'; renderAll(); } }] });
 }
 function ending() {
   S.ended = true; save();
-  openModal({ title: '집권 성공!', html: `<p><b>${esc(S.party.name)}</b>이(가) 창당 ${Math.floor(S.day / 365)}년 ${Math.floor(S.day % 365 / 30)}개월 만에 대통령을 배출했습니다.</p><p>국회 ${seatTotal('P')}석 | 광역단체장 ${govCount('P')}곳 | 당원 ${totalMembers().toLocaleString()}명</p><p class="muted">계속 플레이하며 과반 의석과 재집권에 도전할 수 있습니다.</p>`, buttons: [{ t: '계속하기', pri: true }] });
+  openModal({ title: '집권 성공!', img: 'ending_victory', html: `<p><b>${esc(S.party.name)}</b>이(가) 창당 ${Math.floor(S.day / 365)}년 ${Math.floor(S.day % 365 / 30)}개월 만에 대통령을 배출했습니다.</p><p>국회 ${seatTotal('P')}석 | 광역단체장 ${govCount('P')}곳 | 당원 ${totalMembers().toLocaleString()}명</p><p class="muted">계속 플레이하며 과반 의석과 재집권에 도전할 수 있습니다.</p>`, buttons: [{ t: '계속하기', pri: true }] });
 }
 const ACHS = [
   ['found', '정식 정당 등록', () => S.phase === 'reg'], ['m10k', '당원 1만 명', () => totalMembers() >= 1e4],
@@ -5206,11 +5207,20 @@ async function slotsModal() {
 // ---------- 모달·토스트 ----------
 let modalOpener = null;
 const setBgInert = on => document.querySelectorAll('#top,.app').forEach(e => e.toggleAttribute('inert', on)); // 모달 뒤 화면은 키보드·포인터·스크린리더 모두 막음
-function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpen, tut }) {
+// 팝업 배너 그림(asset/popup/): 제목에 맞는 첫 항목. img를 직접 주면 그게 우선, img: '' 이면 그림 없음
+const POP_IMG = [
+  [/TV 토론/, 'pres_debate'], [/^집권 성공/, 'ending_victory'], [/헌법재판소/, 'impeachment_court'], [/비상계엄/, 'martial_law'],
+  [/촛불|탄핵소추/, 'candlelight_rally'], [/단일화|합당/, 'coalition_handshake'],
+  [/검찰|전직 대통령 수사|^고발장 제출/, 'prosecution'], [/유죄|무죄|법원 판단|당선무효/, 'court_verdict'],
+  [/음주운전|부동산 투기|갑질|논문 표절|막말|성비위|특혜|유용 의혹|이해충돌|비리|가짜뉴스/, 'press_scandal'],
+  [/국정감사|필리버스터|회의장 점거|인사청문회|예산안|본회의 표결/, 'assembly_session'], [/대통령 정책 발표|공포 또는 거부권|영수회담/, 'presidential_briefing'],
+];
+function openModal({ title, tip, html, buttons = [], wide, dismiss = true, onOpen, tut, img }) {
   if (!modalOpen) modalOpener = document.activeElement;
   modalOpen = true; setBgInert(true);
   const root = $('#modalRoot');
-  root.innerHTML = `<div class="scrim"><div class="modal ${wide ? 'wide' : ''} ${wide === 'x' ? 'xwide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${esc(title)}${tip ? infoTip(tip) : ''}</h2><div>${html}</div>${buttons.length ? `<div class="btns" style="margin-top:16px;justify-content:flex-end">${buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''}" data-b="${i}">${esc(b.t)}</button>`).join('')}</div>` : ''}</div></div>`;
+  img ??= POP_IMG.find(([re]) => re.test(title))?.[1];
+  root.innerHTML = `<div class="scrim"><div class="modal ${wide ? 'wide' : ''} ${wide === 'x' ? 'xwide' : ''}" role="dialog" aria-modal="true" aria-labelledby="mt"><h2 id="mt">${esc(title)}${tip ? infoTip(tip) : ''}</h2>${img ? `<img class="pimg" src="asset/popup/${img}.jpg" alt="">` : ''}<div>${html}</div>${buttons.length ? `<div class="btns" style="margin-top:16px;justify-content:flex-end">${buttons.map((b, i) => `<button class="btn ${b.pri ? 'pri' : ''}" data-b="${i}">${esc(b.t)}</button>`).join('')}</div>` : ''}</div></div>`;
   const m = root.querySelector('.modal');
   root.querySelectorAll('[data-b]').forEach(b => b.onclick = () => { const bt = buttons[+b.dataset.b]; Snd.sfx('click'); closeModal(); if (bt.fn) bt.fn(); });
   if (dismiss) root.querySelector('.scrim').onclick = ev => { if (ev.target === ev.currentTarget) closeModal(); };
