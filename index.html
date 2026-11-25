@@ -3934,7 +3934,7 @@ function doAct(key, k) {
     const n = Math.round((200 + 150 * rnd()) * popMul(k) * (1 + regSupport(k) / 5) * (S.up.academy ? 1.3 : 1) * (k === S.party.home ? 1.2 : 1));
     S.members[k] += n; msg = `${RK[k].n}에서 당원 ${n.toLocaleString()}명이 입당했습니다.`;
   } else if (key === 'volunteer') {
-    const n = Math.round(rr(40, 140)); S.members[k] += n; trustAt(k, 0.8); S.fame += 0.3;
+    const n = Math.round(rr(40, 140) * popMul(k)); S.members[k] += n; trustAt(k, 0.8); S.fame += 0.3;
     msg = `${RK[k].n} 봉사활동: 신뢰 상승, 당원 ${n}명 입당.`;
   } else if (key === 'chapter') {
     S.chapters[k] = true; msg = `${RK[k].n}도당(시당) 창당대회 개최, 선관위 등록 완료. (${Object.keys(S.chapters).length}/5)`;
