@@ -321,7 +321,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .modal>h2{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:10px;font-size:18px;margin:0 -20px 14px;padding:14px 20px;background:var(--hud);color:var(--on-hud);border-bottom:2px solid var(--gold2)}
 .modal>h2 .info{color:var(--on-hud-muted);border-color:var(--on-hud-muted)}
 .modal>h2 .info:hover,.modal>h2 .info:focus-visible{color:var(--gold);border-color:var(--gold)}
-.modal>.pimg{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:10px;margin:0 0 14px;background:var(--surface2)}
+.modal>.pimg{display:block;width:100%;aspect-ratio:1376/256;object-fit:cover;border-radius:10px;margin:0 0 14px;background:var(--surface2)}
 .modal>h2::before{content:"";width:10px;height:10px;flex:none;transform:rotate(45deg);background:var(--gold)}
 @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}}
 @keyframes fade{from{opacity:0}}
@@ -5024,7 +5024,7 @@ function showEvent(e) {
       evCard = ''; const msg = ch[+b.dataset.c].run(), card = evCard; evCard = '';
       S.trust = clamp(S.trust, 0, 100); S.fame = clamp(S.fame, 0, 100);
       addLog(`[${e.title}] ${msg}`); Snd.sfx('click');
-      openModal({ title: e.title, html: `<p>${msg}</p>${card}`, buttons: [{ t: '확인', pri: true }] });
+      openModal({ title: e.title, img: '', html: `<p>${msg}</p>${card}`, buttons: [{ t: '확인', pri: true }] });
       renderAll();
     }),
   });
