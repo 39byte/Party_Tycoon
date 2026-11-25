@@ -1575,6 +1575,8 @@ function ballots(e, t, v, inv) {
 const regVoters = r => Math.round(r.voters * 1e6);
 // 총선 지역구 i: 이름(22대 국회 선거구) | 선거인(지역 선거인을 22대 총선 선거인 비율로 나눔)
 const distN = (k, i) => RK[k].dists[i][0];
+// 지역 이름을 붙인 선거구 이름. 전남광주의 광주 선거구는 이름에 이미 '광주'가 있어 그대로
+const distFull = (k, i) => /^광주 /.test(distN(k, i)) ? distN(k, i) : `${RK[k].n} ${distN(k, i)}`;
 const distE = (r, i) => Math.round(regVoters(r) * r.dists[i][1] / sum(r.dists.map(d => d[1])));
 // 우리 후보는 등록 때 복사본 대신 인재풀의 지금 능력치(인재풀에 없으면 복사본)
 const live = x => x && (person(x.id) || x);
@@ -1612,7 +1614,7 @@ function simGeneral(c) {
       if (!slot) { if (rnd() < 0.35) ids.push('C'); if (rnd() < 0.35) ids.push('D'); if (rnd() < 0.5) ids.push('O'); }
       const cand = mine[i], mods = natMods(c, r, i, slot, ids);
       const { v, win } = shareRace(r.k, ids, mods), b = ballots(e, to[r.k], v, LAW.invalid.nat);
-      seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ k: r.k, n: `${r.n} ${distN(r.k, i)}`, e, t: to[r.k], bad: b.bad, c: raceRow(ids, v, slot, cand, b) });
+      seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ k: r.k, n: distFull(r.k, i), e, t: to[r.k], bad: b.bad, c: raceRow(ids, v, slot, cand, b) });
       if (win !== 'P') wins.push({ k: r.k, fid: slot?.[win]?.fid });
       if (cand) pDist.push({ k: r.k, i, name: cand.name, pid: cand.id, share: v.P, votes: b.v.P, win: win === 'P', winner: win, cost: cand.dep + cand.spend });
     }
@@ -1865,7 +1867,7 @@ function natResultHTML(g, c) {
     const won_ = g.pDist.filter(d => d.win).length;
     const best = [...g.pDist].sort((a, b) => b.share - a.share).slice(0, 8);
     mine = `<h3 style="margin-top:14px">${esc(S.party.name)} 성적</h3><p>지역구 ${g.pDist.length}곳 출마 → <b>${won_}곳 당선</b> | 비례대표 ${S.seats.P.pr}석${g.lostPR ? ` <span class="bad">(명부 부족으로 ${g.lostPR}석이 다른 정당에 넘어감 — 비례 후보를 더 등록했어야 합니다)</span>` : ''}</p>
-    ${best.length ? `<div class="tblwrap"><table><thead><tr><th>지역</th><th>후보</th><th class="r">득표 수</th><th class="r">득표율</th><th>결과</th></tr></thead><tbody>${best.map(d => `<tr><td>${RK[d.k].n} ${esc(distN(d.k, d.i))}</td><td>${esc(d.name)}</td><td class="r num">${d.votes != null ? nf(d.votes) : ''}</td><td class="r num">${pct(d.share)}</td><td>${d.win ? '<b class="ok">당선</b>' : `낙선 (${esc(pn(d.winner))} 당선)`}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
+    ${best.length ? `<div class="tblwrap"><table><thead><tr><th>지역</th><th>후보</th><th class="r">득표 수</th><th class="r">득표율</th><th>결과</th></tr></thead><tbody>${best.map(d => `<tr><td>${esc(distFull(d.k, d.i))}</td><td>${esc(d.name)}</td><td class="r num">${d.votes != null ? nf(d.votes) : ''}</td><td class="r num">${pct(d.share)}</td><td>${d.win ? '<b class="ok">당선</b>' : `낙선 (${esc(pn(d.winner))} 당선)`}</td></tr>`).join('')}</tbody></table></div>` : ''}`;
   }
   return `${hemicycle()}<div class="tblwrap" style="margin-top:10px"><table><thead><tr><th>정당</th><th class="r">지역구</th><th class="r">비례</th><th class="r">합계</th><th class="r">비례 득표 수</th><th class="r">비례 득표율</th></tr></thead><tbody>${rows}</tbody></table></div>
   ${g.prB ? `<p class="small muted">선거인 ${nf(g.prB.e)}명 | 투표율 ${pct(g.prB.t)} | 비례 무효 ${nf(g.prB.bad)}표</p>` : ''}
