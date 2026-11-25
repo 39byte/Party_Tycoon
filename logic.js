@@ -250,19 +250,51 @@
   const ATK_S = [0, 0.5, 1];
   const atkU = (g, b, pb, t, x = 0) => { const v = g - pb * b - baseCost(t) + x, r = pb * b / 2; return ATK_S.map(s => s * v - s * s * r); };
   // 다른 당 주간 방침: 효용 softmax. c: 다음 선거까지 주(wk), 선거운동기간(camp 0/1), 의석, 다른 당 최고와의 차(gap %p), 대통령 배출(pres)·지지율(appr),
-  // 최근 악재 뒤 주(hit), 공세 역풍 확률(bf, bfRate), 신뢰 격차(tg = 우리 − 그 당), 전국 계층(t)
+  // 최근 악재 뒤 주(hit), 공세 역풍 확률(bf, bfRate), 신뢰 격차(tg = 우리 − 그 당), 전국 계층(t),
+  // 선거 예측(없으면 예전 식): play = 승패 직전 경기에 걸린 몫(0~1쯤, 클수록 선거운동·공세가 값짐), thrP = 그 경기들에서 우리 당이 가장 센 상대인 비율(공세 역풍 기억은 우리 당을 칠 때만 걸림)
   const POSTURES = ['campaign', 'policy', 'attack', 'coalition', 'lowkey'];
   const rivalU = c => {
-    const far = Math.min(c.wk, 52) / 52, near = c.wk <= 6 ? 1 : 0;
+    const far = Math.min(c.wk, 52) / 52, near = c.wk <= 6 ? 1 : 0, fc = c.play != null, bf = fc ? 0.3 + c.thrP * (c.bf - 0.3) : c.bf;
     return [
-      1.2 + 1.5 * near + c.camp - far, // 선거 총력: 선거가 가까울수록
+      1.2 + 1.5 * near + c.camp - far + (fc ? c.play * near : 0), // 선거 총력: 선거가 가까울수록, 걸린 경기가 많을수록
       0.3 + 0.8 * far + Math.max(0, c.tg) / 20, // 민생 정책: 선거가 멀고, 신뢰가 우리보다 낮을수록(신뢰부터 다짐)
-      -0.4 + 0.8 * cl(-c.gap / 10, 0, 1) + 0.4 * c.camp - 2.5 * c.bf - baseCost(c.t), // 공세: 뒤질수록 하고 싶지만 역풍을 맞아 왔거나 지지층이 중도 쪽이면 접음
+      -0.4 + (fc ? 0.6 * c.play : 0.8 * cl(-c.gap / 10, 0, 1)) + 0.4 * c.camp - 2.5 * bf - baseCost(c.t), // 공세: 걸린 경기가 많을수록 하고 싶지만 역풍을 맞아 왔거나 지지층이 중도 쪽이면 접음
       -0.2 + (c.seats < 20 ? 0.9 : 0) - 1.5 * c.seats / 300, // 연대: 작은 당
       -1 + (c.hit <= 4 ? 2.5 : 0) + 3 * Math.max(0, c.bf - 0.5) + (c.pres && c.appr < 35 ? 0.8 : 0), // 몸 낮추기: 악재·역풍 직후, 인기 없는 대통령의 당
     ];
   };
   const rivalPolicy = c => { const z = rivalU(c), m = Math.max(...z), e = z.map(x => Math.exp(x - m)), s = e.reduce((a, b) => a + b, 0); return e.map(x => x / s); };
+
+  // 선거 예측(다른 당 AI): 지역구 득표는 후보마다 로그정규 잡음(σ 0.22)이 붙어 두 후보 차의 표준편차가 RACE_SD. 대선은 전국 운(σ 0.07)뿐이라 PRES_SD
+  const RACE_SD = 0.22 * Math.SQRT2, PRES_SD = 0.1;
+  const npdf = x => 0.3989423 * Math.exp(-x * x / 2);
+  const ncdf = x => { const t = 1 / (1 + 0.2316419 * Math.abs(x)), p = npdf(x) * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274)))); return x > 0 ? 1 - p : p; };
+  // 한 경기 예측: w = { 당: 득표 무게 } → 당마다 { p 당선 확률, piv 득표 무게가 (로그로) 1 오를 때 당선 확률 증가, opp 가장 센 상대 }.
+  // 가장 센 상대와의 로그 차로 근사하고 p는 합 1로 맞춤. piv가 큰 경기 = 승패 직전 경기
+  function raceOdds(w, sd = RACE_SD) {
+    const ids = Object.keys(w).filter(id => w[id] > 0), o = {};
+    for (const id of ids) {
+      const opp = ids.filter(x => x !== id).reduce((a, x) => !a || w[x] > w[a] ? x : a, null), z = opp ? Math.log(w[id] / w[opp]) / sd : 9;
+      o[id] = { p: ncdf(z), piv: opp ? npdf(z) / sd : 0, opp };
+    }
+    const s = ids.reduce((a, id) => a + o[id].p, 0);
+    for (const id of ids) o[id].p /= s;
+    return o;
+  }
+  // 불출마 당 지지층 이동: 후보를 안 낸 당 몫의 TRANSFER가 같은 진영(노선 부호 같음) 출마 당들에 그 당 몫 비례로 감. 중도(0)거나 같은 진영 후보가 없으면 흩어짐.
+  // w = { 당: 무게 }(안 나온 당 포함), ideo = { 당: 노선 }, run = 출마 당 → { 출마 당: 더해질 무게 }. 군소 정당이 같은 진영 표를 가르면 반대 진영이 이득(공천 전략의 근거)
+  const TRANSFER = 0.5;
+  function absentShift(w, ideo, run) {
+    const add = Object.fromEntries(run.map(id => [id, 0]));
+    for (const id in w) {
+      if (run.includes(id) || !ideo[id]) continue;
+      const to = run.filter(x => ideo[x] * ideo[id] > 0), t = to.reduce((a, x) => a + (w[x] || 0), 0);
+      if (t > 0) for (const x of to) add[x] += TRANSFER * w[id] * (w[x] || 0) / t;
+    }
+    return add;
+  }
+  // 진영 당선 확률: 노선 부호가 g와 같은 당들의 p 합(raceOdds 결과)
+  const campWin = (o, ideo, g) => Object.keys(o).filter(id => ideo[id] * g > 0).reduce((a, id) => a + o[id].p, 0);
 
   // 행정 분야별 특기(숨은 값): apt = { care 돌봄·복지, safe 안전, biz 경제·일자리, dev 개발 }, 4분야 합 0 → 분야 역량(역량 + apt) 평균이 역량
   // 출신 직업 기본값(행마다 합 0) + 분야마다 정규 잡음(표준편차 6), ±20. 성향 st: −1 신중형 ~ +1 추진형(표준편차 0.5 + 직업 기울기)
@@ -307,6 +339,6 @@
   }
 
   const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
-    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, bfRate, baseCost, atkU, rivalU, rivalPolicy, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
+    TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, bfRate, baseCost, atkU, rivalU, rivalPolicy, RACE_SD, PRES_SD, ncdf, raceOdds, TRANSFER, absentShift, campWin, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

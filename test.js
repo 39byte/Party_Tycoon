@@ -125,6 +125,28 @@ assert(Math.abs(pNear.reduce((a, b) => a + b) - 1) < 1e-9);
 assert(pNear[pi('campaign')] > pFar[pi('campaign')] && pFar[pi('policy')] > pNear[pi('policy')]);
 assert(pBf[pi('attack')] < pFar[pi('attack')] / 2 && pBf[pi('lowkey')] > pFar[pi('lowkey')]);
 assert(pBehind[pi('attack')] > pFar[pi('attack')]);
+// 선거 예측이 있으면: 걸린 경기가 많을수록 선거 직전 총력·공세↑ | 우리 당이 위협이 아니면 우리를 친 역풍 기억은 덜 걸림
+const pPlay = pol({ wk: 3, camp: 1, play: 1, thrP: 0.5 }), pQuiet = pol({ wk: 3, camp: 1, play: 0.1, thrP: 0.5 });
+assert(pPlay[pi('campaign')] + pPlay[pi('attack')] > pQuiet[pi('campaign')] + pQuiet[pi('attack')]);
+assert(pol({ play: 0.5, thrP: 0, bf: 0.8 })[pi('attack')] > pol({ play: 0.5, thrP: 1, bf: 0.8 })[pi('attack')]);
+
+// 한 경기 예측: 비기면 반반, 앞서면 당선 확률↑·승패 직전 정도(piv)↓, 가장 센 상대 표시, 확률 합 1
+const ro = L.raceOdds({ A: 30, B: 30 }), ro2 = L.raceOdds({ A: 40, B: 30, C: 10 });
+assert(Math.abs(ro.A.p - 0.5) < 1e-6 && ro.A.opp === 'B');
+assert(ro2.A.p > 0.75 && ro2.A.piv < ro.A.piv && ro2.C.opp === 'A');
+assert(Math.abs(ro2.A.p + ro2.B.p + ro2.C.p - 1) < 1e-9);
+assert(Math.abs(L.ncdf(1.96) - 0.975) < 1e-4);
+// 불출마 당 지지층: 같은 진영 출마 당에 몫 비례로 TRANSFER만큼(D 보수 → A), 같은 진영 후보가 없거나 중도면 안 감
+const IDM = { P: 0, A: -1, B: 1, C: 0.5, D: -0.6 };
+assert.deepStrictEqual(L.absentShift({ A: 30, B: 30, C: 10, D: 10, P: 2 }, IDM, ['A', 'B', 'C']), { A: 5, B: 0, C: 0 });
+const sh = L.absentShift({ A: 30, B: 30, C: 10, D: 10 }, IDM, ['A', 'D']);
+assert(sh.B === undefined && Math.abs(sh.A - 0) < 1e-9 && sh.D === 0); // 진보 당은 같은 진영 후보가 없어 흩어짐
+const sh2 = L.absentShift({ A: 30, B: 20, C: 10 }, { A: -1, B: 1, C: 0.5, P: 0.5 }, ['A', 'B', 'P']);
+assert(Math.abs(sh2.B + sh2.P - 5) < 1e-9 && sh2.B > sh2.P); // 같은 진영 여럿이면 큰 당이 더 받음(P 무게 없음 → 0)
+// 진영 당선 확률: 군소 진보 당이 나오면 표가 갈려 보수 진영 당선 확률이 오름
+const ab = { A: 38, B: 32, C: 10, D: 2 }, oc1 = L.raceOdds((w => ({ A: w.A + L.absentShift(w, IDM, ['A', 'B', 'C']).A, B: w.B, C: w.C }))(ab));
+const oc0 = L.raceOdds((w => { const a = L.absentShift(w, IDM, ['A', 'B']); return { A: w.A + a.A, B: w.B + a.B }; })(ab));
+assert(L.campWin(oc1, IDM, -1) > L.campWin(oc0, IDM, -1) + 0.1);
 
 // 행정 특기: 4분야 합 ≈ 0(분야 역량 평균 = 역량), ±20 안, 직업 경향(의사는 돌봄, 장성은 안전이 평균적으로 가장 높음), 성향 −1~1
 { let s = 7; const u = () => (s = (s * 16807) % 2147483647) / 2147483647, g = () => Math.sqrt(-2 * Math.log(u())) * Math.cos(2 * Math.PI * u());

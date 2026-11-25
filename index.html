@@ -1541,11 +1541,14 @@ const rgovAdd = (k, d) => { const g = S.rgov[k]; g.o = clamp(opsUp(g.p, k, g.o, 
 
 // ---------- 선거 시뮬레이션 ----------
 // ponytail: 지역 성향×전국 지지율×로그정규 잡음의 단순 모델. 세대·이슈별 유권자 모델은 필요해지면 추가
+// 노선 표(우리 당 포함): 불출마 당 지지층 이동(L.absentShift)과 진영 계산에 씀
+const ideoMap = () => ({ P: S.party.ideo, ...Object.fromEntries(TR_IDS.map(id => [id, RIV[id].ideo])) });
+// 한 경기 득표: 그 지역 몫 × 배율(mods) + 안 나온 같은 진영 당에서 넘어온 몫(L.absentShift), 후보마다 로그정규 잡음
 function shareRace(k, ids, mods) {
-  const ns = natShares(), v = {};
+  const ns = natShares(), v = {}, b = Object.fromEntries(['P', ...TR_IDS].map(id => [id, ns[id] * pf(id, k)])), add = L.absentShift(b, ideoMap(), ids);
   let tot = 0;
   for (const id of ids) {
-    let x = ns[id] * pf(id, k) * Math.exp(gauss() * 0.22) * (mods[id] || 1);
+    let x = ((id === 'O' ? ns.O : b[id]) * (mods[id] || 1) + (add[id] || 0)) * Math.exp(gauss() * 0.22);
     if (id === 'O' && rnd() < 0.03) x *= 6; // 유력 무소속
     v[id] = x; tot += x;
   }
@@ -1575,6 +1578,23 @@ const homeMul = (p, k) => p && homeOf(p) === k ? HOME : 1;
 
 // 비례 득표 가중(운 빼고). 비례 후보 수 추천에도 씀
 const prWeight = (c, id, ns) => id === 'P' ? ns.P * 1.15 * campMul(c, 'P', '') * (c?.sat ? 1.3 : 1) : ns[id] * (id === 'C' || id === 'D' ? 1.3 : id === 'O' ? 0.8 : 1);
+// 총선 한 선거구 배율(예측기 forecast도 씀): 거대 양당 현역 프리미엄 | 최근 의혹 | 선거운동 | 후보 개인 | 연고. 우리 후보가 있으면 ids에 'P'를 넣음
+function natMods(c, r, i, slot, ids) {
+  const race = `${r.k}:${i}`, cand = c?.reg?.dist[r.k]?.[i], mods = {};
+  for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[r.k] || 0) / r.seats);
+  for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88; // 최근 의혹 보도된 후보
+  for (const id of ids) { const f = fig(slot?.[id]?.fid); mods[id] = (mods[id] || 1) * campMul(c, id, r.k, race) * candMul(f) * homeMul(f, r.k); }
+  if (cand) { const lp = live(cand); if (!ids.includes('P')) ids.push('P'); mods.P = candMul(lp) * campMul(c, 'P', r.k, race) * (1 + cand.spendB) * homeMul(lp, r.k); }
+  return mods;
+}
+// 지선 한 지역 배율: 우리 후보(현직이면 행정 지지도) | 최근 의혹 | 선거운동 | 후보 개인 | 연고
+function govMods(c, r, slot, ids) {
+  const cand = c?.reg?.gov[r.k], mods = {};
+  if (cand) { const lp = live(cand); if (!ids.includes('P')) ids.push('P'); mods.P = candMul(lp) * campMul(c, 'P', r.k, r.k) * (1 + cand.spendB) * homeMul(lp, r.k) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? opsBase('P', r.k)) - opsBase('P', r.k)) / 100 : 1); }
+  for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
+  for (const id of ids) if (id !== 'P') { const f = fig(slot?.[id]?.fid); mods[id] = (mods[id] || 1) * campMul(c, id, r.k, r.k) * candMul(f) * homeMul(f, r.k); }
+  return mods;
+}
 function simGeneral(c) {
   const reg = c && c.reg, seatsD = { P: {}, A: {}, B: {}, C: {}, D: {}, O: {} }, pDist = [], wins = [], races = [], to = turnouts('nat');
   for (const r of R) {
@@ -1582,11 +1602,7 @@ function simGeneral(c) {
     for (let i = 0; i < r.seats; i++) {
       const slot = c?.rv?.[r.k]?.[i], ids = slot ? Object.keys(slot) : ['A', 'B'], race = `${r.k}:${i}`;
       if (!slot) { if (rnd() < 0.35) ids.push('C'); if (rnd() < 0.35) ids.push('D'); if (rnd() < 0.5) ids.push('O'); }
-      const cand = mine[i], lp = live(cand), mods = {};
-      for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[r.k] || 0) / r.seats);
-      for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88; // 최근 의혹 보도된 후보
-      for (const id of ids) { const f = fig(slot?.[id]?.fid); mods[id] = (mods[id] || 1) * campMul(c, id, r.k, race) * candMul(f) * homeMul(f, r.k); } // 선거운동 | 후보 개인 | 연고
-      if (cand) { ids.push('P'); mods.P = candMul(lp) * campMul(c, 'P', r.k, race) * (1 + cand.spendB) * homeMul(lp, r.k); }
+      const cand = mine[i], mods = natMods(c, r, i, slot, ids);
       const { v, win } = shareRace(r.k, ids, mods), b = ballots(e, to[r.k], v, LAW.invalid.nat);
       seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ k: r.k, n: `${RK[r.k].n} ${i + 1}선거구`, e, t: to[r.k], bad: b.bad, c: raceRow(ids, v, slot, cand, b) });
       if (win !== 'P') wins.push({ k: r.k, fid: slot?.[win]?.fid });
@@ -1623,10 +1639,7 @@ function simGov(c) {
   for (const r of R) {
     const slot = c?.rv?.[r.k]?.[0], ids = slot ? Object.keys(slot) : ['A', 'B'];
     if (!slot) { if (rnd() < 0.3) ids.push('C'); if (rnd() < 0.3) ids.push('D'); if (rnd() < 0.3) ids.push('O'); }
-    const cand = c && c.reg && c.reg.gov[r.k], lp = live(cand), mods = {};
-    if (cand) { ids.push('P'); mods.P = candMul(lp) * campMul(c, 'P', r.k, r.k) * (1 + cand.spendB) * homeMul(lp, r.k) * (S.gov[r.k] === 'P' ? 1 + ((S.ops[r.k] ?? opsBase('P', r.k)) - opsBase('P', r.k)) / 100 : 1); }
-    for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88;
-    for (const id of ids) if (id !== 'P') { const f = fig(slot?.[id]?.fid); mods[id] = (mods[id] || 1) * campMul(c, id, r.k, r.k) * candMul(f) * homeMul(f, r.k); } // 선거운동 | 후보 개인 | 연고
+    const cand = c && c.reg && c.reg.gov[r.k], lp = live(cand), mods = govMods(c, r, slot, ids);
     const res = shareRace(r.k, ids, mods), b = ballots(regVoters(r), to[r.k], res.v, LAW.invalid.gov);
     win[r.k] = res.win; wins.push({ k: r.k, id: res.win, fid: slot?.[res.win]?.fid, sh: clamp(res.v[res.win] * 100, 5, 95) }); races.push({ k: r.k, n: RK[r.k].n, e: b.e, t: to[r.k], bad: b.bad, c: raceRow(ids, res.v, slot, cand, b) });
     if (cand) mine.push({ k: r.k, name: cand.name, pid: cand.id, g: cand.gender, age: cand.age, sk: lp.skill, share: res.v.P, votes: b.v.P, win: res.win === 'P', winner: res.win, cost: cand.dep + cand.spend });
@@ -1656,10 +1669,10 @@ function simPres(c) {
   const who = id => id === 'P' ? live(cand) : fig(c.rivals[id].fid) || c.rivals[id];
   const luck = Object.fromEntries(ids.map(id => [id, Math.exp(gauss() * 0.07)])), votes = Object.fromEntries(ids.map(id => [id, 0])), regs = {};
   for (const r of R) {
-    const x = {};
+    const x = {}, bw = Object.fromEntries(['P', ...TR_IDS].filter(id => id !== u).map(id => [id, ns[id] * pf(id, r.k)])), add = L.absentShift(bw, ideoMap(), ids); // 단일화한 당은 아래 따로
     for (const id of ids) {
       const p = who(id);
-      x[id] = ns[id] * pf(id, r.k) * candMul(p) * campMul(c, id, r.k, 'pres') * (id === 'P' ? 1 + cand.spendB : 1) * homeMul(p, r.k) * luck[id] * Math.exp(gauss() * 0.05);
+      x[id] = (ns[id] * pf(id, r.k) * candMul(p) * campMul(c, id, r.k, 'pres') * (id === 'P' ? 1 + cand.spendB : 1) * homeMul(p, r.k) + (add[id] || 0)) * luck[id] * Math.exp(gauss() * 0.05);
       if (id === 'P' && u) x[id] += ns[u] * pf(u, r.k) * 0.6; // 단일화: 사퇴한 후보 지지층 일부 흡수
     }
     const t = sum(Object.values(x));
@@ -1681,7 +1694,7 @@ function newCamp(e) {
   if (e.type === 'pres') {
     c.draft = { cand: '', spend: 1 };
     c.rivals = {};
-    for (const id of ['A', 'B', 'C', 'D']) if (id === 'A' || id === 'B' || rnd() < 0.7) {
+    for (const id of ['A', 'B', 'C', 'D']) if (presRun(id)) {
       const b = presBest(id); // 대선 후보도 그 당 인재풀·현직 의원에서(경선을 거치며 알려져 인지도는 오름)
       c.rivals[id] = b?.pos ? presMP(b, presFame(id)) : b ? { ...poolTake(id, b), fame: Math.max(b.fame, presFame(id)) } : bestCand(Array.from({ length: RV_HOPE }, () => figSpec('cand', { fame: presFame(id), skill: Math.round(rr(50, 85)), age: Math.round(rr(52, 70)) })));
     }
@@ -2046,8 +2059,58 @@ const RIV_GAFFE = ['대변인 논평 "막말" 논란', '지도부 회의 중 내
 const rivShare = (id, k) => pubReg(k, id);
 // 접전도: 그 당 몫과 그 지역에서 가장 센 다른 당 몫이 비슷할수록 1
 const rivClose = (id, k) => { const me = rivShare(id, k), op = Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => rivShare(x, k))); return me > 0 && op > 0 ? Math.exp(-Math.abs(Math.log(me / op)) / 0.3) : 0; };
-// 지역 고르기: 선거운동기간엔 (선거인 × 접전도), 평소엔 (선거인 × 그 당 지역 강세 × 신뢰 낮은 곳 다지기) 가중 무작위
-const rivPick = (id, camp) => wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), leanOf(r)) * (1.5 - S.rtr[id][r.k] / 100));
+// ?dev&dumb=AB: 그 당들은 선거 예측 없이 예전 식으로 움직임(새 AI와 겨뤄 보는 밸런스 비교용, 개발 도구가 도중에 바꿀 수 있게 let)
+let DUMB = /[?&]dev\b/.test(location.search) ? location.search.match(/[?&]dumb=([A-D]+)/)?.[1] || '' : '';
+const smart = id => !DUMB.includes(id);
+// ---------- 다른 당 선거 예측(선거 승리 목표): 발표 여론조사와 지금 선거운동 상태로 다음 선거를 내다봄 ----------
+// 결과 { type, c, V 기대 성과(총선 의석 | 지선 단체장 수 | 대선 당선 확률 × PRES_V), el {지역: 그 지역 지지가 (로그로) 1 오를 때 V 증가},
+//   thr {상대 당: 승패 직전 경기에서 가장 센 상대였던 무게}, thrK {지역: {상대 당: 무게}}, play 걸린 몫(0~1쯤), thrP 우리 당 위협 비율 }
+// 공천 전(c.rv 없음)엔 거대 양당 + 군소 정당 모두 + (정식 등록한) 우리 당이 나온다고 봄. 매주 rivalWeek에서 새로 계산(FC, 저장 안 함)
+const PRES_V = 30, PLAY_REF = { nat: 200, gov: 7, pres: 110 }, FC = {}; // PLAY_REF: 거대 양당이 접전일 때 play ≈ 1
+const fcIds = () => ['A', 'B', 'C', 'D', ...(S.phase === 'reg' ? ['P'] : [])];
+const pubW = k => Object.fromEntries(['P', ...TR_IDS, 'O'].map(x => [x, Math.max(0.1, pubReg(k, x))]));
+// 한 경기 무게: 지역 발표 지지 × 배율 + 불출마 당에서 넘어온 몫
+const fcRace = (k, ids, mods) => { const b = pubW(k), add = L.absentShift(b, ideoMap(), ids); return Object.fromEntries(ids.map(x => [x, b[x] * (mods[x] || 1) + (add[x] || 0)])); };
+function forecast(id) {
+  const e = nextElection(); if (!e) return null;
+  const c = S.camps[e.key], el = Object.fromEntries(R.map(r => [r.k, 0])), thrK = Object.fromEntries(R.map(r => [r.k, {}])), thr = {};
+  let V = 0;
+  const add = (k, o, seat) => { V += o.p * seat; el[k] += o.piv * seat; if (o.opp && o.opp !== 'O') { thr[o.opp] = (thr[o.opp] || 0) + o.piv * seat; thrK[k][o.opp] = (thrK[k][o.opp] || 0) + o.piv * seat; } };
+  if (e.type === 'pres') {
+    const ids = c?.rivals ? [...Object.keys(c.rivals).filter(x => x !== uniId(c)), ...(c.reg?.cand ? ['P'] : [])] : fcIds();
+    if (!ids.includes(id)) return { type: e.type, c, V: 0, el, thr, thrK, play: 0, thrP: 0 };
+    const wk = Object.fromEntries(R.map(r => { const b = pubW(r.k), a = L.absentShift(b, ideoMap(), ids); return [r.k, Object.fromEntries(ids.map(x => [x, (b[x] * campMul(c, x, r.k, 'pres') + (a[x] || 0)) * r.voters]))]; }));
+    const W = Object.fromEntries(ids.map(x => [x, sum(R.map(r => wk[r.k][x]))])), o = L.raceOdds(W, L.PRES_SD)[id];
+    V = o.p * PRES_V;
+    for (const r of R) { el[r.k] = o.piv * PRES_V * wk[r.k][id] / W[id]; if (o.opp) thrK[r.k][o.opp] = el[r.k]; }
+    if (o.opp) thr[o.opp] = o.piv * PRES_V;
+  } else for (const r of R) for (let i = 0; i < (e.type === 'nat' ? r.seats : 1); i++) {
+    const slot = c?.rv?.[r.k]?.[i], ids = slot ? Object.keys(slot) : fcIds();
+    if (!ids.includes(id)) continue;
+    const mods = e.type === 'nat' ? natMods(c, r, i, slot, ids) : govMods(c, r, slot, ids);
+    add(r.k, L.raceOdds(fcRace(r.k, ids, mods))[id], 1);
+  }
+  if (e.type === 'nat') { // 비례(준연동형, L.allocatePR): 발표 지지 몫으로 배분해 보고, 득표가 ±10% 달라질 때의 차로 탄력성. 다른 당 지역구 의석은 지금 의석으로 어림
+    const vs = Object.fromEntries(PIDS.map(x => [x, sum(R.map(r => r.voters * pubReg(r.k, x)))])), dS = x => x === id ? V : x === 'O' ? 0 : sum(Object.values(S.seats[x]?.d || {}));
+    const pr = m => L.allocatePR(PIDS.map(x => ({ id: x, votes: vs[x] * (x === id ? m : 1), district: dS(x) })))[id], dp = (pr(1.1) - pr(1 / 1.1)) / (2 * Math.log(1.1));
+    V += pr(1);
+    if (vs[id] > 0) for (const r of R) el[r.k] += dp * r.voters * pubReg(r.k, id) / vs[id];
+  }
+  const tt = sum(Object.values(thr));
+  return { type: e.type, c, V, el, thr, thrK, play: sum(Object.values(el)) / PLAY_REF[e.type], thrP: tt ? (thr.P || 0) / tt : 0 };
+}
+const fcOf = id => FC[id] ??= forecast(id);
+// 유세·봉사 지역 고르기. 예전 식(dumb): 선거운동기간엔 (선거인 × 접전도), 평소엔 (선거인 × 그 당 지역 강세 × 신뢰 낮은 곳 다지기)
+// 새 식: 선거운동기간엔 방문 한 번이 늘리는 기대 성과(탄력성 × 유세 효과 증가분 ÷ 지금 배율), 평소엔 다음 선거 탄력성(최대 1로 맞춤) × 신뢰 다지기 여지
+const wPick = w => { const ws = R.map(w); let x = rnd() * sum(ws); return R.find((r, i) => (x -= ws[i]) < 0) || R[0]; };
+function rivPick(id, camp) {
+  const f = smart(id) && fcOf(id);
+  if (!f) return wRegion(r => camp ? rivClose(id, r.k) + 0.02 : ideoFit(ideoOf(id), leanOf(r)) * (1.5 - S.rtr[id][r.k] / 100));
+  const m = Math.max(1e-9, ...Object.values(f.el)), c = f.c;
+  return wPick(r => { const k = r.k, e = f.el[k] / m;
+    if (camp && c) { const b = c.rb?.[id]?.[k] || 0; return e * (0.1 * (0.5 + S.rtr[id][k] / 100) * (1 - b / 0.3) + 0.002) / campMul(c, id, k, k) + 0.002; }
+    return (1.5 - S.rtr[id][k] / 100) * (0.15 + e); });
+}
 // 그 선거에 우리 후보가 그 지역에 나왔는지
 const myRun = (c, k) => c.reg && (c.type === 'pres' || (c.type === 'nat' ? (c.reg.dist[k] || []).length > 0 : !!c.reg.gov[k]));
 // 다른 당 주간 방침(L.POSTURES): 매주 L.rivalPolicy(선거 일정·격차·공세 기억·지지층) 확률로 고르되 절반은 지난 방침 유지. 방침은 아래 행동 확률만 바꾸고 효과 식은 그대로
@@ -2070,7 +2133,9 @@ const ATK_EV = { self: [1.2, 1.5], smear: [1, 1.2], accuse: [1.5, 2] }, POST_X =
 // 관계가 나쁠수록 더 나섬. full이면 맹공·침묵만(고발). 아무도 안 나서면 null, 나서면 { id, s: 0.5 논평 | 1 맹공 }
 function atkWho(ev, ids = TR_IDS, full = false) {
   const [g, b] = ATK_EV[ev];
-  const cs = ids.map(id => { const u = L.atkU(g, b, L.bfRate(S.amem?.[ev], amP0(id)), tierNat(id), (POST_X[S.rplan?.[id]?.k] || 0) - (S.rel[id] || 0) / 200);
+  // 새 AI: 우리 당이 그 당의 승패 직전 경기에서 위협일수록, 선거가 가까울수록 이득이 큼(×0.68~1.25)
+  const gOf = id => { const f = smart(id) && fcOf(id); if (!f) return g; const wk = (nextElection()?.day - S.day) / 7 || 52; return g * (0.85 + 0.4 * f.thrP) * (0.8 + 0.2 * (1 - Math.min(wk, 52) / 52)); };
+  const cs = ids.map(id => { const u = L.atkU(gOf(id), b, L.bfRate(S.amem?.[ev], amP0(id)), tierNat(id), (POST_X[S.rplan?.[id]?.k] || 0) - (S.rel[id] || 0) / 200);
     return { id, u: full ? [u[0], u[2]] : u, z: Math.max(...u) + rr(-0.1, 0.1) }; });
   const c = cs.sort((x, y) => y.z - x.z)[0], i = L.softPick(c.u, rnd(), 0.2), s = full ? i : i / 2;
   return s ? { id: c.id, s } : null;
@@ -2081,7 +2146,7 @@ const atkBody = (a, hard, soft) => !a ? '다른 당들은 아직 말을 아끼�
 const rivCtx = id => {
   const e = nextElection();
   return { wk: e ? (e.day - S.day) / 7 : 52, camp: Object.values(S.camps).some(inCampaign) ? 1 : 0, seats: seatTotal(id), gap: S.pub[id] - Math.max(...['P', 'A', 'B', 'C', 'D'].filter(x => x !== id).map(x => S.pub[x])),
-    pres: S.president.party === id ? 1 : 0, appr: S.president.appr, hit: (S.day - (S.rhit?.[id] ?? -999)) / 7, bf: rivBf(id), tg: tGap(id), t: tierNat(id) };
+    pres: S.president.party === id ? 1 : 0, appr: S.president.appr, hit: (S.day - (S.rhit?.[id] ?? -999)) / 7, bf: rivBf(id), tg: tGap(id), t: tierNat(id), ...(smart(id) && fcOf(id) ? { play: fcOf(id).play, thrP: fcOf(id).thrP } : {}) };
 };
 function rivPlan(id) {
   const p = L.rivalPolicy(rivCtx(id)), pl = (S.rplan ??= {});
@@ -2095,6 +2160,7 @@ function rivalWeek() {
   const camps = Object.values(S.camps).filter(inCampaign);
   for (const k in S.amem || {}) S.amem[k] = S.amem[k].map(x => x * AM_DECAY);
   for (const id of TR_IDS) {
+    FC[id] = forecast(id); // 이번 주 선거 예측(방침·유세·광고·네거티브·사건 공세가 같이 씀)
     rivPlan(id);
     if (!seatTotal(id) && rnd() < 0.25) continue; // 원외 정당은 가끔 쉼
     for (let i = 0, n = seatTotal(id) >= LAW.caucus ? 4 : 3; i < n; i++) {
@@ -2106,14 +2172,26 @@ function rivalWeek() {
       } else trustAt(k, 0.8, id);
     }
     // 방송 광고: 우리와 같은 식(최대 +9%). 교섭단체는 거의 매주, 작은 당은 가끔. 대선에 후보가 없으면 안 함
-    for (const c of camps) if ((c.type !== 'pres' || (c.rivals[id] && uniId(c) !== id)) && rnd() < (seatTotal(id) >= LAW.caucus ? 0.8 : 0.4) * postFx(id, 1)) { const rn = (c.rn ??= {}); rn[id] = Math.min(0.09, (rn[id] || 0) + 0.025 * (1 - (rn[id] || 0) / 0.09) + 0.001); }
-    // 네거티브 공세: 우리 후보가 나온 지역 중 우리 몫이 그 당의 0.8배 이상인 곳
+    // 새 AI는 걸린 경기가 많을수록 광고를 더 함(광고는 비용이 없어 줄일 이유는 없음)
+    const fc = smart(id) && FC[id], adMul = fc ? clamp(0.8 + fc.play, 1, 1.3) : 1;
+    for (const c of camps) if ((c.type !== 'pres' || (c.rivals[id] && uniId(c) !== id)) && rnd() < (seatTotal(id) >= LAW.caucus ? 0.8 : 0.4) * postFx(id, 1) * adMul) { const rn = (c.rn ??= {}); rn[id] = Math.min(0.09, (rn[id] || 0) + 0.025 * (1 - (rn[id] || 0) / 0.09) + 0.001); }
+    // 네거티브 공세. 예전 식(dumb): 우리 후보가 나온 지역 중 우리 몫이 그 당의 0.8배 이상인 곳의 우리 당
+    // 새 식: 승패 직전 경기에서 가장 센 상대(우리 당이든 다른 당이든)를 그 무게대로 골라 침. 우리 당을 칠 땐 역풍 기억이 걸림
     for (const c of camps) {
-      const hot = R.filter(r => myRun(c, r.k) && rivShare('P', r.k) >= 0.8 * rivShare(id, r.k));
-      if (!hot.length || rnd() >= 0.5 * postFx(id, 2) * clamp(1.3 - rivBf(id), 0.3, 1.2)) continue; // 공세가 역풍을 맞아 온 당은 덜 함
-      const r = pick(hot);
-      c.boost.reg[r.k] = Math.max(-0.15, (c.boost.reg[r.k] || 0) - 0.04); S.buzz -= 0.5; // 우리 유세가 없으면 마이너스까지
-      relAdd(id, -1, `${r.n} 네거티브 공세`); wire(`${pn(id)}, ${r.n}서 ${S.party.name} 겨냥 네거티브 공세`);
+      let r, tg = 'P';
+      if (fc && fc.c === c) {
+        const xs = R.flatMap(x => Object.entries(fc.thrK[x.k]).filter(([o]) => o !== 'P' || myRun(c, x.k)).map(([o, w]) => [x, o, w]));
+        if (!xs.length) continue;
+        let y = rnd() * sum(xs.map(x => x[2])); [r, tg] = xs.find(x => (y -= x[2]) < 0) || xs[0];
+      } else { const hot = R.filter(x => myRun(c, x.k) && rivShare('P', x.k) >= 0.8 * rivShare(id, x.k)); if (!hot.length) continue; r = pick(hot); }
+      if (rnd() >= 0.5 * postFx(id, 2) * (tg === 'P' ? clamp(1.3 - rivBf(id), 0.3, 1.2) : 1)) continue; // 공세가 역풍을 맞아 온 당은 우리 당을 덜 침
+      if (tg === 'P') {
+        c.boost.reg[r.k] = Math.max(-0.15, (c.boost.reg[r.k] || 0) - 0.04); S.buzz -= 0.5; // 우리 유세가 없으면 마이너스까지
+        relAdd(id, -1, `${r.n} 네거티브 공세`); wire(`${pn(id)}, ${r.n}서 ${S.party.name} 겨냥 네거티브 공세`);
+      } else { // 다른 당끼리: 그 지역 유세 효과 −0.04, 전국 지지 −0.2(다른 당 지지는 하루 1%씩만 회복해, 하루 3%씩 식는 우리 당 화제성 −0.5와 누적 피해가 비슷)
+        const b = ((c.rb ??= {})[tg] ??= {}); b[r.k] = Math.max(-0.15, (b[r.k] || 0) - 0.04); S.rw[tg] = Math.max(1, S.rw[tg] - 0.2);
+        wire(`${pn(id)}, ${r.n}서 ${pn(tg)} 겨냥 네거티브 공세`);
+      }
     }
     const vol = RIV[id].vol || 1;
     if (rnd() < 0.3 * postFx(id, 3)) { trustAll(id, 1.5); rfameAdd(id, 1); S.rw[id] += 0.3 * vol; wire(`${pn(id)} ${pick(RIV_GOOD)}`); }
@@ -3156,15 +3234,39 @@ function incReport() {
 function rvPlan(c) {
   if (c.rv) return;
   if (c.type === 'pres') { for (const id in c.rivals) { const x = c.rivals[id]; x.at ??= Math.round(rr(S.day, c.day - LAW.regDeadline.pres)); x.fid ??=genFig(S, id, figHome(id), 'cand', { age: Math.round(rr(52, 70)), ...x }).id; } c.rv = {}; return; }
-  const end = c.day - LAW.regDeadline[c.type], at = () => Math.round(rr(S.day, end)), nat = c.type === 'nat';
-  c.rv = Object.fromEntries(R.map(r => [r.k, Array.from({ length: nat ? r.seats : 1 }, () => {
+  const end = c.day - LAW.regDeadline[c.type], at = () => Math.round(rr(S.day, end)), nat = c.type === 'nat', q = nat ? 0.35 : 0.3, runs = rvEntry(c, q);
+  c.rv = Object.fromEntries(R.map(r => [r.k, Array.from({ length: nat ? r.seats : 1 }, (_, i) => {
     const s = { A: { at: at() }, B: { at: at() } };
-    if (rnd() < (nat ? 0.35 : 0.3)) s.C = { at: at() };
-    if (rnd() < (nat ? 0.35 : 0.3)) s.D = { at: at() };
+    for (const id of ['C', 'D']) if (runs[id] ? runs[id].has(`${r.k}:${i}`) : rnd() < q) s[id] = { at: at() };
     if (rnd() < (nat ? 0.5 : 0.3)) s.O = { at: at() };
     return s;
   })]));
   rvPr(c);
+}
+// 군소 정당 공천 전략(새 AI): 자리마다 점수 = 당선 확률 − 표 분산 피해 × 0.5(나오면 반대 진영 당선 확률이 오르는 만큼, L.absentShift. 자기 의석보다는 덜 따짐).
+// 출마 수는 예전(자리의 q)과 비슷하게 두고 점수 높은 자리부터 채움. 점수가 음수(표만 가르는 자리)는 빼고, 당선 확률 10% 넘는 자리는 늘 나감. 같은 지역 자리끼리는 운으로 가름
+const entryScore = (k, id, ids) => {
+  const io = ideoMap(), g = -Math.sign(io[id]), o1 = L.raceOdds(fcRace(k, ids, {})), o0 = L.raceOdds(fcRace(k, ids.filter(x => x !== id), {}));
+  return { p: o1[id].p, sc: o1[id].p - 0.5 * (L.campWin(o1, io, g) - L.campWin(o0, io, g)) };
+};
+function rvEntry(c, q) {
+  const out = {}, nat = c.type === 'nat';
+  for (const id of ['C', 'D']) {
+    if (!smart(id)) continue;
+    const xs = R.flatMap(r => { const e = entryScore(r.k, id, ['A', 'B', id, ...(S.phase === 'reg' ? ['P'] : [])]); return Array.from({ length: nat ? r.seats : 1 }, (_, i) => ({ key: `${r.k}:${i}`, p: e.p, sc: e.sc + rr(0, 0.02) })); });
+    const n = Math.round(xs.length * q);
+    out[id] = new Set(xs.sort((a, b) => b.sc - a.sc).filter((x, i) => (i < n && x.sc > -0.02) || x.p > 0.1).map(x => x.key));
+  }
+  return out;
+}
+// 대선 출마(군소 정당): 예전엔 70% 무작위. 새 AI는 나와 봐야 같은 진영 표만 가르는 판(당선 5% 미만 & 반대 진영 당선 확률 +10%p 이상)이면 대개 접음
+function presRun(id) {
+  if (id === 'A' || id === 'B') return true;
+  if (!smart(id)) return rnd() < 0.7;
+  const io = ideoMap(), g = -Math.sign(io[id]), ids = ['A', 'B', id, ...(S.phase === 'reg' ? ['P'] : [])];
+  const nat = xs => L.raceOdds(Object.fromEntries(xs.map(x => [x, sum(R.map(r => fcRace(r.k, xs, {})[x] * r.voters))])), L.PRES_SD);
+  const o1 = nat(ids), spoil = L.campWin(o1, io, g) - L.campWin(nat(ids.filter(x => x !== id)), io, g);
+  return rnd() < (o1[id].p < 0.05 && spoil > 0.1 ? 0.2 : 0.85);
 }
 // 총선 비례대표 명부(c.rvp: { 당: [{ at, fid }] }): 지역구에 후보를 낸 당만. 지역구 공천과 같이 발표일에 사람을 정함
 function rvPr(c) {
@@ -6229,7 +6331,8 @@ function pGuide() {
     ${sec('여론: 인지도·신뢰·지지율', `<ul><li><b>인지도</b>는 홍보·언론·인재 영입으로 오르고 가만히 두면 서서히 떨어집니다.</li>
       <li><b>신뢰</b>는 봉사·정책 발표·원칙 있는 선택으로 오르고, 말실수·스캔들·위법 적발로 떨어집니다. 신뢰도 20 미만에서는 0.5배, 20~30에서는 0.4배만 오르고, 30을 넘으면(0.6배에서 시작해) 높아질수록 오르기가 점점 어려워집니다(50이면 절반 이하, 70이면 5분의 1). 다른 당은 이 곡선이 40부터 시작됩니다.</li>
       <li>정책 발표는 이번 주 헤드라인에 없는 분야를 고르거나, 노선과 궁합이 낮은 분야를 45일 안에 두 번 이상 발표하면 역풍을 맞아 신뢰가 떨어집니다. 노선 밖 발표는 거듭할수록 더 크게 떨어집니다. 법안 발의도 같은 규칙을 받되 더 느슨해서, 노선 밖 분야를 90일 안에 세 번째 발의할 때부터 신뢰가 떨어지고 헤드라인에 없는 분야는 조금만 깎입니다. 중도 정당은 90일 안에 한쪽(진보 또는 보수) 노선 법안이 반대쪽보다 세 건 이상 많아지면 역풍을 맞습니다. 반대쪽 법안을 내면 상쇄됩니다. 민심이 쏠린 쟁점의 법안은 통과 확률과 효과가 크고, 노선과 궁합이 낮은 분야 법안은 효과가 작으며, 쟁점 법안이 부결되면 신뢰가 더 떨어집니다. 진보·보수 모두 궁합이 낮은 분야는 3개입니다.</li>
-      <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 선거운동기간엔 접전 지역에 유세를 몰고, 우리 후보가 따라붙거나 앞선 지역엔 네거티브 공세를 펼쳐 그 지역 우리 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
+      <li>다른 당도 같은 신뢰도를 갖고 봉사·거리 유세를 하며 경쟁합니다. 각 당은 발표된 여론조사로 다음 선거를 내다보고, 승패가 갈릴 만한 지역에 유세·광고를 몰아 의석을 늘리려 합니다. 선거운동기간엔 그 지역에서 가장 위협적인 당(우리 당이든 다른 당이든)에 네거티브 공세를 펼쳐 그 당 유세 효과를 깎습니다. 상대 당보다 신뢰가 높으면 그 당의 공세가 덜 먹히고 우리 해명이 잘 통하며, 우리 공세는 더 아프게 들어갑니다.</li>
+      <li>다른 당은 우리가 논란·공세를 어떻게 받아쳐 왔는지 기억합니다. 해명·반박으로 되받아칠수록 그 당들은 공세를 접거나 논평 수준으로 낮추고, 그냥 사과하고 넘어가면 계속 몰아붙입니다.</li>
       <li>지지율은 인지도와 신뢰를 따라 천천히 움직입니다.</li>
       <li><b>지지층</b>은 지역마다 충성·우호·중립·적대·혐오 5계층으로 나뉘고, 전국 지지층은 지역 지지층을 선거인 수대로 합친 값입니다. 지지율처럼 실제 계층은 알 수 없고, 매주 여론조사로 발표된 값만 보입니다(지역은 최근 4주 조사를 합친 값이라 작은 시·도일수록 오차가 큽니다). 처음엔 노선과 맞는 지역일수록 충성층이, 어긋나는 지역일수록 혐오층이 두껍습니다. 중립층이 당의 결정에 가장 크게 흔들리고, 다음이 우호·적대층입니다. 충성층이 두꺼울수록 악재에도 신뢰가 덜 깎이고 지지율이 덜 빠지며, 혐오층이 두꺼울수록 좋은 일을 해도 신뢰와 지지율이 잘 오르지 않습니다. 행정 지지도에도 이어집니다. 단체장의 행정 지지도가 오를 수 있는 한계는 그 지역에서 반대 노선 정당의 충성층(코어층)이 두꺼울수록 낮아지고, 오르는 속도는 단체장 당의 그 지역 충성층이 두꺼울수록 빠르고 혐오층이 두꺼울수록 느립니다. 실책이 쌓이면 혐오층이, 좋은 평가가 쌓이면 충성층이 두꺼워지고, 시간이 지나면 양 끝은 천천히 중립 쪽으로 돌아옵니다.</li>
       <li>민심이 쏠린 핵심 쟁점은 알려주지 않습니다. 매 턴 끝 주간 브리핑의 헤드라인에 가장 자주 오르는 분야가 쟁점입니다. 쟁점은 2턴마다 바뀌고, 큰 사건이 터지면 그 사이에도 바뀝니다. 맞힌 분야로 정책을 발표하거나 법안을 통과시키면 효과가 큽니다.</li>
@@ -6243,6 +6346,7 @@ function pGuide() {
       <li>선거일 ${LAW.nomDays}일 전부터 선거 탭에 공천이 열립니다. 후보자 등록 마감(대선·총선은 선거일 ${LAW.regDeadline.nat}일 전, 지방선거는 ${LAW.regDeadline.gov}일 전)까지 후보를 등록하세요. 놓치면 불참입니다.</li>
       <li>영입 인재를 지역구·비례대표·광역단체장·대선 후보로 냅니다. 당선은 후보 개인과 정당 지지율을 함께 봅니다. 반영 비중은 <b>역량 &gt; 정당 지지율 &gt; 전과 &gt; 청렴도 &gt; 인지도</b> 순이라, 지지율이 높은 당이라도 역량이 낮고 전과가 많은 후보는 떨어집니다. 상대 당 후보도 같은 기준으로 겨룹니다. 대선 후보는 만 ${LAW.age.pres}세 이상이어야 합니다.</li>
       <li>비례대표 의석은 정당 득표율 ${LAW.prThreshold * 100}% 이상 또는 지역구 ${LAW.prDistrictAlt}석 이상일 때 배분됩니다.</li>
+      <li>선거구(지방선거는 시·도, 대선은 전국)에 후보를 내지 않은 당의 지지층은 절반쯤이 같은 진영(진보·보수) 후보들에게 그 세력만큼 옮겨 가고, 나머지는 흩어집니다. 중도 정당 지지층은 옮겨 가지 않습니다. 그래서 군소 정당은 같은 진영 표만 갈라 반대 진영에 의석을 내줄 곳엔 후보를 덜 냅니다.</li>
       <li>등록을 마치면 선거일 전 공식 선거운동기간(대선 ${LAW.campaignDays.pres}일, 총선·지방선거 ${LAW.campaignDays.nat}일)에 거리 유세·방송 광고를 할 수 있습니다. 다른 당도 유세·광고를 합니다.</li>
       <li>TV 토론은 선거방송토론위원회가 정한 날 모든 후보가 함께 나옵니다(공직선거법 제82조의2). 대선은 선거일 21·14·8일 전 세 번, 지방선거는 시·도마다·총선은 지역구마다 14일 전 한 번입니다. 국회 5석 이상·직전 비례 득표 3% 이상·여론조사 5% 이상인 당의 후보만 초청되고, 나머지는 첫 토론일 초청 외 토론회에 한 번 나갑니다(효과 절반). 역량이 높을수록 선전합니다. 총선·지선 토론 결과도 턴 시작 팝업으로 알려 주고, 대선은 우리 후보가 없어도 보여 줍니다.</li>
       <li>득표는 선거구마다 개표한 표를 합칩니다. 선거인 수는 21대 대선 기준이고, 투표율은 지역마다 최근 20년 평균(대선 74.5%·총선 58.3%·지방선거 56.7%)에 지역 편차를 더해 오르내립니다. 전국 투표율은 지역 투표율의 평균이고, 무효표도 나옵니다.</li>
