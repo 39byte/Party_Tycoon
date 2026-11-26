@@ -365,6 +365,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .imgpick label:has(input:checked){border-color:var(--primary2)}
 .imgpick label:has(input:focus-visible){outline:2px solid var(--primary2);outline-offset:2px}
 .imgpick input[type=radio]{position:absolute;opacity:0}
+.ngcols{margin-top:0}.ngf{display:flex;flex-direction:column;gap:12px}.ngwho{align-items:flex-start;flex-wrap:nowrap}.ngwho>label:first-child{flex:1 1 auto;min-width:0}.ngwho>label:first-child input{width:100%}
+.diffpick{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:0}.diffpick legend{padding:0;margin-bottom:4px;font-size:13px;font-weight:600}
+.diffpick label{position:relative;display:flex;flex-direction:column;gap:4px;min-height:44px;padding:10px 12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s,background-color .15s}
+.diffpick label:hover{background:var(--surface2)}.diffpick label:has(input:checked){border-color:var(--primary2);background:var(--surface2)}
+.diffpick label:has(input:focus-visible){outline:2px solid var(--ring);outline-offset:2px}.diffpick input{position:absolute;opacity:0}
+.diffpick .dn{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:14px}.diffpick .dn .num{font-size:12px;font-weight:600;color:var(--muted)}.diffpick .dd{font-size:12px;color:var(--muted);line-height:1.5}
 .imgpick .noimg{display:grid;place-items:center;width:56px;height:56px;background:var(--surface2);color:var(--muted);font-size:26px}
 .swatches label{cursor:pointer}
 .swatches input{position:absolute;opacity:0}
@@ -6614,29 +6620,32 @@ function settingsModal() {
 function newGameModal() {
   left = 0; turnStart = null;
   openModal({
-    title: '정당 창당', dismiss: false, html: `
+    title: '정당 창당', dismiss: false, wide: true, html: `
     <p class="muted small">발기인 200명과 함께 중앙당창당준비위원회를 결성합니다. 6개월 안에 5개 이상 시·도당(각 당원 1,000명)을 만들어 선관위에 등록하세요.</p>
     <form id="ng" style="display:flex;flex-direction:column;gap:12px">
-      <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="새미래당" autocomplete="off"><span class="h" id="ngErr" role="alert"></span></label>
-      <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c], i) => `<label><input type="radio" name="color" value="${c}" ${i ? '' : 'checked'}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
-      <div class="row">
-        <label class="f">노선<select name="ideo"><option value="1">진보</option><option value="0" selected>중도</option><option value="-1">보수</option></select></label>
-        <label class="f">창당 본거지<select name="home">${R.map(r => `<option value="${r.k}" ${r.k === 'seoul' ? 'selected' : ''}>${r.n}</option>`).join('')}</select></label>
-        <label class="f">난이도<select name="diff">${Object.entries(L.DIFF).map(([k, d]) => `<option value="${k}" ${k === 'veteran' ? 'selected' : ''}>${d.n} (${won(d.money)})</option>`).join('')}</select><span class="h" id="ngDiff">${L.DIFF.veteran.d}</span></label>
+      <div class="split2 ngcols">
+        <div class="ngf">
+          <label class="f">정당 이름 *<input type="text" name="name" maxlength="12" required value="새미래당" autocomplete="off"><span class="h" id="ngErr" role="alert"></span></label>
+          <div class="f">정당 색<div class="swatches">${PCOLORS.map(([n, c], i) => `<label><input type="radio" name="color" value="${c}" ${i ? '' : 'checked'}><span style="background:${c}" title="${n}"></span><b class="sr">${n}</b></label>`).join('')}</div></div>
+          <div class="row">
+            <label class="f">노선<select name="ideo"><option value="1">진보</option><option value="0" selected>중도</option><option value="-1">보수</option></select></label>
+            <label class="f">창당 본거지<select name="home">${R.map(r => `<option value="${r.k}" ${r.k === 'seoul' ? 'selected' : ''}>${r.n}</option>`).join('')}</select></label>
+          </div>
+          <div class="row ngwho">
+            <label class="f">당 대표 이름 *<input type="text" name="leader" maxlength="8" required value="${genName('M', 45)}"></label>
+            <label class="f">나이<input type="number" name="age" min="18" max="85" value="45"><span class="h">대선 출마는 40세 이상</span></label>
+            <label class="f">성별<select name="gender"><option value="M">남</option><option value="F">여</option></select></label>
+          </div>
+          <label class="f">슬로건<input type="text" name="slogan" maxlength="30" placeholder="선택 사항"></label>
+        </div>
+        <fieldset class="diffpick"><legend>난이도</legend>${Object.entries(L.DIFF).map(([k, d]) => `<label><input type="radio" name="diff" value="${k}" ${k === 'veteran' ? 'checked' : ''}><span class="dn"><b>${d.n}</b><span class="num">시작 자금 ${won(d.money)}</span></span><span class="dd">${d.d}</span></label>`).join('')}</fieldset>
       </div>
-      <div class="row">
-        <label class="f">당 대표 이름 *<input type="text" name="leader" maxlength="8" required value="${genName('M', 45)}"></label>
-        <label class="f">나이<input type="number" name="age" min="18" max="85" value="45"><span class="h">대선 출마는 40세 이상</span></label>
-        <label class="f">성별<select name="gender"><option value="M">남</option><option value="F">여</option></select></label>
-      </div>
-      <label class="f">슬로건<input type="text" name="slogan" maxlength="30" placeholder="선택 사항"></label>
       <button class="btn pri" type="submit">창당준비위원회 결성 신고</button>
       <button class="btn" type="button" id="ldFile">저장 파일 불러오기</button>
     </form>`,
     onOpen: m => {
       m.querySelector('#ldFile').onclick = () => $('#importFile').click();
       const f = m.querySelector('#ng');
-      f.elements.diff.onchange = e => m.querySelector('#ngDiff').textContent = L.DIFF[e.target.value].d;
       f.onsubmit = e => {
         e.preventDefault();
         const v = Object.fromEntries(new FormData(f));
