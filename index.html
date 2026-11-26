@@ -365,12 +365,12 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 .imgpick label:has(input:checked){border-color:var(--primary2)}
 .imgpick label:has(input:focus-visible){outline:2px solid var(--primary2);outline-offset:2px}
 .imgpick input[type=radio]{position:absolute;opacity:0}
-.ngcols{margin-top:0;column-gap:18px}.ngf #ldFile{margin-top:auto}.ngf{display:flex;flex-direction:column;gap:12px}.ngwho{align-items:flex-start;flex-wrap:nowrap}.ngwho>label:first-child{flex:1 1 auto;min-width:0}.ngwho>label:first-child input{width:100%}
+.ngcols{margin-top:0;column-gap:18px}.ngf{display:flex;flex-direction:column;gap:12px}.ngwho{align-items:flex-start;flex-wrap:nowrap}.ngwho>label:first-child{flex:1 1 auto;min-width:0}.ngwho>label:first-child input{width:100%}
 .diffpick{border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;min-width:0}.diffpick legend{padding:0;margin-bottom:4px;font-size:13px;font-weight:600}
 .diffpick label{position:relative;display:flex;flex-direction:column;gap:4px;min-height:44px;padding:10px 12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;transition:border-color .15s,background-color .15s}
 .diffpick label:hover{background:var(--surface2)}.diffpick label:has(input:checked){border-color:var(--primary2);background:var(--surface2)}
 .diffpick label:has(input:focus-visible){outline:2px solid var(--ring);outline-offset:2px}.diffpick input{position:absolute;opacity:0}
-.diffpick .dn{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:14px}.diffpick .dn .num{font-size:12px;font-weight:600;color:var(--muted)}.diffpick .dd{font-size:12px;color:var(--muted);line-height:1.5}
+.diffpick .dn{display:flex;justify-content:space-between;gap:8px;align-items:baseline;font-size:14px}.diffpick .dn .num{font-size:12px;font-weight:600;color:var(--muted)}.diffpick .dd{font-size:12px;color:var(--muted);line-height:1.5}.diffpick label:not(:has(input:checked)) .dd{display:none} /* 설명은 고른 난이도만 펼침 */
 .imgpick .noimg{display:grid;place-items:center;width:56px;height:56px;background:var(--surface2);color:var(--muted);font-size:26px}
 .swatches label{cursor:pointer}
 .swatches input{position:absolute;opacity:0}
@@ -6637,11 +6637,11 @@ function newGameModal() {
             <label class="f">성별<select name="gender"><option value="M">남</option><option value="F">여</option></select></label>
           </div>
           <label class="f">슬로건<input type="text" name="slogan" maxlength="30" placeholder="선택 사항"></label>
-          <button class="btn" type="button" id="ldFile">저장 파일 불러오기</button>
         </div>
         <fieldset class="diffpick"><legend>난이도</legend>${Object.entries(L.DIFF).map(([k, d]) => `<label><input type="radio" name="diff" value="${k}" ${k === 'veteran' ? 'checked' : ''}><span class="dn"><b>${d.n}</b><span class="num">시작 자금 ${won(d.money)}</span></span><span class="dd">${d.d}</span></label>`).join('')}</fieldset>
       </div>
       <button class="btn pri" type="submit">창당준비위원회 결성 신고</button>
+      <button class="btn" type="button" id="ldFile">저장 파일 불러오기</button>
     </form>`,
     onOpen: m => {
       m.querySelector('#ldFile').onclick = () => $('#importFile').click();
