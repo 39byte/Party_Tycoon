@@ -1079,7 +1079,7 @@ const KEYS0 = { end: ' ', c1: '1', c2: '2', c3: '3', c4: '4' };
 const keyName = k => k === ' ' ? 'Space' : k.length === 1 ? k.toUpperCase() : k;
 const endKey = () => keyName(Snd.set.keys.end);
 
-// ---------- sound (WebAudio 합성: 파일 없음, 꺼도 게임 진행에 영향 없음) ----------
+// ---------- sound (WebAudio 합성 + 녹음 곡 파일 BGM, 꺼도 게임 진행에 영향 없음) ----------
 const Snd = {
   set: (() => { const d = { bgm: false, song: 0, sfx: false, bgmVol: 0.5, sfxVol: 0.5, confAp: true, confAap: true, skipCost: false, theme: 'dark', ratio: 'full' }; d.keys = { ...KEYS0 }; try { const o = JSON.parse(localStorage.getItem(SET_KEY) || '{}'); Object.assign(d, o, { keys: { ...KEYS0, ...o.keys } }); } catch (e) { } return d; })(),
   ctx: null, sfxG: null, bus: null, timer: null, step: 0, t: 0, ci: 0, ct: 0,
@@ -1153,8 +1153,17 @@ const Snd = {
   })(),
   // 곡별 [박자 빠르기, 화음 하나의 박 수, 선율, 화음]
   SONGS: () => [[72, 2, Snd.MEL, Snd.CH], [96, 3, Snd.ARI, 'G C E G C E C G G D E G C E C G'.split(' ')], [90, 3, Snd.DOR, 'G G D G E C C D G G D G E C C D C E C G'.split(' ')], [100, 4, Snd.GUN, 'B B B g g F B'.split(' ')], [100, 2, Snd.DAE, 'g g D g g g D g'.split(' ')], [100, 4, Snd.YEO, 'A A A A C A C A C A C A C A C A A C A'.split(' ')]],
+  // 녹음 곡: 설정의 곡 번호 → 파일 (Suno 생성)
+  FILES: { 6: 'asset/bgm/shadow.mp3' },
   bgm(on) {
     clearInterval(this.timer); this.timer = null;
+    if (this.el) this.el.pause();
+    const src = on && this.FILES[this.set.song];
+    if (src) {
+      if (!this.el || !this.el.src.endsWith(src)) { this.el = new Audio(src); this.el.loop = true; }
+      this.applyVol(); this.el.play().catch(() => { });
+      return;
+    }
     if (!on || !this.ensure()) return;
     const [bpm, cb, MEL, CH] = this.SONGS()[this.set.song] || this.SONGS()[0];
     const q = 60 / bpm, hz = m => 440 * 2 ** ((m - 69) / 12);
@@ -1175,7 +1184,7 @@ const Snd = {
     }, 200);
   },
   // 음량 슬라이더 1 = 예전 최대의 효과음 3배, 배경음악 15배
-  applyVol() { if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 15 * this.set.bgmVol; },
+  applyVol() { if (this.el) this.el.volume = this.set.bgmVol; if (!this.ctx) return; this.sfxG.gain.value = 3 * this.set.sfxVol; this.bus.gain.value = 0.55 * 15 * this.set.bgmVol; },
   vol(k, v) { this.set[k] = v; this.applyVol(); this.saveSet(); },
 };
 applyView();
@@ -6517,7 +6526,7 @@ function settingsModal() {
       ${seg('sTheme', [['dark', '다크'], ['light', '라이트']], s.theme)}`)}
       ${pane('snd', `<h3>소리</h3><p class="small muted">소리는 게임 진행에 필요하지 않습니다. 모든 정보는 화면에 표시됩니다.</p>
       <div class="keys">
-        <div class="krow snd"><label><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> <b>배경음악</b></label><select id="sSong" aria-label="배경음악 곡">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}" aria-label="배경음악 음량"></div>
+        <div class="krow snd"><label><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> <b>배경음악</b></label><select id="sSong" aria-label="배경음악 곡">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야', '그림자'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}" aria-label="배경음악 음량"></div>
         <div class="krow snd"><label><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> <b>효과음</b></label><input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}" aria-label="효과음 음량"></div>
       </div>`)}
       ${pane('play', `<h3>턴 종료 확인</h3><p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
