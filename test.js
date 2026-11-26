@@ -217,5 +217,4 @@ console.log('ok');
   const t = [0.1, 0.2, 0.3, 0.2, 0.2], z = L.tierSoft(t, 0);
   assert.strictEqual(L.tierSoft(t, 1), t); assert.strictEqual(z[4], 0); assert(Math.abs(z.reduce((a, b) => a + b, 0) - 1) < 1e-12);
   assert(L.tierMul(z, 1) > L.tierMul(t, 1) && L.tierSup(z, true) > L.tierSup(t, true)); // 혐오층을 덜어내면 호재가 더 잘 먹힘
-  assert(L.talentCap(30, 50, 60, D.rookie.tal).g > L.talentCap(30, 50, 60).g);
-  assert.strictEqual(L.DIFF_OLD.easy, 'elder'); assert.strictEqual(L.DIFF_OLD.normal, 'shadow'); }
+  assert(L.talentCap(30, 50, 60, D.rookie.tal).g > L.talentCap(30, 50, 60).g); }

@@ -1393,7 +1393,7 @@ function migrate(o) {
   for (const k in o.members) o.members[k] = Math.round(o.members[k]); // 옛 저장 파일의 소수점 당원 수 정리
   if ('autoGov' in o) { if (o.autoGov) o.autoK = Object.fromEntries(Object.keys(o.ops || {}).map(k => [k, 1])); delete o.autoGov; } // 옛 저장: 전체 자동화 → 지사별
   if (!o.rtrust) { const t = o.trust ?? 50; delete o.trust; o.rtrust = Object.fromEntries(R.map(r => [r.k, t])); }
-  o.diff = L.DIFF[o.diff] ? o.diff : L.DIFF_OLD[o.diff] || 'shadow'; // 옛 저장: 쉬움 → 원로 인사, 보통·어려움 → 배후 세력
+  if (!L.DIFF[o.diff]) o.diff = 'shadow'; // 옛 저장(쉬움·보통·어려움이나 난이도 없음)은 모두 배후 세력
   defTrust(o); defFame(o); o.rsup ??= {};
   o.rtr ??= Object.fromEntries(TR_IDS.map(id => [id, Object.fromEntries(R.map(r => [r.k, 50]))]));
   o.rfame ??= Object.fromEntries(TR_IDS.map(id => [id, RIV[id].fame])); // 옛 저장: 다른 당 인지도

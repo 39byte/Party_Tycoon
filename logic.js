@@ -371,13 +371,12 @@
     elder: { n: '원로 인사', tip: '노선에 맞는 행보를 지키고 자금 흐름을 꼼꼼히 살피세요. 무리한 선택은 대가가 따릅니다.', d: '산전수전 다 겪은 원로입니다. 정치판의 냉정한 규칙을 대부분 그대로 마주하지만, 쌓아 온 경험 덕에 조금은 여유가 있습니다.', money: 8e8, fail: 0.85, good: 1.15, bad: 0.85, cost: 0.85, upkeep: 0.85, fundCap: 1.2, fundCd: 28, vote: 1.03, rivCap: 90, tal: 0.06, hate: 0.7, lowTr: 1, offPlus: 1, stray: 1, side: 1, cosign: 0.3, memJoin: 0.35, selfAct: 1, autoFlop: 1, inst: 1, tv: 2, broke: 150 },
     shadow: { n: '배후 세력', tip: '후원의 밤을 놓치지 말고, 결과를 장담할 수 없는 선택은 신중하게 고르세요. 한 번의 악재가 오래 남습니다.', d: '정치판의 냉혹한 현실을 그대로 겪습니다. 작은 실수가 큰 대가로 돌아오고, 돈과 기회는 늘 빠듯합니다. 한 수 한 수를 따져야 살아남습니다.', money: 6e8, fail: 1, good: 1, bad: 1, cost: 1, upkeep: 1, fundCap: 1, fundCd: 30, vote: 1, rivCap: 99, tal: 0, hate: 1, lowTr: 1, offPlus: 0, stray: 1, side: 1, cosign: 0.3, memJoin: 0.3, selfAct: 1, autoFlop: 1, inst: 1, tv: 2, broke: 120 },
   };
-  const DIFF_OLD = { easy: 'elder', normal: 'shadow', hard: 'shadow' }; // 옛 저장 파일의 쉬움·보통·어려움
   const okP = (p, f) => 1 - (1 - p) * f; // 성공 확률 p의 실패 몫(1−p)만 f배
   const goodBad = (d, df) => d > 0 ? d * df.good : d * df.bad;
   // 혐오층 영향을 h배로: 덜어낸 혐오층 몫은 중립으로 봄(화면의 지지층 비중은 그대로)
   const tierSoft = (t, h) => h === 1 || !t ? t : [t[0], t[1], t[2] + t[4] * (1 - h), t[3], t[4] * h];
 
-  const L = { DIFF, DIFF_OLD, okP, goodBad, tierSoft, REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
+  const L = { DIFF, okP, goodBad, tierSoft, REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
     TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, bfRate, baseCost, atkU, rivalU, rivalPolicy, RACE_SD, PRES_SD, ncdf, raceOdds, TRANSFER, absentShift, campWin, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);
