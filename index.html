@@ -1229,6 +1229,18 @@ const wRegion = w => { const ws = R.map(r => r.voters * w(r)); let x = rnd() * s
 // 우리 인재 출신 지역: 인구 비율 × 노선 궁합(진보 정당이면 진보 성향 지역 출신이 더 많음)
 // 이번 게임의 지역 성향: 새 게임 때 역대 출렁임(r.sw)만큼 흔든 값. 옛 저장·게임 전 화면은 기본값
 const leanOf = r => S?.lean?.[r.k] ?? r.lean;
+// 선거구 성향 = 이번 게임 지역 성향 + 선거구 편차(logic.js DISTS 셋째 값: 22대 총선 지역구 진보·보수 득표 차가 시·도 평균에서 벗어난 폭)
+// 선거구 배율 dFac(당, 지역, 선거구): 노선 궁합(ideoFit)을 선거구 선거인 가중 평균이 1이 되게 나눈 값. 지역 지지율 × 배율 = 선거구 지지율이라
+// 선거구 지지율을 선거인 가중 평균하면 그 지역 지지율, 지역을 가중 평균하면 전국 지지율. 성향·노선은 게임 내내 그대로라 게임(S)마다 한 번 계산
+const DFC = new WeakMap();
+function dFac(id, k, i) {
+  if (id === 'O') return 1;
+  let t = DFC.get(S); if (!t || t.ideo !== S.party.ideo) DFC.set(S, t = { ideo: S.party.ideo });
+  return (t[id + k] ??= (() => { const r = RK[k], f = r.dists.map(d => ideoFit(ideoOf(id), clamp(leanOf(r) + d[2], -1, 1))), a = sum(f.map((x, j) => x * r.dists[j][1])) / sum(r.dists.map(d => d[1])); return f.map(x => x / a); })())[i];
+}
+// 우리 지역구 후보 자리 순서: 지역마다 우리 당 배율이 높은 선거구부터(자리 j → 선거구 dOrd(k)[j]). myDist = 선거구 i에 낸 우리 후보
+const dOrd = k => RK[k].dists.map((_, i) => i).sort((a, b) => dFac('P', k, b) - dFac('P', k, a));
+const myDist = (c, k, i) => c?.reg?.dist[k]?.[dOrd(k).indexOf(i)];
 const homePick = ideo => wRegion(r => ideoFit(ideo, leanOf(r))).k;
 // 출신 지역: 우리 인재는 home, 다른 당 인물은 지역구·출마 지역(k)
 const homeOf = p => p?.home ?? p?.k;
@@ -1547,9 +1559,9 @@ const rgovAdd = (k, d) => { const g = S.rgov[k]; g.o = clamp(opsUp(g.p, k, g.o, 
 // ponytail: 지역 성향×전국 지지율×로그정규 잡음의 단순 모델. 세대·이슈별 유권자 모델은 필요해지면 추가
 // 노선 표(우리 당 포함): 불출마 당 지지층 이동(L.absentShift)과 진영 계산에 씀
 const ideoMap = () => ({ P: S.party.ideo, ...Object.fromEntries(TR_IDS.map(id => [id, RIV[id].ideo])) });
-// 한 경기 득표: 그 지역 몫 × 배율(mods) + 안 나온 같은 진영 당에서 넘어온 몫(L.absentShift), 후보마다 로그정규 잡음
-function shareRace(k, ids, mods) {
-  const ns = natShares(), v = {}, b = Object.fromEntries(['P', ...TR_IDS].map(id => [id, ns[id] * pf(id, k)])), add = L.absentShift(b, ideoMap(), ids);
+// 한 경기 득표: 그 지역 몫(총선 지역구 i면 선거구 배율 dFac까지) × 배율(mods) + 안 나온 같은 진영 당에서 넘어온 몫(L.absentShift), 후보마다 로그정규 잡음
+function shareRace(k, ids, mods, i) {
+  const ns = natShares(), v = {}, b = Object.fromEntries(['P', ...TR_IDS].map(id => [id, ns[id] * pf(id, k) * (i == null ? 1 : dFac(id, k, i))])), add = L.absentShift(b, ideoMap(), ids);
   let tot = 0;
   for (const id of ids) {
     let x = ((id === 'O' ? ns.O : b[id]) * (mods[id] || 1) + (add[id] || 0)) * Math.exp(gauss() * 0.22);
@@ -1589,7 +1601,7 @@ const homeMul = (p, k) => p && homeOf(p) === k ? HOME : 1;
 const prWeight = (c, id, ns) => id === 'P' ? ns.P * 1.15 * campMul(c, 'P', '') * (c?.sat ? 1.3 : 1) : ns[id] * (id === 'C' || id === 'D' ? 1.3 : id === 'O' ? 0.8 : 1);
 // 총선 한 선거구 배율(예측기 forecast도 씀): 거대 양당 현역 프리미엄 | 최근 의혹 | 선거운동 | 후보 개인 | 연고. 우리 후보가 있으면 ids에 'P'를 넣음
 function natMods(c, r, i, slot, ids) {
-  const race = `${r.k}:${i}`, cand = c?.reg?.dist[r.k]?.[i], mods = {};
+  const race = `${r.k}:${i}`, cand = myDist(c, r.k, i), mods = {};
   for (const id of ['A', 'B']) mods[id] = 1 + 0.12 * ((S.seats[id].d[r.k] || 0) / r.seats);
   for (const id of ids) if (S.day - (fig(slot?.[id]?.fid)?.hit ?? -999) < 120) mods[id] = (mods[id] || 1) * 0.88; // 최근 의혹 보도된 후보
   for (const id of ids) { const f = fig(slot?.[id]?.fid); mods[id] = (mods[id] || 1) * campMul(c, id, r.k, race) * candMul(f) * homeMul(f, r.k); }
@@ -1607,12 +1619,11 @@ function govMods(c, r, slot, ids) {
 function simGeneral(c) {
   const reg = c && c.reg, seatsD = { P: {}, A: {}, B: {}, C: {}, D: {}, O: {} }, pDist = [], wins = [], races = [], to = turnouts('nat');
   for (const r of R) {
-    const mine = reg ? reg.dist[r.k] || [] : [];
     for (let i = 0; i < r.seats; i++) {
       const e = distE(r, i), slot = c?.rv?.[r.k]?.[i], ids = slot ? Object.keys(slot) : ['A', 'B'], race = `${r.k}:${i}`;
       if (!slot) { if (rnd() < 0.35) ids.push('C'); if (rnd() < 0.35) ids.push('D'); if (rnd() < 0.5) ids.push('O'); }
-      const cand = mine[i], mods = natMods(c, r, i, slot, ids);
-      const { v, win } = shareRace(r.k, ids, mods), b = ballots(e, to[r.k], v, LAW.invalid.nat);
+      const cand = myDist(c, r.k, i), mods = natMods(c, r, i, slot, ids);
+      const { v, win } = shareRace(r.k, ids, mods, i), b = ballots(e, to[r.k], v, LAW.invalid.nat);
       seatsD[win][r.k] = (seatsD[win][r.k] || 0) + 1; races.push({ k: r.k, n: distFull(r.k, i), e, t: to[r.k], bad: b.bad, c: raceRow(ids, v, slot, cand, b) });
       if (win !== 'P') wins.push({ k: r.k, fid: slot?.[win]?.fid });
       if (cand) pDist.push({ k: r.k, i, name: cand.name, pid: cand.id, share: v.P, votes: b.v.P, win: win === 'P', winner: win, cost: cand.dep + cand.spend });
@@ -2097,8 +2108,8 @@ const smart = id => !DUMB.includes(id);
 const PRES_V = 30, PLAY_REF = { nat: 200, gov: 7, pres: 110 }, FC = {}; // PLAY_REF: 거대 양당이 접전일 때 play ≈ 1
 const fcIds = () => ['A', 'B', 'C', 'D', ...(S.phase === 'reg' ? ['P'] : [])];
 const pubW = k => Object.fromEntries(['P', ...TR_IDS, 'O'].map(x => [x, Math.max(0.1, pubReg(k, x))]));
-// 한 경기 무게: 지역 발표 지지 × 배율 + 불출마 당에서 넘어온 몫
-const fcRace = (k, ids, mods) => { const b = pubW(k), add = L.absentShift(b, ideoMap(), ids); return Object.fromEntries(ids.map(x => [x, b[x] * (mods[x] || 1) + (add[x] || 0)])); };
+// 한 경기 무게: 지역 발표 지지(총선 지역구 i면 × 선거구 배율) × 배율 + 불출마 당에서 넘어온 몫
+const fcRace = (k, ids, mods, i) => { const b = pubW(k); if (i != null) for (const x in b) b[x] *= dFac(x, k, i); const add = L.absentShift(b, ideoMap(), ids); return Object.fromEntries(ids.map(x => [x, b[x] * (mods[x] || 1) + (add[x] || 0)])); };
 function forecast(id) {
   const e = nextElection(); if (!e) return null;
   const c = S.camps[e.key], el = Object.fromEntries(R.map(r => [r.k, 0])), thrK = Object.fromEntries(R.map(r => [r.k, {}])), thr = {};
@@ -2116,7 +2127,7 @@ function forecast(id) {
     const slot = c?.rv?.[r.k]?.[i], ids = slot ? Object.keys(slot) : fcIds();
     if (!ids.includes(id)) continue;
     const mods = e.type === 'nat' ? natMods(c, r, i, slot, ids) : govMods(c, r, slot, ids);
-    add(r.k, L.raceOdds(fcRace(r.k, ids, mods))[id], 1);
+    add(r.k, L.raceOdds(fcRace(r.k, ids, mods, e.type === 'nat' ? i : null))[id], 1);
   }
   if (e.type === 'nat') { // 비례(준연동형, L.allocatePR): 발표 지지 몫으로 배분해 보고, 득표가 ±10% 달라질 때의 차로 탄력성. 다른 당 지역구 의석은 지금 의석으로 어림
     const vs = Object.fromEntries(PIDS.map(x => [x, sum(R.map(r => r.voters * pubReg(r.k, x)))])), dS = x => x === id ? V : x === 'O' ? 0 : sum(Object.values(S.seats[x]?.d || {}));
@@ -2239,7 +2250,7 @@ const debInvited = id => id !== 'O' && (seatTotal(id) >= 5 || (S.lastVotes[id] |
 function debRaces(c) {
   if (c.type === 'pres') return [['pres', [...Object.keys(c.rivals).filter(id => id !== uniId(c)).map(id => [id, fig(c.rivals[id].fid) || c.rivals[id]]), ...(c.reg?.cand ? [['P', live(c.reg.cand)]] : [])]]];
   return R.flatMap(r => (c.type === 'gov' ? [0] : [...Array(r.seats).keys()]).map(i => {
-    const slot = c.rv?.[r.k]?.[i] || {}, p = c.type === 'gov' ? c.reg?.gov[r.k] : c.reg?.dist[r.k]?.[i];
+    const slot = c.rv?.[r.k]?.[i] || {}, p = c.type === 'gov' ? c.reg?.gov[r.k] : myDist(c, r.k, i);
     return [c.type === 'gov' ? r.k : `${r.k}:${i}`, [...Object.keys(slot).filter(id => rvOut(slot[id])).map(id => [id, fig(slot[id].fid)]).filter(x => x[1]), ...(p ? [['P', live(p)]] : [])]];
   }));
 }
@@ -3275,16 +3286,16 @@ function rvPlan(c) {
   rvPr(c);
 }
 // 군소 정당 공천 전략(새 AI): 자리마다 점수 = 당선 확률 − 표 분산 피해 × 0.5(나오면 반대 진영 당선 확률이 오르는 만큼, L.absentShift. 자기 의석보다는 덜 따짐).
-// 출마 수는 예전(자리의 q)과 비슷하게 두고 점수 높은 자리부터 채움. 점수가 음수(표만 가르는 자리)는 빼고, 당선 확률 10% 넘는 자리는 늘 나감. 같은 지역 자리끼리는 운으로 가름
-const entryScore = (k, id, ids) => {
-  const io = ideoMap(), g = -Math.sign(io[id]), o1 = L.raceOdds(fcRace(k, ids, {})), o0 = L.raceOdds(fcRace(k, ids.filter(x => x !== id), {}));
+// 출마 수는 예전(자리의 q)과 비슷하게 두고 점수 높은 자리부터 채움. 점수가 음수(표만 가르는 자리)는 빼고, 당선 확률 10% 넘는 자리는 늘 나감. 총선은 선거구 성향(dFac)까지 따져 자리마다 매김
+const entryScore = (k, id, ids, i) => {
+  const io = ideoMap(), g = -Math.sign(io[id]), o1 = L.raceOdds(fcRace(k, ids, {}, i)), o0 = L.raceOdds(fcRace(k, ids.filter(x => x !== id), {}, i));
   return { p: o1[id].p, sc: o1[id].p - 0.5 * (L.campWin(o1, io, g) - L.campWin(o0, io, g)) };
 };
 function rvEntry(c, q) {
   const out = {}, nat = c.type === 'nat';
   for (const id of ['C', 'D']) {
     if (!smart(id)) continue;
-    const xs = R.flatMap(r => { const e = entryScore(r.k, id, ['A', 'B', id, ...(S.phase === 'reg' ? ['P'] : [])]); return Array.from({ length: nat ? r.seats : 1 }, (_, i) => ({ key: `${r.k}:${i}`, p: e.p, sc: e.sc + rr(0, 0.02) })); });
+    const xs = R.flatMap(r => Array.from({ length: nat ? r.seats : 1 }, (_, i) => { const e = entryScore(r.k, id, ['A', 'B', id, ...(S.phase === 'reg' ? ['P'] : [])], nat ? i : null); return { key: `${r.k}:${i}`, p: e.p, sc: e.sc + rr(0, 0.02) }; }));
     const n = Math.round(xs.length * q);
     out[id] = new Set(xs.sort((a, b) => b.sc - a.sc).filter((x, i) => (i < n && x.sc > -0.02) || x.p > 0.1).map(x => x.key));
   }
@@ -4223,8 +4234,8 @@ function prRec(c) {
 // 지역구 당선 가능성(대략): 우리 후보 vs 그 지역 A·B 중 강한 쪽(상대 후보 점수는 RV_TYP로 가정). 득표 잡음 σ 0.22 둘의 차 ≈ 0.31, 정규분포를 로지스틱으로 근사
 // ponytail: C·무소속·다른 당 유세는 뺌. 크게 어긋나면 shareRace를 몇 번 돌려 세는 식으로
 const RV_TYP = 0.3, NOM_HOPE = 0.1;
-// 판세는 발표된 여론조사(지역은 최근 4주 통합)로 가늠함. 진짜 민심과 어긋날 수 있음
-const distOdds = (c, k, p) => { const me = pubReg(k) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(pubReg(k, 'A'), pubReg(k, 'B')) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
+// 판세는 발표된 여론조사(지역은 최근 4주 통합)에 선거구 성향(우리 자리 j번째 선거구 dOrd(k)[j]의 dFac)을 곱해 가늠함. 진짜 민심과 어긋날 수 있음
+const distOdds = (c, k, p, j = 0) => { const i = dOrd(k)[j], me = pubReg(k) * dFac('P', k, i) * candMul(p) * campMul(c, 'P', k) * homeMul(p, k) * (1 + (NAT_SPEND[c.draft.reg[k]?.spend]?.b || 0)), op = Math.max(pubReg(k, 'A') * dFac('A', k, i), pubReg(k, 'B') * dFac('B', k, i)) * Math.exp(RV_TYP) * HOME; /* 상대는 현지 출신 */ return me > 0 ? 1 / (1 + Math.exp(-1.7 * Math.log(me / op) / 0.31)) : 0; };
 let nomPref = { spread: 'focus', first: 'pr', incMP: false, incGov: false }; // 총선 자동 배치 방식·자동 추천에 현직 의원/단체장 포함 여부(이번 실행 동안 기억)
 function nomAutoAsk(key) {
   const c = S.camps[key]; if (!c || c.reg) return;
@@ -4250,13 +4261,14 @@ function nomAuto(key) {
     const rec = prRec(c).n, isF = p => p.gender === 'F', focus = nomPref.spread !== 'even', cut = nomPref.spread === 'focus';
     // 비례 몫: 후보 점수 낮은 쪽부터(비례 득표는 후보 점수와 무관), 홀수 순번 여성을 먼저 확보
     const prPick = (xs, n) => { const F = xs.filter(isF); n = Math.min(n, 2 * F.length, xs.length); const f = F.slice(F.length - Math.ceil(n / 2)), o = xs.filter(p => !f.includes(p)); return [...f, ...o.slice(o.length - (n - f.length))]; };
-    // 자리 순서: 승산 높은 지역부터 의석 수만큼(몰기) 또는 지역마다 한 자리씩 돌아가며(고르게)
+    // 자리 순서: 승산 높은 선거구부터(몰기) 또는 지역마다 한 자리씩 돌아가며(고르게). 지역 안에선 늘 우리 당 성향이 맞는 선거구부터 채움(dOrd)
     const rs = [...R].sort((a, b) => distOdds(c, b.k) - distOdds(c, a.k));
-    const seats = focus ? rs.flatMap(r => Array(r.seats).fill(r)) : Array.from({ length: Math.max(...R.map(r => r.seats)) }, (_, j) => rs.filter(r => r.seats > j)).flat();
+    const seats = focus ? R.flatMap(r => r.dists.map((_, j) => [r, distOdds(c, r.k, null, j)])).sort((a, b) => b[1] - a[1]).map(x => x[0]) : Array.from({ length: Math.max(...R.map(r => r.seats)) }, (_, j) => rs.filter(r => r.seats > j)).flat();
     let pr = nomPref.first === 'pr' ? prPick(ps, rec) : [];
     // 자리마다 남은 인재 중 그 자리 점수(연고 포함)가 가장 높은 사람
     const dist = [], left = ps.filter(p => !pr.includes(p));
-    for (const r of seats) { if (!left.length) break; const p = bestAt(left, r.k); if (cut && distOdds(c, r.k, p) < NOM_HOPE) break; dist.push([r, p]); left.splice(left.indexOf(p), 1); }
+    const nk = {}; // 지역마다 이미 채운 자리 수(다음 자리 = 그만큼 덜 유리한 선거구)
+    for (const r of seats) { if (!left.length) break; const p = bestAt(left, r.k); if (cut && distOdds(c, r.k, p, nk[r.k] || 0) < NOM_HOPE) continue; nk[r.k] = (nk[r.k] || 0) + 1; dist.push([r, p]); left.splice(left.indexOf(p), 1); }
     if (nomPref.first === 'dist') pr = prPick(ps.filter(p => !dist.some(x => x[1] === p)), rec);
     for (const r of R) d.reg[r.k].ids = [];
     for (const [r, p] of dist) d.reg[r.k].ids.push(p.id);
@@ -5779,6 +5791,8 @@ function pOrg() {
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
         ${byeInfo(r.k) ? `<tr><th>공석·보궐</th><td><b class="warn">${byeInfo(r.k, '<br>')}</b></td></tr>` : ''}
       </tbody></table></div></div>
+      <details style="margin-top:10px"><summary class="small">선거구별 지지율 추정 (${r.seats}곳)</summary><p class="small muted">지역 지지율에 선거구 성향(22대 총선 결과)을 곱한 값입니다. 선거인 수로 가중 평균하면 지역 지지율과 같습니다.</p>
+        <div class="small" style="columns:2;column-gap:24px">${r.dists.map((d, i) => [d[0], pubReg(r.k) * dFac('P', r.k, i)]).sort((a, b) => b[1] - a[1]).map(([n, v]) => `<div style="display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-bottom:1px solid var(--border);break-inside:avoid"><span>${esc(n)}</span><b class="num">${v.toFixed(v < 5 ? 2 : 1)}%</b></div>`).join('')}</div></details>
       ${!S.chapters[r.k] ? `<div style="margin:10px 0"><div class="small" style="display:flex;justify-content:space-between"><span>시·도당 창당 요건</span><span class="num">${S.members[r.k].toLocaleString()} / 1,000</span></div><div class="bar"><i style="width:${Math.min(100, S.members[r.k] / 10)}%"></i></div></div>` : ''}
       <div class="acts n2" style="margin-top:24px">${actBtn('recruit', r.k)}${actBtn('volunteer', r.k)}${cs ? actBtn('rally', r.k) : ''}${S.chapters[r.k] ? '' : actBtn('chapter', r.k)}</div>
     </div></div>`;
@@ -5987,7 +6001,7 @@ function distModal(c, k) {
   const draw = m => {
     const shown = fk ? rs.filter(r => r.k === fk) : rs;
     m.querySelector('[data-dm]').innerHTML = (!gov && rs.length > 1 ? `<div class="filters chips" role="group" aria-label="지역 선택">${[['', '전체', sum(rs.map(r => d[r.k].length))], ...rs.map(r => [r.k, r.n, d[r.k].length])].map(([v, n, N]) => `<button class="btn${v === fk ? ' pri' : ''}" data-fk="${v}" aria-pressed="${v === fk}">${n} <span class="num">${N}</span></button>`).join('')}</div>` : '')
-      + (rs.length ? `<div style="max-height:62vh;overflow:auto">${gov ? `<div class="rcands g3">${rs.map(r => cand(d[r.k][0], r.n)).join('')}</div>` : shown.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map((x, i) => cand(x, distN(r.k, i))).join('')}</div></section>`).join('')}</div>` : `<p class="empty">배치된 ${distWho(c)}가 없습니다.</p>`);
+      + (rs.length ? `<div style="max-height:62vh;overflow:auto">${gov ? `<div class="rcands g3">${rs.map(r => cand(d[r.k][0], r.n)).join('')}</div>` : shown.map(r => `<section class="rrace"><h3>${r.n} <span class="pill">${d[r.k].length}명</span></h3><div class="rcands">${d[r.k].map((x, i) => cand(x, distN(r.k, dOrd(r.k)[i]))).join('')}</div></section>`).join('')}</div>` : `<p class="empty">배치된 ${distWho(c)}가 없습니다.</p>`);
     m.querySelectorAll('[data-fk]').forEach(b => b.onclick = () => { fk = b.dataset.fk; draw(m); });
     m.querySelectorAll('.rcand.fixed summary').forEach(x => x.onclick = e => e.preventDefault());
   };
@@ -6014,7 +6028,7 @@ function distEdit(c, k) {
     const rs = distRs(c, rk => at(rk).length); if (!rs.some(r => r.k === k)) k = rs[0]?.k;
     const pool = S.pool.filter(p => eligible(p, kind)).sort((x, y) => L.candScore(y) - L.candScore(x)), by = new Map(pool.map(p => [p.id, p]));
     const opts = sel => (sel === '' ? '<option value="" selected>인재 부족</option>' : '') + pool.map(p => `<option value="${p.id}"${p.id === sel ? ' selected' : ''}>${esc(p.name)} (${candPts(p)})${nomTag(p, c) ? ' | ' + nomTag(p, c) : ''}</option>`).join('');
-    const slot = ([v, si], i) => { const p = by.get(v), dn = c.type === 'nat' && distN(k, i);
+    const slot = ([v, si], i) => { const p = by.get(v), dn = c.type === 'nat' && distN(k, dOrd(k)[i]);
       return `<div class="dslot">${p ? face(p, pc('P'), 36) : ''}<div>${dn ? `<b class="small">${esc(dn)}</b>` : ''}<select data-camp="${c.key}" data-f="slot" data-s="${si}" aria-label="${distReg(k)} ${dn ? esc(dn) + ' ' : ''}${distWho(c)}${dn ? '' : ` ${i + 1}`}">${opts(v)}</select>${p ? `<span class="small muted">${p.gender === 'F' ? '여' : '남'} | ${p.age}세${p.job ? ` | ${esc(p.job)}` : ''} | ${esc(homeTxt(p))}</span>` : ''}</div>${p ? `<div class="dsl-st">${statBars(p)}<span class="small ${p.rec?.length ? 'bad' : 'muted'}">전과 ${p.rec?.length ? esc(p.rec.join(', ')) : '없음'}${p.ban ? ' | <b>피선거권 없음</b>' : ''}</span></div>` : ''}</div>`; };
     m.querySelector('[data-dm]').innerHTML = rs.length ? `<div class="filters chips" role="group" aria-label="지역 선택" ${c.type === 'pres' ? 'hidden' : ''}>${rs.map(r => `<button class="btn${r.k === k ? ' pri' : ''}" data-dk="${r.k}" aria-pressed="${r.k === k}">${r.n} ${at(r.k).length}</button>`).join('')}</div>
       <div class="dslots">${at(k).map(slot).join('')}</div>` : `<p class="empty">${c.type === 'gov' ? '출마할 지역을 고르면' : '출마 지역구 수를 정하면'} 후보가 배치됩니다.</p>`;

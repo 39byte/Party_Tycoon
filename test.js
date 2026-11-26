@@ -41,6 +41,11 @@ assert.strictEqual(cad[0].day, 367); // 새 게임 첫 총선(시작 365일째 �
 assert.strictEqual(L.REGIONS.reduce((a, r) => a + r.seats, 0), 254);
 assert.strictEqual(Math.round(L.REGIONS.reduce((a, r) => a + r.voters * 1e6, 0)), L.LAW.voters);
 for (const r of L.REGIONS) assert.strictEqual(r.dists.length, r.seats, `${r.n} 선거구 수`); // 22대 국회 선거구: 지역마다 의석수만큼
+for (const r of L.REGIONS) { // 선거구 성향 편차: ±0.5 안, 선거인 가중 평균 ≈ 0(지역 성향은 그대로)
+  assert(r.dists.every(d => Math.abs(d[2]) <= 0.5), `${r.n} 성향 편차 범위`);
+  const w = r.dists.reduce((a, d) => a + d[1], 0), m = r.dists.reduce((a, d) => a + d[1] * d[2], 0) / w;
+  assert(Math.abs(m) < 0.01, `${r.n} 성향 편차 평균 ${m}`);
+}
 
 assert.deepStrictEqual(L.hare(5, [1, 1, 1]), [2, 2, 1]);
 
