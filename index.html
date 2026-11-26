@@ -1478,6 +1478,8 @@ function earn(n, cat) { S.money += n; S.ledger.cur[cat] = (S.ledger.cur[cat] || 
 const DF = () => L.DIFF[S?.diff] || L.DIFF.shadow;
 const SPEND_RAW = new Set(['벌금·추징', '보조금 용도지정']);
 const offOn = () => DF().offPlus !== Infinity; // 노선 역풍이 있는 난이도
+// 난이도 카드(창당 창·설정 창): 고른 카드만 설명이 펼쳐짐
+const diffCards = cur => Object.entries(L.DIFF).map(([k, d]) => `<label><input type="radio" name="diff" value="${k}" ${k === cur ? 'checked' : ''}><span class="dn"><b>${d.n}</b><span class="num">시작 자금 ${won(d.money)}</span></span><span class="dd">${d.d}</span></label>`).join('');
 // 가이드 '난이도' 항목: 이 난이도에서 알아 둘 규칙(배율 수치 대신 실제로 달라지는 일만)
 function diffRules() {
   const f = DF(), o = [`후원의 밤은 ${f.fundCd}일마다 열 수 있고, 연간 모금 한도는 ${won(LAW.fundCap * f.fundCap)}입니다(창당 준비 중엔 절반, 선거가 있는 해는 두 배).`, `자금이 마이너스인 채로 ${f.broke}일이 지나면 당이 해산합니다.`];
@@ -6580,7 +6582,8 @@ function settingsModal() {
         <div class="krow snd"><label><input type="checkbox" id="sBgm" ${s.bgm ? 'checked' : ''}> <b>배경음악</b></label><select id="sSong" aria-label="배경음악 곡">${['애국가', '아리랑', '도라지 타령', '군밤 타령', '대문놀이', '여우야 여우야', '그림자'].map((n, i) => `<option value="${i}" ${s.song == i ? 'selected' : ''}>${n}</option>`).join('')}</select><input type="range" id="sBgmVol" min="0" max="1" step="0.05" value="${s.bgmVol}" aria-label="배경음악 음량"></div>
         <div class="krow snd"><label><input type="checkbox" id="sSfx" ${s.sfx ? 'checked' : ''}> <b>효과음</b></label><input type="range" id="sSfxVol" min="0" max="1" step="0.05" value="${s.sfxVol}" aria-label="효과음 음량"></div>
       </div>`)}
-      ${pane('play', `${S ? `<h3>난이도</h3><p class="small"><b>${DF().n}</b> <span class="muted">${DF().d}</span></p><p class="small muted">난이도는 새 게임을 만들 때만 고를 수 있습니다.</p>
+      ${pane('play', `${S ? `<h3>난이도</h3><p class="small muted">게임 중에도 바꿀 수 있습니다. 바꾼 뒤부터 비용·성공률·효과·규칙이 새 난이도를 따르고, 시작 자금은 다시 주지 않습니다.</p>
+      <fieldset class="diffpick" id="sDiff"><legend class="sr">난이도</legend>${diffCards(S.diff)}</fieldset>
       <h3 style="margin-top:16px">턴 종료 확인</h3>` : '<h3>턴 종료 확인</h3>'}<p class="small muted">행동력이 남은 채 턴을 종료하려 하면 한 번 더 묻습니다.</p>
       <div class="row"><label class="small"><input type="checkbox" id="sConfAp" ${s.confAp ? 'checked' : ''}> 행동력(의회·당 활동)이 남았을 때</label><label class="small"><input type="checkbox" id="sConfAap" ${s.confAap ? 'checked' : ''}> 행정 행동력이 남았을 때</label></div>
       <h3 style="margin-top:16px">실행 확인</h3><p class="small muted">활동·인재 영입·표 단속 등을 누르면 비용과 행동력을 한 번 더 보여 줍니다.</p>
@@ -6626,6 +6629,12 @@ function settingsModal() {
       m.querySelector('#sConfAp').onchange = e => { s.confAp = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sConfAap').onchange = e => { s.confAap = e.target.checked; Snd.saveSet(); };
       m.querySelector('#sCost').onchange = e => { s.skipCost = !e.target.checked; Snd.saveSet(); };
+      m.querySelector('#sDiff')?.addEventListener('change', e => { // 게임 중 난이도 변경: 바로 적용하고 기록에 남김
+        if (!S || S.diff === e.target.value) return;
+        const was = DF().n; S.diff = e.target.value;
+        addLog(`난이도를 ${was}에서 ${ro(DF().n)} 바꿨습니다.`); toast(`${ro(DF().n)} 바꿨습니다.`, 'sys', '난이도 변경');
+        save(); renderAll();
+      });
       m.querySelector('#sExp').onclick = exportSave;
       m.querySelector('#sImp').onclick = () => $('#importFile').click();
       m.querySelector('#sQr').onclick = qrSend;
@@ -6658,7 +6667,7 @@ function newGameModal() {
           </div>
           <label class="f">슬로건<input type="text" name="slogan" maxlength="30" placeholder="선택 사항"></label>
         </div>
-        <fieldset class="diffpick"><legend>난이도</legend>${Object.entries(L.DIFF).map(([k, d]) => `<label><input type="radio" name="diff" value="${k}" ${k === 'veteran' ? 'checked' : ''}><span class="dn"><b>${d.n}</b><span class="num">시작 자금 ${won(d.money)}</span></span><span class="dd">${d.d}</span></label>`).join('')}</fieldset>
+        <fieldset class="diffpick"><legend>난이도</legend>${diffCards('veteran')}</fieldset>
       </div>
       <button class="btn pri" type="submit">창당준비위원회 결성 신고</button>
       <button class="btn" type="button" id="ldFile">저장 파일 불러오기</button>
