@@ -4220,8 +4220,8 @@ function nomFill(c) {
   const free = shuffle(nomPool(c).filter(p => !used.has(p.id) && !pr.has(p.id)));
   for (const [o, f] of ss) if (o[f] === '') o[f] = free.pop()?.id ?? '';
 }
-// 자동 배치: 후보 점수(L.candScore: 득표 배율의 지수) 높은 인재부터 우리 지지가 높은 지역 자리에. 총선은 비례 몫(홀수 순번 여성)을 점수 낮은 쪽에서 먼저 떼어 둠(비례 득표는 후보 점수와 무관)
-// ponytail: 지지 높은 곳 = 접전이라는 근사(우리가 대개 소수 정당). 이미 크게 앞서는 곳이 생기면 접전 지역 우선으로 바꿀 것
+// 자동 배치: 후보 점수(L.candScore: 득표 배율의 지수) 높은 인재부터 우리 지지가 높은 자리에. 총선은 비례 몫(홀수 순번 여성)을 점수 낮은 쪽에서 먼저 떼어 두고,
+// 출마 선거구는 선거구 성향까지 넣은 판세(distOdds)로 고른 뒤 기대 당선 수가 가장 많아지게 후보끼리 자리를 맞바꿈(센 후보는 접전 선거구로)
 // 비례 후보 수 추천: 지금 여론대로면 받을 비례 의석(우리 지역구 당선은 0으로 쳐 넉넉히) × 1.3 + 1로 여론 변동 대비.
 // 비례 득표율이 국고보조금 배분 기준이라 최소 2명. 홀수 순번 여성·인재 수 안에서
 function prRec(c) {
@@ -4242,7 +4242,7 @@ function nomAutoAsk(key) {
   if (c.type !== 'nat') return nomAuto(key);
   const opt = (n, v, t, h) => `<label style="display:block;margin:6px 0"><input type="radio" name="${n}" value="${v}" ${nomPref[n] === v ? 'checked' : ''}> <b>${t}</b> <span class="small muted">${h}</span></label>`;
   const fs = (lg, body) => `<fieldset style="border:1px solid var(--border);border-radius:8px;margin-top:10px"><legend class="small">${lg}</legend>${body}</fieldset>`;
-  openModal({ title: '자동 배치', html: fs('지역구', opt('spread', 'focus', '가망 없는 지역 포기', `당선 가능성 ${NOM_HOPE * 100}% 미만인 자리엔 내지 않고 승산 높은 지역에 몰아서`) + opt('spread', 'fill', '승산 높은 지역부터, 남으면 전부', '승산 높은 지역부터 채우고, 인재가 남으면 가망 낮은 지역에도 냄') + opt('spread', 'even', '최대한 균등하게', '지역마다 한 자리씩 돌아가며 고르게(가망 낮은 곳도 냄)'))
+  openModal({ title: '자동 배치', html: fs('지역구', opt('spread', 'focus', '가망 없는 선거구 포기', `당선 가능성 ${NOM_HOPE * 100}% 미만인 선거구엔 내지 않고 승산 높은 선거구에 몰아서`) + opt('spread', 'fill', '승산 높은 선거구부터, 남으면 전부', '승산 높은 선거구부터 채우고, 인재가 남으면 가망 낮은 곳에도 냄') + opt('spread', 'even', '최대한 균등하게', '지역마다 한 자리씩 돌아가며 고르게(가망 낮은 곳도 냄)') + '<p class="small muted">판세는 지역 여론조사에 선거구 성향(22대 총선 결과)을 곱해 봅니다. 고른 선거구 안에선 센 후보를 접전 선거구에 보내 당선 기대 수가 가장 많게 맞춥니다.</p>')
       + fs('현직 추천', `<label style="display:block;margin:6px 0"><input type="checkbox" name="incGov" ${nomPref.incGov ? 'checked' : ''}> <b>현직 광역단체장도 추천</b> <span class="small muted">등록하면 단체장직을 사직하고 권한대행 체제가 됩니다(단체장 보궐선거는 임기가 1년 이상 남았을 때만).</span></label>`)
       + fs('인재 우선순위', opt('first', 'pr', '비례 우선', `비례 명부 추천 ${prRec(c).n}명을 먼저 채우고 남는 인재로 지역구`) + opt('first', 'dist', '지역구 우선', '지역구에 먼저 내고 남는 인재로 비례 명부(추천 수까지)')),
     onOpen: m => { m.querySelectorAll('input[type=radio]').forEach(i => i.onchange = () => { nomPref[i.name] = i.value; }); m.querySelectorAll('input[type=checkbox]').forEach(i => i.onchange = () => { nomPref[i.name] = i.checked; }); },
@@ -4283,6 +4283,15 @@ function nomAuto(key) {
         const q = person(id), j = d.prIds.findIndex(pid => { const p = person(pid); return (!isF(p) || isF(q)) && scAt(p, r.k) > scAt(q, r.k); });
         if (j >= 0) { [ids[i], d.prIds[j]] = [d.prIds[j], id]; moved = true; }
       });
+    }
+    // 지역구 후보끼리 자리 맞바꾸기: 기대 당선 수(선거구 판세 distOdds의 합)가 늘면 바꿈. 센 후보는 이미 이기는 곳보다 접전 선거구로 감. 바꿀 때마다 합이 늘어 끝남
+    const at = R.flatMap(r => d.reg[r.k].ids.map((_, j) => [r.k, j])), od = new Map(), odds = (k, j, id) => { const key = `${k}:${j}:${id}`; if (!od.has(key)) od.set(key, distOdds(c, k, person(id), j)); return od.get(key); };
+    for (let moved = true; moved;) {
+      moved = false;
+      for (let a = 0; a < at.length; a++) for (let b = a + 1; b < at.length; b++) {
+        const [ka, ja] = at[a], [kb, jb] = at[b], p = d.reg[ka].ids[ja], q = d.reg[kb].ids[jb];
+        if (odds(ka, ja, q) + odds(kb, jb, p) > odds(ka, ja, p) + odds(kb, jb, q) + 1e-9) { d.reg[ka].ids[ja] = q; d.reg[kb].ids[jb] = p; moved = true; }
+      }
     }
     nomFill(c); Snd.sfx('click'); renderPanel(); return nomAutoToast(c);
   }
