@@ -1509,6 +1509,10 @@ const VSUM = sum(R.map(r => r.voters));
 // 당원 모집 인구 배율: 선거인 수의 거듭제곱으로, 가장 큰 지역이 가장 작은 지역의 3배가 되게 압축(평균 1)
 const POPX = Math.log(3) / Math.log(Math.max(...R.map(r => r.voters)) / Math.min(...R.map(r => r.voters)));
 const POPAVG = sum(R.map(r => r.voters ** POPX)) / R.length, popMul = k => RK[k].voters ** POPX / POPAVG;
+// 지역 당원 상한: 그 지역 우리 당 지지자(선거인 × 진짜 지지율) 가운데 입당할 만큼 열성인 사람(MEM_JOIN, 지지자 10명 중 3명)까지만. 지지율 30%인 서울 전체가 입당하는 일은 없음
+const MEM_JOIN = 0.3, memCap = k => Math.round(RK[k].voters * 1e6 * S.rsup[k] / 100 * MEM_JOIN);
+// 당원 늘리기는 모두 여기로: 상한을 넘는 몫은 들어오지 않음(이미 넘어 있으면 그대로 둠). 실제로 늘어난 수를 돌려줌
+function addMem(k, n) { const m = S.members[k] || 0; S.members[k] = Math.max(m, Math.min(m + Math.round(n), memCap(k))); return S.members[k] - m; }
 // 지역 배율 표(모든 당 같은 식): 지역 성향 궁합 + 당원 조직·시·도당(당원 데이터는 우리 당만 있음) × 지역 신뢰
 // gov면 현직 지사 효과(+0.15 + (행정 지지도 − 기준값)/200, 권한대행 중엔 없음)를 더함
 // 선거인 가중 평균이 1이 되게 나눠서, 지역 지지율을 평균하면 전국 지지율과 같음
@@ -1997,6 +2001,7 @@ function monthly(dt) {
     let m = S.members[r.k] || 0;
     m -= m * (S.up.academy ? 0.006 : 0.012);
     m += r.voters * 1e6 * regSupport(r.k) / 100 * 0.00006 * (S.up.digital ? 2 : 1) * rr(0.6, 1.4);
+    const cap = memCap(r.k); if (m > cap) m -= (m - cap) * 0.5; // 지지율이 빠져 상한을 넘은 몫은 달마다 절반씩 탈당
     S.members[r.k] = Math.round(m);
   }
   const tm = totalMembers();
@@ -3001,7 +3006,7 @@ function govRun(k, pj, auto) {
   if (auto && rnd() < clamp(0.43 - (govPerson(k)?.skill ?? 50) / 400, 0.26, 0.43)) { S.ops[k] -= rr(2, 5); S.trust -= 0.5; ok = false; msg = pick(GOV_FLOP)(k); }
   else if ((c === 'care' || c === 'safe' ? luck : x => rnd() < x)(pr(p0))) { // 돌봄·안전은 대표 역량 운(luck)을 탐
     S.ops[k] += up * dm * L.styleMul(ap?.st); msg = say(P.ok) + (dm >= 1.1 ? ' 주민들이 기다리던 사업이라 반응이 뜨겁습니다.' : dm < 0 ? ' 그런데 비슷한 사업이 넘쳐 예산 낭비라는 비판이 쏟아졌습니다.' : dm <= 0.6 ? ' 이미 비슷한 사업이 많아 주민 반응은 미지근합니다.' : '');
-    if (c === 'dev') S.members[k] += Math.round(rr(200, 600)); else if (c === 'care') S.trust += 0.5; else if (c === 'biz') S.fame += 1; else S.trust += 1;
+    if (c === 'dev') addMem(k, rr(200, 600)); else if (c === 'care') S.trust += 0.5; else if (c === 'biz') S.fame += 1; else S.trust += 1;
   } else { S.ops[k] -= dn * L.flopMul(ak, ap?.st); ok = false; msg = say(P.no) + flopSay(ak, c); }
   // 맞는 현안을 풀면 효과 1.25배, 현안은 해결
   if (ok && need.length) { S.ops[k] = before + (S.ops[k] - before) * 1.25; S.rcur = S.rcur.filter(x => !need.some(d => d.rid === x.id)); S.rdes = S.rdes.filter(x => !need.includes(x)); msg += ` 지정한 현안(${need.map(shortT).join(', ')})을 제대로 짚어 호평이 더 컸습니다.`;
@@ -3813,7 +3818,7 @@ function negOutModal(oid) {
       win: () => { m.rel = clamp(m.rel + 12, -100, 100); return `${who}과(와) 가까워졌습니다.${gossip(m)}`; },
       lose: () => { m.rel -= 3; return `${who}이(가) 일정을 이유로 만남을 미뤘습니다.`; } },
     { k: 'outBack', t: '지지 선언 요청', d: `이름값만큼 인지도가 오르고 ${RK[m.k].n} 당원이 늡니다.${m.party ? ` ${RIV[m.party].name}은 불쾌해합니다.` : ''}`, c: 1e7,
-      win: () => { S.fame += m.fame / 15; S.members[m.k] += Math.round(m.fame * 15); S.trust += 0.5; m.rel += 5; if (m.party) relAdd(m.party, -3, `${m.name} ${m.role} 지지 선언`); rnews(m.k, `${m.name} ${m.role}, ${S.party.name} 지지 선언`); return `${who}이(가) 우리 당 지지를 선언했습니다.`; },
+      win: () => { S.fame += m.fame / 15; addMem(m.k, m.fame * 15); S.trust += 0.5; m.rel += 5; if (m.party) relAdd(m.party, -3, `${m.name} ${m.role} 지지 선언`); rnews(m.k, `${m.name} ${m.role}, ${S.party.name} 지지 선언`); return `${who}이(가) 우리 당 지지를 선언했습니다.`; },
       lose: () => { m.rel -= 3; return `${who}이(가) "아직은 때가 아니다"라며 거절했습니다.`; } },
     { k: 'outJoin', t: '영입 제안', d: '성공하면 인재로 합류합니다. 다음 선거 후보로 쓸 수 있습니다.', c: 2e7,
       win: () => {
@@ -3922,6 +3927,7 @@ function why(key, k) {
   if (key === 'accuse' && S.phase !== 'reg') return '정식 정당으로 등록한 뒤 가능';
   if (key === 'govern' && S.gov[k] !== 'P') return '우리 당 단체장이 있는 지역만';
   if (key === 'govern' && GOV_PROJ.every(p => govCd(k, p.k))) return '모든 사업이 재사용 대기 중';
+  if (key === 'recruit' && S.members[k] >= memCap(k)) return '이 지역 지지층은 이미 거의 다 입당했습니다. 지지율을 올려야 더 모을 수 있습니다';
   if (key === 'chapter') { if (S.chapters[k]) return '이미 등록된 시·도당'; if (S.members[k] < LAW.chapterMembers) return `당원 ${S.members[k].toLocaleString()} / 1,000명 필요 (정당법 제18조)`; }
   if (key === 'talent' && talOpen()) return ''; // 이번에 뽑은 후보는 재사용 대기 동안 무료로 이어서 영입
   if (key === 'talent' && S.pool.length >= POOL_MAX) return `인재풀이 가득 찼습니다 (최대 ${POOL_MAX}명)`;
@@ -3948,9 +3954,9 @@ function doAct(key, k) {
   let msg = '', ok = true;
   if (key === 'recruit') {
     const n = Math.round((200 + 150 * rnd()) * popMul(k) * (1 + regSupport(k) / 5) * (S.up.academy ? 1.3 : 1) * (k === S.party.home ? 1.2 : 1));
-    S.members[k] += n; msg = `${RK[k].n}에서 당원 ${n.toLocaleString()}명이 입당했습니다.`;
+    const got = addMem(k, n); msg = `${RK[k].n}에서 당원 ${got.toLocaleString()}명이 입당했습니다.${got < n ? ' 이 지역 지지층은 이제 거의 다 입당했습니다. 더 모으려면 지지율을 올려야 합니다.' : ''}`;
   } else if (key === 'volunteer') {
-    const n = Math.round(rr(40, 140) * popMul(k)); S.members[k] += n; trustAt(k, 0.8); S.fame += 0.3;
+    const n = addMem(k, rr(40, 140) * popMul(k)); trustAt(k, 0.8); S.fame += 0.3;
     msg = `${RK[k].n} 봉사활동: 신뢰 상승, 당원 ${n}명 입당.`;
   } else if (key === 'chapter') {
     S.chapters[k] = true; msg = `${RK[k].n}도당(시당) 창당대회 개최, 선관위 등록 완료. (${Object.keys(S.chapters).length}/5)`;
@@ -4530,7 +4536,7 @@ const EVENTS = [
   { id: 'meal', w: 1, cond: () => totalMembers() > 500, title: '경로당 식사 대접', pre: () => (ET.k = pick(R).k),
     body: () => `${RK[ET.k].n} 당원협의회장이 경로당 어르신 100명에게 식사를 대접하며 당을 알리자고 합니다. "명절 인사 정도인데요."`,
     ch: [{ t: '거절한다', run: () => '거절했습니다. 대신 봉사활동을 권했습니다.' },
-      { t: '진행한다', s: '당원·인지도 상승', run: () => { S.members[ET.k] += 300; S.fame += 1; addRisk('경로당 식사 제공', 0.025, 365, { money: -2e7, trust: -6, note: '기부행위 유죄, 식사한 주민들도 과태료' }); return '식사 자리가 성황리에 끝났습니다.'; } }] },
+      { t: '진행한다', s: '당원·인지도 상승', run: () => { addMem(ET.k, 300); S.fame += 1; addRisk('경로당 식사 제공', 0.025, 365, { money: -2e7, trust: -6, note: '기부행위 유죄, 식사한 주민들도 과태료' }); return '식사 자리가 성황리에 끝났습니다.'; } }] },
   { id: 'satellite', w: 3, once: true, cond: () => S.phase === 'reg' && !!natCamp() && !natCamp().sat, title: '위성정당 창당 제안',
     body: () => '비례대표 의석을 더 얻으려면 비례 후보만 내는 "위성정당"을 따로 만들자는 제안이 나왔습니다. 법에 걸리진 않지만 꼼수라는 비판은 각오해야 합니다.',
     ch: [{ t: '원칙대로 간다', run: () => { S.trust += 2; return '위성정당 없이 선거를 치르기로 했습니다.'; } },
@@ -4566,7 +4572,7 @@ const EVENTS = [
   { id: 'fasttrack', w: 1.5, cond: () => seatTotal('P') > 0, title: '국회 회의장 점거',
     body: () => '선거제 개편안의 신속처리안건 지정을 막겠다며 한 정당이 회의장을 점거했습니다. 우리 당에도 "함께 막자"는 요청이 왔습니다.',
     ch: [{ t: '표결로 말하자고 한다', s: '신뢰↑', run: () => { S.trust += 2; return '물리적 충돌에 반대하는 입장을 냈습니다.'; } },
-      { t: '몸으로라도 막는다', s: '지지층 결집', run: () => { S.fame += 3; for (const k in S.members) S.members[k] = Math.round(S.members[k] * 1.03); addRisk('국회 회의 방해', 0.03, 5 * 365, { money: -3e7, trust: -6, seat: 1, note: '회의 방해 유죄, 일부 의원 의원직 상실' }); return '국회가 아수라장이 됐습니다. 지지층은 열광합니다.'; } }] },
+      { t: '몸으로라도 막는다', s: '지지층 결집', run: () => { S.fame += 3; for (const k in S.members) addMem(k, S.members[k] * 0.03); addRisk('국회 회의 방해', 0.03, 5 * 365, { money: -3e7, trust: -6, seat: 1, note: '회의 방해 유죄, 일부 의원 의원직 상실' }); return '국회가 아수라장이 됐습니다. 지지층은 열광합니다.'; } }] },
   { id: 'immunity', w: 1, once: true, cond: () => seatTotal('P') > 0, title: '불체포특권 포기 서약',
     body: () => '"방탄 국회" 비판 여론이 거셉니다. 소속 의원 전원이 불체포특권 포기 서약을 하자는 의견이 나왔습니다.',
     ch: [{ t: '전원 서약한다', s: '신뢰↑', run: () => { S.trust += 3; return '전원 서약했습니다. 개혁 정당 이미지가 생겼습니다.'; } },
@@ -4649,7 +4655,7 @@ const EVENTS = [
   { id: 'admission', w: 1.5, cond: () => !ruling(), title: '고위 공직자 자녀 입시 의혹', pre: () => (S.issue = 'youth'),
     body: () => `${presN()}이 지명한 고위 공직자 자녀의 입시 특혜 의혹이 불거졌습니다. 청년들의 분노가 커집니다.`,
     ch: [{ t: '"공정" 의제를 선점한다', s: '신뢰↑', run: () => { S.trust += 2; S.fame += 1; hitPres(2); return '입시 공정성 제도 개선안을 냈습니다.'; } },
-      { t: '청년 간담회를 연다', s: '비용 1천만 | 성패 갈림', run: () => { spend(1e7, '활동'); if (luck(0.6)) { S.trust += 1; S.members.seoul += 400; return '청년들의 이야기를 들었습니다. 청년 당원이 늘었습니다.'; } S.trust -= 1; return '"청년을 들러리로 세웠다"는 비판이 나왔습니다.'; } }] },
+      { t: '청년 간담회를 연다', s: '비용 1천만 | 성패 갈림', run: () => { spend(1e7, '활동'); if (luck(0.6)) { S.trust += 1; addMem('seoul', 400); return '청년들의 이야기를 들었습니다. 청년 당원이 늘었습니다.'; } S.trust -= 1; return '"청년을 들러리로 세웠다"는 비판이 나왔습니다.'; } }] },
   { id: 'summit', w: 1.2, cond: () => true, title: '남북 정상회담', pre: () => (S.issue = 'security'),
     body: () => '남북 정상이 판문점에서 만나 손을 맞잡았습니다. 평화 기대와 "보여주기" 비판이 엇갈립니다.',
     ch: [{ t: '적극 환영', run: () => { S.fame += 1; S.trust += S.party.ideo >= 0 ? 2 : -1.5; return '환영 논평을 냈습니다.'; } },
@@ -4682,7 +4688,7 @@ const EVENTS = [
       { t: '아직 이르다', run: () => '정중히 사양했습니다.' }] },
   { id: 'fandom', w: 1.2, cond: () => totalMembers() > 20000, title: '강성 지지층 문자 폭탄',
     body: () => '당내 소신 발언을 한 의원에게 강성 지지층의 문자 폭탄이 쏟아지고 있습니다.',
-    ch: [{ t: '지지층을 끌어안는다', s: '당원↑ 신뢰↓', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 1.05); S.trust -= 2; return '열성 당원들이 더 늘었습니다. 중도층은 고개를 젓습니다.'; } },
+    ch: [{ t: '지지층을 끌어안는다', s: '당원↑ 신뢰↓', run: () => { for (const k in S.members) addMem(k, S.members[k] * 0.05); S.trust -= 2; return '열성 당원들이 더 늘었습니다. 중도층은 고개를 젓습니다.'; } },
       { t: '선을 긋는다', s: '신뢰↑ 당원↓', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 0.97); S.trust += 2; return '"다른 목소리도 존중해야 한다"고 밝혔습니다.'; } }] },
   { id: 'mpResign', w: 1.2, cond: () => S.pool.some(p => isMP(p) && !p.leader && (p.integ < 45 || p.rec.length)), title: '소속 의원 사퇴 압박',
     pre: () => { ET.p = pick(S.pool.filter(p => isMP(p) && !p.leader && (p.integ < 45 || p.rec.length))); },
@@ -4716,11 +4722,11 @@ const EVENTS = [
       { t: '비주류 징계', s: '당원 -8%', run: () => { for (const k in S.members) S.members[k] = Math.round(S.members[k] * 0.92); S.trust -= 2; if (S.risks.length && rnd() < 0.5) { exposeRisk(); return '비주류 일부가 탈당하며 당의 숨긴 일을 검찰에 제보했습니다.'; } return '비주류 일부가 탈당했습니다.'; } }] },
   { id: 'merge', w: 1.5, cond: () => S.phase === 'reg', title: '합당 제안', pre: () => (ET.n = pick(['미래연합', '시민정치', '희망국민', '정의시민']) + '당'),
     body: () => `원외 소수정당 ${ET.n}이 합당을 제안했습니다.`,
-    ch: [{ t: '합당한다', s: '당원·자금 흡수', run: () => { let n = 0; R.forEach(r => { const x = Math.round(rr(50, 300)); S.members[r.k] += x; n += x; }); earn(5e7, '기타'); S.fame += 2; S.trust -= 1; return `합당 완료. 당원 ${n.toLocaleString()}명이 합류했습니다.`; } },
+    ch: [{ t: '합당한다', s: '당원·자금 흡수', run: () => { let n = 0; R.forEach(r => { n += addMem(r.k, rr(50, 300)); }); earn(5e7, '기타'); S.fame += 2; S.trust -= 1; return `합당 완료. 당원 ${n.toLocaleString()}명이 합류했습니다.`; } },
       { t: '거절한다', run: () => '독자 노선을 유지합니다.' }] },
   { id: 'youth', w: 2, cond: () => true, title: '청소년 입당 문의 증가',
     body: () => '고등학생들 사이에서 정당 가입 문의가 늘고 있습니다.',
-    ch: [{ t: '청소년 당원 프로그램 운영', s: '비용 1천만', run: () => { spend(1e7, '활동'); const k = pick(R).k, n = Math.round(rr(300, 900) * (S.up.youth ? 1.6 : 1)); S.members[k] += n; return `${RK[k].n} 등에서 청소년 당원 ${n}명이 입당했습니다.`; } },
+    ch: [{ t: '청소년 당원 프로그램 운영', s: '비용 1천만', run: () => { spend(1e7, '활동'); const k = pick(R).k, n = addMem(k, rr(300, 900) * (S.up.youth ? 1.6 : 1)); return `${RK[k].n} 등에서 청소년 당원 ${n}명이 입당했습니다.`; } },
       { t: '보류', run: () => '보류했습니다.' }] },
   ...SMEARS,
   { id: 'defect', w: 2, cond: () => seatTotal('P') > 0 && S.pub.P < 8, // 의원들은 여론조사를 보고 동요 title: '소속 의원 탈당 움직임',
@@ -4870,7 +4876,7 @@ const XEV = {
         { t: '사과한다', s: '신뢰도 소폭↓', run: () => { audResolve(b, q.id, atk.skill, def, false); return `${who}이(가) 행정 실책을 인정하고 사과했습니다. 신뢰도가 조금 떨어졌습니다.`; } }] });
   },
   budget: () => showEvent({ title: '새해 예산안 심사', body: () => `법정 처리시한을 앞두고 예산 협상이 한창입니다. 우리 당 의석은 ${seatTotal('P')}석입니다.`,
-    ch: [{ t: '지역 예산을 챙긴다', s: '지역 당원↑', run: () => { const ks = Object.keys(S.seats.P.d).filter(k => S.seats.P.d[k] > 0), k = ks.length ? pick(ks) : S.party.home; S.members[k] += Math.round(rr(500, 1500)); S.trust += 0.5; return `${RK[k].n} 숙원사업 예산을 따냈습니다.`; } },
+    ch: [{ t: '지역 예산을 챙긴다', s: '지역 당원↑', run: () => { const ks = Object.keys(S.seats.P.d).filter(k => S.seats.P.d[k] > 0), k = ks.length ? pick(ks) : S.party.home; addMem(k, rr(500, 1500)); S.trust += 0.5; return `${RK[k].n} 숙원사업 예산을 따냈습니다.`; } },
       { t: '복지 예산 증액 요구', s: '성공하면 신뢰↑', run: () => { if (luck(0.6)) { S.trust += 2; return '돌봄 예산 증액을 따냈습니다.'; } S.trust -= 0.5; return '증액 요구가 막판 협상에서 무산됐습니다.'; } },
       { t: '예산안 처리를 거부한다', s: '선명성↑ 신뢰↓', run: () => { S.fame += 2; S.trust -= 2; ['A', 'B', 'C', 'D'].forEach(id => relAdd(id, -3, '예산안 처리 거부')); return '"준예산 사태" 우려 속에 결국 예산안은 처리됐습니다.'; } }] }),
   // 대통령 정책 발표 → 우리 입장 선택 → 몇 주 뒤 여론조사로 판정
@@ -4922,7 +4928,7 @@ const XEV = {
     if (g && g.p === q.id) rgovAdd(q.k, q.ok ? 7 : -5);
     wire(`${n} '${q.t}' ${q.ok ? '첫 성과' : '좌초 위기'}`, 'gov');
     S.trust += d * 1.5;
-    if (d > 0 && S.members[q.k]) S.members[q.k] += Math.round(rr(100, 400));
+    if (d > 0 && S.members[q.k]) addMem(q.k, rr(100, 400));
     info(`${n} '${q.t}' ${q.ok ? '성과' : '좌초'}`, `${n} '${q.t}' 사업이 ${q.ok ? '첫 성과를 내며 지사 평가가 올랐습니다' : '지연·예산 초과로 좌초 위기입니다. 지사 책임론이 나옵니다'}.${q.s ? ` 우리 당 입장은 ${d > 0 ? '옳았다는 평을 받았습니다' : '빗나갔다는 비판을 받았습니다'} (신뢰 ${d > 0 ? '+' : ''}${(d * 1.5).toFixed(1)}).` : ''}`, d < 0);
   },
   // 교섭 자리에서 들은 얘기가 현실로: 다른 당 스캔들(지지 −1.5) | 그 당 법안 표 단속(찬성↑) | 선거 지역 집중 공략(그 당 지지 +0.5)
@@ -4940,7 +4946,7 @@ const XEV = {
   admFollow: q => {
     const f = pick(ADM_FOLLOW[q.pj][q.ok ? 'ok' : 'no']), t = fillR(f.t, q.k);
     if (f.need || f.bad) addIssue(q.k, { pj: f.need, bad: f.bad }, t); else { wire(t, 'gov'); viral(q.k, t, (f.ops || 0) < 0 ? -1 : 1); } // 새 현안이 되는 보도만 지역 소식
-    if (S.gov[q.k] === 'P') { if (f.ops) opsAdd(q.k, f.ops); if (f.mem) S.members[q.k] += f.mem; }
+    if (S.gov[q.k] === 'P') { if (f.ops) opsAdd(q.k, f.ops); if (f.mem) { if (f.mem > 0) addMem(q.k, f.mem); else S.members[q.k] += f.mem; } }
     else if (S.rgov[q.k] && f.ops) rgovAdd(q.k, f.ops); // 다른 당 지사 사업의 후속 보도
   },
   selfAct: () => selfAct(),
@@ -5794,7 +5800,7 @@ function pOrg() {
         <tr><th>지지층 (%)</th><td>${tierBar('P', S.pub.tier.reg[r.k].P)}</td></tr>
         <tr><th>다른 당<br>지지율</th><td><div class="legend">${TR_IDS.map(id => `<span><i style="background:${pc(id)}"></i>${esc(pn(id))} ${pubReg(r.k, id).toFixed(1)}%</span>`).join('')}</div></td></tr>
       </tbody></table></div><div><table class="kv"><tbody>
-        <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}</td></tr>
+        <tr><th>당원</th><td class="num">${S.members[r.k].toLocaleString()}명 ${S.chapters[r.k] ? (S.members[r.k] < 1000 ? '<b class="bad">(법정 당원 미달)</b>' : '') : ''}${S.members[r.k] >= memCap(r.k) * 0.9 ? '<div class="muted small">지지층 대부분이 이미 입당함</div>' : ''}</td></tr>
         <tr><th>시·도당</th><td>${S.chapters[r.k] ? '<b class="ok">등록됨</b>' : '미창당'}</td></tr>
         <tr><th>시·도지사</th><td>${S.gov[r.k] ? esc(pn(S.gov[r.k])) : '-'}${S.gact?.[r.k] ? ' <span class="pill warn">권한대행</span>' : ''}</td></tr>
         <tr><th>지역구 의원</th><td><div class="legend">${seatRows || '-'}</div></td></tr>
