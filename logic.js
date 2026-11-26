@@ -194,8 +194,8 @@
   // 인재 영입 조건: 당 인지도·신뢰(0~100)·대표 역량으로 등급 g(0~1)을 정하고, 그에 따라 후보 역량 상한(70~99)과
   // 점수 HI 이상 고능력자 기대 인원(hi: 0~0.62명, 제한 없던 때 평균 0.31명의 2배까지)을 정함. 등급 0.5가 예전 수준
   const TAL_HI = 0.9;
-  const talentCap = (fame, trust, lead) => {
-    const g = cl(0.425 * fame / 100 + 0.425 * trust / 100 + 0.15 * (lead - 40) / 60, 0, 1);
+  const talentCap = (fame, trust, lead, bonus = 0) => { // bonus: 난이도 인재풀 등급 보정
+    const g = cl(0.425 * fame / 100 + 0.425 * trust / 100 + 0.15 * (lead - 40) / 60 + bonus, 0, 1);
     return { g, skill: Math.round(70 + 29 * g), hi: 0.62 * g };
   };
   // 영입비: 점수 0.3까지는 3천만×e^점수, 그 위로 가팔라져 1.5면 약 100억
@@ -361,7 +361,23 @@
     return e.length - 1;
   }
 
-  const L = { REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
+  // 난이도: 배후 세력이 기준(지금 규칙 그대로). 쉬울수록 실패·악재·나쁜 효과·비용은 작게, 좋은 효과는 크게, 까다로운 조건은 느슨하게(0이면 없앰)
+  // fail 실패·악재 확률 | good·bad 좋은·나쁜 효과 | cost 소모 비용 | upkeep 시설 유지비 | fundCap 후원 한도 | fundCd 후원의 밤 대기(일) | vote 우리 당 기본 득표력
+  // rivCap 상대 후보 역량 상한 | tal 인재풀 등급 보정 | hate 혐오층 영향 | lowTr 낮은 신뢰의 지지율 둔화 | offPlus 노선 역풍이 늦게 오는 횟수 | stray 헤드라인 밖 역풍
+  // side 중도 한쪽 노선 역풍 | cosign 공동발의 무산 확률 | memJoin 지역 당원 상한 | selfAct 돌출 행동 | autoFlop 자동화 실책 | inst 정책연구소 배분 의무 | tv 방송 광고 횟수 | broke 자금 고갈 버티는 날
+  const DIFF = {
+    rookie: { n: '신인 인사', d: '실패·악재 절반 | 좋은 효과 ×1.5 | 비용 절반 | 시설 유지비·노선 역풍·돌출 행동·행정 자동화 실책 없음', money: 15e8, fail: 0.5, good: 1.5, bad: 0.5, cost: 0.5, upkeep: 0, fundCap: 2, fundCd: 14, vote: 1.1, rivCap: 70, tal: 0.2, hate: 0, lowTr: 0, offPlus: Infinity, stray: 0, side: 0, cosign: 0, memJoin: 0.5, selfAct: 0, autoFlop: 0, inst: 0, tv: 3, broke: 240 },
+    veteran: { n: '노련한 인사', d: '실패·악재 ×0.7 | 좋은 효과 ×1.3 | 비용 ×0.7 | 헤드라인 밖·중도 쏠림 역풍 없음', money: 10e8, fail: 0.7, good: 1.3, bad: 0.7, cost: 0.7, upkeep: 0.7, fundCap: 1.5, fundCd: 21, vote: 1.06, rivCap: 80, tal: 0.12, hate: 0.4, lowTr: 0.5, offPlus: 2, stray: 0, side: 0, cosign: 0.15, memJoin: 0.4, selfAct: 1, autoFlop: 1, inst: 1, tv: 2, broke: 180 },
+    elder: { n: '원로 인사', d: '실패·악재 ×0.85 | 좋은 효과 ×1.15 | 비용 ×0.85', money: 8e8, fail: 0.85, good: 1.15, bad: 0.85, cost: 0.85, upkeep: 0.85, fundCap: 1.2, fundCd: 28, vote: 1.03, rivCap: 90, tal: 0.06, hate: 0.7, lowTr: 1, offPlus: 1, stray: 1, side: 1, cosign: 0.3, memJoin: 0.35, selfAct: 1, autoFlop: 1, inst: 1, tv: 2, broke: 150 },
+    shadow: { n: '배후 세력', d: '보정 없음 | 실패·악재·비용이 그대로', money: 6e8, fail: 1, good: 1, bad: 1, cost: 1, upkeep: 1, fundCap: 1, fundCd: 30, vote: 1, rivCap: 99, tal: 0, hate: 1, lowTr: 1, offPlus: 0, stray: 1, side: 1, cosign: 0.3, memJoin: 0.3, selfAct: 1, autoFlop: 1, inst: 1, tv: 2, broke: 120 },
+  };
+  const DIFF_OLD = { easy: 'elder', normal: 'shadow', hard: 'shadow' }; // 옛 저장 파일의 쉬움·보통·어려움
+  const okP = (p, f) => 1 - (1 - p) * f; // 성공 확률 p의 실패 몫(1−p)만 f배
+  const goodBad = (d, df) => d > 0 ? d * df.good : d * df.bad;
+  // 혐오층 영향을 h배로: 덜어낸 혐오층 몫은 중립으로 봄(화면의 지지층 비중은 그대로)
+  const tierSoft = (t, h) => h === 1 || !t ? t : [t[0], t[1], t[2] + t[4] * (1 - h), t[3], t[4] * h];
+
+  const L = { DIFF, DIFF_OLD, okP, goodBad, tierSoft, REGIONS, LAW, EPOCH, dayToDate, dateToDay, electionDay, byeDay, JOINT_CUTOFF, CYCLE, ROT, cadence, schedule, hare, allocatePR, subsidyShares, refundRate, deposit, CW, candScore, TAL_HI, talentCap, talentFee,
     TIERS, tierMul, tierShift, tierRelax, tierAnchor, tierCross, tierSup, tierVote, POSTURES, bfRate, baseCost, atkU, rivalU, rivalPolicy, RACE_SD, PRES_SD, ncdf, raceOdds, TRANSFER, absentShift, campWin, PJ_CATS, APT_JOB, aptGen, areaSkill, DS_LV, demGap, demLvl, demMul, styleMul, flopMul, admU, admFeat, admJ, softPick };
   if (typeof module !== 'undefined') module.exports = L; else G.L = L;
 })(this);

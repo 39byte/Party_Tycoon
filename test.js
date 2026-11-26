@@ -204,3 +204,18 @@ console.log('ok');
   assert(p[4] < t0[4] && p[3] + p[4] < t0[3] + t0[4] && Math.abs(s(p) - 1) < 1e-9);
   assert(q[0] > t0[0] && q[4] > t0[4] && Math.abs(s(q) - 1) < 1e-9);
   assert.deepStrictEqual(L.tierVote(t0, 0, 0), t0); }
+// 난이도: 배후 세력은 지금 규칙 그대로(배율 1), 쉬울수록 자금·좋은 효과는 크고 실패·나쁜 효과·비용은 작음
+{ const D = L.DIFF, ks = ['rookie', 'veteran', 'elder', 'shadow'];
+  assert.deepStrictEqual(Object.keys(D), ks);
+  const sh = D.shadow; for (const k of ['fail', 'good', 'bad', 'cost', 'upkeep', 'fundCap', 'vote', 'hate', 'lowTr', 'stray', 'side', 'selfAct', 'autoFlop', 'inst']) assert.strictEqual(sh[k], 1, k);
+  assert(sh.money === 6e8 && sh.offPlus === 0 && sh.cosign === 0.3 && sh.memJoin === 0.3 && sh.tv === 2 && sh.broke === 120 && sh.fundCd === 30 && sh.tal === 0);
+  for (let i = 1; i < ks.length; i++) { const e = D[ks[i - 1]], h = D[ks[i]];
+    assert(e.money > h.money && e.fail < h.fail && e.good > h.good && e.bad < h.bad && e.cost < h.cost && e.broke > h.broke && e.fundCd < h.fundCd, ks[i]); }
+  assert.strictEqual(L.okP(0.6, 1), 0.6); assert(Math.abs(L.okP(0.6, 0.5) - 0.8) < 1e-12);
+  assert.strictEqual(L.goodBad(2, sh), 2); assert.strictEqual(L.goodBad(-2, sh), -2);
+  assert.strictEqual(L.goodBad(2, D.rookie), 3); assert.strictEqual(L.goodBad(-2, D.rookie), -1);
+  const t = [0.1, 0.2, 0.3, 0.2, 0.2], z = L.tierSoft(t, 0);
+  assert.strictEqual(L.tierSoft(t, 1), t); assert.strictEqual(z[4], 0); assert(Math.abs(z.reduce((a, b) => a + b, 0) - 1) < 1e-12);
+  assert(L.tierMul(z, 1) > L.tierMul(t, 1) && L.tierSup(z, true) > L.tierSup(t, true)); // 혐오층을 덜어내면 호재가 더 잘 먹힘
+  assert(L.talentCap(30, 50, 60, D.rookie.tal).g > L.talentCap(30, 50, 60).g);
+  assert.strictEqual(L.DIFF_OLD.easy, 'elder'); assert.strictEqual(L.DIFF_OLD.normal, 'shadow'); }
