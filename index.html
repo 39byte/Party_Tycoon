@@ -511,6 +511,7 @@ input[type=checkbox][data-f=run]{width:24px;height:24px;cursor:pointer;accent-co
 @media (max-width:600px){.presgrid .pcards{grid-template-columns:minmax(0,1fr)}}
 .apprw{min-width:0;min-height:200px;display:flex;flex-direction:column;border-top:1px solid var(--border);padding-top:12px;margin-top:14px}
 .apprc{flex:1;position:relative;min-height:150px}
+[data-zc]{touch-action:pan-y;user-select:none;-webkit-user-select:none;cursor:grab}[data-zc]:active{cursor:grabbing}
 .apprc>svg{position:absolute;inset:0;width:100%;height:100%}
 .presbox .face{border-radius:22px}
 .presinfo{flex:1;min-width:240px;display:flex;flex-direction:column;gap:8px}
@@ -5782,7 +5783,7 @@ function pParty() {
       </tbody></table></div>`; };
   return `<div class="stack">
       <details class="card seatd" data-polld ${pollOpen ? 'open' : ''}><summary><h2>정당별 지지율</h2></summary><div class="pollsplit">
-        <div><h3>지지율 추이 (주별)</h3>${pollChart(ban)}</div>
+        <div><h3>지지율 추이 (주별)</h3><div data-zc="poll" data-ban="${ban ? 1 : ''}" title="휠·두 손가락으로 확대·축소 | 끌어서 이동 | 두 번 눌러 처음으로">${pollChart(ban)}</div></div>
         <div><h3>현재 여론</h3>${ban ? '<p class="small warn">선거일 전 6일부터 여론조사 공표 금지 기간입니다(공직선거법 제108조). 우리 당 내부조사만 표시합니다.</p>' : ''}
           ${['P', 'B', 'A', 'C', 'D', 'O'].filter(id => !ban || id === 'P').sort((a, b) => q[b] - q[a]).map(id => `<div style="margin:6px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(pn(id))}</span><b class="num">${q[id].toFixed(1)}%</b></div><div class="bar"><i style="width:${q[id]}%;background:${pc(id)}"></i></div></div>`).join('')}
           ${ban ? '' : `<div class="small muted">무당층 ${q.U.toFixed(1)}%</div>`}<div class="small muted">매주 ${nf(POLL_N)}명 무작위 조사 | 95% 신뢰수준 ±${pubErr(50, POLL_N).toFixed(1)}%p</div></div>
@@ -5821,20 +5822,53 @@ function dirCard() {
       ${pages > 1 ? pager(dirPage, pages, 'dpage', '명부 쪽 이동') : ''}` : `<p class="empty">${dirCat === 'cand' ? '지금은 공천 기간이 아니거나 아직 발표된 후보가 없습니다.' : '해당하는 인물이 없습니다.'}</p>`}
     <p class="tip">이름을 누르면 출신·능력치·전과·보도된 의혹을 볼 수 있습니다. 지역구 의원과 원외 인사는 그 창에서 교섭 명단에 넣을 수 있고, 명단에 없는 원외 인사는 3턴마다 새 인물로 바뀝니다. 우리 당 사람은 '인재' 탭에 있습니다.</p>`;
 }
+// 지지율 추이 그래프(정당·국정): 휠·두 손가락으로 확대·축소, 끌어서 이동, 두 번 눌러 처음(최근 12개월)으로. 보는 구간 [a, b](날짜)는 그래프별로 기억
+const CV = {}, ZC = { poll: el => el.innerHTML = pollChart(!!el.dataset.ban), appr: () => fitAppr() };
+const cvClamp = (a, b, lo, hi) => { const s = Math.min(hi - lo, Math.max(28, b - a)); a = Math.max(lo, Math.min(a, hi - s)); return [a, a + s]; }; // 최소 4주
+function cvView(key, lo, hi) { // 맨 오른쪽(최신)을 보던 중이면 새 주가 와도 따라감
+  let v = CV[key]; if (!v) return [Math.max(lo, hi - 365), hi];
+  if (v[1] >= hi - 7) v = [v[0] + hi - v[1], hi];
+  return cvClamp(v[0], v[1], lo, hi);
+}
+const cvAttr = (key, a, b, lo, hi, pl, pw, H) => [`data-a="${a}" data-b="${b}" data-lo="${lo}" data-hi="${hi}" data-pl="${pl}" data-pw="${pw}"`, `<defs><clipPath id="cv-${key}"><rect x="${pl}" y="0" width="${pw}" height="${H}"/></clipPath></defs>`];
+const cvXl = (a, b, X, H) => [a, b].map((d, i) => { const t = L.dayToDate(Math.round(d)); return `<text x="${X(d)}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${b - a > 120 ? `${t.getUTCFullYear()}.${t.getUTCMonth() + 1}` : `${t.getUTCMonth() + 1}.${t.getUTCDate()}`}</text>`; }).join('');
+(() => {
+  const ps = new Map(); let g0 = null; // 누르고 있는 손가락(포인터)별 시작 위치, 제스처 시작 때 구간
+  const info = el => { const s = el.querySelector('svg[data-a]'); if (!s) return null; const r = s.getBoundingClientRect(), d = s.dataset; return { el, r, k: s.viewBox.baseVal.width / r.width, a: +d.a, b: +d.b, pl: +d.pl, pw: +d.pw, lo: +d.lo, hi: +d.hi }; };
+  const u = (g, cx) => ((cx - g.r.left) * g.k - g.pl) / g.pw; // 그래프 안 가로 위치(0~1)
+  const set = (g, a, b) => { CV[g.el.dataset.zc] = cvClamp(a, b, g.lo, g.hi); ZC[g.el.dataset.zc](g.el); };
+  const rebase = el => { g0 = el && info(el); if (g0) g0.pts = [...ps].map(([id, x]) => ({ id, d: g0.a + u(g0, x) * (g0.b - g0.a) })); };
+  addEventListener('wheel', e => {
+    const el = e.target.closest?.('[data-zc]'), g = el && info(el); if (!g) return; e.preventDefault();
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) { const dx = e.deltaX * g.k / g.pw * (g.b - g.a); return set(g, g.a + dx, g.b + dx); }
+    const f = Math.exp(e.deltaY * 0.002), c = g.a + u(g, e.clientX) * (g.b - g.a); set(g, c - (c - g.a) * f, c + (g.b - c) * f);
+  }, { passive: false });
+  addEventListener('pointerdown', e => { const el = e.target.closest?.('[data-zc]'); if (!el || e.button || !info(el)) return; el.setPointerCapture(e.pointerId); ps.set(e.pointerId, e.clientX); rebase(el); });
+  addEventListener('pointermove', e => { // 손가락이 누른 날짜를 계속 그 손가락 밑에 둠(1개 = 이동, 2개 = 확대·축소)
+    if (!g0 || !ps.has(e.pointerId)) return; ps.set(e.pointerId, e.clientX);
+    const [p, q] = g0.pts, up = u(g0, ps.get(p.id)), uq = q && u(g0, ps.get(q.id));
+    const s = q && Math.abs(uq - up) > 0.02 ? (q.d - p.d) / (uq - up) : g0.b - g0.a; if (s > 0) set(g0, p.d - up * s, p.d + (1 - up) * s);
+  });
+  const end = e => { if (!ps.delete(e.pointerId)) return; rebase(ps.size ? g0.el : null); };
+  addEventListener('pointerup', end); addEventListener('pointercancel', end);
+  addEventListener('dblclick', e => { const el = e.target.closest?.('[data-zc]'); if (el) { delete CV[el.dataset.zc]; ZC[el.dataset.zc](el); } });
+})();
 function pollChart(ban) {
-  const h = S.hist.filter(x => x.d >= S.day - 365); // 최근 12개월(주별 기록, 옛 기록은 월별이라 가로축은 날짜 기준)
+  const h = S.hist; // 주별 기록(옛 기록은 월별이라 가로축은 날짜 기준)
   if (h.length < 2) return '<p class="empty">한 주 이상 지나면 추이가 표시됩니다.</p>';
-  const W = 600, H = 200, pl = 34, pr = 100, pt = 10, pb = 24;
+  const W = 600, H = 200, pl = 34, pr = 100, pt = 10, pb = 24, pw = W - pl - pr;
   const ids = ban ? ['P'] : ['B', 'A', 'C', 'D', 'P'];
-  const max = Math.max(10, ...h.flatMap(x => ids.map(id => x[id] || 0))) * 1.1;
-  const d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0), X = i => pl + (W - pl - pr) * (h[i].d - d0) / dd, Y = v => pt + (H - pt - pb) * (1 - v / max);
+  const lo = h[0].d, hi = h.at(-1).d, [a, b] = cvView('poll', lo, hi), vis = h.filter(x => x.d >= a && x.d <= b), end = vis.at(-1) || h.at(-1);
+  const max = Math.max(10, ...vis.flatMap(x => ids.map(id => x[id] || 0))) * 1.1;
+  const X = d => pl + pw * (d - a) / Math.max(1, b - a), Y = v => pt + (H - pt - pb) * (1 - v / max);
   const ticks = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f));
   const grid = ticks.map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--border)"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}%</text>`).join('');
-  const xl = [0, h.length - 1].map(i => { const t = L.dayToDate(h[i].d); return `<text x="${X(i)}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${t.getUTCFullYear()}.${t.getUTCMonth() + 1}</text>`; }).join('');
-  // 오른쪽 이름표는 값 순으로 13px 이상 띄움(작은 당끼리 겹치지 않게). 옛 기록에 없는 당(반석당)은 그 구간을 건너뜀
-  const ly = {}; ids.filter(id => h.at(-1)[id] != null).sort((a, b) => h.at(-1)[b] - h.at(-1)[a]).forEach((id, i, a) => ly[id] = Math.max(Y(h.at(-1)[id]) + 4, i ? ly[a[i - 1]] + 13 : 0));
-  const lines = ids.map(id => { const last = h[h.length - 1][id]; return `<polyline fill="none" stroke="${pc(id)}" stroke-width="${id === 'P' ? 3 : 2}" points="${h.map((x, i) => x[id] == null ? '' : `${X(i).toFixed(1)},${Y(x[id]).toFixed(1)}`).filter(Boolean).join(' ')}"/><text x="${W - pr + 6}" y="${ly[id]}" font-size="12" font-weight="700" fill="${pc(id)}">${esc(pn(id).slice(0, 5))} ${last}%</text>`; }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="정당 지지율 주별 추이" style="width:100%;height:auto">${grid}${xl}${lines}</svg>`;
+  // 오른쪽 이름표는 보는 구간 끝 값 순으로 13px 이상 띄움(작은 당끼리 겹치지 않게). 옛 기록에 없는 당(반석당)은 그 구간을 건너뜀
+  const ly = {}; ids.filter(id => end[id] != null).sort((a, b) => end[b] - end[a]).forEach((id, i, a) => ly[id] = Math.max(Y(end[id]) + 4, i ? ly[a[i - 1]] + 13 : 0));
+  const lines = ids.map(id => `<polyline fill="none" stroke="${pc(id)}" stroke-width="${id === 'P' ? 3 : 2}" points="${h.map(x => x[id] == null ? '' : `${X(x.d).toFixed(1)},${Y(x[id]).toFixed(1)}`).filter(Boolean).join(' ')}"/>`).join('');
+  const tags = ids.filter(id => end[id] != null).map(id => `<text x="${W - pr + 6}" y="${ly[id]}" font-size="12" font-weight="700" fill="${pc(id)}">${esc(pn(id).slice(0, 5))} ${end[id]}%</text>`).join('');
+  const [at, clip] = cvAttr('poll', a, b, lo, hi, pl, pw, H);
+  return `<svg viewBox="0 0 ${W} ${H}" ${at} role="img" aria-label="정당 지지율 주별 추이" style="width:100%;height:auto">${clip}${grid}${cvXl(a, b, X, H)}<g clip-path="url(#cv-poll)">${lines}</g>${tags}</svg>`;
 }
 function pOrg() {
   const r = RK[selReg], cs = activeCamps().length > 0, c = S.party.color;
@@ -6230,7 +6264,7 @@ function pPres() {
       </tbody></table></div>
       ${!ruling() && !P.acting ? `<div class="btns" style="align-items:center"><button class="btn" data-yeongsu ${talkWhy() ? 'disabled' : ''}>영수회담 제안</button>${talkWhy() ? `<span class="small muted">${talkWhy()}</span>` : ''}</div>` : ''}
       ${ruling() ? `<label class="small" style="display:flex;align-items:center;gap:6px"><input type="checkbox" data-vetoauto ${S.vetoAuto ? 'checked' : ''}> 거부권 자동 처리(반대 당론 법안이 3분의 2 미만으로 통과되면 바로 행사)</label>` : ''}</div></div>
-    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc">${apprChart()}</div></div>`}</div>${!P.acting ? cabCard() : ''}</div>`;
+    ${P.acting ? '' : `<div class="apprw"><h3 class="small muted" style="margin:0 0 4px">국정 지지율 추이 (주별)</h3><div class="apprc" data-zc="appr" title="휠·두 손가락으로 확대·축소 | 끌어서 이동 | 두 번 눌러 처음으로">${apprChart()}</div></div>`}</div>${!P.acting ? cabCard() : ''}</div>`;
 }
 function fitAppr() {
   const c = document.querySelector('.apprc'); if (!c || !c.clientWidth || !c.clientHeight) return;
@@ -6239,13 +6273,13 @@ function fitAppr() {
 }
 addEventListener('resize', () => fitAppr());
 function apprChart(W = 400, H = 180) {
-  const h = S.hist.filter(x => x.d >= S.day - 365 && x.pa != null && x.ps === S.president.since); // 대통령이 바뀌면(since 다름) 그래프를 끊음
+  const h = S.hist.filter(x => x.pa != null && x.ps === S.president.since); // 대통령이 바뀌면(since 다름) 그래프를 끊음
   if (h.length < 2) return '<p class="empty">한 주 이상 지나면 추이가 표시됩니다.</p>';
-  const pl = 34, pr = 10, pt = 10, pb = 24, max = Math.max(10, ...h.map(x => x.pa)) * 1.1, d0 = h[0].d, dd = Math.max(1, h.at(-1).d - d0);
-  const X = x => pl + (W - pl - pr) * (x.d - d0) / dd, Y = v => pt + (H - pt - pb) * (1 - v / max);
+  const pl = 34, pr = 10, pt = 10, pb = 24, pw = W - pl - pr, lo = h[0].d, hi = h.at(-1).d, [a, b] = cvView('appr', lo, hi), vis = h.filter(x => x.d >= a && x.d <= b);
+  const max = Math.max(10, ...vis.map(x => x.pa)) * 1.1, X = d => pl + pw * (d - a) / Math.max(1, b - a), Y = v => pt + (H - pt - pb) * (1 - v / max);
   const grid = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f)).map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--border)"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}%</text>`).join('');
-  const xl = [0, h.length - 1].map(i => { const t = L.dayToDate(h[i].d); return `<text x="${X(h[i])}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${t.getUTCFullYear()}.${t.getUTCMonth() + 1}</text>`; }).join('');
-  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="국정 지지율 주별 추이">${grid}${xl}<polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></svg>`;
+  const [at, clip] = cvAttr('appr', a, b, lo, hi, pl, pw, H);
+  return `<svg viewBox="0 0 ${W} ${H}" ${at} role="img" aria-label="국정 지지율 주별 추이">${clip}${grid}${cvXl(a, b, X, H)}<g clip-path="url(#cv-appr)"><polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x.d).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></g></svg>`;
 }
 // 행정: 우리 당 단체장 | 다른 당 단체장 | 지역별 소식
 let admSel = null, admSide = 'P'; // 고른 지사 지역(집무실·지역 소식) | 왼쪽 목록 분류(P 우리 당, O 다른 당)
