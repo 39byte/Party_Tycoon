@@ -12,3 +12,4 @@ tools/
 !asset/portrait/*.png
 screenshots/
 site/
+doc/
