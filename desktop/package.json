@@ -40,6 +40,8 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
+      "installerSidebar": "build/installerSidebar.bmp",
+      "installerHeader": "build/installerHeader.bmp",
       "artifactName": "PartyTycoon-Setup-${version}.${ext}"
     },
     "portable": {
