@@ -941,27 +941,27 @@ const BILLS = {
 };
 // 다른 당·정부가 내는 법안. side: 노선(-1 보수 ~ 1 진보). fx: 통과되면 바뀌는 제도(k: funds 후원금, subsidy 보조금, probe 정당 수사)
 const RBILLS = [
-  { t: '금융투자소득세 폐지법', issue: 'econ', side: -1 }, { t: '전 국민 민생회복지원금 특별법', issue: 'econ', side: 1 },
-  { t: '노동조합법 2·3조 개정안', issue: 'econ', side: 1 }, { t: '중대재해처벌법 적용 유예법', issue: 'econ', side: -1 },
-  { t: '종합부동산세 완화법', issue: 'house', side: -1 }, { t: '임대차 계약갱신 강화법', issue: 'house', side: 1 },
-  { t: '간호법 제정안', issue: 'welfare', side: 0.5 }, { t: '기초연금 인상법', issue: 'welfare', side: 1 },
-  { t: '국방비 증액 특별법', issue: 'security', side: -1 }, { t: '남북교류협력법 개정안', issue: 'security', side: 1 },
-  { t: '원자력 산업 지원 특별법', issue: 'climate', side: -1 }, { t: '기후위기 대응 기본법 강화안', issue: 'climate', side: 1 },
-  { t: '자율형 사립고 존치법', issue: 'youth', side: -1 }, { t: '청년 기본소득법', issue: 'youth', side: 1 },
-  { t: '양곡관리법 개정안', issue: 'region', side: 1 }, { t: '수도권 규제 완화법', issue: 'region', side: -1 },
-  { t: '방송3법 개정안', issue: 'reform', side: 1 }, { t: '검찰 수사권 조정법', issue: 'reform', side: 1, fx: { k: 'probe', m: 0.75, n: '정당 수사 적발률 −25%' } },
+  { t: '주식 양도차익 비과세 확대법', issue: 'econ', side: -1 }, { t: '전 국민 지역화폐 바우처 지급법', issue: 'econ', side: 1 },
+  { t: '하청 노동자 원청 교섭권 보장법', issue: 'econ', side: 1 }, { t: '산업안전 처벌 소규모 사업장 유예법', issue: 'econ', side: -1 },
+  { t: '고가주택 보유세 상한제법', issue: 'house', side: -1 }, { t: '세입자 장기 거주 보장법', issue: 'house', side: 1 },
+  { t: '방문간호·재택돌봄 전문인력법', issue: 'welfare', side: 0.5 }, { t: '노인 기본소득 단계 도입법', issue: 'welfare', side: 1 },
+  { t: '첨단 전력 증강 특별회계법', issue: 'security', side: -1 }, { t: '접경지역 남북 공동 경제특구법', issue: 'security', side: 1 },
+  { t: '소형 모듈 원자로 실증 특례법', issue: 'climate', side: -1 }, { t: '탄소 감축 목표 법정 상향법', issue: 'climate', side: 1 },
+  { t: '사립 특목고 자율 선발 보장법', issue: 'youth', side: -1 }, { t: '청년 출발자산 지급법', issue: 'youth', side: 1 },
+  { t: '쌀 최저가격 보장법', issue: 'region', side: 1 }, { t: '수도권 공장 총량제 폐지법', issue: 'region', side: -1 },
+  { t: '공영방송 이사 추천권 개편법', issue: 'reform', side: 1 }, { t: '수사기관 권한 분산법', issue: 'reform', side: 1, fx: { k: 'probe', m: 0.75, n: '정당 수사 적발률 −25%' } },
   { t: '정치자금 후원 한도 상향법', issue: 'reform', side: 0, fx: { k: 'funds', m: 1.25, n: '후원금 모금 +25%' } },
   { t: '정당 보조금 교섭단체 우대법', issue: 'reform', side: 0, big: true, fx: { k: 'subsidy', m: 0.8, n: '20석 미만 정당 보조금 −20%' } },
   { t: '법인세 인하법', issue: 'econ', side: -1 }, { t: '상속세 완화법', issue: 'econ', side: -1 },
-  { t: '노조 회계 공시 의무화법', issue: 'econ', side: -1 }, { t: '주 4.5일 근무제 도입법', issue: 'econ', side: 1 },
-  { t: '반도체 산업 지원 특별법', issue: 'econ', side: -0.5 }, { t: '재건축 초과이익 환수 완화법', issue: 'house', side: -1 },
-  { t: '다주택자 양도세 중과 폐지법', issue: 'house', side: -1 }, { t: '공공임대주택 확충 특별법', issue: 'house', side: 1 },
-  { t: '상병수당 도입법', issue: 'welfare', side: 1 }, { t: '저출생 대응 특별법', issue: 'welfare', side: 0 },
-  { t: '북한인권법 개정안', issue: 'security', side: -1 }, { t: '탄소세 도입법', issue: 'climate', side: 1 },
-  { t: '대학 등록금 자율화법', issue: 'youth', side: -1 }, { t: '지역 의대 신설 특별법', issue: 'region', side: 0.5 },
+  { t: '노동단체 재정 투명성법', issue: 'econ', side: -1 }, { t: '주 32시간 시범 근무제법', issue: 'econ', side: 1 },
+  { t: '첨단 전략산업 투자 세액공제법', issue: 'econ', side: -0.5 }, { t: '정비사업 개발이익 부담금 감면법', issue: 'house', side: -1 },
+  { t: '다주택 매도 세금 한시 감면법', issue: 'house', side: -1 }, { t: '공공임대주택 확충 특별법', issue: 'house', side: 1 },
+  { t: '아픈 노동자 소득 보전법', issue: 'welfare', side: 1 }, { t: '출산가구 주거 우선 공급법', issue: 'welfare', side: 0 },
+  { t: '북한 이탈 주민 인권 기록 보존법', issue: 'security', side: -1 }, { t: '탄소세 도입법', issue: 'climate', side: 1 },
+  { t: '대학 등록금 자율화법', issue: 'youth', side: -1 }, { t: '권역 공공 의학전문대학원법', issue: 'region', side: 0.5 },
   { t: '국회의원 세비 동결법', issue: 'reform', side: 0 },
-  { t: '흉악범 신상 공개 확대법', issue: 'order', side: -1 }, { t: '경찰 수사 인권 보호법', issue: 'order', side: 1 },
-  { t: '종합소득세 최고세율 인하법', issue: 'tax', side: -1 }, { t: '대기업 횡재세 도입법', issue: 'tax', side: 1 },
+  { t: '중범죄 피의자 얼굴 공개 확대법', issue: 'order', side: -1 }, { t: '경찰 수사 인권 보호법', issue: 'order', side: 1 },
+  { t: '종합소득세 최고세율 인하법', issue: 'tax', side: -1 }, { t: '초과이윤 사회기여금 도입법', issue: 'tax', side: 1 },
 ];
 // 통과된 다른 당 법안은 국회 임기(4년)가 지나면 다시 발의될 수 있음(개정·재추진)
 const RB_AGAIN = 4 * 365;
@@ -6591,7 +6591,7 @@ function pGuide() {
     <h3 class="gh">그 밖의 흐름</h3>
     ${sec('다른 당과 정부의 움직임', `<ul><li>다른 당 의원과 정부도 법안을 냅니다. 발의 소식과 여론조사는 주간 브리핑의 국회 소식에 나옵니다.</li>
       <li>의석이 있으면 법안마다 당론(찬성·반대·자유투표)을 정하고, 표 단속(법안마다 한 번)으로 우리 의원의 이탈표를 줄일 수 있습니다. 다른 당 의원 표는 교섭 탭의 법안 협조 요청으로 움직입니다. 다른 당도 법안이 본회의에 오를 때 당론을 정하고, 당론이 있어도 일부 의원은 이탈표를 던집니다. 여론과 맞는 당론은 신뢰를 올리고 적대·혐오층을 끌어오며, 노선과 맞는 당론은 충성·우호층을 굳히는 대신 적대·혐오층도 굳힙니다. 노선이 다른 법안에 90일 안에 세 번째 찬성부터 지지층 비판이 나옵니다. 자유투표는 이런 효과가 없습니다. 발의한 당과의 관계는 찬반에 따라 바뀝니다. 우리 표로 결과가 갈리면 캐스팅보트로 주목받습니다.</li>
-      <li>후원 한도, 보조금 배분, 검찰 수사권처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
+      <li>후원 한도, 보조금 배분, 수사기관 권한처럼 우리 당에 직접 영향을 주는 법안도 있습니다. 통과되면 '바뀐 제도'에 표시됩니다.</li>
       <li>대통령도 수시로 정책을 발표합니다. 환영·비판·장외 집회 중 입장을 고르면(바로 안 고르고 미루면 소식 탭 입장 대기에서 나온 턴 포함 2턴 안에 고를 수 있고, 지나면 입장 없음) 몇 주 뒤 여론조사로 판정이 나고, 여론과 맞았는지에 따라 신뢰가 오르내립니다. 정책 발표는 그달의 쟁점도 바꿉니다.</li>
       <li>우리 당이 집권하면 반대 당론이거나 노선과 어긋나는 법안이 통과될 때 공포와 거부권 중에서 직접 고릅니다. 청와대 탭에서 자동 처리를 켜면 반대 당론 법안이 3분의 2 미만으로 통과될 때 바로 행사합니다. 거부권은 여론이 원하는 법안일수록 국정 지지율을 깎고, 국회가 3분의 2로 재의결하면 타격이 더 큽니다.</li>
       <li><b>국정 지지율</b>은 청와대 탭에 나옵니다. 취임 때 대선 득표율에서 출발해 임기 말로 갈수록 떨어지며(레임덕), 취임 때보다 낮아지면 여당 지지율도 함께 깎입니다. 대통령 역량·청렴과 여당 신뢰, 각종 사건으로 오르내립니다. 다른 당 대통령은 15% 아래로 떨어지면 촛불 집회가, 10% 아래로 떨어지면 탄핵소추안이 나올 수 있습니다.</li>
