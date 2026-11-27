@@ -5832,6 +5832,15 @@ function cvView(key, lo, hi) { // 맨 오른쪽(최신)을 보던 중이면 새 
 }
 const cvAttr = (key, a, b, lo, hi, pl, pw, H) => [`data-a="${a}" data-b="${b}" data-lo="${lo}" data-hi="${hi}" data-pl="${pl}" data-pw="${pw}"`, `<defs><clipPath id="cv-${key}"><rect x="${pl}" y="0" width="${pw}" height="${H}"/></clipPath></defs>`];
 const cvXl = (a, b, X, H) => [a, b].map((d, i) => { const t = L.dayToDate(Math.round(d)); return `<text x="${X(d)}" y="${H - 6}" text-anchor="${i ? 'end' : 'start'}" font-size="11" fill="var(--muted)">${b - a > 120 ? `${t.getUTCFullYear()}.${t.getUTCMonth() + 1}` : `${t.getUTCMonth() + 1}.${t.getUTCDate()}`}</text>`; }).join('');
+// 선거일 세로 점선 + '제23대 총선' 같은 짧은 이름. 이름끼리 겹칠 만큼 가까우면(축소했을 때) 이름은 빼고 선만
+const ELEC_SHORT = { nat: '총선', gov: '지선', pres: '대선' };
+function cvElec(a, b, X, y0, y1, xr) {
+  let last = -1e9;
+  return SCHED.filter(e => e.day >= a && e.day <= b).map(e => {
+    const x = X(e.day), end = x + 64 > xr, show = x - last >= 64; if (show) last = x;
+    return `<line x1="${x}" x2="${x}" y1="${y0}" y2="${y1}" stroke="var(--muted)" stroke-dasharray="3 3" opacity=".7"/>${show ? `<text x="${end ? x - 3 : x + 3}" y="${y0 + 10}" text-anchor="${end ? 'end' : 'start'}" font-size="10" font-weight="700" fill="var(--muted)" paint-order="stroke" stroke="var(--surface)" stroke-width="3">${(/제\d+[대회]/.exec(e.name) || [''])[0]} ${ELEC_SHORT[e.type]}</text>` : ''}`;
+  }).join('');
+}
 (() => {
   const ps = new Map(); let g0 = null; // 누르고 있는 손가락(포인터)별 시작 위치, 제스처 시작 때 구간
   const info = el => { const s = el.querySelector('svg[data-a]'); if (!s) return null; const r = s.getBoundingClientRect(), d = s.dataset; return { el, r, k: s.viewBox.baseVal.width / r.width, a: +d.a, b: +d.b, pl: +d.pl, pw: +d.pw, lo: +d.lo, hi: +d.hi }; };
@@ -5868,7 +5877,7 @@ function pollChart(ban) {
   const lines = ids.map(id => `<polyline fill="none" stroke="${pc(id)}" stroke-width="${id === 'P' ? 3 : 2}" points="${h.map(x => x[id] == null ? '' : `${X(x.d).toFixed(1)},${Y(x[id]).toFixed(1)}`).filter(Boolean).join(' ')}"/>`).join('');
   const tags = ids.filter(id => end[id] != null).map(id => `<text x="${W - pr + 6}" y="${ly[id]}" font-size="12" font-weight="700" fill="${pc(id)}">${esc(pn(id).slice(0, 5))} ${end[id]}%</text>`).join('');
   const [at, clip] = cvAttr('poll', a, b, lo, hi, pl, pw, H);
-  return `<svg viewBox="0 0 ${W} ${H}" ${at} role="img" aria-label="정당 지지율 주별 추이" style="width:100%;height:auto">${clip}${grid}${cvXl(a, b, X, H)}<g clip-path="url(#cv-poll)">${lines}</g>${tags}</svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" ${at} role="img" aria-label="정당 지지율 주별 추이" style="width:100%;height:auto">${clip}${grid}${cvXl(a, b, X, H)}${cvElec(a, b, X, pt, H - pb, W - pr)}<g clip-path="url(#cv-poll)">${lines}</g>${tags}</svg>`;
 }
 function pOrg() {
   const r = RK[selReg], cs = activeCamps().length > 0, c = S.party.color;
@@ -6279,7 +6288,7 @@ function apprChart(W = 400, H = 180) {
   const max = Math.max(10, ...vis.map(x => x.pa)) * 1.1, X = d => pl + pw * (d - a) / Math.max(1, b - a), Y = v => pt + (H - pt - pb) * (1 - v / max);
   const grid = [0, 0.25, 0.5, 0.75, 1].map(f => Math.round(max * f)).map(t => `<line x1="${pl}" x2="${W - pr}" y1="${Y(t)}" y2="${Y(t)}" stroke="var(--border)"/><text x="${pl - 6}" y="${Y(t) + 4}" text-anchor="end" font-size="11" fill="var(--muted)">${t}%</text>`).join('');
   const [at, clip] = cvAttr('appr', a, b, lo, hi, pl, pw, H);
-  return `<svg viewBox="0 0 ${W} ${H}" ${at} role="img" aria-label="국정 지지율 주별 추이">${clip}${grid}${cvXl(a, b, X, H)}<g clip-path="url(#cv-appr)"><polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x.d).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></g></svg>`;
+  return `<svg viewBox="0 0 ${W} ${H}" ${at} role="img" aria-label="국정 지지율 주별 추이">${clip}${grid}${cvXl(a, b, X, H)}${cvElec(a, b, X, pt, H - pb, W - pr)}<g clip-path="url(#cv-appr)"><polyline fill="none" stroke="${pc(S.president.party)}" stroke-width="3" points="${h.map(x => `${X(x.d).toFixed(1)},${Y(x.pa).toFixed(1)}`).join(' ')}"/></g></svg>`;
 }
 // 행정: 우리 당 단체장 | 다른 당 단체장 | 지역별 소식
 let admSel = null, admSide = 'P'; // 고른 지사 지역(집무실·지역 소식) | 왼쪽 목록 분류(P 우리 당, O 다른 당)
